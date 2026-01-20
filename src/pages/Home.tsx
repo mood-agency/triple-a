@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { DateDisplay } from '@/components/notes/DateDisplay';
-import { NoteEditor } from '@/components/notes/NoteEditor';
-import { NoteList } from '@/components/notes/NoteList';
+import { NoteEditor, type NoteEditorHandle } from '@/components/notes/NoteEditor';
+import { NoteList, type NoteListHandle } from '@/components/notes/NoteList';
+import { ImportExportDialog } from '@/components/ImportExportDialog';
 import { useNotes } from '@/hooks/useNotes';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import type { Note } from '@/types/note';
@@ -14,6 +15,16 @@ export function Home() {
   const { t, i18n } = useTranslation();
   const { isReady } = useDatabase();
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const editorRef = useRef<NoteEditorHandle>(null);
+  const noteListRef = useRef<NoteListHandle>(null);
+
+  const handleNavigateToEditor = (column: number) => {
+    editorRef.current?.focusDescription(column);
+  };
+
+  const handleNavigateFromEditorToFirstTask = (column: number) => {
+    noteListRef.current?.focusFirstTaskTitle(column);
+  };
 
   const today = new Date();
   const dateKey = today.toISOString().split('T')[0];
@@ -48,6 +59,7 @@ export function Home() {
             <Link to="/about">{t('about')}</Link>
           </Button>
           <div className="flex items-center gap-2">
+            <ImportExportDialog />
             <Button variant="secondary" size="sm" onClick={toggleLanguage}>
               {t('language')}: {i18n.language.toUpperCase()}
             </Button>
@@ -58,16 +70,22 @@ export function Home() {
         <DateDisplay date={today} />
 
         <div className="mb-8">
-          <NoteEditor onSave={createNote} />
+          <NoteEditor
+            ref={editorRef}
+            onSave={createNote}
+            onNavigateDown={handleNavigateFromEditorToFirstTask}
+          />
         </div>
 
         <NoteList
+          ref={noteListRef}
           notes={notes}
           onEdit={updateNote}
           onDelete={handleDeleteNote}
           onToggleCompleted={toggleCompleted}
           selectedNote={selectedNote}
           onSelectNote={setSelectedNote}
+          onNavigateToEditor={handleNavigateToEditor}
         />
       </div>
     </div>

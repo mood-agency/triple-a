@@ -18,5 +18,21 @@
   "categoryFollowUp": "Seguimiento",
   "history": "Historial",
   "noHistory": "No hay historial para esta nota",
-  "changedAt": "Modificado"
+  "changedAt": "Modificado",
+  "selectNoteToEdit": "Selecciona una tarea para ver su descripción",
+  "importExport": {
+    "title": "Importar / Exportar",
+    "description": "Respalda tus datos o restaura desde un respaldo anterior",
+    "export": "Exportar Datos",
+    "exportDescription": "Descarga todas tus notas e historial como un archivo JSON",
+    "exportButton": "Descargar Respaldo",
+    "exportError": "Error al exportar datos",
+    "import": "Importar Datos",
+    "importDescription": "Restaura notas desde un archivo de respaldo. Las notas existentes se actualizarán si tienen el mismo ID",
+    "importButton": "Seleccionar Archivo",
+    "importing": "Importando...",
+    "importError": "Error al importar datos",
+    "invalidFormat": "Formato de archivo inválido",
+    "importSuccess": "Se importaron {{notes}} notas y {{history}} registros de historial"
+  }
 }

@@ -20,3 +20,18 @@ export interface NoteHistory {
   completed: boolean;
   changed_at: string;
 }
+
+// Export/Import types
+export interface ExportData {
+  version: string;
+  exportedAt: string;
+  notes: Note[];
+  noteHistory: NoteHistory[];
+}
+
+export interface ImportResult {
+  success: boolean;
+  notesImported: number;
+  historyImported: number;
+  errors: string[];
+}

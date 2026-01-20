@@ -18,5 +18,21 @@
   "categoryFollowUp": "Follow Up",
   "history": "History",
   "noHistory": "No history for this note",
-  "changedAt": "Changed"
+  "changedAt": "Changed",
+  "selectNoteToEdit": "Select a task to view its description",
+  "importExport": {
+    "title": "Import / Export",
+    "description": "Backup your data or restore from a previous backup",
+    "export": "Export Data",
+    "exportDescription": "Download all your notes and history as a JSON file",
+    "exportButton": "Download Backup",
+    "exportError": "Error exporting data",
+    "import": "Import Data",
+    "importDescription": "Restore notes from a backup file. Existing notes will be updated if they have the same ID",
+    "importButton": "Select File",
+    "importing": "Importing...",
+    "importError": "Error importing data",
+    "invalidFormat": "Invalid file format",
+    "importSuccess": "Imported {{notes}} notes and {{history}} history records"
+  }
 }

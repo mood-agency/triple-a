@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
@@ -15,10 +15,37 @@ interface NoteEditorProps {
   showCategorySelector?: boolean;
   inline?: boolean;
   onNavigateUp?: () => void;
-  onNavigateDown?: () => void;
+  onNavigateDown?: (column: number) => void;
 }
 
-export function NoteEditor({
+// Helper to get column position (position within current line)
+function getColumnPosition(text: string, cursorPos: number): number {
+  const textBeforeCursor = text.substring(0, cursorPos);
+  const lastNewline = textBeforeCursor.lastIndexOf('\n');
+  return lastNewline === -1 ? cursorPos : cursorPos - lastNewline - 1;
+}
+
+// Combina título y descripción en un solo texto (título en primera línea)
+function combineText(title: string, description: string | null): string {
+  if (description) {
+    return `${title}\n${description}`;
+  }
+  return title;
+}
+
+// Separa el texto en título (primera línea) y descripción (resto)
+function splitText(text: string): { title: string; description: string | null } {
+  const lines = text.split('\n');
+  const title = lines[0] || '';
+  const description = lines.slice(1).join('\n').trim() || null;
+  return { title, description };
+}
+
+export interface NoteEditorHandle {
+  focusDescription: (column?: number) => void;
+}
+
+export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function NoteEditor({
   onSave,
   initialContent = '',
   initialDescription = null,
@@ -29,32 +56,57 @@ export function NoteEditor({
   inline = false,
   onNavigateUp,
   onNavigateDown,
-}: NoteEditorProps) {
+}, ref) {
   const { t } = useTranslation();
-  const [content, setContent] = useState(initialContent);
-  const [description, setDescription] = useState(initialDescription || '');
+  const [text, setText] = useState(() => combineText(initialContent, initialDescription));
   const [category, setCategory] = useState<NoteCategory>(initialCategory);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Expose focusDescription method to parent
+  useImperativeHandle(ref, () => ({
+    focusDescription: (column?: number) => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        // Move cursor to second line (description area) at desired column
+        const firstLineEnd = text.indexOf('\n');
+        if (firstLineEnd !== -1) {
+          // Description exists, go to last line at desired column
+          const lines = text.split('\n');
+          const lastLineLength = lines[lines.length - 1].length;
+          const lastLineStart = text.length - lastLineLength;
+          const pos = lastLineStart + Math.min(column ?? 0, lastLineLength);
+          textareaRef.current.setSelectionRange(pos, pos);
+        } else {
+          // If no description yet, add newline and focus there
+          setText(text + '\n');
+          setTimeout(() => {
+            if (textareaRef.current) {
+              const pos = text.length + 1;
+              textareaRef.current.setSelectionRange(pos, pos);
+            }
+          }, 0);
+        }
+      }
+    },
+  }), [text]);
 
   useEffect(() => {
     if (autoFocus) {
       if (inline && inputRef.current) {
         inputRef.current.focus();
-        inputRef.current.select();
       } else if (textareaRef.current) {
         textareaRef.current.focus();
-        textareaRef.current.select();
       }
     }
   }, [autoFocus, inline]);
 
   const handleSave = () => {
-    if (content.trim()) {
-      onSave(content.trim(), category, description.trim() || null);
+    const { title, description } = splitText(text);
+    if (title.trim()) {
+      onSave(title.trim(), category, description);
       if (!inline) {
-        setContent('');
-        setDescription('');
+        setText('');
         setCategory('todo');
       }
     } else if (inline && onCancel) {
@@ -63,20 +115,39 @@ export function NoteEditor({
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && e.ctrlKey) {
       e.preventDefault();
       handleSave();
     } else if (e.key === 'Escape' && onCancel) {
       e.preventDefault();
       onCancel();
     } else if (e.key === 'ArrowUp' && onNavigateUp) {
-      e.preventDefault();
-      handleSave();
-      onNavigateUp();
+      // Only navigate up if on the first line
+      const textarea = textareaRef.current;
+      if (textarea) {
+        const { selectionStart, value } = textarea;
+        const textBeforeCursor = value.substring(0, selectionStart);
+        const isOnFirstLine = !textBeforeCursor.includes('\n');
+        if (isOnFirstLine) {
+          e.preventDefault();
+          handleSave();
+          onNavigateUp();
+        }
+      }
     } else if (e.key === 'ArrowDown' && onNavigateDown) {
-      e.preventDefault();
-      handleSave();
-      onNavigateDown();
+      // Only navigate down if on the last line
+      const textarea = textareaRef.current;
+      if (textarea) {
+        const { selectionStart, value } = textarea;
+        const textAfterCursor = value.substring(selectionStart);
+        const isOnLastLine = !textAfterCursor.includes('\n');
+        if (isOnLastLine) {
+          e.preventDefault();
+          const column = getColumnPosition(value, selectionStart);
+          handleSave();
+          onNavigateDown(column);
+        }
+      }
     }
   };
 
@@ -93,8 +164,9 @@ export function NoteEditor({
       onNavigateUp();
     } else if (e.key === 'ArrowDown' && onNavigateDown) {
       e.preventDefault();
+      const column = inputRef.current?.selectionStart ?? 0;
       handleSave();
-      onNavigateDown();
+      onNavigateDown(column);
     }
   };
 
@@ -103,8 +175,8 @@ export function NoteEditor({
       <input
         ref={inputRef}
         type="text"
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
         onKeyDown={handleInputKeyDown}
         onBlur={handleSave}
         className="flex-1 bg-transparent text-sm leading-relaxed outline-none border-none focus:ring-0 p-0 m-0 w-full"
@@ -112,6 +184,8 @@ export function NoteEditor({
       />
     );
   }
+
+  const { title } = splitText(text);
 
   return (
     <div className="space-y-3">
@@ -137,20 +211,14 @@ export function NoteEditor({
       )}
       <Textarea
         ref={textareaRef}
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder={t('writeNote')}
-        className="min-h-[60px] resize-none text-sm"
-      />
-      <Textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder={t('writeDescription')}
-        className="min-h-[40px] resize-none text-sm text-muted-foreground"
+        placeholder={`${t('writeNote')}\n${t('writeDescription')}`}
+        className="min-h-[100px] resize-none text-sm"
       />
       <div className="flex items-center gap-2">
-        <Button size="sm" onClick={handleSave} disabled={!content.trim()}>
+        <Button size="sm" onClick={handleSave} disabled={!title.trim()}>
           {t('save')}
         </Button>
         {onCancel && (
@@ -161,4 +229,4 @@ export function NoteEditor({
       </div>
     </div>
   );
-}
+});
