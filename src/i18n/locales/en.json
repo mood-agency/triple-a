@@ -8,6 +8,7 @@
   "toggleLanguage": "Toggle language",
   "settings": "Settings",
   "deleteTask": "Delete task",
+  "newTask": "New Task",
   "dailyNotes": "Daily Notes",
   "writeNote": "Write your note...",
   "writeDescription": "Description (optional)...",
@@ -21,6 +22,7 @@
   "loading": "Loading...",
   "categoryTodo": "To Do",
   "categoryFollowUp": "Follow Up",
+  "categoryNotes": "Notes",
   "history": "History",
   "noHistory": "No history for this note",
   "changedAt": "Changed",
@@ -42,5 +44,18 @@
     "importError": "Error importing data",
     "invalidFormat": "Invalid file format",
     "importSuccess": "Imported {{notes}} notes and {{history}} history records"
-  }
+  },
+  "labels": "Labels",
+  "createLabel": "Create label",
+  "newLabelName": "Label name",
+  "labelColor": "Color",
+  "noLabels": "No labels",
+  "addLabel": "Add label",
+  "create": "Create",
+  "searchLabels": "Search labels...",
+  "noLabelsFound": "No labels found",
+  "editLabel": "Edit label",
+  "editLabelDescription": "Modify the label name and color",
+  "pin": "Pin",
+  "unpin": "Unpin"
 }

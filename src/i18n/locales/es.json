@@ -8,6 +8,7 @@
   "toggleLanguage": "Cambiar idioma",
   "settings": "Configuración",
   "deleteTask": "Eliminar tarea",
+  "newTask": "Nueva Tarea",
   "dailyNotes": "Notas del Día",
   "writeNote": "Escribe tu nota...",
   "writeDescription": "Descripción (opcional)...",
@@ -21,6 +22,7 @@
   "loading": "Cargando...",
   "categoryTodo": "Por Hacer",
   "categoryFollowUp": "Seguimiento",
+  "categoryNotes": "Notas",
   "history": "Historial",
   "noHistory": "No hay historial para esta nota",
   "changedAt": "Modificado",
@@ -42,5 +44,18 @@
     "importError": "Error al importar datos",
     "invalidFormat": "Formato de archivo inválido",
     "importSuccess": "Se importaron {{notes}} notas y {{history}} registros de historial"
-  }
+  },
+  "labels": "Etiquetas",
+  "createLabel": "Crear etiqueta",
+  "newLabelName": "Nombre de etiqueta",
+  "labelColor": "Color",
+  "noLabels": "Sin etiquetas",
+  "addLabel": "Agregar etiqueta",
+  "create": "Crear",
+  "searchLabels": "Buscar etiquetas...",
+  "noLabelsFound": "No se encontraron etiquetas",
+  "editLabel": "Editar etiqueta",
+  "editLabelDescription": "Modifica el nombre y color de la etiqueta",
+  "pin": "Fijar",
+  "unpin": "Desfijar"
 }

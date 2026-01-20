@@ -57,6 +57,26 @@ export function runMigrations(db: Database): void {
     }
   }
 
+  // Migration: add sort_order column if it doesn't exist
+  const notesTableInfo = db.exec("PRAGMA table_info(notes)");
+  if (notesTableInfo.length > 0) {
+    const notesColumns = notesTableInfo[0].values.map((row) => row[1]);
+    if (!notesColumns.includes('sort_order')) {
+      db.run('ALTER TABLE notes ADD COLUMN sort_order INTEGER DEFAULT 0');
+      // Initialize sort_order based on existing created_at order (descending, so newer = lower sort_order)
+      db.run(`
+        UPDATE notes SET sort_order = (
+          SELECT COUNT(*) FROM notes n2
+          WHERE n2.date = notes.date AND n2.created_at > notes.created_at
+        )
+      `);
+    }
+    // Migration: add pinned column if it doesn't exist
+    if (!notesColumns.includes('pinned')) {
+      db.run('ALTER TABLE notes ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0');
+    }
+  }
+
   db.run(`
     CREATE INDEX IF NOT EXISTS idx_note_history_note_id ON note_history(note_id)
   `);

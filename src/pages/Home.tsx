@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { NoteEditor, type NoteEditorHandle } from '@/components/notes/NoteEditor';
 import { NoteList, type NoteListHandle } from '@/components/notes/NoteList';
 import { SettingsMenu } from '@/components/SettingsMenu';
 import { useNotes } from '@/hooks/useNotes';
@@ -14,21 +13,12 @@ export function Home() {
   const { t, i18n } = useTranslation();
   const { isReady } = useDatabase();
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
-  const editorRef = useRef<NoteEditorHandle>(null);
   const noteListRef = useRef<NoteListHandle>(null);
-
-  const handleNavigateToEditor = (column: number) => {
-    editorRef.current?.focusDescription(column);
-  };
-
-  const handleNavigateFromEditorToFirstTask = (column: number) => {
-    noteListRef.current?.focusFirstTaskTitle(column);
-  };
 
   const today = new Date();
   const dateKey = today.toISOString().split('T')[0];
 
-  const { notes, loading, createNote, createNoteAfter, updateNote, toggleCompleted, deleteNote, restoreNote } = useNotes(dateKey);
+  const { notes, loading, createNoteAfter, updateNote, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes } = useNotes(dateKey);
 
   const toggleLanguage = () => {
     const newLang = i18n.language === 'es' ? 'en' : 'es';
@@ -79,14 +69,6 @@ export function Home() {
           </div>
         </div>
 
-        <div className="mb-8 flex-shrink-0">
-          <NoteEditor
-            ref={editorRef}
-            onSave={createNote}
-            onNavigateDown={handleNavigateFromEditorToFirstTask}
-          />
-        </div>
-
         <div className="flex-1 min-h-0">
           <NoteList
             ref={noteListRef}
@@ -95,9 +77,10 @@ export function Home() {
             onDelete={handleDeleteNote}
             onRestore={restoreNote}
             onToggleCompleted={toggleCompleted}
+            onTogglePinned={togglePinned}
+            onReorderNotes={reorderNotes}
             selectedNote={selectedNote}
             onSelectNote={setSelectedNote}
-            onNavigateToEditor={handleNavigateToEditor}
             onCreateNoteAfter={createNoteAfter}
           />
         </div>

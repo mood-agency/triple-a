@@ -1,4 +1,4 @@
-export type NoteCategory = 'todo' | 'followup';
+export type NoteCategory = 'todo' | 'followup' | 'notes';
 
 export interface Note {
   id: string;
@@ -7,6 +7,8 @@ export interface Note {
   description: string | null;
   category: NoteCategory;
   completed: boolean;
+  pinned: boolean;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }

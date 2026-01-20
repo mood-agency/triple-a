@@ -5,9 +5,9 @@ const EXPORT_VERSION = '1.0';
 
 export function exportAllData(db: Database): ExportData {
   const notesResult = db.exec(`
-    SELECT id, date, content, description, category, completed, created_at, updated_at
+    SELECT id, date, content, description, category, completed, pinned, sort_order, created_at, updated_at
     FROM notes
-    ORDER BY date DESC, created_at DESC
+    ORDER BY date DESC, sort_order ASC
   `);
 
   const historyResult = db.exec(`
@@ -24,8 +24,10 @@ export function exportAllData(db: Database): ExportData {
         description: row[3] as string | null,
         category: row[4] as Note['category'],
         completed: Boolean(row[5]),
-        created_at: row[6] as string,
-        updated_at: row[7] as string,
+        pinned: Boolean(row[6]),
+        sort_order: (row[7] as number) || 0,
+        created_at: row[8] as string,
+        updated_at: row[9] as string,
       }))
     : [];
 
@@ -97,8 +99,9 @@ function validateNote(note: unknown): note is Note {
     typeof n.date === 'string' &&
     typeof n.content === 'string' &&
     (n.description === null || typeof n.description === 'string') &&
-    (n.category === 'todo' || n.category === 'followup') &&
+    (n.category === 'todo' || n.category === 'followup' || n.category === 'notes') &&
     typeof n.completed === 'boolean' &&
+    (n.sort_order === undefined || typeof n.sort_order === 'number') &&
     typeof n.created_at === 'string' &&
     typeof n.updated_at === 'string'
   );
@@ -114,7 +117,7 @@ function validateNoteHistory(history: unknown): history is NoteHistory {
     typeof h.note_id === 'string' &&
     typeof h.content === 'string' &&
     (h.description === null || typeof h.description === 'string') &&
-    (h.category === 'todo' || h.category === 'followup') &&
+    (h.category === 'todo' || h.category === 'followup' || h.category === 'notes') &&
     typeof h.completed === 'boolean' &&
     typeof h.changed_at === 'string'
   );
@@ -144,7 +147,7 @@ export async function importData(
           db.run(
             `UPDATE notes SET
               date = ?, content = ?, description = ?, category = ?,
-              completed = ?, created_at = ?, updated_at = ?
+              completed = ?, sort_order = ?, created_at = ?, updated_at = ?
             WHERE id = ?`,
             [
               note.date,
@@ -152,6 +155,7 @@ export async function importData(
               note.description,
               note.category,
               note.completed ? 1 : 0,
+              note.sort_order ?? 0,
               note.created_at,
               note.updated_at,
               note.id,
@@ -160,8 +164,8 @@ export async function importData(
         } else {
           // Insert new note
           db.run(
-            `INSERT INTO notes (id, date, content, description, category, completed, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO notes (id, date, content, description, category, completed, sort_order, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               note.id,
               note.date,
@@ -169,6 +173,7 @@ export async function importData(
               note.description,
               note.category,
               note.completed ? 1 : 0,
+              note.sort_order ?? 0,
               note.created_at,
               note.updated_at,
             ]

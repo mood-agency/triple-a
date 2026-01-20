@@ -11,6 +11,7 @@ export function useLabels() {
   const { db, isReady } = useDatabase();
   const [labels, setLabels] = useState<Label[]>([]);
   const [loading, setLoading] = useState(true);
+  const [noteLabelVersion, setNoteLabelVersion] = useState(0);
 
   const loadLabels = useCallback(() => {
     if (!db || !isReady) return;
@@ -136,6 +137,7 @@ export function useLabels() {
       );
 
       await persistDatabase();
+      setNoteLabelVersion(v => v + 1);
     },
     [db]
   );
@@ -147,6 +149,7 @@ export function useLabels() {
       db.run('DELETE FROM note_labels WHERE note_id = ? AND label_id = ?', [noteId, labelId]);
 
       await persistDatabase();
+      setNoteLabelVersion(v => v + 1);
     },
     [db]
   );
@@ -169,6 +172,7 @@ export function useLabels() {
       }
 
       await persistDatabase();
+      setNoteLabelVersion(v => v + 1);
     },
     [db]
   );
@@ -176,6 +180,7 @@ export function useLabels() {
   return {
     labels,
     loading,
+    noteLabelVersion,
     createLabel,
     updateLabel,
     deleteLabel,

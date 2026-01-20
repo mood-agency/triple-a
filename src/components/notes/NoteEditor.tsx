@@ -189,6 +189,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
 
   return (
     <div className="space-y-3">
+      <h1 className="text-lg font-semibold">{t('newTask')}</h1>
       {showCategorySelector && (
         <div className="flex gap-2">
           <Badge
@@ -204,6 +205,13 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
             onClick={() => setCategory('followup')}
           >
             {t('categoryFollowUp')}
+          </Badge>
+          <Badge
+            variant={category === 'notes' ? 'default' : 'secondary'}
+            className="cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => setCategory('notes')}
+          >
+            {t('categoryNotes')}
           </Badge>
         </div>
       )}

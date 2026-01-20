@@ -1,5 +1,27 @@
-import { useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
-import { parseTextWithLinks } from '@/lib/linkify';
+import { forwardRef, useImperativeHandle, useEffect, useRef } from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import { wrappingInputRule } from '@tiptap/core';
+import Document from '@tiptap/extension-document';
+import Paragraph from '@tiptap/extension-paragraph';
+import Text from '@tiptap/extension-text';
+import Bold from '@tiptap/extension-bold';
+import Italic from '@tiptap/extension-italic';
+import Strike from '@tiptap/extension-strike';
+import Code from '@tiptap/extension-code';
+import HardBreak from '@tiptap/extension-hard-break';
+import History from '@tiptap/extension-history';
+import Heading from '@tiptap/extension-heading';
+import ListItem from '@tiptap/extension-list-item';
+import Link from '@tiptap/extension-link';
+import Placeholder from '@tiptap/extension-placeholder';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
+import { common, createLowlight } from 'lowlight';
+import { Markdown } from 'tiptap-markdown';
+
+// Register common languages (includes json, javascript, typescript, bash, css, html, python, sql, etc.)
+const lowlight = createLowlight(common);
 
 interface EditableDescriptionProps {
   value: string;
@@ -17,271 +39,248 @@ export interface EditableDescriptionHandle {
   setCursorPosition: (position: number) => void;
 }
 
+// Helper function to clean legacy HTML content and convert to markdown
+function cleanLegacyContent(content: string): string {
+  if (!content) return '';
+
+  let cleaned = content;
+
+  // If the content contains escaped HTML entities, clean it up
+  if (cleaned.includes('&lt;') || cleaned.includes('&gt;')) {
+    // Decode HTML entities
+    cleaned = cleaned.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"');
+  }
+
+  // If the content contains HTML tags, convert to markdown
+  if (cleaned.includes('<p>') || cleaned.includes('</p>') || cleaned.includes('<strong>') || cleaned.includes('<a ')) {
+    // Remove <br> tags and convert to newlines
+    cleaned = cleaned.replace(/<br\s*\/?>/gi, '\n');
+    // Remove paragraph tags and convert to newlines
+    cleaned = cleaned.replace(/<\/p>\s*<p>/g, '\n\n');
+    cleaned = cleaned.replace(/<p>/g, '').replace(/<\/p>/g, '');
+    // Extract text from anchor tags
+    cleaned = cleaned.replace(/<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g, '[$2]($1)');
+    // Extract content from code blocks with language
+    cleaned = cleaned.replace(/<pre><code[^>]*class="language-(\w+)"[^>]*>([\s\S]*?)<\/code><\/pre>/g, '```$1\n$2\n```');
+    // Extract content from code blocks without language
+    cleaned = cleaned.replace(/<pre><code[^>]*>([\s\S]*?)<\/code><\/pre>/g, '```\n$1\n```');
+    // Extract content from inline code
+    cleaned = cleaned.replace(/<code>([^<]*)<\/code>/g, '`$1`');
+    // Extract content from strong/bold
+    cleaned = cleaned.replace(/<strong>([^<]*)<\/strong>/g, '**$1**');
+    cleaned = cleaned.replace(/<b>([^<]*)<\/b>/g, '**$1**');
+    // Extract content from em/italic
+    cleaned = cleaned.replace(/<em>([^<]*)<\/em>/g, '*$1*');
+    cleaned = cleaned.replace(/<i>([^<]*)<\/i>/g, '*$1*');
+    // Remove any remaining HTML tags
+    cleaned = cleaned.replace(/<[^>]+>/g, '');
+    // Clean up multiple newlines
+    cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+    cleaned = cleaned.trim();
+  }
+
+  return cleaned;
+}
+
+// Custom TaskItem with input rule for "- [ ] " and "- [x] " using wrappingInputRule
+const CustomTaskItem = TaskItem.extend({
+  addInputRules() {
+    return [
+      // Match "- [ ] " or "- [x] " for markdown-style task lists
+      wrappingInputRule({
+        find: /^-\s\[([( |x])?\]\s$/,
+        type: this.type,
+        getAttributes: match => ({
+          checked: match[1]?.toLowerCase() === 'x',
+        }),
+      }),
+    ];
+  },
+});
+
+// Custom CodeBlockLowlight that preserves language from markdown
+const CustomCodeBlockLowlight = CodeBlockLowlight.extend({
+  parseHTML() {
+    return [
+      ...(this.parent?.() || []),
+      {
+        tag: 'pre',
+        preserveWhitespace: 'full',
+        getAttrs: (node) => {
+          const element = node as HTMLElement;
+          const code = element.querySelector('code');
+          if (code) {
+            const className = code.className || '';
+            const match = className.match(/language-(\w+)/);
+            if (match) {
+              return { language: match[1] };
+            }
+          }
+          return null;
+        },
+      },
+    ];
+  },
+});
+
 export const EditableDescription = forwardRef<EditableDescriptionHandle, EditableDescriptionProps>(
   function EditableDescription(
     { value, onChange, onBlur, onKeyDown, placeholder, className = '' },
     ref
   ) {
-    const editorRef = useRef<HTMLDivElement>(null);
-    const isComposingRef = useRef(false);
-    const lastValueRef = useRef(value);
+    const lastExternalValueRef = useRef(value);
+    const isInitializedRef = useRef(false);
 
-    // Get cursor position as character offset
-    const getCursorPosition = useCallback(() => {
-      const selection = window.getSelection();
-      if (!selection || !selection.rangeCount || !editorRef.current) return 0;
-
-      const range = selection.getRangeAt(0);
-      const preCaretRange = range.cloneRange();
-      preCaretRange.selectNodeContents(editorRef.current);
-      preCaretRange.setEnd(range.startContainer, range.startOffset);
-
-      // Count characters including newlines from BR elements
-      let position = 0;
-      const walker = document.createTreeWalker(
-        editorRef.current,
-        NodeFilter.SHOW_ALL,
-        null
-      );
-
-      let node: Node | null = editorRef.current;
-      const endContainer = range.startContainer;
-      const endOffset = range.startOffset;
-
-      while (node) {
-        if (node === endContainer) {
-          if (node.nodeType === Node.TEXT_NODE) {
-            position += endOffset;
+    const editor = useEditor({
+      extensions: [
+        Document,
+        Paragraph,
+        Text,
+        Bold,
+        Italic,
+        Strike,
+        Code,
+        HardBreak,
+        History,
+        Heading.configure({
+          levels: [1, 2, 3, 4, 5, 6],
+        }),
+        ListItem,
+        TaskList.configure({
+          HTMLAttributes: {
+            class: 'tiptap-task-list',
+          },
+        }),
+        CustomTaskItem.configure({
+          nested: true,
+          HTMLAttributes: {
+            class: 'tiptap-task-item',
+          },
+        }),
+        CustomCodeBlockLowlight.configure({
+          lowlight,
+          HTMLAttributes: {
+            class: 'tiptap-code-block',
+          },
+        }),
+        Link.configure({
+          openOnClick: true,
+          autolink: true,
+          HTMLAttributes: {
+            class: 'text-primary underline cursor-pointer hover:text-primary/80',
+            target: '_blank',
+            rel: 'noopener noreferrer',
+          },
+        }),
+        Placeholder.configure({
+          placeholder: placeholder || '',
+          emptyEditorClass: 'is-editor-empty',
+        }),
+        Markdown.configure({
+          html: false,
+          transformPastedText: true,
+          transformCopiedText: true,
+          breaks: true,
+        }),
+      ],
+      content: '',
+      editorProps: {
+        attributes: {
+          class: `outline-none whitespace-pre-wrap break-words ${className}`,
+          style: 'min-height: 1em',
+        },
+        handleKeyDown: (_view, event) => {
+          if (onKeyDown) {
+            const syntheticEvent = {
+              key: event.key,
+              shiftKey: event.shiftKey,
+              ctrlKey: event.ctrlKey,
+              altKey: event.altKey,
+              metaKey: event.metaKey,
+              preventDefault: () => event.preventDefault(),
+              stopPropagation: () => event.stopPropagation(),
+            } as React.KeyboardEvent<HTMLDivElement>;
+            onKeyDown(syntheticEvent);
           }
-          break;
-        }
+          return false;
+        },
+        handleTextInput: (view, from, _to, text) => {
+          if (text === ' ') {
+            const { state } = view;
+            const $from = state.doc.resolve(from);
+            const textBefore = $from.parent.textContent.slice(0, $from.parentOffset);
 
-        if (node.nodeType === Node.TEXT_NODE) {
-          position += node.textContent?.length || 0;
-        } else if (node.nodeName === 'BR') {
-          position += 1; // Count BR as newline
-        }
+            // Allow task list patterns to proceed to input rules
+            if (/^-\s\[[( |x)]?\]$/.test(textBefore)) {
+              return false;
+            }
 
-        node = walker.nextNode();
-      }
-
-      return position;
-    }, []);
-
-    // Set cursor at specific position
-    const setCursorPosition = useCallback((position: number) => {
-      if (!editorRef.current) return;
-
-      const selection = window.getSelection();
-      if (!selection) return;
-
-      let currentPos = 0;
-      const walker = document.createTreeWalker(
-        editorRef.current,
-        NodeFilter.SHOW_ALL,
-        null
-      );
-
-      let node: Node | null = null;
-      while ((node = walker.nextNode())) {
-        if (node.nodeType === Node.TEXT_NODE) {
-          const nodeLength = node.textContent?.length || 0;
-          if (currentPos + nodeLength >= position) {
-            const range = document.createRange();
-            range.setStart(node, position - currentPos);
-            range.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(range);
-            return;
+            // Block simple bullet list patterns
+            const trimmed = textBefore.trim();
+            if (/^[-*]$/.test(trimmed) && trimmed === textBefore) {
+              view.dispatch(state.tr.insertText(' ', from));
+              return true;
+            }
           }
-          currentPos += nodeLength;
-        } else if (node.nodeName === 'BR') {
-          if (currentPos === position) {
-            // Position cursor after the BR
-            const range = document.createRange();
-            range.setStartAfter(node);
-            range.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(range);
-            return;
-          }
-          currentPos += 1;
-        }
+          return false;
+        },
+      },
+      onUpdate: ({ editor }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const markdown = (editor.storage as any).markdown?.getMarkdown() || editor.getText();
+        lastExternalValueRef.current = markdown;
+        onChange(markdown);
+      },
+      onBlur: () => onBlur?.(),
+    });
+
+    // Initialize content once editor is ready
+    useEffect(() => {
+      if (!editor || isInitializedRef.current) return;
+      isInitializedRef.current = true;
+      if (value) {
+        const markdown = cleanLegacyContent(value);
+        lastExternalValueRef.current = markdown;
+        // tiptap-markdown parses markdown automatically when using setContent
+        editor.commands.setContent(markdown);
       }
+    }, [editor, value]);
 
-      // If position is at or beyond the end, place cursor at the end
-      const range = document.createRange();
-      range.selectNodeContents(editorRef.current);
-      range.collapse(false);
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }, []);
+    // Sync value from external source (when switching notes)
+    useEffect(() => {
+      if (!editor || !isInitializedRef.current) return;
 
-    // Get plain text from the editor
-    const getPlainText = useCallback(() => {
-      if (!editorRef.current) return '';
-
-      let text = '';
-      const walker = document.createTreeWalker(
-        editorRef.current,
-        NodeFilter.SHOW_ALL,
-        null
-      );
-
-      let node: Node | null = editorRef.current;
-      while (node) {
-        if (node.nodeType === Node.TEXT_NODE) {
-          text += node.textContent;
-        } else if (node.nodeName === 'BR') {
-          text += '\n';
-        } else if (node.nodeName === 'DIV' && node !== editorRef.current && text.length > 0 && !text.endsWith('\n')) {
-          text += '\n';
-        }
-        node = walker.nextNode();
+      if (lastExternalValueRef.current !== value) {
+        const markdown = cleanLegacyContent(value);
+        lastExternalValueRef.current = markdown;
+        editor.commands.setContent(markdown);
       }
-
-      return text;
-    }, []);
+    }, [value, editor]);
 
     // Expose imperative handle
     useImperativeHandle(ref, () => ({
-      focus: () => editorRef.current?.focus(),
-      blur: () => editorRef.current?.blur(),
+      focus: () => editor?.commands.focus(),
+      blur: () => editor?.commands.blur(),
       getSelectionInfo: () => {
-        if (!editorRef.current) return null;
+        if (!editor) return null;
+        const { from } = editor.state.selection;
+        const text = editor.getText();
         return {
-          cursorPosition: getCursorPosition(),
-          text: getPlainText(),
+          cursorPosition: from - 1,
+          text,
         };
       },
-      setCursorPosition,
-    }), [getCursorPosition, getPlainText, setCursorPosition]);
-
-    // Render content with linkified URLs
-    const renderContent = useCallback(() => {
-      if (!editorRef.current) return;
-
-      const cursorPos = getCursorPosition();
-      const isFocused = document.activeElement === editorRef.current;
-
-      // Clear and rebuild content
-      editorRef.current.innerHTML = '';
-
-      if (!value) {
-        return;
-      }
-
-      const lines = value.split('\n');
-
-      lines.forEach((line, lineIndex) => {
-        const segments = parseTextWithLinks(line);
-
-        if (segments.length === 0 && line === '') {
-          // Empty line - add a BR
-          if (lineIndex > 0) {
-            editorRef.current!.appendChild(document.createElement('br'));
-          }
-        } else {
-          if (lineIndex > 0) {
-            editorRef.current!.appendChild(document.createElement('br'));
-          }
-
-          segments.forEach((segment) => {
-            if (segment.type === 'link') {
-              const span = document.createElement('span');
-              span.textContent = segment.value;
-              span.className = 'detected-link';
-              span.dataset.url = segment.value;
-              editorRef.current!.appendChild(span);
-            } else {
-              const textNode = document.createTextNode(segment.value);
-              editorRef.current!.appendChild(textNode);
-            }
-          });
-        }
-      });
-
-      // Restore cursor position if focused
-      if (isFocused) {
-        setCursorPosition(cursorPos);
-      }
-    }, [value, getCursorPosition, setCursorPosition]);
-
-    // Sync value to DOM when value prop changes (from external source)
-    useEffect(() => {
-      if (lastValueRef.current !== value) {
-        lastValueRef.current = value;
-        renderContent();
-      }
-    }, [value, renderContent]);
-
-    // Initial render
-    useEffect(() => {
-      renderContent();
-    }, []);
-
-    const handleInput = useCallback(() => {
-      if (isComposingRef.current) return;
-
-      const newValue = getPlainText();
-      if (newValue !== lastValueRef.current) {
-        lastValueRef.current = newValue;
-        onChange(newValue);
-
-        // Re-render to update link styling
-        requestAnimationFrame(() => {
-          renderContent();
-        });
-      }
-    }, [getPlainText, onChange, renderContent]);
-
-    const handleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-      const target = e.target as HTMLElement;
-
-      // Check if Ctrl+Click on a link
-      if (e.ctrlKey && target.classList.contains('detected-link')) {
-        e.preventDefault();
-        const url = target.dataset.url;
-        if (url) {
-          window.open(url, '_blank', 'noopener,noreferrer');
-        }
-      }
-    }, []);
-
-    const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-      onKeyDown?.(e);
-    }, [onKeyDown]);
-
-    const handleCompositionStart = useCallback(() => {
-      isComposingRef.current = true;
-    }, []);
-
-    const handleCompositionEnd = useCallback(() => {
-      isComposingRef.current = false;
-      handleInput();
-    }, [handleInput]);
-
-    const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      const text = e.clipboardData.getData('text/plain');
-      document.execCommand('insertText', false, text);
-    }, []);
+      setCursorPosition: (position: number) => {
+        if (!editor) return;
+        const docPosition = Math.min(position + 1, editor.state.doc.content.size);
+        editor.commands.setTextSelection(docPosition);
+      },
+    }), [editor]);
 
     return (
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={handleInput}
-        onBlur={onBlur}
-        onClick={handleClick}
-        onKeyDown={handleKeyDown}
-        onCompositionStart={handleCompositionStart}
-        onCompositionEnd={handleCompositionEnd}
-        onPaste={handlePaste}
-        data-placeholder={placeholder}
-        className={`outline-none whitespace-pre-wrap break-words ${className}`}
-        style={{ minHeight: '1em' }}
+      <EditorContent
+        editor={editor}
+        className={className}
       />
     );
   }
