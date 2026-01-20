@@ -33,7 +33,7 @@ export function useNotes(date: string) {
     if (!db || !isReady) return;
 
     const result = db.exec(
-      'SELECT id, date, content, description, category, completed, created_at, updated_at FROM notes WHERE date = ? ORDER BY category ASC, completed ASC, created_at DESC',
+      'SELECT id, date, content, description, category, completed, created_at, updated_at FROM notes WHERE date = ? ORDER BY created_at DESC',
       [date]
     );
 
@@ -94,11 +94,12 @@ export function useNotes(date: string) {
       const now = new Date().toISOString();
 
       // Get current note state for history
-      const currentResult = db.exec('SELECT content, description, category, completed FROM notes WHERE id = ?', [id]);
+      const currentResult = db.exec('SELECT content, description, category, completed, created_at FROM notes WHERE id = ?', [id]);
       const currentNote = currentResult.length > 0 ? currentResult[0].values[0] : null;
 
       const finalCategory = category || (currentNote ? currentNote[2] as NoteCategory : 'todo');
       const finalDescription = description !== undefined ? description : (currentNote ? currentNote[1] as string | null : null);
+      const createdAt = currentNote ? currentNote[4] as string : now;
 
       db.run('UPDATE notes SET content = ?, description = ?, category = ?, updated_at = ? WHERE id = ?', [
         content,
@@ -115,7 +116,7 @@ export function useNotes(date: string) {
       await persistDatabase();
       loadNotes();
 
-      return { id, date, content, description: finalDescription, category: finalCategory, completed, created_at: '', updated_at: now };
+      return { id, date, content, description: finalDescription, category: finalCategory, completed, created_at: createdAt, updated_at: now };
     },
     [db, date, loadNotes]
   );
@@ -162,12 +163,79 @@ export function useNotes(date: string) {
     [db, loadNotes]
   );
 
+  const restoreNote = useCallback(
+    async (note: Note): Promise<void> => {
+      if (!db) throw new Error('Database not ready');
+
+      db.run(
+        'INSERT INTO notes (id, date, content, description, category, completed, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [note.id, note.date, note.content, note.description, note.category, note.completed ? 1 : 0, note.created_at, note.updated_at]
+      );
+
+      await persistDatabase();
+      loadNotes();
+    },
+    [db, loadNotes]
+  );
+
+  const createNoteAfter = useCallback(
+    async (afterNoteId: string, category: NoteCategory = 'todo'): Promise<Note> => {
+      if (!db) throw new Error('Database not ready');
+
+      // Get the created_at of the note we're inserting after
+      const afterNoteResult = db.exec('SELECT created_at FROM notes WHERE id = ?', [afterNoteId]);
+      if (afterNoteResult.length === 0) {
+        throw new Error('Note not found');
+      }
+      const afterCreatedAt = new Date(afterNoteResult[0].values[0][0] as string);
+
+      // Find the next note (the one created just before this one, since we order by DESC)
+      const nextNoteResult = db.exec(
+        'SELECT created_at FROM notes WHERE date = ? AND created_at < ? ORDER BY created_at DESC LIMIT 1',
+        [date, afterCreatedAt.toISOString()]
+      );
+
+      let newCreatedAt: Date;
+      if (nextNoteResult.length > 0) {
+        // Insert between afterNote and nextNote
+        const nextCreatedAt = new Date(nextNoteResult[0].values[0][0] as string);
+        newCreatedAt = new Date((afterCreatedAt.getTime() + nextCreatedAt.getTime()) / 2);
+      } else {
+        // No next note, insert 1 second before afterNote
+        newCreatedAt = new Date(afterCreatedAt.getTime() - 1000);
+      }
+
+      const note: Note = {
+        id: generateId(),
+        date,
+        content: '',
+        description: null,
+        category,
+        completed: false,
+        created_at: newCreatedAt.toISOString(),
+        updated_at: newCreatedAt.toISOString(),
+      };
+
+      db.run(
+        'INSERT INTO notes (id, date, content, description, category, completed, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [note.id, note.date, note.content, note.description, note.category, 0, note.created_at, note.updated_at]
+      );
+
+      await persistDatabase();
+      loadNotes();
+      return note;
+    },
+    [db, date, loadNotes]
+  );
+
   return {
     notes,
     loading,
     createNote,
+    createNoteAfter,
     updateNote,
     toggleCompleted,
     deleteNote,
+    restoreNote,
   };
 }

@@ -21,12 +21,28 @@ export interface NoteHistory {
   changed_at: string;
 }
 
+export interface Label {
+  id: string;
+  name: string;
+  color: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NoteLabel {
+  note_id: string;
+  label_id: string;
+  created_at: string;
+}
+
 // Export/Import types
 export interface ExportData {
   version: string;
   exportedAt: string;
   notes: Note[];
   noteHistory: NoteHistory[];
+  labels?: Label[];
+  noteLabels?: NoteLabel[];
 }
 
 export interface ImportResult {

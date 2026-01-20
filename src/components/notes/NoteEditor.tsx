@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { Chip } from '@/components/ui/chip';
+import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import type { NoteCategory } from '@/types/note';
 
@@ -191,22 +191,20 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     <div className="space-y-3">
       {showCategorySelector && (
         <div className="flex gap-2">
-          <Chip
-            type="button"
-            variant={category === 'todo' ? 'default' : 'outline'}
-            size="sm"
+          <Badge
+            variant={category === 'todo' ? 'default' : 'secondary'}
+            className="cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => setCategory('todo')}
           >
             {t('categoryTodo')}
-          </Chip>
-          <Chip
-            type="button"
-            variant={category === 'followup' ? 'default' : 'outline'}
-            size="sm"
+          </Badge>
+          <Badge
+            variant={category === 'followup' ? 'default' : 'secondary'}
+            className="cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => setCategory('followup')}
           >
             {t('categoryFollowUp')}
-          </Chip>
+          </Badge>
         </div>
       )}
       <Textarea

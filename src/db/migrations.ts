@@ -64,4 +64,39 @@ export function runMigrations(db: Database): void {
   db.run(`
     CREATE INDEX IF NOT EXISTS idx_note_history_changed_at ON note_history(changed_at)
   `);
+
+  // Create labels table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS labels (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      color TEXT NOT NULL DEFAULT '#6b7280',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_labels_name ON labels(name)
+  `);
+
+  // Create note_labels junction table for many-to-many relationship
+  db.run(`
+    CREATE TABLE IF NOT EXISTS note_labels (
+      note_id TEXT NOT NULL,
+      label_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (note_id, label_id),
+      FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE,
+      FOREIGN KEY (label_id) REFERENCES labels(id) ON DELETE CASCADE
+    )
+  `);
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_note_labels_note_id ON note_labels(note_id)
+  `);
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_note_labels_label_id ON note_labels(label_id)
+  `);
 }
