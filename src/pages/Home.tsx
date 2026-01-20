@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -7,10 +8,12 @@ import { NoteEditor } from '@/components/notes/NoteEditor';
 import { NoteList } from '@/components/notes/NoteList';
 import { useNotes } from '@/hooks/useNotes';
 import { useDatabase } from '@/contexts/DatabaseContext';
+import type { Note } from '@/types/note';
 
 export function Home() {
   const { t, i18n } = useTranslation();
   const { isReady } = useDatabase();
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
 
   const today = new Date();
   const dateKey = today.toISOString().split('T')[0];
@@ -20,6 +23,13 @@ export function Home() {
   const toggleLanguage = () => {
     const newLang = i18n.language === 'es' ? 'en' : 'es';
     i18n.changeLanguage(newLang);
+  };
+
+  const handleDeleteNote = (id: string) => {
+    if (selectedNote?.id === id) {
+      setSelectedNote(null);
+    }
+    deleteNote(id);
   };
 
   if (!isReady || loading) {
@@ -54,8 +64,10 @@ export function Home() {
         <NoteList
           notes={notes}
           onEdit={updateNote}
-          onDelete={deleteNote}
+          onDelete={handleDeleteNote}
           onToggleCompleted={toggleCompleted}
+          selectedNote={selectedNote}
+          onSelectNote={setSelectedNote}
         />
       </div>
     </div>

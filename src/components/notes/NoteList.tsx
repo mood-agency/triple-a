@@ -11,7 +11,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { NoteEditor } from './NoteEditor';
 import type { Note, NoteCategory } from '@/types/note';
 
 interface NoteListProps {
@@ -19,52 +18,63 @@ interface NoteListProps {
   onEdit: (id: string, content: string, category?: NoteCategory, description?: string | null) => void;
   onDelete: (id: string) => void;
   onToggleCompleted: (id: string, completed: boolean) => void;
+  selectedNote: Note | null;
+  onSelectNote: (note: Note | null) => void;
 }
 
 interface NoteRowProps {
   note: Note;
-  onEdit: (id: string, content: string, category?: NoteCategory, description?: string | null) => void;
   onDelete: (id: string) => void;
   onToggleCompleted: (id: string, completed: boolean) => void;
   isSelected: boolean;
-  isEditing: boolean;
   onSelect: () => void;
-  onStartEditing: () => void;
-  onStopEditing: () => void;
-  onNavigateUp: () => void;
-  onNavigateDown: () => void;
+  onEdit: (id: string, content: string, category?: NoteCategory, description?: string | null) => void;
 }
 
 function NoteRow({
   note,
-  onEdit,
   onDelete,
   onToggleCompleted,
   isSelected,
-  isEditing,
   onSelect,
-  onStartEditing,
-  onStopEditing,
-  onNavigateUp,
-  onNavigateDown,
+  onEdit,
 }: NoteRowProps) {
   const { t } = useTranslation();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [pendingContent, setPendingContent] = useState<string | null>(null);
+  const [isEditingContent, setIsEditingContent] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [contentValue, setContentValue] = useState(note.content);
+  const [descriptionValue, setDescriptionValue] = useState(note.description || '');
   const rowRef = useRef<HTMLDivElement>(null);
-
-  // Limpiar contenido pendiente cuando la nota se actualiza
-  useEffect(() => {
-    if (pendingContent !== null && note.content === pendingContent) {
-      setPendingContent(null);
-    }
-  }, [note.content, pendingContent]);
+  const contentInputRef = useRef<HTMLInputElement>(null);
+  const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (isSelected && rowRef.current) {
       rowRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }, [isSelected]);
+
+  useEffect(() => {
+    setContentValue(note.content);
+  }, [note.content]);
+
+  useEffect(() => {
+    setDescriptionValue(note.description || '');
+  }, [note.description]);
+
+  useEffect(() => {
+    if (isEditingContent && contentInputRef.current) {
+      contentInputRef.current.focus();
+      contentInputRef.current.select();
+    }
+  }, [isEditingContent]);
+
+  useEffect(() => {
+    if (isEditingDescription && descriptionTextareaRef.current) {
+      descriptionTextareaRef.current.focus();
+    }
+  }, [isEditingDescription]);
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -73,14 +83,6 @@ function NoteRow({
   const handleCheckedChange = () => {
     onToggleCompleted(note.id, !note.completed);
   };
-
-  const handleSave = (content: string, category?: NoteCategory, description?: string | null) => {
-    setPendingContent(content);
-    onEdit(note.id, content, category || note.category, description);
-    onStopEditing();
-  };
-
-  const displayContent = pendingContent ?? note.content;
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -92,10 +94,47 @@ function NoteRow({
     setShowDeleteDialog(false);
   };
 
-  const handleClick = () => {
-    if (!isEditing) {
-      onSelect();
-      onStartEditing();
+  const handleContentClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelect();
+    setIsEditingContent(true);
+  };
+
+  const handleContentBlur = () => {
+    setIsEditingContent(false);
+    if (contentValue.trim() && contentValue !== note.content) {
+      onEdit(note.id, contentValue.trim(), note.category, note.description);
+    } else {
+      setContentValue(note.content);
+    }
+  };
+
+  const handleContentKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleContentBlur();
+    } else if (e.key === 'Escape') {
+      setContentValue(note.content);
+      setIsEditingContent(false);
+    }
+  };
+
+  const handleDescriptionClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditingDescription(true);
+  };
+
+  const handleDescriptionBlur = () => {
+    setIsEditingDescription(false);
+    if (descriptionValue !== (note.description || '')) {
+      onEdit(note.id, note.content, note.category, descriptionValue || null);
+    }
+  };
+
+  const handleDescriptionKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setDescriptionValue(note.description || '');
+      setIsEditingDescription(false);
     }
   };
 
@@ -103,7 +142,8 @@ function NoteRow({
     <>
       <div
         ref={rowRef}
-        className={`group grid grid-cols-[24px_1fr_24px] py-1.5 border-b border-dashed border-muted-foreground/20 hover:bg-muted/30 transition-colors ${note.completed ? 'opacity-50' : ''}`}
+        onClick={onSelect}
+        className={`group grid grid-cols-[24px_1fr_24px] py-1.5 border-b border-dashed border-muted-foreground/20 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed ? 'opacity-50' : ''} ${isSelected ? 'bg-muted/50' : ''}`}
       >
         <div
           className="flex items-center justify-center cursor-pointer select-none"
@@ -123,33 +163,21 @@ function NoteRow({
           )}
         </div>
 
-        <div
-          className="px-2 cursor-pointer select-none"
-          onClick={handleClick}
-        >
-          {isEditing ? (
-            <NoteEditor
-              initialContent={note.content}
-              initialDescription={note.description}
-              initialCategory={note.category}
-              onSave={handleSave}
-              onCancel={onStopEditing}
-              onNavigateUp={onNavigateUp}
-              onNavigateDown={onNavigateDown}
-              autoFocus
-              inline
+        <div className="px-2 select-none" onClick={handleContentClick}>
+          {isEditingContent ? (
+            <input
+              ref={contentInputRef}
+              type="text"
+              value={contentValue}
+              onChange={(e) => setContentValue(e.target.value)}
+              onBlur={handleContentBlur}
+              onKeyDown={handleContentKeyDown}
+              className="w-full text-sm leading-relaxed bg-transparent border-none outline-none"
             />
           ) : (
-            <div className="flex flex-col">
-              <span className={`text-sm leading-relaxed ${note.completed ? 'line-through text-muted-foreground' : ''}`}>
-                {displayContent}
-              </span>
-              {note.description && (
-                <span className={`text-xs text-muted-foreground mt-0.5 ${note.completed ? 'line-through' : ''}`}>
-                  {note.description}
-                </span>
-              )}
-            </div>
+            <span className={`text-sm leading-relaxed ${note.completed ? 'line-through text-muted-foreground' : ''} ${isSelected ? 'cursor-text' : ''}`}>
+              {note.content}
+            </span>
           )}
         </div>
 
@@ -162,6 +190,30 @@ function NoteRow({
           </button>
         </div>
       </div>
+
+      {isSelected && (
+        <div
+          className="py-2 px-8 bg-muted/30 border-b border-dashed border-muted-foreground/20 cursor-text"
+          onClick={handleDescriptionClick}
+        >
+          {isEditingDescription ? (
+            <textarea
+              ref={descriptionTextareaRef}
+              value={descriptionValue}
+              onChange={(e) => setDescriptionValue(e.target.value)}
+              onBlur={handleDescriptionBlur}
+              onKeyDown={handleDescriptionKeyDown}
+              placeholder={t('writeDescription')}
+              className="w-full text-sm bg-transparent border-none outline-none resize-none text-muted-foreground"
+              rows={2}
+            />
+          ) : (
+            <p className={`text-sm ${note.description ? 'text-muted-foreground' : 'text-muted-foreground/50 italic'}`}>
+              {note.description || t('writeDescription')}
+            </p>
+          )}
+        </div>
+      )}
 
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
@@ -183,10 +235,8 @@ function NoteRow({
   );
 }
 
-export function NoteList({ notes, onEdit, onDelete, onToggleCompleted }: NoteListProps) {
+export function NoteList({ notes, onEdit, onDelete, onToggleCompleted, selectedNote, onSelectNote }: NoteListProps) {
   const { t } = useTranslation();
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { todoNotes, followupNotes } = useMemo(() => {
@@ -195,84 +245,42 @@ export function NoteList({ notes, onEdit, onDelete, onToggleCompleted }: NoteLis
     return { todoNotes: todo, followupNotes: followup };
   }, [notes]);
 
-  // Lista combinada para navegación (todo primero, luego followup)
   const allNotes = useMemo(() => [...todoNotes, ...followupNotes], [todoNotes, followupNotes]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // No manejar si hay un editor activo
-      if (editingId) return;
-
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        if (selectedIndex === null) {
+        if (!selectedNote) {
           if (allNotes.length > 0) {
-            setSelectedIndex(0);
-            setEditingId(allNotes[0].id);
+            onSelectNote(allNotes[0]);
           }
-        } else if (selectedIndex < allNotes.length - 1) {
-          const newIndex = selectedIndex + 1;
-          setSelectedIndex(newIndex);
-          setEditingId(allNotes[newIndex].id);
+        } else {
+          const currentIndex = allNotes.findIndex((n) => n.id === selectedNote.id);
+          if (currentIndex < allNotes.length - 1) {
+            onSelectNote(allNotes[currentIndex + 1]);
+          }
         }
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        if (selectedIndex === null) {
+        if (!selectedNote) {
           if (allNotes.length > 0) {
-            const lastIndex = allNotes.length - 1;
-            setSelectedIndex(lastIndex);
-            setEditingId(allNotes[lastIndex].id);
+            onSelectNote(allNotes[allNotes.length - 1]);
           }
-        } else if (selectedIndex > 0) {
-          const newIndex = selectedIndex - 1;
-          setSelectedIndex(newIndex);
-          setEditingId(allNotes[newIndex].id);
+        } else {
+          const currentIndex = allNotes.findIndex((n) => n.id === selectedNote.id);
+          if (currentIndex > 0) {
+            onSelectNote(allNotes[currentIndex - 1]);
+          }
         }
       } else if (e.key === 'Escape') {
-        setSelectedIndex(null);
-        setEditingId(null);
+        onSelectNote(null);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIndex, editingId, allNotes]);
-
-  // Resetear selección cuando cambian las notas
-  useEffect(() => {
-    if (selectedIndex !== null && selectedIndex >= allNotes.length) {
-      setSelectedIndex(allNotes.length > 0 ? allNotes.length - 1 : null);
-    }
-  }, [allNotes.length, selectedIndex]);
-
-  const handleSelect = (noteId: string) => {
-    const index = allNotes.findIndex((n) => n.id === noteId);
-    setSelectedIndex(index >= 0 ? index : null);
-  };
-
-  const handleStartEditing = (noteId: string) => {
-    setEditingId(noteId);
-  };
-
-  const handleStopEditing = () => {
-    setEditingId(null);
-  };
-
-  const handleNavigateUp = (currentIndex: number) => {
-    if (currentIndex > 0) {
-      const newIndex = currentIndex - 1;
-      setSelectedIndex(newIndex);
-      setEditingId(allNotes[newIndex].id);
-    }
-  };
-
-  const handleNavigateDown = (currentIndex: number) => {
-    if (currentIndex < allNotes.length - 1) {
-      const newIndex = currentIndex + 1;
-      setSelectedIndex(newIndex);
-      setEditingId(allNotes[newIndex].id);
-    }
-  };
+  }, [selectedNote, allNotes, onSelectNote]);
 
   if (notes.length === 0) {
     return (
@@ -283,32 +291,24 @@ export function NoteList({ notes, onEdit, onDelete, onToggleCompleted }: NoteLis
   }
 
   return (
-    <div ref={containerRef} className="grid grid-cols-1 md:grid-cols-2 gap-8 h-[calc(100vh-300px)]" tabIndex={0}>
+    <div ref={containerRef} className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full" tabIndex={0}>
       <section className="flex flex-col min-h-0">
         <h2 className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-3 font-medium">
           {t('categoryTodo')}
         </h2>
         <div className="overflow-y-auto flex-1 pr-2">
           {todoNotes.length > 0 ? (
-            todoNotes.map((note) => {
-              const globalIndex = allNotes.findIndex((n) => n.id === note.id);
-              return (
-                <NoteRow
-                  key={note.id}
-                  note={note}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                  onToggleCompleted={onToggleCompleted}
-                  isSelected={selectedIndex === globalIndex}
-                  isEditing={editingId === note.id}
-                  onSelect={() => handleSelect(note.id)}
-                  onStartEditing={() => handleStartEditing(note.id)}
-                  onStopEditing={handleStopEditing}
-                  onNavigateUp={() => handleNavigateUp(globalIndex)}
-                  onNavigateDown={() => handleNavigateDown(globalIndex)}
-                />
-              );
-            })
+            todoNotes.map((note) => (
+              <NoteRow
+                key={note.id}
+                note={note}
+                onDelete={onDelete}
+                onToggleCompleted={onToggleCompleted}
+                isSelected={selectedNote?.id === note.id}
+                onSelect={() => onSelectNote(note)}
+                onEdit={onEdit}
+              />
+            ))
           ) : (
             <p className="text-muted-foreground/50 text-sm italic py-2">
               {t('noNotes')}
@@ -323,25 +323,17 @@ export function NoteList({ notes, onEdit, onDelete, onToggleCompleted }: NoteLis
         </h2>
         <div className="overflow-y-auto flex-1 pr-2">
           {followupNotes.length > 0 ? (
-            followupNotes.map((note) => {
-              const globalIndex = allNotes.findIndex((n) => n.id === note.id);
-              return (
-                <NoteRow
-                  key={note.id}
-                  note={note}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                  onToggleCompleted={onToggleCompleted}
-                  isSelected={selectedIndex === globalIndex}
-                  isEditing={editingId === note.id}
-                  onSelect={() => handleSelect(note.id)}
-                  onStartEditing={() => handleStartEditing(note.id)}
-                  onStopEditing={handleStopEditing}
-                  onNavigateUp={() => handleNavigateUp(globalIndex)}
-                  onNavigateDown={() => handleNavigateDown(globalIndex)}
-                />
-              );
-            })
+            followupNotes.map((note) => (
+              <NoteRow
+                key={note.id}
+                note={note}
+                onDelete={onDelete}
+                onToggleCompleted={onToggleCompleted}
+                isSelected={selectedNote?.id === note.id}
+                onSelect={() => onSelectNote(note)}
+                onEdit={onEdit}
+              />
+            ))
           ) : (
             <p className="text-muted-foreground/50 text-sm italic py-2">
               {t('noNotes')}
