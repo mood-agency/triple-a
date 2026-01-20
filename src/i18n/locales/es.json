@@ -2,5 +2,21 @@
   "welcome": "Bienvenido",
   "home": "Inicio",
   "about": "Acerca de",
-  "language": "Idioma"
+  "language": "Idioma",
+  "dailyNotes": "Notas del Día",
+  "writeNote": "Escribe tu nota...",
+  "writeDescription": "Descripción (opcional)...",
+  "save": "Guardar",
+  "cancel": "Cancelar",
+  "edit": "Editar",
+  "delete": "Eliminar",
+  "deleteNote": "Eliminar nota",
+  "noNotes": "No hay notas para este día",
+  "confirmDelete": "¿Estás seguro de que quieres eliminar esta nota?",
+  "loading": "Cargando...",
+  "categoryTodo": "Por Hacer",
+  "categoryFollowUp": "Seguimiento",
+  "history": "Historial",
+  "noHistory": "No hay historial para esta nota",
+  "changedAt": "Modificado"
 }

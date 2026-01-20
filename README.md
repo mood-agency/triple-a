@@ -1,73 +1,54 @@
-# React + TypeScript + Vite
+# Triple-A
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicación React con TypeScript, Vite, internacionalización y componentes shadcn/ui.
 
-Currently, two official plugins are available:
+## Requisitos
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Node.js 18+
+- npm 9+
 
-## React Compiler
+## Inicialización del Proyecto
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+# Clonar el repositorio
+git clone <url-del-repositorio>
+cd triple-a
 
-## Expanding the ESLint configuration
+# Instalar dependencias
+npm install
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Iniciar servidor de desarrollo
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+La aplicación estará disponible en `http://localhost:11000`
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Scripts Disponibles
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+| Comando           | Descripción                              |
+|-------------------|------------------------------------------|
+| `npm run dev`     | Inicia servidor de desarrollo con HMR   |
+| `npm run build`   | Compila TypeScript y construye para producción |
+| `npm run lint`    | Ejecuta ESLint                           |
+| `npm run preview` | Previsualiza build de producción         |
+
+## Tecnologías
+
+- **React 19** - Biblioteca UI
+- **TypeScript** - Tipado estático
+- **Vite** - Build tool y dev server
+- **React Router v7** - Enrutamiento
+- **i18next** - Internacionalización (ES/EN)
+- **shadcn/ui** - Componentes UI (basados en Radix UI)
+- **Tailwind CSS v4** - Framework de estilos
+
+## Estructura del Proyecto
+
+```
+src/
+├── pages/          # Componentes de página (Home, About)
+├── components/ui/  # Componentes shadcn/ui
+├── i18n/locales/   # Archivos de traducción (en.json, es.json)
+├── lib/            # Utilidades
+└── App.tsx         # Configuración de rutas
 ```

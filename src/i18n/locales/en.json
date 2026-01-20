@@ -2,5 +2,21 @@
   "welcome": "Welcome",
   "home": "Home",
   "about": "About",
-  "language": "Language"
+  "language": "Language",
+  "dailyNotes": "Daily Notes",
+  "writeNote": "Write your note...",
+  "writeDescription": "Description (optional)...",
+  "save": "Save",
+  "cancel": "Cancel",
+  "edit": "Edit",
+  "delete": "Delete",
+  "deleteNote": "Delete note",
+  "noNotes": "No notes for this day",
+  "confirmDelete": "Are you sure you want to delete this note?",
+  "loading": "Loading...",
+  "categoryTodo": "To Do",
+  "categoryFollowUp": "Follow Up",
+  "history": "History",
+  "noHistory": "No history for this note",
+  "changedAt": "Changed"
 }
