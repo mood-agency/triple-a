@@ -63,8 +63,6 @@ interface NoteListProps {
   externalCategoryFilter?: NoteCategory | 'all';
   onLabelFilterChange?: (labels: string[]) => void;
   onCategoryFilterChange?: (category: NoteCategory | 'all') => void;
-  // Command palette state to prevent blur from exiting edit mode
-  isCommandPaletteOpen?: boolean;
 }
 
 interface NoteRowProps {
@@ -262,6 +260,10 @@ function NoteRow({
   };
 
   const handleContentBlur = () => {
+    // Don't exit edit mode if command palette is open (focus will be restored)
+    if (isCommandPaletteOpen) {
+      return;
+    }
     if (contentValue.trim() && contentValue !== note.content) {
       const trimmedValue = contentValue.trim();
       setContentValue(trimmedValue);
@@ -654,7 +656,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   };
 
   // Filter notes based on search query, category, and labels
-  const filteredNotes = notes.filter((note) => {
+  const baseFilteredNotes = notes.filter((note) => {
     // Filter by category
     if (categoryFilter !== 'all' && note.category !== categoryFilter) {
       return false;
@@ -671,12 +673,21 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     const titleMatch = note.content.toLowerCase().includes(query);
     const descriptionMatch = note.description?.toLowerCase().includes(query) ?? false;
     return titleMatch || descriptionMatch;
-  }).sort((a, b) => {
-    // Completed tasks always go to the bottom
-    if (a.completed && !b.completed) return 1;
-    if (!a.completed && b.completed) return -1;
-    return 0;
   });
+
+  // Separate active and completed notes
+  const activeNotes = baseFilteredNotes.filter((note) => !note.completed);
+  const completedNotes = baseFilteredNotes
+    .filter((note) => note.completed)
+    .sort((a, b) => {
+      // Sort by completed_at descending (most recent first)
+      const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+      const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+      return bTime - aTime;
+    });
+
+  // Combined for navigation purposes (active first, then completed)
+  const filteredNotes = [...activeNotes, ...completedNotes];
 
   // Load labels when selected note changes
   useEffect(() => {
@@ -947,10 +958,24 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         return;
       }
 
-      // Ctrl+D to toggle checkbox when a task is selected
-      if (e.key === 'd' && e.ctrlKey && selectedNote && selectedNote.category !== 'notes') {
+      // Ctrl+A to select todo category
+      if (e.key === 'a' && e.ctrlKey) {
         e.preventDefault();
-        onToggleCompleted(selectedNote.id, !selectedNote.completed);
+        setCategoryFilter(categoryFilter === 'todo' ? 'all' : 'todo');
+        return;
+      }
+
+      // Ctrl+S to select seguimiento (followup) category
+      if (e.key === 's' && e.ctrlKey) {
+        e.preventDefault();
+        setCategoryFilter(categoryFilter === 'followup' ? 'all' : 'followup');
+        return;
+      }
+
+      // Ctrl+D to select notas category
+      if (e.key === 'd' && e.ctrlKey) {
+        e.preventDefault();
+        setCategoryFilter(categoryFilter === 'notes' ? 'all' : 'notes');
         return;
       }
 
@@ -973,7 +998,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNote, filteredNotes, onSelectNote, onToggleCompleted]);
+  }, [selectedNote, filteredNotes, onSelectNote, categoryFilter, setCategoryFilter]);
 
   if (notes.length === 0) {
     return (
@@ -1081,7 +1106,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       </div>
       <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
         <div className="w-[38rem] shrink-0 flex flex-col overflow-hidden">
-          <div className="overflow-y-auto pr-2 flex-1">
+          {/* Active tasks section - 75% */}
+          <div className="overflow-y-auto pr-2 flex-[3]">
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -1089,10 +1115,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onDragEnd={handleDragEnd}
             >
               <SortableContext
-                items={filteredNotes.map((n) => n.id)}
+                items={activeNotes.map((n) => n.id)}
                 strategy={verticalListSortingStrategy}
               >
-                {filteredNotes.map((note) => (
+                {activeNotes.map((note) => (
                   <NoteRow
                     key={note.id}
                     note={note}
@@ -1125,12 +1151,53 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               </SortableContext>
             </DndContext>
           </div>
+
+          {/* Completed tasks section - 25% */}
+          {completedNotes.length > 0 && (
+            <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">
+              <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
+                {t('completedTasks')} ({completedNotes.length})
+              </div>
+              <div className="overflow-y-auto pr-2 flex-1">
+                {completedNotes.map((note) => (
+                  <NoteRow
+                    key={note.id}
+                    note={note}
+                    onDeleteWithToast={handleDeleteWithToast}
+                    onToggleCompleted={onToggleCompleted}
+                    onTogglePinned={onTogglePinned}
+                    isSelected={selectedNote?.id === note.id}
+                    onSelect={() => onSelectNote(note)}
+                    onEdit={onEdit}
+                    onNavigateDown={(column) => handleNavigateDownFromTitle(note.id, column)}
+                    onNavigateUp={(column) => handleNavigateUpFromTitle(note.id, column)}
+                    onNavigateToDescription={handleNavigateToDescription}
+                    shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
+                    desiredColumn={desiredColumn}
+                    onTitleFocused={handleTitleFocused}
+                    onCreateNoteAfter={() => handleCreateNoteAfter(note.id)}
+                    isDragging={false}
+                    labels={noteLabelVersion >= 0 ? getLabelsForNote(note.id) : []}
+                    allLabels={labels}
+                    onAddLabel={async (labelId) => {
+                      await addLabelToNote(note.id, labelId);
+                    }}
+                    onRemoveLabel={async (labelId) => {
+                      await removeLabelFromNote(note.id, labelId);
+                    }}
+                    onCreateLabel={() => setShowCreateLabelDialog(true)}
+                    onEditLabel={handleEditLabel}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
       <div className="flex-1 min-w-0 border-l border-dashed border-muted-foreground/20 pl-4 overflow-hidden flex flex-col">
         {selectedNote ? (
           <>
-            <h1 className={`text-lg font-semibold mb-2 flex-shrink-0 ${selectedNote.completed ? 'line-through text-muted-foreground' : ''}`}>
+            <h1 className={`text-2xl font-semibold mb-2 flex-shrink-0 ${selectedNote.completed ? 'line-through text-muted-foreground' : ''}`}>
               {selectedNote.content}
             </h1>
             <div className="flex flex-wrap gap-1 mb-2 flex-shrink-0 items-center">
@@ -1188,6 +1255,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                   <p>{t('categoryNotes')}</p>
                 </TooltipContent>
               </Tooltip>
+              {/* Separator between categories and labels */}
+              <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
               {/* Labels */}
               {noteLabels.map((label) => (
                 <span
@@ -1272,7 +1341,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onBlur={handleDescriptionBlur}
               onKeyDown={handleDescriptionKeyDown}
               placeholder={t('writeDescription')}
-              className="flex-1 min-h-0 w-full text-sm bg-transparent text-muted-foreground overflow-y-auto"
+              className="flex-1 min-h-0 w-full text-base bg-transparent text-muted-foreground overflow-y-auto"
             />
           </>
         ) : (
