@@ -79,6 +79,10 @@ export function runMigrations(db: Database): void {
     if (!notesColumns.includes('completed_at')) {
       db.run('ALTER TABLE notes ADD COLUMN completed_at TEXT DEFAULT NULL');
     }
+    // Migration: add deadline column if it doesn't exist
+    if (!notesColumns.includes('deadline')) {
+      db.run('ALTER TABLE notes ADD COLUMN deadline TEXT DEFAULT NULL');
+    }
   }
 
   db.run(`

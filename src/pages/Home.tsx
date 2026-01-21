@@ -42,7 +42,7 @@ export function Home() {
   const today = new Date();
   const dateKey = today.toISOString().split('T')[0];
 
-  const { notes, loading, createNote, createNoteAfter, updateNote, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes } = useNotes(dateKey);
+  const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes } = useNotes(dateKey);
 
   // Sync selected note from URL param when notes load
   useEffect(() => {
@@ -123,6 +123,14 @@ export function Home() {
     }
   };
 
+  const handleUpdateDeadline = async (id: string, deadline: string | null) => {
+    await updateDeadline(id, deadline);
+    // Update selectedNote if it's the one being edited
+    if (selectedNote?.id === id) {
+      setSelectedNote({ ...selectedNote, deadline });
+    }
+  };
+
   if (!isReady || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -175,6 +183,7 @@ export function Home() {
             onRestore={restoreNote}
             onToggleCompleted={toggleCompleted}
             onTogglePinned={togglePinned}
+            onUpdateDeadline={handleUpdateDeadline}
             onReorderNotes={reorderNotes}
             selectedNote={selectedNote}
             onSelectNote={handleSelectNote}

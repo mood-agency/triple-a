@@ -10,6 +10,7 @@ export interface Note {
   category: NoteCategory;
   completed: boolean;
   completed_at: string | null;
+  deadline: string | null;
   pinned: boolean;
   sort_order: number;
   created_at: string;

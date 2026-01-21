@@ -44,6 +44,7 @@ import {
   CommandList,
   CommandSeparator,
 } from '@/components/ui/command';
+import { DatePicker } from '@/components/ui/date-picker';
 import type { Note, NoteCategory, Label } from '@/types/note';
 
 interface NoteListProps {
@@ -53,6 +54,7 @@ interface NoteListProps {
   onRestore: (note: Note) => void;
   onToggleCompleted: (id: string, completed: boolean) => void;
   onTogglePinned: (id: string, pinned: boolean) => void;
+  onUpdateDeadline: (id: string, deadline: string | null) => void;
   onReorderNotes: (orderedIds: string[]) => void;
   selectedNote: Note | null;
   onSelectNote: (note: Note | null) => void;
@@ -479,6 +481,16 @@ function NoteRow({
               ))}
             </div>
           )}
+          {note.deadline && (
+            <div className={`flex items-center gap-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded ${
+              new Date(note.deadline) < new Date() && !note.completed
+                ? 'text-destructive bg-destructive/10'
+                : 'text-muted-foreground bg-muted'
+            }`}>
+              <Calendar className="h-3 w-3" />
+              <span>{new Date(note.deadline).toLocaleDateString()}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-center gap-0.5 select-none">
@@ -572,7 +584,7 @@ function getColumnPosition(text: string, cursorPos: number): number {
   return lastNewline === -1 ? cursorPos : cursorPos - lastNewline - 1;
 }
 
-export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onReorderNotes, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, externalLabelFilter, externalCategoryFilter, onLabelFilterChange, onCategoryFilterChange }, ref) {
+export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onReorderNotes, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, externalLabelFilter, externalCategoryFilter, onLabelFilterChange, onCategoryFilterChange }, ref) {
   const { t, i18n } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<EditableDescriptionHandle>(null);
@@ -1333,6 +1345,17 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                   </Command>
                 </PopoverContent>
               </Popover>
+              {/* Separator between labels and deadline */}
+              <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
+              {/* Deadline picker */}
+              <DatePicker
+                date={selectedNote.deadline ? new Date(selectedNote.deadline) : undefined}
+                onDateChange={(date) => {
+                  onUpdateDeadline(selectedNote.id, date ? date.toISOString() : null);
+                }}
+                placeholder={t('setDeadline')}
+                className="h-7 text-xs w-auto"
+              />
             </div>
             <EditableDescription
               ref={descriptionRef}

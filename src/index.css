@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "react-day-picker/style.css";
 
 @theme {
   --color-background: hsl(0 0% 100%);
@@ -449,6 +450,26 @@ body {
 .tiptap h5:first-child,
 .tiptap h6:first-child {
   margin-top: 0;
+}
+
+/* React Day Picker - Calendar Styles */
+.rdp-root {
+  --rdp-accent-color: var(--color-primary);
+  --rdp-accent-background-color: var(--color-accent);
+}
+
+.rdp-day_button:hover {
+  background-color: var(--color-accent);
+}
+
+.rdp-day_button[aria-selected="true"] {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+.rdp-day_button[aria-selected="true"]:hover {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
 }
 
 /* React Colorful - Color Picker Styles */

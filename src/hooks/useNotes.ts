@@ -33,7 +33,7 @@ export function useNotes(date: string) {
     if (!db || !isReady) return;
 
     const result = db.exec(
-      'SELECT id, date, content, description, category, completed, completed_at, pinned, sort_order, created_at, updated_at FROM notes WHERE date = ? ORDER BY pinned DESC, sort_order ASC',
+      'SELECT id, date, content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, updated_at FROM notes WHERE date = ? ORDER BY pinned DESC, sort_order ASC',
       [date]
     );
 
@@ -46,10 +46,11 @@ export function useNotes(date: string) {
         category: (row[4] as NoteCategory) || 'todo',
         completed: Boolean(row[5]),
         completed_at: row[6] as string | null,
-        pinned: Boolean(row[7]),
-        sort_order: (row[8] as number) || 0,
-        created_at: row[9] as string,
-        updated_at: row[10] as string,
+        deadline: row[7] as string | null,
+        pinned: Boolean(row[8]),
+        sort_order: (row[9] as number) || 0,
+        created_at: row[10] as string,
+        updated_at: row[11] as string,
       }));
       setNotes(rows);
     } else {
@@ -82,6 +83,7 @@ export function useNotes(date: string) {
         category,
         completed: false,
         completed_at: null,
+        deadline: null,
         pinned: false,
         sort_order: minSortOrder,
         created_at: now,
@@ -89,8 +91,8 @@ export function useNotes(date: string) {
       };
 
       db.run(
-        'INSERT INTO notes (id, date, content, description, category, completed, completed_at, pinned, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [note.id, note.date, note.content, note.description, note.category, 0, null, 0, note.sort_order, note.created_at, note.updated_at]
+        'INSERT INTO notes (id, date, content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [note.id, note.date, note.content, note.description, note.category, 0, null, null, 0, note.sort_order, note.created_at, note.updated_at]
       );
 
       await persistDatabase();
@@ -107,16 +109,17 @@ export function useNotes(date: string) {
       const now = new Date().toISOString();
 
       // Get current note state for history
-      const currentResult = db.exec('SELECT content, description, category, completed, completed_at, pinned, sort_order, created_at FROM notes WHERE id = ?', [id]);
+      const currentResult = db.exec('SELECT content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at FROM notes WHERE id = ?', [id]);
       const currentNote = currentResult.length > 0 ? currentResult[0].values[0] : null;
 
       const finalCategory = category || (currentNote ? currentNote[2] as NoteCategory : 'todo');
       const finalDescription = description !== undefined ? description : (currentNote ? currentNote[1] as string | null : null);
       const completed = currentNote ? Boolean(currentNote[3]) : false;
       const completedAt = currentNote ? currentNote[4] as string | null : null;
-      const pinned = currentNote ? Boolean(currentNote[5]) : false;
-      const sortOrder = currentNote ? (currentNote[6] as number) || 0 : 0;
-      const createdAt = currentNote ? currentNote[7] as string : now;
+      const deadline = currentNote ? currentNote[5] as string | null : null;
+      const pinned = currentNote ? Boolean(currentNote[6]) : false;
+      const sortOrder = currentNote ? (currentNote[7] as number) || 0 : 0;
+      const createdAt = currentNote ? currentNote[8] as string : now;
 
       db.run('UPDATE notes SET content = ?, description = ?, category = ?, updated_at = ? WHERE id = ?', [
         content,
@@ -132,9 +135,27 @@ export function useNotes(date: string) {
       await persistDatabase();
       loadNotes();
 
-      return { id, date, content, description: finalDescription, category: finalCategory, completed, completed_at: completedAt, pinned, sort_order: sortOrder, created_at: createdAt, updated_at: now };
+      return { id, date, content, description: finalDescription, category: finalCategory, completed, completed_at: completedAt, deadline, pinned, sort_order: sortOrder, created_at: createdAt, updated_at: now };
     },
     [db, date, loadNotes]
+  );
+
+  const updateDeadline = useCallback(
+    async (id: string, deadline: string | null): Promise<void> => {
+      if (!db) throw new Error('Database not ready');
+
+      const now = new Date().toISOString();
+
+      db.run('UPDATE notes SET deadline = ?, updated_at = ? WHERE id = ?', [
+        deadline,
+        now,
+        id,
+      ]);
+
+      await persistDatabase();
+      loadNotes();
+    },
+    [db, loadNotes]
   );
 
   const toggleCompleted = useCallback(
@@ -204,8 +225,8 @@ export function useNotes(date: string) {
       if (!db) throw new Error('Database not ready');
 
       db.run(
-        'INSERT INTO notes (id, date, content, description, category, completed, completed_at, pinned, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [note.id, note.date, note.content, note.description, note.category, note.completed ? 1 : 0, note.completed_at, note.pinned ? 1 : 0, note.sort_order, note.created_at, note.updated_at]
+        'INSERT INTO notes (id, date, content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [note.id, note.date, note.content, note.description, note.category, note.completed ? 1 : 0, note.completed_at, note.deadline, note.pinned ? 1 : 0, note.sort_order, note.created_at, note.updated_at]
       );
 
       await persistDatabase();
@@ -250,6 +271,7 @@ export function useNotes(date: string) {
         category,
         completed: false,
         completed_at: null,
+        deadline: null,
         pinned: false,
         sort_order: newSortOrder,
         created_at: now,
@@ -257,8 +279,8 @@ export function useNotes(date: string) {
       };
 
       db.run(
-        'INSERT INTO notes (id, date, content, description, category, completed, completed_at, pinned, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [note.id, note.date, note.content, note.description, note.category, 0, null, 0, note.sort_order, note.created_at, note.updated_at]
+        'INSERT INTO notes (id, date, content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [note.id, note.date, note.content, note.description, note.category, 0, null, null, 0, note.sort_order, note.created_at, note.updated_at]
       );
 
       await persistDatabase();
@@ -289,6 +311,7 @@ export function useNotes(date: string) {
     createNote,
     createNoteAfter,
     updateNote,
+    updateDeadline,
     toggleCompleted,
     togglePinned,
     deleteNote,
