@@ -30,7 +30,16 @@
     "continueOffline": "Continuar sin cuenta",
     "account": "Cuenta",
     "profile": "Perfil",
-    "signedInAs": "Sesión iniciada como"
+    "signedInAs": "Sesión iniciada como",
+    "newPassword": "Nueva contraseña",
+    "setNewPassword": "Establecer Nueva Contraseña",
+    "setNewPasswordDescription": "Ingresa tu nueva contraseña a continuación",
+    "updatePassword": "Actualizar Contraseña",
+    "updatingPassword": "Actualizando...",
+    "passwordUpdated": "Contraseña actualizada exitosamente",
+    "invalidResetLink": "Enlace Inválido",
+    "invalidResetLinkDescription": "Este enlace de restablecimiento es inválido o ha expirado. Por favor solicita uno nuevo.",
+    "backToSignIn": "Volver a Iniciar Sesión"
   },
   "sync": {
     "status": "Estado de sincronización",
@@ -109,5 +118,7 @@
   "filterByCategory": "Filtrar por categoría",
   "filterByLabel": "Filtrar por etiqueta",
   "allCategories": "Todas las categorías",
-  "completedTasks": "Completadas"
+  "completedTasks": "Completadas",
+  "deadline": "Fecha límite",
+  "setDeadline": "Establecer fecha límite"
 }

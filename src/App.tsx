@@ -3,6 +3,7 @@ import { useAuth } from './contexts/AuthContext'
 import { Home } from './pages/Home'
 import { About } from './pages/About'
 import { Auth } from './pages/Auth'
+import { ResetPassword } from './pages/ResetPassword'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isConfigured } = useAuth()
@@ -32,6 +33,7 @@ function App() {
   return (
     <Routes>
       <Route path="/auth" element={<Auth />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route
         path="/"
         element={

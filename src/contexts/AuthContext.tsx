@@ -36,10 +36,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
       setIsLoading(false)
+
+      // Redirect to reset password page on PASSWORD_RECOVERY event
+      if (event === 'PASSWORD_RECOVERY') {
+        window.location.href = '/reset-password'
+      }
     })
 
     return () => subscription.unsubscribe()

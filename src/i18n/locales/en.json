@@ -30,7 +30,16 @@
     "continueOffline": "Continue without account",
     "account": "Account",
     "profile": "Profile",
-    "signedInAs": "Signed in as"
+    "signedInAs": "Signed in as",
+    "newPassword": "New password",
+    "setNewPassword": "Set New Password",
+    "setNewPasswordDescription": "Enter your new password below",
+    "updatePassword": "Update Password",
+    "updatingPassword": "Updating...",
+    "passwordUpdated": "Password updated successfully",
+    "invalidResetLink": "Invalid Reset Link",
+    "invalidResetLinkDescription": "This password reset link is invalid or has expired. Please request a new one.",
+    "backToSignIn": "Back to Sign In"
   },
   "sync": {
     "status": "Sync status",
@@ -109,5 +118,7 @@
   "filterByCategory": "Filter by category",
   "filterByLabel": "Filter by label",
   "allCategories": "All categories",
-  "completedTasks": "Completed"
+  "completedTasks": "Completed",
+  "deadline": "Deadline",
+  "setDeadline": "Set deadline"
 }
