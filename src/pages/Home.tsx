@@ -21,6 +21,7 @@ export function Home() {
   const { labels } = useLabels();
   const [labelFilter, setLabelFilter] = useState<string[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<NoteCategory | 'all'>('all');
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   const today = new Date();
   const dateKey = today.toISOString().split('T')[0];
@@ -111,6 +112,7 @@ export function Home() {
             externalCategoryFilter={categoryFilter}
             onLabelFilterChange={setLabelFilter}
             onCategoryFilterChange={setCategoryFilter}
+            isCommandPaletteOpen={isCommandPaletteOpen}
           />
         </div>
       </div>

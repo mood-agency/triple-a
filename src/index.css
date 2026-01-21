@@ -304,6 +304,21 @@ body {
   list-style-type: square;
 }
 
+/* Ordered list styles */
+.tiptap-ordered-list {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.tiptap-ordered-list .tiptap-ordered-list {
+  list-style-type: lower-alpha;
+}
+
+.tiptap-ordered-list .tiptap-ordered-list .tiptap-ordered-list {
+  list-style-type: lower-roman;
+}
+
 .tiptap-list-item {
   margin: 0.25rem 0;
 }

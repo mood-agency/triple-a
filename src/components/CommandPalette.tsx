@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pickaxe, Forward, StickyNote, Check, X } from 'lucide-react';
 import {
@@ -12,6 +12,12 @@ import {
 } from '@/components/ui/command';
 import type { Label, NoteCategory } from '@/types/note';
 
+interface FocusState {
+  element: HTMLElement;
+  selectionStart: number | null;
+  selectionEnd: number | null;
+}
+
 interface CommandPaletteProps {
   labels: Label[];
   selectedLabels: string[];
@@ -19,6 +25,7 @@ interface CommandPaletteProps {
   onClearLabels: () => void;
   categoryFilter: NoteCategory | 'all';
   onSelectCategory: (category: NoteCategory | 'all') => void;
+  onOpenStateChange?: (isOpen: boolean) => void;
 }
 
 export function CommandPalette({
@@ -28,16 +35,79 @@ export function CommandPalette({
   onClearLabels,
   categoryFilter,
   onSelectCategory,
+  onOpenStateChange,
 }: CommandPaletteProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const savedFocusRef = useRef<FocusState | null>(null);
+
+  // Notify parent of open state changes
+  useEffect(() => {
+    onOpenStateChange?.(open);
+  }, [open, onOpenStateChange]);
+
+  const saveFocusState = useCallback(() => {
+    const activeElement = document.activeElement as HTMLElement;
+    if (activeElement && activeElement !== document.body) {
+      const focusState: FocusState = {
+        element: activeElement,
+        selectionStart: null,
+        selectionEnd: null,
+      };
+
+      // Save cursor position for input elements
+      if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
+        focusState.selectionStart = activeElement.selectionStart;
+        focusState.selectionEnd = activeElement.selectionEnd;
+      }
+
+      savedFocusRef.current = focusState;
+    }
+  }, []);
+
+  const restoreFocusState = useCallback(() => {
+    const savedFocus = savedFocusRef.current;
+    if (savedFocus && savedFocus.element) {
+      // Use setTimeout to ensure the dialog has fully closed
+      setTimeout(() => {
+        savedFocus.element.focus();
+
+        // Restore cursor position for input elements
+        if (
+          (savedFocus.element instanceof HTMLInputElement || savedFocus.element instanceof HTMLTextAreaElement) &&
+          savedFocus.selectionStart !== null &&
+          savedFocus.selectionEnd !== null
+        ) {
+          savedFocus.element.setSelectionRange(savedFocus.selectionStart, savedFocus.selectionEnd);
+        }
+
+        savedFocusRef.current = null;
+      }, 0);
+    }
+  }, []);
+
+  const handleOpenChange = useCallback((newOpen: boolean) => {
+    if (newOpen) {
+      saveFocusState();
+    } else {
+      restoreFocusState();
+    }
+    setOpen(newOpen);
+  }, [saveFocusState, restoreFocusState]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault();
-      setOpen((prev) => !prev);
+      if (open) {
+        // Closing via Ctrl+K - restore focus
+        handleOpenChange(false);
+      } else {
+        // Opening via Ctrl+K - save focus state first
+        saveFocusState();
+        setOpen(true);
+      }
     }
-  }, []);
+  }, [open, saveFocusState, handleOpenChange]);
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
@@ -50,19 +120,19 @@ export function CommandPalette({
 
   const handleSelectCategory = (category: NoteCategory | 'all') => {
     onSelectCategory(category);
-    setOpen(false);
+    handleOpenChange(false);
   };
 
   const handleClearFilters = () => {
     onClearLabels();
     onSelectCategory('all');
-    setOpen(false);
+    handleOpenChange(false);
   };
 
   const hasActiveFilters = selectedLabels.length > 0 || categoryFilter !== 'all';
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen}>
+    <CommandDialog open={open} onOpenChange={handleOpenChange}>
       <CommandInput placeholder={t('commandPalettePlaceholder')} />
       <CommandList>
         <CommandEmpty>{t('noResults')}</CommandEmpty>

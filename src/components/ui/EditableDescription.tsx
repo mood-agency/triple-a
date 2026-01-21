@@ -11,6 +11,8 @@ import Code from '@tiptap/extension-code';
 import HardBreak from '@tiptap/extension-hard-break';
 import History from '@tiptap/extension-history';
 import Heading from '@tiptap/extension-heading';
+import BulletList from '@tiptap/extension-bullet-list';
+import OrderedList from '@tiptap/extension-ordered-list';
 import ListItem from '@tiptap/extension-list-item';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -145,7 +147,21 @@ export const EditableDescription = forwardRef<EditableDescriptionHandle, Editabl
         Heading.configure({
           levels: [1, 2, 3, 4, 5, 6],
         }),
-        ListItem,
+        BulletList.configure({
+          HTMLAttributes: {
+            class: 'tiptap-bullet-list',
+          },
+        }),
+        OrderedList.configure({
+          HTMLAttributes: {
+            class: 'tiptap-ordered-list',
+          },
+        }),
+        ListItem.configure({
+          HTMLAttributes: {
+            class: 'tiptap-list-item',
+          },
+        }),
         TaskList.configure({
           HTMLAttributes: {
             class: 'tiptap-task-list',
@@ -181,6 +197,8 @@ export const EditableDescription = forwardRef<EditableDescriptionHandle, Editabl
           transformPastedText: true,
           transformCopiedText: true,
           breaks: true,
+          tightLists: true,
+          bulletListMarker: '-',
         }),
       ],
       content: '',
@@ -204,24 +222,9 @@ export const EditableDescription = forwardRef<EditableDescriptionHandle, Editabl
           }
           return false;
         },
-        handleTextInput: (view, from, _to, text) => {
-          if (text === ' ') {
-            const { state } = view;
-            const $from = state.doc.resolve(from);
-            const textBefore = $from.parent.textContent.slice(0, $from.parentOffset);
-
-            // Allow task list patterns to proceed to input rules
-            if (/^-\s\[[( |x)]?\]$/.test(textBefore)) {
-              return false;
-            }
-
-            // Block simple bullet list patterns
-            const trimmed = textBefore.trim();
-            if (/^[-*]$/.test(trimmed) && trimmed === textBefore) {
-              view.dispatch(state.tr.insertText(' ', from));
-              return true;
-            }
-          }
+        handleTextInput: (_view, _from, _to, _text) => {
+          // Allow all text input to pass through to input rules
+          // This enables bullet lists (- or *), ordered lists (1.), and task lists (- [ ])
           return false;
         },
       },

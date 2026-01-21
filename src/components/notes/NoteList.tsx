@@ -63,6 +63,8 @@ interface NoteListProps {
   externalCategoryFilter?: NoteCategory | 'all';
   onLabelFilterChange?: (labels: string[]) => void;
   onCategoryFilterChange?: (category: NoteCategory | 'all') => void;
+  // Command palette state to prevent blur from exiting edit mode
+  isCommandPaletteOpen?: boolean;
 }
 
 interface NoteRowProps {
@@ -87,6 +89,7 @@ interface NoteRowProps {
   onRemoveLabel?: (labelId: string) => void;
   onCreateLabel?: () => void;
   onEditLabel?: (label: Label) => void;
+  isCommandPaletteOpen?: boolean;
 }
 
 function NoteRow({
@@ -111,6 +114,7 @@ function NoteRow({
   onRemoveLabel,
   onCreateLabel,
   onEditLabel,
+  isCommandPaletteOpen,
 }: NoteRowProps) {
   const { t } = useTranslation();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
