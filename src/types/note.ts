@@ -1,5 +1,7 @@
 export type NoteCategory = 'todo' | 'followup' | 'notes';
 
+export type SyncStatus = 'local' | 'pending' | 'synced' | 'conflict';
+
 export interface Note {
   id: string;
   date: string;
@@ -11,6 +13,10 @@ export interface Note {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  // Sync fields
+  remote_id?: string | null;
+  sync_status?: SyncStatus;
+  last_synced_at?: string | null;
 }
 
 export interface NoteHistory {
@@ -29,6 +35,10 @@ export interface Label {
   color: string;
   created_at: string;
   updated_at: string;
+  // Sync fields
+  remote_id?: string | null;
+  sync_status?: SyncStatus;
+  last_synced_at?: string | null;
 }
 
 export interface NoteLabel {

@@ -119,4 +119,63 @@ export function runMigrations(db: Database): void {
   db.run(`
     CREATE INDEX IF NOT EXISTS idx_note_labels_label_id ON note_labels(label_id)
   `);
+
+  // ========================================
+  // Sync-related migrations
+  // ========================================
+
+  // Add sync columns to notes table
+  const syncNotesInfo = db.exec("PRAGMA table_info(notes)");
+  if (syncNotesInfo.length > 0) {
+    const syncNotesColumns = syncNotesInfo[0].values.map((row) => row[1]);
+    if (!syncNotesColumns.includes('remote_id')) {
+      db.run('ALTER TABLE notes ADD COLUMN remote_id TEXT DEFAULT NULL');
+    }
+    if (!syncNotesColumns.includes('sync_status')) {
+      db.run("ALTER TABLE notes ADD COLUMN sync_status TEXT DEFAULT 'local'");
+    }
+    if (!syncNotesColumns.includes('last_synced_at')) {
+      db.run('ALTER TABLE notes ADD COLUMN last_synced_at TEXT DEFAULT NULL');
+    }
+  }
+
+  // Add sync columns to labels table
+  const syncLabelsInfo = db.exec("PRAGMA table_info(labels)");
+  if (syncLabelsInfo.length > 0) {
+    const syncLabelsColumns = syncLabelsInfo[0].values.map((row) => row[1]);
+    if (!syncLabelsColumns.includes('remote_id')) {
+      db.run('ALTER TABLE labels ADD COLUMN remote_id TEXT DEFAULT NULL');
+    }
+    if (!syncLabelsColumns.includes('sync_status')) {
+      db.run("ALTER TABLE labels ADD COLUMN sync_status TEXT DEFAULT 'local'");
+    }
+    if (!syncLabelsColumns.includes('last_synced_at')) {
+      db.run('ALTER TABLE labels ADD COLUMN last_synced_at TEXT DEFAULT NULL');
+    }
+  }
+
+  // Create pending_sync table for offline operations queue
+  db.run(`
+    CREATE TABLE IF NOT EXISTS pending_sync (
+      id TEXT PRIMARY KEY,
+      table_name TEXT NOT NULL,
+      operation TEXT NOT NULL,
+      record_id TEXT NOT NULL,
+      data TEXT,
+      created_at TEXT NOT NULL,
+      retry_count INTEGER DEFAULT 0
+    )
+  `);
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_pending_sync_created_at ON pending_sync(created_at)
+  `);
+
+  // Create sync_state table for tracking sync progress
+  db.run(`
+    CREATE TABLE IF NOT EXISTS sync_state (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )
+  `);
 }

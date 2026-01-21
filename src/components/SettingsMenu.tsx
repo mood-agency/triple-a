@@ -69,7 +69,7 @@ export function SettingsMenu() {
         return;
       }
 
-      const result = await importData(db, json, persistDatabase);
+      const result = await importData(db, json, persistDatabase, { useCurrentDate: true });
       setImportResult(result);
 
       if (!result.success && result.errors.length > 0) {

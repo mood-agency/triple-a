@@ -1,0 +1,512 @@
+import type { Database } from 'sql.js'
+import { supabase } from '@/lib/supabase'
+import type { Note, Label, NoteHistory, NoteLabel } from '@/types/note'
+import type { PendingSyncOperation, SyncTable, SyncOperation } from '@/types/sync'
+
+// Get supabase client - returns null if not configured
+function getSupabaseClient() {
+  return supabase
+}
+
+// Type helpers for bypassing strict type inference issues with Supabase generics
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = any
+
+export class SyncService {
+  private db: Database
+  private userId: string
+  private isSyncing = false
+
+  constructor(db: Database, userId: string) {
+    this.db = db
+    this.userId = userId
+  }
+
+  async queueOperation(
+    tableName: SyncTable,
+    operation: SyncOperation,
+    recordId: string,
+    data?: Record<string, unknown>
+  ): Promise<void> {
+    const id = crypto.randomUUID()
+    const now = new Date().toISOString()
+
+    this.db.run(
+      `INSERT INTO pending_sync (id, table_name, operation, record_id, data, created_at, retry_count)
+       VALUES (?, ?, ?, ?, ?, ?, 0)`,
+      [id, tableName, operation, recordId, data ? JSON.stringify(data) : null, now]
+    )
+  }
+
+  getPendingOperations(): PendingSyncOperation[] {
+    const result = this.db.exec(
+      'SELECT id, table_name, operation, record_id, data, created_at, retry_count FROM pending_sync ORDER BY created_at ASC'
+    )
+
+    if (result.length === 0) return []
+
+    return result[0].values.map((row) => ({
+      id: row[0] as string,
+      table_name: row[1] as SyncTable,
+      operation: row[2] as SyncOperation,
+      record_id: row[3] as string,
+      data: row[4] as string | null,
+      created_at: row[5] as string,
+      retry_count: row[6] as number,
+    }))
+  }
+
+  getPendingCount(): number {
+    const result = this.db.exec('SELECT COUNT(*) FROM pending_sync')
+    if (result.length === 0) return 0
+    return result[0].values[0][0] as number
+  }
+
+  private removeOperation(id: string): void {
+    this.db.run('DELETE FROM pending_sync WHERE id = ?', [id])
+  }
+
+  private incrementRetry(id: string): void {
+    this.db.run('UPDATE pending_sync SET retry_count = retry_count + 1 WHERE id = ?', [id])
+  }
+
+  async sync(): Promise<{ success: boolean; error?: string }> {
+    if (!getSupabaseClient()) {
+      return { success: false, error: 'Supabase not configured' }
+    }
+
+    if (this.isSyncing) {
+      return { success: false, error: 'Sync already in progress' }
+    }
+
+    this.isSyncing = true
+
+    try {
+      // 1. Push local changes to remote
+      await this.pushChanges()
+
+      // 2. Pull remote changes
+      await this.pullChanges()
+
+      // Update last sync time
+      const now = new Date().toISOString()
+      this.db.run(
+        `INSERT OR REPLACE INTO sync_state (key, value) VALUES ('last_synced_at', ?)`,
+        [now]
+      )
+
+      return { success: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown sync error'
+      return { success: false, error: message }
+    } finally {
+      this.isSyncing = false
+    }
+  }
+
+  private async pushChanges(): Promise<void> {
+    if (!getSupabaseClient()) return
+
+    const operations = this.getPendingOperations()
+
+    for (const op of operations) {
+      try {
+        await this.processSyncOperation(op)
+        this.removeOperation(op.id)
+      } catch (error) {
+        console.error(`Sync operation failed:`, op, error)
+        this.incrementRetry(op.id)
+
+        if (op.retry_count >= 3) {
+          this.removeOperation(op.id)
+        }
+      }
+    }
+  }
+
+  private async processSyncOperation(op: PendingSyncOperation): Promise<void> {
+    if (!getSupabaseClient()) return
+
+    const data = op.data ? JSON.parse(op.data) : null
+
+    switch (op.table_name) {
+      case 'notes':
+        await this.syncNote(op.operation, op.record_id, data)
+        break
+      case 'labels':
+        await this.syncLabel(op.operation, op.record_id, data)
+        break
+      case 'note_labels':
+        await this.syncNoteLabel(op.operation, op.record_id, data)
+        break
+      case 'note_history':
+        await this.syncNoteHistory(op.operation, op.record_id, data)
+        break
+    }
+  }
+
+  private async syncNote(operation: SyncOperation, recordId: string, data: Partial<Note> | null): Promise<void> {
+    const client = getSupabaseClient() as AnySupabaseClient
+    if (!client) return
+
+    switch (operation) {
+      case 'insert':
+        if (data) {
+          const { data: inserted, error } = await client
+            .from('notes')
+            .insert({
+              user_id: this.userId,
+              date: data.date!,
+              content: data.content!,
+              description: data.description,
+              category: data.category,
+              completed: data.completed,
+              pinned: data.pinned,
+              sort_order: data.sort_order,
+              created_at: data.created_at,
+              updated_at: data.updated_at,
+            })
+            .select('id')
+            .single()
+
+          if (error) throw error
+
+          // Update local record with remote_id
+          if (inserted) {
+            this.db.run(
+              `UPDATE notes SET remote_id = ?, sync_status = 'synced', last_synced_at = ? WHERE id = ?`,
+              [inserted.id, new Date().toISOString(), recordId]
+            )
+          }
+        }
+        break
+
+      case 'update':
+        if (data) {
+          const remoteIdResult = this.db.exec(`SELECT remote_id FROM notes WHERE id = ?`, [recordId])
+          const remoteId = remoteIdResult[0]?.values[0]?.[0] as string | null
+
+          if (remoteId) {
+            const { error } = await client
+              .from('notes')
+              .update({
+                content: data.content,
+                description: data.description,
+                category: data.category,
+                completed: data.completed,
+                pinned: data.pinned,
+                sort_order: data.sort_order,
+                updated_at: data.updated_at,
+              })
+              .eq('id', remoteId)
+
+            if (error) throw error
+
+            this.db.run(
+              `UPDATE notes SET sync_status = 'synced', last_synced_at = ? WHERE id = ?`,
+              [new Date().toISOString(), recordId]
+            )
+          }
+        }
+        break
+
+      case 'delete': {
+        const remoteIdResult = this.db.exec(`SELECT remote_id FROM notes WHERE id = ?`, [recordId])
+        const remoteId = remoteIdResult[0]?.values[0]?.[0] as string | null
+
+        if (remoteId) {
+          const { error } = await client
+            .from('notes')
+            .update({ deleted_at: new Date().toISOString() })
+            .eq('id', remoteId)
+
+          if (error) throw error
+        }
+        break
+      }
+    }
+  }
+
+  private async syncLabel(operation: SyncOperation, recordId: string, data: Partial<Label> | null): Promise<void> {
+    const client = getSupabaseClient() as AnySupabaseClient
+    if (!client) return
+
+    switch (operation) {
+      case 'insert':
+        if (data) {
+          const { data: inserted, error } = await client
+            .from('labels')
+            .insert({
+              user_id: this.userId,
+              name: data.name!,
+              color: data.color!,
+              created_at: data.created_at,
+              updated_at: data.updated_at,
+            })
+            .select('id')
+            .single()
+
+          if (error) throw error
+
+          if (inserted) {
+            this.db.run(
+              `UPDATE labels SET remote_id = ?, sync_status = 'synced', last_synced_at = ? WHERE id = ?`,
+              [inserted.id, new Date().toISOString(), recordId]
+            )
+          }
+        }
+        break
+
+      case 'update':
+        if (data) {
+          const remoteIdResult = this.db.exec(`SELECT remote_id FROM labels WHERE id = ?`, [recordId])
+          const remoteId = remoteIdResult[0]?.values[0]?.[0] as string | null
+
+          if (remoteId) {
+            const { error } = await client
+              .from('labels')
+              .update({
+                name: data.name,
+                color: data.color,
+                updated_at: data.updated_at,
+              })
+              .eq('id', remoteId)
+
+            if (error) throw error
+
+            this.db.run(
+              `UPDATE labels SET sync_status = 'synced', last_synced_at = ? WHERE id = ?`,
+              [new Date().toISOString(), recordId]
+            )
+          }
+        }
+        break
+
+      case 'delete': {
+        const remoteIdResult = this.db.exec(`SELECT remote_id FROM labels WHERE id = ?`, [recordId])
+        const remoteId = remoteIdResult[0]?.values[0]?.[0] as string | null
+
+        if (remoteId) {
+          const { error } = await client
+            .from('labels')
+            .update({ deleted_at: new Date().toISOString() })
+            .eq('id', remoteId)
+
+          if (error) throw error
+        }
+        break
+      }
+    }
+  }
+
+  private async syncNoteLabel(operation: SyncOperation, _recordId: string, data: Partial<NoteLabel> | null): Promise<void> {
+    const client = getSupabaseClient() as AnySupabaseClient
+    if (!client || !data) return
+
+    // Get remote IDs for note and label
+    const noteResult = this.db.exec(`SELECT remote_id FROM notes WHERE id = ?`, [data.note_id])
+    const labelResult = this.db.exec(`SELECT remote_id FROM labels WHERE id = ?`, [data.label_id])
+
+    const noteRemoteId = noteResult[0]?.values[0]?.[0] as string | null
+    const labelRemoteId = labelResult[0]?.values[0]?.[0] as string | null
+
+    if (!noteRemoteId || !labelRemoteId) return
+
+    switch (operation) {
+      case 'insert': {
+        const { error: insertError } = await client
+          .from('note_labels')
+          .insert({
+            note_id: noteRemoteId,
+            label_id: labelRemoteId,
+            user_id: this.userId,
+            created_at: data.created_at,
+          })
+
+        if (insertError && !insertError.message.includes('duplicate')) {
+          throw insertError
+        }
+        break
+      }
+
+      case 'delete': {
+        const { error: deleteError } = await client
+          .from('note_labels')
+          .delete()
+          .eq('note_id', noteRemoteId)
+          .eq('label_id', labelRemoteId)
+
+        if (deleteError) throw deleteError
+        break
+      }
+    }
+  }
+
+  private async syncNoteHistory(_operation: SyncOperation, _recordId: string, data: Partial<NoteHistory> | null): Promise<void> {
+    const client = getSupabaseClient() as AnySupabaseClient
+    if (!client || _operation !== 'insert' || !data) return
+
+    const noteResult = this.db.exec(`SELECT remote_id FROM notes WHERE id = ?`, [data.note_id])
+    const noteRemoteId = noteResult[0]?.values[0]?.[0] as string | null
+
+    if (!noteRemoteId) return
+
+    const { error } = await client
+      .from('note_history')
+      .insert({
+        note_id: noteRemoteId,
+        user_id: this.userId,
+        content: data.content!,
+        description: data.description,
+        category: data.category!,
+        completed: data.completed,
+        changed_at: data.changed_at,
+      })
+
+    if (error) throw error
+  }
+
+  private async pullChanges(): Promise<void> {
+    const client = getSupabaseClient() as AnySupabaseClient
+    if (!client) return
+
+    const lastSyncResult = this.db.exec(`SELECT value FROM sync_state WHERE key = 'last_synced_at'`)
+    const lastSyncedAt = lastSyncResult[0]?.values[0]?.[0] as string | null
+
+    // Pull notes
+    let notesQuery = client
+      .from('notes')
+      .select('*')
+      .eq('user_id', this.userId)
+      .is('deleted_at', null)
+
+    if (lastSyncedAt) {
+      notesQuery = notesQuery.gt('updated_at', lastSyncedAt)
+    }
+
+    const { data: remoteNotes, error: notesError } = await notesQuery
+    if (notesError) throw notesError
+
+    for (const remoteNote of remoteNotes || []) {
+      this.mergeRemoteNote(remoteNote)
+    }
+
+    // Pull labels
+    let labelsQuery = client
+      .from('labels')
+      .select('*')
+      .eq('user_id', this.userId)
+      .is('deleted_at', null)
+
+    if (lastSyncedAt) {
+      labelsQuery = labelsQuery.gt('updated_at', lastSyncedAt)
+    }
+
+    const { data: remoteLabels, error: labelsError } = await labelsQuery
+    if (labelsError) throw labelsError
+
+    for (const remoteLabel of remoteLabels || []) {
+      this.mergeRemoteLabel(remoteLabel)
+    }
+  }
+
+  private mergeRemoteNote(remoteNote: Record<string, unknown>): void {
+    const existingResult = this.db.exec(
+      `SELECT id, updated_at, sync_status FROM notes WHERE remote_id = ?`,
+      [remoteNote.id as string]
+    )
+
+    const now = new Date().toISOString()
+
+    if (existingResult.length === 0 || existingResult[0].values.length === 0) {
+      // Insert new note from remote
+      const localId = crypto.randomUUID()
+      this.db.run(
+        `INSERT INTO notes (id, date, content, description, category, completed, pinned, sort_order, created_at, updated_at, remote_id, sync_status, last_synced_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)`,
+        [
+          localId,
+          remoteNote.date,
+          remoteNote.content,
+          remoteNote.description,
+          remoteNote.category,
+          remoteNote.completed ? 1 : 0,
+          remoteNote.pinned ? 1 : 0,
+          remoteNote.sort_order,
+          remoteNote.created_at,
+          remoteNote.updated_at,
+          remoteNote.id,
+          now,
+        ]
+      )
+    } else {
+      const [localId, localUpdatedAt, syncStatus] = existingResult[0].values[0] as [string, string, string]
+
+      // Only update if remote is newer and local isn't pending
+      if (syncStatus === 'synced' || new Date(remoteNote.updated_at as string) > new Date(localUpdatedAt)) {
+        this.db.run(
+          `UPDATE notes SET content = ?, description = ?, category = ?, completed = ?, pinned = ?, sort_order = ?, updated_at = ?, sync_status = 'synced', last_synced_at = ?
+           WHERE id = ?`,
+          [
+            remoteNote.content,
+            remoteNote.description,
+            remoteNote.category,
+            remoteNote.completed ? 1 : 0,
+            remoteNote.pinned ? 1 : 0,
+            remoteNote.sort_order,
+            remoteNote.updated_at,
+            now,
+            localId,
+          ]
+        )
+      }
+    }
+  }
+
+  private mergeRemoteLabel(remoteLabel: Record<string, unknown>): void {
+    const existingResult = this.db.exec(
+      `SELECT id, updated_at, sync_status FROM labels WHERE remote_id = ?`,
+      [remoteLabel.id as string]
+    )
+
+    const now = new Date().toISOString()
+
+    if (existingResult.length === 0 || existingResult[0].values.length === 0) {
+      const localId = crypto.randomUUID()
+      this.db.run(
+        `INSERT INTO labels (id, name, color, created_at, updated_at, remote_id, sync_status, last_synced_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'synced', ?)`,
+        [
+          localId,
+          remoteLabel.name,
+          remoteLabel.color,
+          remoteLabel.created_at,
+          remoteLabel.updated_at,
+          remoteLabel.id,
+          now,
+        ]
+      )
+    } else {
+      const [localId, localUpdatedAt, syncStatus] = existingResult[0].values[0] as [string, string, string]
+
+      if (syncStatus === 'synced' || new Date(remoteLabel.updated_at as string) > new Date(localUpdatedAt)) {
+        this.db.run(
+          `UPDATE labels SET name = ?, color = ?, updated_at = ?, sync_status = 'synced', last_synced_at = ?
+           WHERE id = ?`,
+          [
+            remoteLabel.name,
+            remoteLabel.color,
+            remoteLabel.updated_at,
+            now,
+            localId,
+          ]
+        )
+      }
+    }
+  }
+
+  getLastSyncedAt(): string | null {
+    const result = this.db.exec(`SELECT value FROM sync_state WHERE key = 'last_synced_at'`)
+    return result[0]?.values[0]?.[0] as string | null
+  }
+}
