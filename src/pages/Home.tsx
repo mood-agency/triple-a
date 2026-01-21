@@ -5,20 +5,31 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { NoteList, type NoteListHandle } from '@/components/notes/NoteList';
 import { SettingsMenu } from '@/components/SettingsMenu';
+import { SyncStatus } from '@/components/sync/SyncStatus';
+import { UserMenu } from '@/components/auth/UserMenu';
+import { CommandPalette } from '@/components/CommandPalette';
 import { useNotes } from '@/hooks/useNotes';
 import { useDatabase } from '@/contexts/DatabaseContext';
-import type { Note } from '@/types/note';
+import { useLabels } from '@/hooks/useLabels';
+import type { Note, NoteCategory } from '@/types/note';
 
 export function Home() {
   const { t, i18n } = useTranslation();
   const { isReady } = useDatabase();
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const noteListRef = useRef<NoteListHandle>(null);
+  const { labels } = useLabels();
+  const [labelFilter, setLabelFilter] = useState<string[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<NoteCategory | 'all'>('all');
 
   const today = new Date();
   const dateKey = today.toISOString().split('T')[0];
 
-  const { notes, loading, createNoteAfter, updateNote, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes } = useNotes(dateKey);
+  const { notes, loading, createNote, createNoteAfter, updateNote, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes } = useNotes(dateKey);
+
+  const handleCreateTask = () => {
+    createNote('Mi tarea aquí', 'todo');
+  };
 
   const toggleLanguage = () => {
     const newLang = i18n.language === 'es' ? 'en' : 'es';
@@ -56,6 +67,19 @@ export function Home() {
           <div className="flex items-center gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
+                <Button onClick={handleCreateTask} size="icon" variant="outline">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 5v14M5 12h14"/>
+                  </svg>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t('newTask')}</p>
+              </TooltipContent>
+            </Tooltip>
+            <SyncStatus />
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <Button variant="secondary" size="sm" onClick={toggleLanguage}>
                   {i18n.language.toUpperCase()}
                 </Button>
@@ -66,6 +90,7 @@ export function Home() {
             </Tooltip>
             <ThemeToggle />
             <SettingsMenu />
+            <UserMenu />
           </div>
         </div>
 
@@ -82,9 +107,28 @@ export function Home() {
             selectedNote={selectedNote}
             onSelectNote={setSelectedNote}
             onCreateNoteAfter={createNoteAfter}
+            externalLabelFilter={labelFilter}
+            externalCategoryFilter={categoryFilter}
+            onLabelFilterChange={setLabelFilter}
+            onCategoryFilterChange={setCategoryFilter}
           />
         </div>
       </div>
+
+      <CommandPalette
+        labels={labels}
+        selectedLabels={labelFilter}
+        onSelectLabel={(labelId) => {
+          setLabelFilter((prev) =>
+            prev.includes(labelId)
+              ? prev.filter((id) => id !== labelId)
+              : [...prev, labelId]
+          );
+        }}
+        onClearLabels={() => setLabelFilter([])}
+        categoryFilter={categoryFilter}
+        onSelectCategory={setCategoryFilter}
+      />
     </div>
   );
 }

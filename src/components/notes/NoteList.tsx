@@ -58,6 +58,11 @@ interface NoteListProps {
   onSelectNote: (note: Note | null) => void;
   onNavigateToEditor?: (column: number) => void;
   onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory) => Promise<Note>;
+  // External filter control (from CommandPalette)
+  externalLabelFilter?: string[];
+  externalCategoryFilter?: NoteCategory | 'all';
+  onLabelFilterChange?: (labels: string[]) => void;
+  onCategoryFilterChange?: (category: NoteCategory | 'all') => void;
 }
 
 interface NoteRowProps {
@@ -264,6 +269,24 @@ function NoteRow({
   };
 
   const handleContentKeyDown = (e: React.KeyboardEvent) => {
+    // Handle Ctrl+D first to prevent browser default behavior (which can delete selected text)
+    if (e.key === 'd' && e.ctrlKey && note.category !== 'notes') {
+      e.preventDefault();
+      e.stopPropagation();
+      // Save current content first before toggling
+      if (contentValue.trim() && contentValue !== note.content) {
+        onEdit(note.id, contentValue.trim(), note.category, note.description);
+      }
+      onToggleCompleted(note.id, !note.completed);
+      return;
+    }
+    if (e.key === 'Backspace' && e.ctrlKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsEditingContent(false);
+      onDeleteWithToast(note);
+      return;
+    }
     if (e.key === 'l' && e.ctrlKey) {
       e.preventDefault();
       setShowLabelDropdown(true);
@@ -315,35 +338,37 @@ function NoteRow({
         }}
         style={style}
         onClick={onSelect}
-        className={`group grid grid-cols-[20px_24px_1fr_56px] py-0.5 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed ? 'opacity-50' : ''} ${isSelected ? 'bg-muted/50' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
+        className={`group grid grid-cols-[24px_1fr_56px] py-0.5 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' ? 'opacity-50' : ''} ${isSelected ? 'bg-muted/50' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
       >
         <div
-          className="flex items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground/70 transition-colors" />
-        </div>
-
-        <div
           className="flex items-center justify-center cursor-pointer select-none"
-          onClick={handleToggle}
+          onClick={note.category !== 'notes' ? handleToggle : undefined}
         >
-          {note.completed ? (
-            <Checkbox
-              checked={true}
-              onCheckedChange={handleCheckedChange}
-            />
-          ) : (
-            <Checkbox
-              checked={false}
-              onCheckedChange={handleCheckedChange}
-              className="opacity-0 group-hover:opacity-100 transition-opacity"
-            />
+          {note.category !== 'notes' && (
+            note.completed ? (
+              <Checkbox
+                checked={true}
+                onCheckedChange={handleCheckedChange}
+              />
+            ) : (
+              <Checkbox
+                checked={false}
+                onCheckedChange={handleCheckedChange}
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+              />
+            )
           )}
         </div>
 
         <div className={`px-2 select-none py-0.5 flex items-center gap-1.5 ${isEditingContent ? '' : 'overflow-hidden'}`} onClick={handleContentClick}>
+          <div
+            className="flex items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none shrink-0"
+            {...attributes}
+            {...listeners}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground/70 transition-colors" />
+          </div>
           {note.category === 'todo' ? (
             <Pickaxe className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
           ) : note.category === 'followup' ? (
@@ -541,7 +566,7 @@ function getColumnPosition(text: string, cursorPos: number): number {
   return lastNewline === -1 ? cursorPos : cursorPos - lastNewline - 1;
 }
 
-export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onReorderNotes, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter }, ref) {
+export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onReorderNotes, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, externalLabelFilter, externalCategoryFilter, onLabelFilterChange, onCategoryFilterChange }, ref) {
   const { t, i18n } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<EditableDescriptionHandle>(null);
@@ -550,13 +575,34 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [focusTarget, setFocusTarget] = useState<FocusTarget>(null);
   const [desiredColumn, setDesiredColumn] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<NoteCategory | 'all'>('all');
+  const [internalCategoryFilter, setInternalCategoryFilter] = useState<NoteCategory | 'all'>('all');
   const { history } = useNoteHistory(selectedNote?.id ?? null);
   const [activeId, setActiveId] = useState<string | null>(null);
 
   // Labels state
   const { labels, getLabelsForNote, addLabelToNote, removeLabelFromNote, createLabel, updateLabel, noteLabelVersion } = useLabels();
-  const [labelFilter, setLabelFilter] = useState<string[]>([]);
+  const [internalLabelFilter, setInternalLabelFilter] = useState<string[]>([]);
+
+  // Use external filters if provided, otherwise use internal state
+  const labelFilter = externalLabelFilter ?? internalLabelFilter;
+  const categoryFilter = externalCategoryFilter ?? internalCategoryFilter;
+
+  const setLabelFilter = (value: string[] | ((prev: string[]) => string[])) => {
+    const newValue = typeof value === 'function' ? value(labelFilter) : value;
+    if (onLabelFilterChange) {
+      onLabelFilterChange(newValue);
+    } else {
+      setInternalLabelFilter(newValue);
+    }
+  };
+
+  const setCategoryFilter = (value: NoteCategory | 'all') => {
+    if (onCategoryFilterChange) {
+      onCategoryFilterChange(value);
+    } else {
+      setInternalCategoryFilter(value);
+    }
+  };
   const [noteLabels, setNoteLabels] = useState<Label[]>([]);
   const [showCreateLabelDialog, setShowCreateLabelDialog] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
@@ -793,11 +839,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       onSelectNote(prevNote);
       setFocusTarget('title');
       return true;
-    } else if (idx === 0 && onNavigateToEditor) {
-      // On first task, navigate to the editor's description
-      setDesiredColumn(column);
+    } else if (idx === 0) {
+      // On first task, navigate to the search bar
       onSelectNote(null);
-      onNavigateToEditor(column);
+      searchInputRef.current?.focus();
       return true;
     }
     return false;
@@ -826,6 +871,15 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     if (e.key === 'Escape') {
       setDescriptionValue(selectedNote?.description || '');
       descriptionRef.current?.blur();
+    } else if (e.key === 'Tab' && e.shiftKey && selectedNote) {
+      e.preventDefault();
+      // Save current description
+      if (descriptionValue !== (selectedNote.description || '')) {
+        onEdit(selectedNote.id, selectedNote.content, selectedNote.category, descriptionValue || null);
+      }
+      // Go back to the title
+      setDesiredColumn(selectedNote.content.length);
+      setFocusTarget('title');
     } else if (e.key === 'ArrowDown' && selectedNote) {
       const selectionInfo = descriptionRef.current?.getSelectionInfo();
       if (selectionInfo) {
@@ -875,9 +929,24 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+F to focus search bar (works from anywhere)
+      if (e.key === 'f' && e.ctrlKey) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
       // Don't handle if we're typing in any text input (INPUT, TEXTAREA, or contenteditable)
       const activeEl = document.activeElement as HTMLElement;
       if (activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'TEXTAREA' || activeEl?.isContentEditable) {
+        return;
+      }
+
+      // Ctrl+D to toggle checkbox when a task is selected
+      if (e.key === 'd' && e.ctrlKey && selectedNote && selectedNote.category !== 'notes') {
+        e.preventDefault();
+        onToggleCompleted(selectedNote.id, !selectedNote.completed);
         return;
       }
 
@@ -900,7 +969,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNote, filteredNotes, onSelectNote]);
+  }, [selectedNote, filteredNotes, onSelectNote, onToggleCompleted]);
 
   if (notes.length === 0) {
     return (
@@ -920,6 +989,17 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown' && filteredNotes.length > 0) {
+                e.preventDefault();
+                onSelectNote(filteredNotes[0]);
+                setDesiredColumn(0);
+                setFocusTarget('title');
+              } else if (e.key === 'Escape') {
+                setSearchQuery('');
+                searchInputRef.current?.blur();
+              }
+            }}
             placeholder={t('searchNotes')}
             className="w-full pl-7 h-7 text-xs bg-transparent border border-muted-foreground/20 rounded-md outline-none focus:border-muted-foreground/40 transition-colors"
           />
@@ -1049,7 +1129,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
             <h1 className={`text-lg font-semibold mb-2 flex-shrink-0 ${selectedNote.completed ? 'line-through text-muted-foreground' : ''}`}>
               {selectedNote.content}
             </h1>
-            <div className="flex gap-1 mb-2 flex-shrink-0">
+            <div className="flex flex-wrap gap-1 mb-2 flex-shrink-0 items-center">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -1104,9 +1184,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                   <p>{t('categoryNotes')}</p>
                 </TooltipContent>
               </Tooltip>
-            </div>
-            {/* Labels section */}
-            <div className="flex flex-wrap gap-1 mb-2 items-center">
+              {/* Labels */}
               {noteLabels.map((label) => (
                 <span
                   key={label.id}
