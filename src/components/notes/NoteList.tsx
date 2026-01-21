@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Trash2, Clock, Calendar, Search, Pickaxe, Forward, GripVertical, StickyNote, Tag, Plus, X, Pencil, Pin } from 'lucide-react';
+import { Trash2, Clock, Calendar, Search, Pickaxe, Forward, GripVertical, StickyNote, Tag, Plus, X, Pencil, Pin, CalendarClock, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -46,6 +46,7 @@ import {
 } from '@/components/ui/command';
 import { DatePicker } from '@/components/ui/date-picker';
 import type { Note, NoteCategory, Label } from '@/types/note';
+import { PostponeDialog } from './PostponeDialog';
 
 interface NoteListProps {
   notes: Note[];
@@ -56,6 +57,7 @@ interface NoteListProps {
   onTogglePinned: (id: string, pinned: boolean) => void;
   onUpdateDeadline: (id: string, deadline: string | null) => void;
   onReorderNotes: (orderedIds: string[]) => void;
+  onPostponeNote: (id: string, newDeadline: string, reason: string) => void;
   selectedNote: Note | null;
   onSelectNote: (note: Note | null) => void;
   onNavigateToEditor?: (column: number) => void;
@@ -90,6 +92,7 @@ interface NoteRowProps {
   onCreateLabel?: () => void;
   onEditLabel?: (label: Label) => void;
   isCommandPaletteOpen?: boolean;
+  onPostpone?: (noteId: string) => void;
 }
 
 function NoteRow({
@@ -115,6 +118,7 @@ function NoteRow({
   onCreateLabel,
   onEditLabel,
   isCommandPaletteOpen,
+  onPostpone,
 }: NoteRowProps) {
   const { t } = useTranslation();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -346,7 +350,7 @@ function NoteRow({
         }}
         style={style}
         onClick={onSelect}
-        className={`group grid grid-cols-[24px_1fr_56px] py-0.5 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' ? 'opacity-50' : ''} ${isSelected ? 'bg-muted/50' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
+        className={`group grid grid-cols-[24px_1fr_84px] py-0.5 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' ? 'opacity-50' : ''} ${isSelected ? 'bg-muted/50' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
       >
         <div
           className="flex items-center justify-center cursor-pointer select-none"
@@ -511,6 +515,25 @@ function NoteRow({
               <p>{note.pinned ? t('unpin') : t('pin')}</p>
             </TooltipContent>
           </Tooltip>
+          {onPostpone && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/60 hover:text-primary p-1.5 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPostpone(note.id);
+                  }}
+                >
+                  <CalendarClock className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t('postpone')}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -584,7 +607,7 @@ function getColumnPosition(text: string, cursorPos: number): number {
   return lastNewline === -1 ? cursorPos : cursorPos - lastNewline - 1;
 }
 
-export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onReorderNotes, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, externalLabelFilter, externalCategoryFilter, onLabelFilterChange, onCategoryFilterChange }, ref) {
+export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, externalLabelFilter, externalCategoryFilter, onLabelFilterChange, onCategoryFilterChange }, ref) {
   const { t, i18n } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<EditableDescriptionHandle>(null);
@@ -594,8 +617,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [desiredColumn, setDesiredColumn] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [internalCategoryFilter, setInternalCategoryFilter] = useState<NoteCategory | 'all'>('all');
-  const { history } = useNoteHistory(selectedNote?.id ?? null);
+  const { history, deleteHistoryEntry } = useNoteHistory(selectedNote?.id ?? null);
+  const [historyEntryToDelete, setHistoryEntryToDelete] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [categoryJustChanged, setCategoryJustChanged] = useState(false);
 
   // Labels state
   const { labels, getLabelsForNote, addLabelToNote, removeLabelFromNote, createLabel, updateLabel, noteLabelVersion } = useLabels();
@@ -629,6 +654,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [editLabelName, setEditLabelName] = useState('');
   const [editLabelColor, setEditLabelColor] = useState('#6b7280');
   const [labelDropdownOpen, setLabelDropdownOpen] = useState(false);
+  const [postponeDialogOpen, setPostponeDialogOpen] = useState(false);
+  const [noteToPostpone, setNoteToPostpone] = useState<Note | null>(null);
+  const [showSidebar, setShowSidebar] = useState(false);
 
   const LABEL_COLORS = [
     '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6',
@@ -748,6 +776,22 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     }
   };
 
+  const handleOpenPostponeDialog = (noteId: string) => {
+    const note = notes.find(n => n.id === noteId);
+    if (note) {
+      setNoteToPostpone(note);
+      setPostponeDialogOpen(true);
+    }
+  };
+
+  const handlePostpone = (newDeadline: string, reason: string) => {
+    if (noteToPostpone) {
+      onPostponeNote(noteToPostpone.id, newDeadline, reason);
+      setNoteToPostpone(null);
+      setPostponeDialogOpen(false);
+    }
+  };
+
   const handleCreateNoteAfter = async (afterNoteId: string) => {
     if (!onCreateNoteAfter) return;
     const afterNote = filteredNotes.find((n) => n.id === afterNoteId);
@@ -798,6 +842,50 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         onClick: () => onRestore(note),
       },
     });
+  };
+
+  // Handle toggle completion with navigation to adjacent task
+  const handleToggleCompletedWithNavigation = (noteId: string, completed: boolean) => {
+    // Find current position in activeNotes (only active notes matter for navigation)
+    const currentIndex = activeNotes.findIndex((n) => n.id === noteId);
+
+    // Only navigate when completing a task (not when uncompleting)
+    if (completed && currentIndex !== -1) {
+      // Determine where to navigate after completion
+      let targetNote: Note | null = null;
+
+      if (activeNotes.length === 1) {
+        // Last active task, deselect (show default description area)
+        targetNote = null;
+      } else if (currentIndex < activeNotes.length - 1) {
+        // Has task below, navigate to it
+        targetNote = activeNotes[currentIndex + 1];
+      } else if (currentIndex > 0) {
+        // Last task in list but has task above, navigate to it
+        targetNote = activeNotes[currentIndex - 1];
+      }
+
+      // Toggle completion
+      onToggleCompleted(noteId, completed);
+
+      // Show toast for completion
+      toast.success(t('taskCompleted'));
+
+      // Navigate to adjacent task or deselect
+      onSelectNote(targetNote);
+      if (targetNote) {
+        setDesiredColumn(0);
+        setFocusTarget('title');
+      }
+    } else {
+      // Just toggle without navigation (uncompleting a task)
+      onToggleCompleted(noteId, completed);
+
+      // Show toast for reopening
+      if (!completed) {
+        toast(t('taskReopened'));
+      }
+    }
   };
 
   // Expose method to focus first task from parent
@@ -974,6 +1062,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       if (e.key === 'a' && e.ctrlKey) {
         e.preventDefault();
         setCategoryFilter(categoryFilter === 'todo' ? 'all' : 'todo');
+        setCategoryJustChanged(true);
         return;
       }
 
@@ -981,6 +1070,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       if (e.key === 's' && e.ctrlKey) {
         e.preventDefault();
         setCategoryFilter(categoryFilter === 'followup' ? 'all' : 'followup');
+        setCategoryJustChanged(true);
         return;
       }
 
@@ -988,29 +1078,44 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       if (e.key === 'd' && e.ctrlKey) {
         e.preventDefault();
         setCategoryFilter(categoryFilter === 'notes' ? 'all' : 'notes');
+        setCategoryJustChanged(true);
+        return;
+      }
+
+      // Ctrl+C to clear all filters
+      if (e.key === 'c' && e.ctrlKey) {
+        e.preventDefault();
+        setCategoryFilter('all');
+        setLabelFilter([]);
+        setCategoryJustChanged(true);
         return;
       }
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        if (!selectedNote && filteredNotes.length > 0) {
+        // After category change or when no note selected, select first task
+        if ((categoryJustChanged || !selectedNote) && filteredNotes.length > 0) {
           onSelectNote(filteredNotes[0]);
           setFocusTarget('title');
+          setCategoryJustChanged(false);
         }
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        if (!selectedNote && filteredNotes.length > 0) {
+        // After category change, select last task; when no note selected, also select last
+        if ((categoryJustChanged || !selectedNote) && filteredNotes.length > 0) {
           onSelectNote(filteredNotes[filteredNotes.length - 1]);
           setFocusTarget('title');
+          setCategoryJustChanged(false);
         }
       } else if (e.key === 'Escape') {
         onSelectNote(null);
+        setCategoryJustChanged(false);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNote, filteredNotes, onSelectNote, categoryFilter, setCategoryFilter]);
+  }, [selectedNote, filteredNotes, onSelectNote, categoryFilter, setCategoryFilter, categoryJustChanged]);
 
   if (notes.length === 0) {
     return (
@@ -1115,9 +1220,26 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
             ))}
           </div>
         )}
+        {/* Toggle sidebar button */}
+        <div className="ml-auto">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => setShowSidebar(!showSidebar)}
+                className="p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors"
+              >
+                {showSidebar ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{showSidebar ? t('hideSidebar') : t('showSidebar')}</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </div>
       <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
-        <div className="w-[38rem] shrink-0 flex flex-col overflow-hidden">
+        <div className={`${showSidebar ? 'w-[38rem]' : 'flex-1'} shrink-0 flex flex-col overflow-hidden`}>
           {/* Active tasks section - 75% */}
           <div className="overflow-y-auto pr-2 flex-[3]">
             <DndContext
@@ -1135,7 +1257,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                     key={note.id}
                     note={note}
                     onDeleteWithToast={handleDeleteWithToast}
-                    onToggleCompleted={onToggleCompleted}
+                    onToggleCompleted={handleToggleCompletedWithNavigation}
                     onTogglePinned={onTogglePinned}
                     isSelected={selectedNote?.id === note.id}
                     onSelect={() => onSelectNote(note)}
@@ -1158,6 +1280,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                     }}
                     onCreateLabel={() => setShowCreateLabelDialog(true)}
                     onEditLabel={handleEditLabel}
+                    onPostpone={handleOpenPostponeDialog}
                   />
                 ))}
               </SortableContext>
@@ -1176,7 +1299,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                     key={note.id}
                     note={note}
                     onDeleteWithToast={handleDeleteWithToast}
-                    onToggleCompleted={onToggleCompleted}
+                    onToggleCompleted={handleToggleCompletedWithNavigation}
                     onTogglePinned={onTogglePinned}
                     isSelected={selectedNote?.id === note.id}
                     onSelect={() => onSelectNote(note)}
@@ -1199,6 +1322,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                     }}
                     onCreateLabel={() => setShowCreateLabelDialog(true)}
                     onEditLabel={handleEditLabel}
+                    onPostpone={handleOpenPostponeDialog}
                   />
                 ))}
               </div>
@@ -1206,9 +1330,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           )}
         </div>
 
-      <div className="flex-1 min-w-0 border-l border-dashed border-muted-foreground/20 pl-4 overflow-hidden flex flex-col">
-        {selectedNote ? (
-          <>
+        <div className="flex-1 min-w-0 border-l border-dashed border-muted-foreground/20 pl-4 overflow-hidden flex flex-col">
+          {selectedNote ? (
+            <>
             <h1 className={`text-2xl font-semibold mb-2 flex-shrink-0 ${selectedNote.completed ? 'line-through text-muted-foreground' : ''}`}>
               {selectedNote.content}
             </h1>
@@ -1366,6 +1490,51 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               placeholder={t('writeDescription')}
               className="flex-1 min-h-0 w-full text-base bg-transparent text-muted-foreground overflow-y-auto"
             />
+            {/* Postpone history section */}
+            {history.filter(h => h.action_type === 'postponed').length > 0 && (
+              <div className="border-t border-dashed border-muted-foreground/20 pt-3 mt-3">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70 mb-2">
+                  <CalendarClock className="h-3 w-3" />
+                  <span>{t('postponeReasons')}</span>
+                  <span className="text-muted-foreground/50">
+                    ({history.filter(h => h.action_type === 'postponed').length})
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {history
+                    .filter(h => h.action_type === 'postponed')
+                    .map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="group text-sm text-muted-foreground bg-muted/30 rounded-md px-3 py-2 relative"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setHistoryEntryToDelete(entry.id)}
+                          className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded text-muted-foreground/60 hover:text-destructive"
+                          title={t('deletePostponeReason')}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                        <p className="text-xs text-muted-foreground/60">
+                          {new Date(entry.changed_at).toLocaleDateString(i18n.language, {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                        {entry.reason ? (
+                          <p className="italic mt-1">"{entry.reason}"</p>
+                        ) : (
+                          <p className="italic mt-1 text-muted-foreground/50">{t('noPostponeReasons')}</p>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <p className="text-sm text-muted-foreground/50 italic">
@@ -1374,6 +1543,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         )}
       </div>
 
+      {showSidebar && (
       <div className="w-56 shrink-0 border-l border-dashed border-muted-foreground/20 pl-4 overflow-y-auto">
         {selectedNote ? (
           <div className="space-y-4">
@@ -1401,9 +1571,28 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                       key={entry.id}
                       className="text-xs border-l-2 border-muted-foreground/20 pl-2 py-1"
                     >
-                      <p className="text-muted-foreground/60 mb-0.5">
-                        {formatDateTime(entry.changed_at, i18n.language)}
+                      <p className="text-muted-foreground/60 mb-0.5 flex items-center gap-1">
+                        <span>{formatDateTime(entry.changed_at, i18n.language)}</span>
+                        {entry.action_type && entry.action_type !== 'edit' && (
+                          <span className="text-[10px] px-1 py-0.5 rounded bg-muted">
+                            {entry.action_type === 'postponed' && t('actionPostponed')}
+                            {entry.action_type === 'completed' && t('actionCompleted')}
+                            {entry.action_type === 'uncompleted' && t('actionReopened')}
+                            {entry.action_type === 'created' && t('actionCreated')}
+                          </span>
+                        )}
                       </p>
+                      {entry.action_type === 'postponed' && entry.previous_date && (
+                        <p className="text-muted-foreground/70 text-[10px] flex items-center gap-1 mb-0.5">
+                          <CalendarClock className="h-3 w-3" />
+                          {t('postponedFrom', { date: new Date(entry.previous_date).toLocaleDateString(i18n.language) })}
+                        </p>
+                      )}
+                      {entry.reason && (
+                        <p className="text-muted-foreground/80 italic text-[10px] mb-0.5">
+                          "{entry.reason}"
+                        </p>
+                      )}
                       <p className="text-muted-foreground truncate" title={entry.content}>
                         {entry.content}
                       </p>
@@ -1430,6 +1619,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           </p>
         )}
       </div>
+      )}
       </div>
 
       {/* Create Label Dialog */}
@@ -1507,6 +1697,40 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
             </Button>
             <Button onClick={handleSaveEditLabel} disabled={!editLabelName.trim()}>
               {t('save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Postpone Dialog */}
+      <PostponeDialog
+        open={postponeDialogOpen}
+        onOpenChange={setPostponeDialogOpen}
+        onPostpone={handlePostpone}
+        taskContent={noteToPostpone?.content || ''}
+      />
+
+      {/* Delete Postpone Reason Confirmation Dialog */}
+      <Dialog open={!!historyEntryToDelete} onOpenChange={(open) => !open && setHistoryEntryToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('deletePostponeReason')}</DialogTitle>
+            <DialogDescription>{t('confirmDeletePostpone')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHistoryEntryToDelete(null)}>
+              {t('cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (historyEntryToDelete) {
+                  deleteHistoryEntry(historyEntryToDelete);
+                  setHistoryEntryToDelete(null);
+                }
+              }}
+            >
+              {t('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
