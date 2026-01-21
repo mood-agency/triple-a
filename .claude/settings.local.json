@@ -3,7 +3,22 @@
     "allow": [
       "Bash(npm install:*)",
       "Bash(npm run lint)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(Remove-Item -Recurse -Force \"c:\\\\Users\\\\argen\\\\Documents\\\\GitHub\\\\triple-a\\\\node_modules\", \"c:\\\\Users\\\\argen\\\\Documents\\\\GitHub\\\\triple-a\\\\package-lock.json\" -ErrorAction SilentlyContinue)",
+      "Bash(Set-Location \"c:\\\\Users\\\\argen\\\\Documents\\\\GitHub\\\\triple-a\")",
+      "Bash(npm run dev:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(del \"c:\\\\Users\\\\argen\\\\Documents\\\\GitHub\\\\triple-a\\\\src\\\\components\\\\ui\\\\tiptap-editor.tsx\")",
+      "Bash(powershell -Command \"Stop-Process -Id 834428 -Force; Stop-Process -Id 270920 -Force\")",
+      "Bash(ls:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx tauri init)",
+      "Bash(npx tauri:*)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\argen\\Documents\\GitHub\\triple-a"
     ]
   }
 }
