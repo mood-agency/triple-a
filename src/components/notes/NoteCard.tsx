@@ -73,21 +73,25 @@ export function NoteCard({ note, onEdit, onDelete, onToggleCompleted }: NoteCard
     );
   }
 
+  const isTask = note.category !== 'notes';
+
   return (
     <>
       <Card
-        className={`group cursor-pointer transition-colors hover:bg-accent/50 ${note.completed ? 'opacity-60' : ''}`}
+        className={`group cursor-pointer transition-colors hover:bg-accent/50 ${note.completed && isTask ? 'opacity-60' : ''}`}
         onClick={handleCardClick}
       >
         <CardContent className="pt-4">
           <div className="flex gap-3">
-            <Checkbox
-              checked={note.completed}
-              onClick={handleToggle}
-              className="mt-1"
-            />
+            {isTask && (
+              <Checkbox
+                checked={note.completed}
+                onClick={handleToggle}
+                className="mt-1"
+              />
+            )}
             <div className="flex-1">
-              <p className={`whitespace-pre-wrap ${note.completed ? 'line-through text-muted-foreground' : ''}`}>
+              <p className={`whitespace-pre-wrap ${note.completed && isTask ? 'line-through text-muted-foreground' : ''}`}>
                 {note.content}
               </p>
               <div className="flex items-center justify-between mt-3">
