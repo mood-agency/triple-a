@@ -120,5 +120,26 @@
   "allCategories": "Todas las categorías",
   "completedTasks": "Completadas",
   "deadline": "Fecha límite",
-  "setDeadline": "Establecer fecha límite"
+  "setDeadline": "Establecer fecha límite",
+  "hotkeys": {
+    "title": "Atajos de Teclado",
+    "global": "Globales",
+    "taskTitle": "En Título de Tarea",
+    "description": "En Descripción",
+    "openCommandPalette": "Abrir Command Palette",
+    "focusSearch": "Enfocar búsqueda",
+    "filterTodo": "Filtrar Por Hacer",
+    "filterFollowup": "Filtrar Seguimiento",
+    "filterNotes": "Filtrar Notas",
+    "clearFilters": "Limpiar filtros",
+    "deselectTask": "Deseleccionar tarea",
+    "navigateTasks": "Navegar entre tareas",
+    "createTask": "Crear nueva tarea",
+    "goToDescription": "Ir a descripción",
+    "deleteEmpty": "Eliminar (si está vacío)",
+    "toggleComplete": "Marcar completada",
+    "deleteTask": "Eliminar tarea",
+    "openLabels": "Abrir etiquetas",
+    "backToTitle": "Volver al título"
+  }
 }

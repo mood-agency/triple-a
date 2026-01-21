@@ -120,5 +120,26 @@
   "allCategories": "All categories",
   "completedTasks": "Completed",
   "deadline": "Deadline",
-  "setDeadline": "Set deadline"
+  "setDeadline": "Set deadline",
+  "hotkeys": {
+    "title": "Keyboard Shortcuts",
+    "global": "Global",
+    "taskTitle": "In Task Title",
+    "description": "In Description",
+    "openCommandPalette": "Open Command Palette",
+    "focusSearch": "Focus search",
+    "filterTodo": "Filter To Do",
+    "filterFollowup": "Filter Follow Up",
+    "filterNotes": "Filter Notes",
+    "clearFilters": "Clear filters",
+    "deselectTask": "Deselect task",
+    "navigateTasks": "Navigate between tasks",
+    "createTask": "Create new task",
+    "goToDescription": "Go to description",
+    "deleteEmpty": "Delete (if empty)",
+    "toggleComplete": "Toggle complete",
+    "deleteTask": "Delete task",
+    "openLabels": "Open labels",
+    "backToTitle": "Back to title"
+  }
 }

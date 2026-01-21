@@ -9,6 +9,7 @@ import { SettingsMenu } from '@/components/SettingsMenu';
 import { SyncStatus } from '@/components/sync/SyncStatus';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { CommandPalette } from '@/components/CommandPalette';
+import { HotkeysHelper } from '@/components/HotkeysHelper';
 import { useNotes } from '@/hooks/useNotes';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useLabels } from '@/hooks/useLabels';
@@ -210,6 +211,8 @@ export function Home() {
         categoryFilter={categoryFilter}
         onSelectCategory={handleCategoryFilterChange}
       />
+
+      <HotkeysHelper />
     </div>
   );
 }
