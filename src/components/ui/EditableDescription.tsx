@@ -100,6 +100,20 @@ const CustomTaskItem = TaskItem.extend({
   },
 });
 
+// Custom BulletList that only triggers with * (not -) to avoid conflict with checkboxes
+// Users can still use - for checkboxes: - [ ] or - [x]
+const CustomBulletList = BulletList.extend({
+  addInputRules() {
+    return [
+      wrappingInputRule({
+        // Only trigger bullet list with * to avoid conflict with - [ ] checkbox pattern
+        find: /^\s*\*\s$/,
+        type: this.type,
+      }),
+    ];
+  },
+});
+
 // Custom CodeBlockLowlight that preserves language from markdown
 const CustomCodeBlockLowlight = CodeBlockLowlight.extend({
   parseHTML() {
@@ -147,7 +161,7 @@ export const EditableDescription = forwardRef<EditableDescriptionHandle, Editabl
         Heading.configure({
           levels: [1, 2, 3, 4, 5, 6],
         }),
-        BulletList.configure({
+        CustomBulletList.configure({
           HTMLAttributes: {
             class: 'tiptap-bullet-list',
           },

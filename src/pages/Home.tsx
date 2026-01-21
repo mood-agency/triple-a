@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -16,17 +17,87 @@ import type { Note, NoteCategory } from '@/types/note';
 export function Home() {
   const { t, i18n } = useTranslation();
   const { isReady } = useDatabase();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const noteListRef = useRef<NoteListHandle>(null);
   const { labels } = useLabels();
-  const [labelFilter, setLabelFilter] = useState<string[]>([]);
-  const [categoryFilter, setCategoryFilter] = useState<NoteCategory | 'all'>('all');
-  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  // Initialize filters from URL params
+  const getInitialLabelFilter = useCallback(() => {
+    const labelsParam = searchParams.get('labels');
+    return labelsParam ? labelsParam.split(',').filter(Boolean) : [];
+  }, [searchParams]);
+
+  const getInitialCategoryFilter = useCallback((): NoteCategory | 'all' => {
+    const categoryParam = searchParams.get('category');
+    if (categoryParam === 'todo' || categoryParam === 'followup' || categoryParam === 'notes') {
+      return categoryParam;
+    }
+    return 'all';
+  }, [searchParams]);
+
+  const [labelFilter, setLabelFilter] = useState<string[]>(getInitialLabelFilter);
+  const [categoryFilter, setCategoryFilter] = useState<NoteCategory | 'all'>(getInitialCategoryFilter);
 
   const today = new Date();
   const dateKey = today.toISOString().split('T')[0];
 
   const { notes, loading, createNote, createNoteAfter, updateNote, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes } = useNotes(dateKey);
+
+  // Sync selected note from URL param when notes load
+  useEffect(() => {
+    if (!loading && notes.length > 0) {
+      const noteId = searchParams.get('note');
+      if (noteId) {
+        const note = notes.find(n => n.id === noteId);
+        if (note && (!selectedNote || selectedNote.id !== noteId)) {
+          setSelectedNote(note);
+        }
+      }
+    }
+  }, [loading, notes, searchParams, selectedNote]);
+
+  // Update URL when selected note changes
+  const handleSelectNote = useCallback((note: Note | null) => {
+    setSelectedNote(note);
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      if (note) {
+        newParams.set('note', note.id);
+      } else {
+        newParams.delete('note');
+      }
+      return newParams;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  // Update URL when label filter changes
+  const handleLabelFilterChange = useCallback((newLabels: string[]) => {
+    setLabelFilter(newLabels);
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      if (newLabels.length > 0) {
+        newParams.set('labels', newLabels.join(','));
+      } else {
+        newParams.delete('labels');
+      }
+      return newParams;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  // Update URL when category filter changes
+  const handleCategoryFilterChange = useCallback((newCategory: NoteCategory | 'all') => {
+    setCategoryFilter(newCategory);
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      if (newCategory !== 'all') {
+        newParams.set('category', newCategory);
+      } else {
+        newParams.delete('category');
+      }
+      return newParams;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   const handleCreateTask = () => {
     createNote('Mi tarea aquí', 'todo');
@@ -39,7 +110,7 @@ export function Home() {
 
   const handleDeleteNote = (id: string) => {
     if (selectedNote?.id === id) {
-      setSelectedNote(null);
+      handleSelectNote(null);
     }
     deleteNote(id);
   };
@@ -106,13 +177,12 @@ export function Home() {
             onTogglePinned={togglePinned}
             onReorderNotes={reorderNotes}
             selectedNote={selectedNote}
-            onSelectNote={setSelectedNote}
+            onSelectNote={handleSelectNote}
             onCreateNoteAfter={createNoteAfter}
             externalLabelFilter={labelFilter}
             externalCategoryFilter={categoryFilter}
-            onLabelFilterChange={setLabelFilter}
-            onCategoryFilterChange={setCategoryFilter}
-            isCommandPaletteOpen={isCommandPaletteOpen}
+            onLabelFilterChange={handleLabelFilterChange}
+            onCategoryFilterChange={handleCategoryFilterChange}
           />
         </div>
       </div>
@@ -121,15 +191,15 @@ export function Home() {
         labels={labels}
         selectedLabels={labelFilter}
         onSelectLabel={(labelId) => {
-          setLabelFilter((prev) =>
-            prev.includes(labelId)
-              ? prev.filter((id) => id !== labelId)
-              : [...prev, labelId]
+          handleLabelFilterChange(
+            labelFilter.includes(labelId)
+              ? labelFilter.filter((id) => id !== labelId)
+              : [...labelFilter, labelId]
           );
         }}
-        onClearLabels={() => setLabelFilter([])}
+        onClearLabels={() => handleLabelFilterChange([])}
         categoryFilter={categoryFilter}
-        onSelectCategory={setCategoryFilter}
+        onSelectCategory={handleCategoryFilterChange}
       />
     </div>
   );

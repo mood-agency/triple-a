@@ -9,6 +9,7 @@ export interface Note {
   description: string | null;
   category: NoteCategory;
   completed: boolean;
+  completed_at: string | null;
   pinned: boolean;
   sort_order: number;
   created_at: string;

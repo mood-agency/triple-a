@@ -75,6 +75,10 @@ export function runMigrations(db: Database): void {
     if (!notesColumns.includes('pinned')) {
       db.run('ALTER TABLE notes ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0');
     }
+    // Migration: add completed_at column if it doesn't exist
+    if (!notesColumns.includes('completed_at')) {
+      db.run('ALTER TABLE notes ADD COLUMN completed_at TEXT DEFAULT NULL');
+    }
   }
 
   db.run(`

@@ -108,5 +108,6 @@
   "clearAllFilters": "Limpiar todos los filtros",
   "filterByCategory": "Filtrar por categoría",
   "filterByLabel": "Filtrar por etiqueta",
-  "allCategories": "Todas las categorías"
+  "allCategories": "Todas las categorías",
+  "completedTasks": "Completadas"
 }

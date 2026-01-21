@@ -5,7 +5,7 @@ const EXPORT_VERSION = '1.0';
 
 export function exportAllData(db: Database): ExportData {
   const notesResult = db.exec(`
-    SELECT id, date, content, description, category, completed, pinned, sort_order, created_at, updated_at
+    SELECT id, date, content, description, category, completed, completed_at, pinned, sort_order, created_at, updated_at
     FROM notes
     ORDER BY date DESC, sort_order ASC
   `);
@@ -24,10 +24,11 @@ export function exportAllData(db: Database): ExportData {
         description: row[3] as string | null,
         category: row[4] as Note['category'],
         completed: Boolean(row[5]),
-        pinned: Boolean(row[6]),
-        sort_order: (row[7] as number) || 0,
-        created_at: row[8] as string,
-        updated_at: row[9] as string,
+        completed_at: row[6] as string | null,
+        pinned: Boolean(row[7]),
+        sort_order: (row[8] as number) || 0,
+        created_at: row[9] as string,
+        updated_at: row[10] as string,
       }))
     : [];
 
@@ -218,6 +219,10 @@ function validateNote(note: unknown): note is Note {
     console.error('[validateNote] Invalid pinned:', n.pinned);
     return false;
   }
+  if (n.completed_at !== undefined && n.completed_at !== null && typeof n.completed_at !== 'string') {
+    console.error('[validateNote] Invalid completed_at:', n.completed_at);
+    return false;
+  }
   if (n.sort_order !== undefined && typeof n.sort_order !== 'number') {
     console.error('[validateNote] Invalid sort_order:', n.sort_order);
     return false;
@@ -373,7 +378,7 @@ export async function importData(
           db.run(
             `UPDATE notes SET
               date = ?, content = ?, description = ?, category = ?,
-              completed = ?, pinned = ?, sort_order = ?, created_at = ?, updated_at = ?
+              completed = ?, completed_at = ?, pinned = ?, sort_order = ?, created_at = ?, updated_at = ?
             WHERE id = ?`,
             [
               noteDate,
@@ -381,6 +386,7 @@ export async function importData(
               note.description,
               note.category,
               note.completed ? 1 : 0,
+              note.completed_at ?? null,
               note.pinned ? 1 : 0,
               note.sort_order ?? 0,
               note.created_at,
@@ -391,8 +397,8 @@ export async function importData(
         } else {
           // Insert new note
           db.run(
-            `INSERT INTO notes (id, date, content, description, category, completed, pinned, sort_order, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO notes (id, date, content, description, category, completed, completed_at, pinned, sort_order, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               note.id,
               noteDate,
@@ -400,6 +406,7 @@ export async function importData(
               note.description,
               note.category,
               note.completed ? 1 : 0,
+              note.completed_at ?? null,
               note.pinned ? 1 : 0,
               note.sort_order ?? 0,
               note.created_at,

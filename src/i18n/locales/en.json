@@ -108,5 +108,6 @@
   "clearAllFilters": "Clear all filters",
   "filterByCategory": "Filter by category",
   "filterByLabel": "Filter by label",
-  "allCategories": "All categories"
+  "allCategories": "All categories",
+  "completedTasks": "Completed"
 }
