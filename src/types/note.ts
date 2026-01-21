@@ -2,6 +2,8 @@ export type NoteCategory = 'todo' | 'followup' | 'notes';
 
 export type SyncStatus = 'local' | 'pending' | 'synced' | 'conflict';
 
+export type ChangelogActionType = 'created' | 'edit' | 'postponed' | 'completed' | 'uncompleted';
+
 export interface Note {
   id: string;
   date: string;
@@ -29,6 +31,9 @@ export interface NoteHistory {
   category: NoteCategory;
   completed: boolean;
   changed_at: string;
+  action_type: ChangelogActionType;
+  reason: string | null;
+  previous_date: string | null;
 }
 
 export interface Label {

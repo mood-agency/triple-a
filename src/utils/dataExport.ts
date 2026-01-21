@@ -11,7 +11,7 @@ export function exportAllData(db: Database): ExportData {
   `);
 
   const historyResult = db.exec(`
-    SELECT id, note_id, content, description, category, completed, changed_at
+    SELECT id, note_id, content, description, category, completed, changed_at, action_type, reason, previous_date
     FROM note_history
     ORDER BY changed_at DESC
   `);
@@ -42,6 +42,9 @@ export function exportAllData(db: Database): ExportData {
         category: row[4] as NoteHistory['category'],
         completed: Boolean(row[5]),
         changed_at: row[6] as string,
+        action_type: (row[7] as NoteHistory['action_type']) || 'edit',
+        reason: row[8] as string | null,
+        previous_date: row[9] as string | null,
       }))
     : [];
 
@@ -452,8 +455,8 @@ export async function importData(
           }
 
           db.run(
-            `INSERT INTO note_history (id, note_id, content, description, category, completed, changed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO note_history (id, note_id, content, description, category, completed, changed_at, action_type, reason, previous_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               history.id,
               history.note_id,
@@ -462,6 +465,9 @@ export async function importData(
               category,
               completed ? 1 : 0,
               history.changed_at,
+              history.action_type || 'edit',
+              history.reason || null,
+              history.previous_date || null,
             ]
           );
           result.historyImported++;

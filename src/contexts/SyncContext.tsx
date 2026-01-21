@@ -7,9 +7,23 @@ import { supabase } from '@/lib/supabase'
 import type { SyncContextState, SyncConnectionStatus, SyncState, SyncTable, SyncOperation } from '@/types/sync'
 import { persistDatabase } from '@/db'
 
+interface PushAllProgress {
+  current: number
+  total: number
+  item: string
+}
+
+interface PushAllResult {
+  success: boolean
+  error?: string
+  pushed: { notes: number; labels: number; noteLabels: number; noteHistory: number }
+}
+
 interface SyncContextType extends SyncContextState {
   syncNow: () => Promise<void>
   queueOperation: (tableName: SyncTable, operation: SyncOperation, recordId: string, data?: Record<string, unknown>) => Promise<void>
+  pushAllToSupabase: (onProgress?: (progress: PushAllProgress) => void) => Promise<PushAllResult>
+  isPushingAll: boolean
 }
 
 const SyncContext = createContext<SyncContextType | null>(null)
@@ -27,6 +41,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
   const [pendingCount, setPendingCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
+
+  const [isPushingAll, setIsPushingAll] = useState(false)
 
   const syncServiceRef = useRef<SyncService | null>(null)
   const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -60,7 +76,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   // Sync function - stable reference using ref for state check
   const syncNow = useCallback(async () => {
+    console.log('[Sync] syncNow called:', { hasSyncService: !!syncServiceRef.current, isOnline, isSyncing: isSyncingRef.current })
     if (!syncServiceRef.current || !isOnline || isSyncingRef.current) {
+      console.log('[Sync] syncNow skipped')
       return
     }
 
@@ -69,20 +87,25 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     setError(null)
 
     try {
+      console.log('[Sync] Starting sync...')
       const result = await syncServiceRef.current.sync()
+      console.log('[Sync] Sync result:', result)
 
       if (result.success) {
         setLastSyncedAt(syncServiceRef.current.getLastSyncedAt())
         setPendingCount(syncServiceRef.current.getPendingCount())
         await persistDatabase()
         setSyncState('idle')
+        console.log('[Sync] Sync completed successfully')
       } else {
         setError(result.error || 'Sync failed')
         setSyncState('error')
+        console.error('[Sync] Sync failed:', result.error)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
       setSyncState('error')
+      console.error('[Sync] Sync error:', err)
     } finally {
       isSyncingRef.current = false
     }
@@ -98,6 +121,40 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }, SYNC_DEBOUNCE)
   }, [syncNow])
 
+  // Push all local data to Supabase (one-way sync)
+  const pushAllToSupabase = useCallback(async (
+    onProgress?: (progress: PushAllProgress) => void
+  ): Promise<PushAllResult> => {
+    if (!syncServiceRef.current || !isOnline) {
+      return { success: false, error: 'Not connected', pushed: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0 } }
+    }
+
+    setIsPushingAll(true)
+    setError(null)
+
+    try {
+      const result = await syncServiceRef.current.pushAllToSupabase((current, total, item) => {
+        onProgress?.({ current, total, item })
+      })
+
+      if (result.success) {
+        setLastSyncedAt(syncServiceRef.current.getLastSyncedAt())
+        setPendingCount(syncServiceRef.current.getPendingCount())
+        await persistDatabase()
+      } else {
+        setError(result.error || 'Push failed')
+      }
+
+      return result
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+      setError(errorMsg)
+      return { success: false, error: errorMsg, pushed: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0 } }
+    } finally {
+      setIsPushingAll(false)
+    }
+  }, [isOnline])
+
   // Queue operation for sync
   const queueOperation = useCallback(async (
     tableName: SyncTable,
@@ -105,14 +162,21 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     recordId: string,
     data?: Record<string, unknown>
   ) => {
-    if (!syncServiceRef.current || !user) return
+    console.log('[Sync] queueOperation called:', { tableName, operation, recordId, hasUser: !!user, hasSyncService: !!syncServiceRef.current })
+    if (!syncServiceRef.current || !user) {
+      console.log('[Sync] queueOperation skipped - no syncService or user')
+      return
+    }
 
     await syncServiceRef.current.queueOperation(tableName, operation, recordId, data)
-    setPendingCount(syncServiceRef.current.getPendingCount())
+    const pendingCount = syncServiceRef.current.getPendingCount()
+    console.log('[Sync] Operation queued, pending count:', pendingCount)
+    setPendingCount(pendingCount)
     await persistDatabase()
 
     // Try to sync with debounce if online
     if (isOnline) {
+      console.log('[Sync] Triggering debounced sync')
       debouncedSync()
     }
   }, [user, isOnline, debouncedSync])
@@ -210,6 +274,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         error,
         syncNow,
         queueOperation,
+        pushAllToSupabase,
+        isPushingAll,
       }}
     >
       {children}

@@ -43,7 +43,7 @@ export function Home() {
   const today = new Date();
   const dateKey = today.toISOString().split('T')[0];
 
-  const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes } = useNotes(dateKey);
+  const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote } = useNotes(dateKey);
 
   // Sync selected note from URL param when notes load
   useEffect(() => {
@@ -186,6 +186,7 @@ export function Home() {
             onTogglePinned={togglePinned}
             onUpdateDeadline={handleUpdateDeadline}
             onReorderNotes={reorderNotes}
+            onPostponeNote={postponeNote}
             selectedNote={selectedNote}
             onSelectNote={handleSelectNote}
             onCreateNoteAfter={createNoteAfter}

@@ -146,6 +146,9 @@
   "actionCreated": "Created",
   "showSidebar": "Show panel",
   "hideSidebar": "Hide panel",
+  "sortByDeadline": "Sort by deadline",
+  "overdue": "Overdue",
+  "showOverdueOnly": "Show only overdue tasks",
   "hotkeys": {
     "title": "Keyboard Shortcuts",
     "global": "Global",

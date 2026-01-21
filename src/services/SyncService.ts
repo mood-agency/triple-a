@@ -71,11 +71,14 @@ export class SyncService {
   }
 
   async sync(): Promise<{ success: boolean; error?: string }> {
+    console.log('[SyncService] sync() called')
     if (!getSupabaseClient()) {
+      console.log('[SyncService] No Supabase client')
       return { success: false, error: 'Supabase not configured' }
     }
 
     if (this.isSyncing) {
+      console.log('[SyncService] Already syncing')
       return { success: false, error: 'Sync already in progress' }
     }
 
@@ -83,9 +86,11 @@ export class SyncService {
 
     try {
       // 1. Push local changes to remote
+      console.log('[SyncService] Pushing changes...')
       await this.pushChanges()
 
       // 2. Pull remote changes
+      console.log('[SyncService] Pulling changes...')
       await this.pullChanges()
 
       // Update last sync time
@@ -95,9 +100,11 @@ export class SyncService {
         [now]
       )
 
+      console.log('[SyncService] Sync completed successfully')
       return { success: true }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown sync error'
+      console.error('[SyncService] Sync error:', error)
       return { success: false, error: message }
     } finally {
       this.isSyncing = false
@@ -108,13 +115,16 @@ export class SyncService {
     if (!getSupabaseClient()) return
 
     const operations = this.getPendingOperations()
+    console.log('[SyncService] Pending operations:', operations.length, operations)
 
     for (const op of operations) {
       try {
+        console.log('[SyncService] Processing operation:', op)
         await this.processSyncOperation(op)
         this.removeOperation(op.id)
+        console.log('[SyncService] Operation completed successfully')
       } catch (error) {
-        console.error(`Sync operation failed:`, op, error)
+        console.error(`[SyncService] Sync operation failed:`, op, error)
         this.incrementRetry(op.id)
 
         if (op.retry_count >= 3) {
@@ -152,6 +162,7 @@ export class SyncService {
     switch (operation) {
       case 'insert':
         if (data) {
+          console.log('[SyncService] Inserting note with user_id:', this.userId, 'data:', data)
           const { data: inserted, error } = await client
             .from('notes')
             .insert({
@@ -162,13 +173,14 @@ export class SyncService {
               category: data.category,
               completed: data.completed,
               pinned: data.pinned,
-              sort_order: data.sort_order,
+              sort_order: data.sort_order ?? 0,
               created_at: data.created_at,
               updated_at: data.updated_at,
             })
             .select('id')
             .single()
 
+          console.log('[SyncService] Insert result:', { inserted, error })
           if (error) throw error
 
           // Update local record with remote_id
@@ -508,5 +520,251 @@ export class SyncService {
   getLastSyncedAt(): string | null {
     const result = this.db.exec(`SELECT value FROM sync_state WHERE key = 'last_synced_at'`)
     return result[0]?.values[0]?.[0] as string | null
+  }
+
+  // One-way sync: Push all local data to Supabase
+  async pushAllToSupabase(
+    onProgress?: (current: number, total: number, item: string) => void
+  ): Promise<{ success: boolean; error?: string; pushed: { notes: number; labels: number; noteLabels: number; noteHistory: number } }> {
+    const client = getSupabaseClient() as AnySupabaseClient
+    if (!client) {
+      return { success: false, error: 'Supabase not configured', pushed: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0 } }
+    }
+
+    if (this.isSyncing) {
+      return { success: false, error: 'Sync already in progress', pushed: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0 } }
+    }
+
+    this.isSyncing = true
+    const pushed = { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0 }
+
+    try {
+      // Get all local data
+      const notesResult = this.db.exec(`SELECT id, date, content, description, category, completed, pinned, sort_order, created_at, updated_at, remote_id, deadline, completed_at FROM notes`)
+      const labelsResult = this.db.exec(`SELECT id, name, color, created_at, updated_at, remote_id FROM labels`)
+      const noteLabelsResult = this.db.exec(`SELECT note_id, label_id, created_at FROM note_labels`)
+      const noteHistoryResult = this.db.exec(`SELECT id, note_id, content, description, category, completed, changed_at, action_type, reason, previous_date FROM note_history`)
+
+      const notes = notesResult[0]?.values || []
+      const labels = labelsResult[0]?.values || []
+      const noteLabels = noteLabelsResult[0]?.values || []
+      const noteHistory = noteHistoryResult[0]?.values || []
+
+      const total = notes.length + labels.length + noteLabels.length + noteHistory.length
+      let current = 0
+
+      console.log('[SyncService] pushAllToSupabase - Starting one-way sync')
+      console.log('[SyncService] Items to push:', { notes: notes.length, labels: labels.length, noteLabels: noteLabels.length, noteHistory: noteHistory.length })
+
+      // Push all labels first (they need to exist before note_labels)
+      for (const row of labels) {
+        const [id, name, color, created_at, updated_at, remote_id] = row as [string, string, string, string, string, string | null]
+        current++
+        onProgress?.(current, total, `Label: ${name}`)
+
+        try {
+          if (remote_id) {
+            // Update existing
+            const { error } = await client
+              .from('labels')
+              .upsert({
+                id: remote_id,
+                user_id: this.userId,
+                name,
+                color,
+                created_at,
+                updated_at,
+              })
+
+            if (error) throw error
+          } else {
+            // Insert new
+            const { data: inserted, error } = await client
+              .from('labels')
+              .insert({
+                user_id: this.userId,
+                name,
+                color,
+                created_at,
+                updated_at,
+              })
+              .select('id')
+              .single()
+
+            if (error) throw error
+
+            if (inserted) {
+              this.db.run(
+                `UPDATE labels SET remote_id = ?, sync_status = 'synced', last_synced_at = ? WHERE id = ?`,
+                [inserted.id, new Date().toISOString(), id]
+              )
+            }
+          }
+          pushed.labels++
+        } catch (error) {
+          console.error('[SyncService] Failed to push label:', id, error)
+        }
+      }
+
+      // Push all notes
+      for (const row of notes) {
+        const [id, date, content, description, category, completed, pinned, sort_order, created_at, updated_at, remote_id, deadline, completed_at] = row as [string, string, string, string | null, string, number, number, number, string, string, string | null, string | null, string | null]
+        current++
+        onProgress?.(current, total, `Note: ${content.substring(0, 30)}...`)
+
+        try {
+          if (remote_id) {
+            // Update existing
+            const { error } = await client
+              .from('notes')
+              .upsert({
+                id: remote_id,
+                user_id: this.userId,
+                date,
+                content,
+                description,
+                category,
+                completed: completed === 1,
+                pinned: pinned === 1,
+                sort_order,
+                created_at,
+                updated_at,
+                deadline,
+                completed_at,
+              })
+
+            if (error) throw error
+          } else {
+            // Insert new
+            const { data: inserted, error } = await client
+              .from('notes')
+              .insert({
+                user_id: this.userId,
+                date,
+                content,
+                description,
+                category,
+                completed: completed === 1,
+                pinned: pinned === 1,
+                sort_order,
+                created_at,
+                updated_at,
+                deadline,
+                completed_at,
+              })
+              .select('id')
+              .single()
+
+            if (error) throw error
+
+            if (inserted) {
+              this.db.run(
+                `UPDATE notes SET remote_id = ?, sync_status = 'synced', last_synced_at = ? WHERE id = ?`,
+                [inserted.id, new Date().toISOString(), id]
+              )
+            }
+          }
+          pushed.notes++
+        } catch (error) {
+          console.error('[SyncService] Failed to push note:', id, error)
+        }
+      }
+
+      // Push note_labels (need to map local IDs to remote IDs)
+      for (const row of noteLabels) {
+        const [note_id, label_id, created_at] = row as [string, string, string]
+        current++
+        onProgress?.(current, total, `Note-Label relation`)
+
+        try {
+          const noteResult = this.db.exec(`SELECT remote_id FROM notes WHERE id = ?`, [note_id])
+          const labelResult = this.db.exec(`SELECT remote_id FROM labels WHERE id = ?`, [label_id])
+
+          const noteRemoteId = noteResult[0]?.values[0]?.[0] as string | null
+          const labelRemoteId = labelResult[0]?.values[0]?.[0] as string | null
+
+          if (noteRemoteId && labelRemoteId) {
+            const { error } = await client
+              .from('note_labels')
+              .upsert({
+                note_id: noteRemoteId,
+                label_id: labelRemoteId,
+                user_id: this.userId,
+                created_at,
+              })
+
+            if (error && !error.message.includes('duplicate')) {
+              throw error
+            }
+            pushed.noteLabels++
+          }
+        } catch (error) {
+          console.error('[SyncService] Failed to push note_label:', note_id, label_id, error)
+        }
+      }
+
+      // Push note_history
+      for (const row of noteHistory) {
+        const [id, note_id, content, description, category, completed, changed_at, action_type, reason, previous_date] = row as [string, string, string, string | null, string, number, string, string, string | null, string | null]
+        current++
+        onProgress?.(current, total, `History entry`)
+
+        try {
+          const noteResult = this.db.exec(`SELECT remote_id FROM notes WHERE id = ?`, [note_id])
+          const noteRemoteId = noteResult[0]?.values[0]?.[0] as string | null
+
+          if (noteRemoteId) {
+            // Check if this history entry already exists (by note_id + changed_at)
+            const { data: existing } = await client
+              .from('note_history')
+              .select('id')
+              .eq('note_id', noteRemoteId)
+              .eq('changed_at', changed_at)
+              .maybeSingle()
+
+            if (!existing) {
+              const { error } = await client
+                .from('note_history')
+                .insert({
+                  note_id: noteRemoteId,
+                  user_id: this.userId,
+                  content,
+                  description,
+                  category,
+                  completed: completed === 1,
+                  changed_at,
+                  action_type,
+                  reason,
+                  previous_date,
+                })
+
+              if (error) throw error
+              pushed.noteHistory++
+            }
+          }
+        } catch (error) {
+          console.error('[SyncService] Failed to push note_history:', id, error)
+        }
+      }
+
+      // Clear pending sync queue since we've pushed everything
+      this.db.run('DELETE FROM pending_sync')
+
+      // Update last sync time
+      const now = new Date().toISOString()
+      this.db.run(
+        `INSERT OR REPLACE INTO sync_state (key, value) VALUES ('last_synced_at', ?)`,
+        [now]
+      )
+
+      console.log('[SyncService] pushAllToSupabase - Complete:', pushed)
+      return { success: true, pushed }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[SyncService] pushAllToSupabase error:', error)
+      return { success: false, error: message, pushed }
+    } finally {
+      this.isSyncing = false
+    }
   }
 }

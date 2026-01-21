@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useDatabase } from '@/contexts/DatabaseContext';
+import { useSync } from '@/contexts/SyncContext';
 import { persistDatabase } from '@/db';
 import type { Label } from '@/types/note';
 
@@ -9,6 +10,7 @@ function generateId(): string {
 
 export function useLabels() {
   const { db, isReady } = useDatabase();
+  const { queueOperation } = useSync();
   const [labels, setLabels] = useState<Label[]>([]);
   const [loading, setLoading] = useState(true);
   const [noteLabelVersion, setNoteLabelVersion] = useState(0);
@@ -58,10 +60,16 @@ export function useLabels() {
       );
 
       await persistDatabase();
+      await queueOperation('labels', 'insert', label.id, {
+        name: label.name,
+        color: label.color,
+        created_at: label.created_at,
+        updated_at: label.updated_at,
+      });
       loadLabels();
       return label;
     },
-    [db, loadLabels]
+    [db, loadLabels, queueOperation]
   );
 
   const updateLabel = useCallback(
@@ -78,11 +86,16 @@ export function useLabels() {
       ]);
 
       await persistDatabase();
+      await queueOperation('labels', 'update', id, {
+        name,
+        color,
+        updated_at: now,
+      });
       loadLabels();
 
       return { id, name, color, created_at: '', updated_at: now };
     },
-    [db, loadLabels]
+    [db, loadLabels, queueOperation]
   );
 
   const deleteLabel = useCallback(
@@ -92,9 +105,10 @@ export function useLabels() {
       db.run('DELETE FROM labels WHERE id = ?', [id]);
 
       await persistDatabase();
+      await queueOperation('labels', 'delete', id);
       loadLabels();
     },
-    [db, loadLabels]
+    [db, loadLabels, queueOperation]
   );
 
   const getLabelsForNote = useCallback(
@@ -137,9 +151,14 @@ export function useLabels() {
       );
 
       await persistDatabase();
+      await queueOperation('note_labels', 'insert', `${noteId}-${labelId}`, {
+        note_id: noteId,
+        label_id: labelId,
+        created_at: now,
+      });
       setNoteLabelVersion(v => v + 1);
     },
-    [db]
+    [db, queueOperation]
   );
 
   const removeLabelFromNote = useCallback(
@@ -149,9 +168,13 @@ export function useLabels() {
       db.run('DELETE FROM note_labels WHERE note_id = ? AND label_id = ?', [noteId, labelId]);
 
       await persistDatabase();
+      await queueOperation('note_labels', 'delete', `${noteId}-${labelId}`, {
+        note_id: noteId,
+        label_id: labelId,
+      });
       setNoteLabelVersion(v => v + 1);
     },
-    [db]
+    [db, queueOperation]
   );
 
   const setLabelsForNote = useCallback(
@@ -160,8 +183,25 @@ export function useLabels() {
 
       const now = new Date().toISOString();
 
+      // Get existing labels for this note to queue delete operations
+      const existingResult = db.exec(
+        'SELECT label_id FROM note_labels WHERE note_id = ?',
+        [noteId]
+      );
+      const existingLabelIds = existingResult.length > 0
+        ? existingResult[0].values.map(row => row[0] as string)
+        : [];
+
       // Remove all existing labels for this note
       db.run('DELETE FROM note_labels WHERE note_id = ?', [noteId]);
+
+      // Queue delete operations for removed labels
+      for (const labelId of existingLabelIds) {
+        await queueOperation('note_labels', 'delete', `${noteId}-${labelId}`, {
+          note_id: noteId,
+          label_id: labelId,
+        });
+      }
 
       // Add new labels
       for (const labelId of labelIds) {
@@ -169,12 +209,17 @@ export function useLabels() {
           'INSERT INTO note_labels (note_id, label_id, created_at) VALUES (?, ?, ?)',
           [noteId, labelId, now]
         );
+        await queueOperation('note_labels', 'insert', `${noteId}-${labelId}`, {
+          note_id: noteId,
+          label_id: labelId,
+          created_at: now,
+        });
       }
 
       await persistDatabase();
       setNoteLabelVersion(v => v + 1);
     },
-    [db]
+    [db, queueOperation]
   );
 
   return {

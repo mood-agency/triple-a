@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useDatabase } from '@/contexts/DatabaseContext';
+import { useSync } from '@/contexts/SyncContext';
 import { persistDatabase } from '@/db';
-import type { Note, NoteCategory } from '@/types/note';
+import type { Note, NoteCategory, ChangelogActionType } from '@/types/note';
 import type { Database } from 'sql.js';
 
 function generateId(): string {
@@ -14,18 +15,22 @@ function saveNoteHistory(
   content: string,
   description: string | null,
   category: NoteCategory,
-  completed: boolean
+  completed: boolean,
+  actionType: ChangelogActionType = 'edit',
+  reason: string | null = null,
+  previousDate: string | null = null
 ): void {
   const historyId = generateId();
   const changedAt = new Date().toISOString();
   db.run(
-    'INSERT INTO note_history (id, note_id, content, description, category, completed, changed_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [historyId, noteId, content, description, category, completed ? 1 : 0, changedAt]
+    'INSERT INTO note_history (id, note_id, content, description, category, completed, changed_at, action_type, reason, previous_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [historyId, noteId, content, description, category, completed ? 1 : 0, changedAt, actionType, reason, previousDate]
   );
 }
 
 export function useNotes(date: string) {
   const { db, isReady } = useDatabase();
+  const { queueOperation } = useSync();
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -96,10 +101,23 @@ export function useNotes(date: string) {
       );
 
       await persistDatabase();
+      await queueOperation('notes', 'insert', note.id, {
+        date: note.date,
+        content: note.content,
+        description: note.description,
+        category: note.category,
+        completed: note.completed,
+        completed_at: note.completed_at,
+        deadline: note.deadline,
+        pinned: note.pinned,
+        sort_order: note.sort_order,
+        created_at: note.created_at,
+        updated_at: note.updated_at,
+      });
       loadNotes();
       return note;
     },
-    [db, date, loadNotes]
+    [db, date, loadNotes, queueOperation]
   );
 
   const updateNote = useCallback(
@@ -133,11 +151,22 @@ export function useNotes(date: string) {
       saveNoteHistory(db, id, content, finalDescription, finalCategory, completed);
 
       await persistDatabase();
+      await queueOperation('notes', 'update', id, {
+        content,
+        description: finalDescription,
+        category: finalCategory,
+        completed,
+        completed_at: completedAt,
+        deadline,
+        pinned,
+        sort_order: sortOrder,
+        updated_at: now,
+      });
       loadNotes();
 
       return { id, date, content, description: finalDescription, category: finalCategory, completed, completed_at: completedAt, deadline, pinned, sort_order: sortOrder, created_at: createdAt, updated_at: now };
     },
-    [db, date, loadNotes]
+    [db, date, loadNotes, queueOperation]
   );
 
   const updateDeadline = useCallback(
@@ -153,9 +182,13 @@ export function useNotes(date: string) {
       ]);
 
       await persistDatabase();
+      await queueOperation('notes', 'update', id, {
+        deadline,
+        updated_at: now,
+      });
       loadNotes();
     },
-    [db, loadNotes]
+    [db, loadNotes, queueOperation]
   );
 
   const toggleCompleted = useCallback(
@@ -181,13 +214,18 @@ export function useNotes(date: string) {
         const content = currentNote[0] as string;
         const description = currentNote[1] as string | null;
         const category = currentNote[2] as NoteCategory;
-        saveNoteHistory(db, id, content, description, category, completed);
+        saveNoteHistory(db, id, content, description, category, completed, completed ? 'completed' : 'uncompleted');
       }
 
       await persistDatabase();
+      await queueOperation('notes', 'update', id, {
+        completed,
+        completed_at: completedAt,
+        updated_at: now,
+      });
       loadNotes();
     },
-    [db, loadNotes]
+    [db, loadNotes, queueOperation]
   );
 
   const togglePinned = useCallback(
@@ -203,9 +241,13 @@ export function useNotes(date: string) {
       ]);
 
       await persistDatabase();
+      await queueOperation('notes', 'update', id, {
+        pinned,
+        updated_at: now,
+      });
       loadNotes();
     },
-    [db, loadNotes]
+    [db, loadNotes, queueOperation]
   );
 
   const deleteNote = useCallback(
@@ -215,9 +257,10 @@ export function useNotes(date: string) {
       db.run('DELETE FROM notes WHERE id = ?', [id]);
 
       await persistDatabase();
+      await queueOperation('notes', 'delete', id);
       loadNotes();
     },
-    [db, loadNotes]
+    [db, loadNotes, queueOperation]
   );
 
   const restoreNote = useCallback(
@@ -230,9 +273,22 @@ export function useNotes(date: string) {
       );
 
       await persistDatabase();
+      await queueOperation('notes', 'insert', note.id, {
+        date: note.date,
+        content: note.content,
+        description: note.description,
+        category: note.category,
+        completed: note.completed,
+        completed_at: note.completed_at,
+        deadline: note.deadline,
+        pinned: note.pinned,
+        sort_order: note.sort_order,
+        created_at: note.created_at,
+        updated_at: note.updated_at,
+      });
       loadNotes();
     },
-    [db, loadNotes]
+    [db, loadNotes, queueOperation]
   );
 
   const createNoteAfter = useCallback(
@@ -284,20 +340,73 @@ export function useNotes(date: string) {
       );
 
       await persistDatabase();
+      await queueOperation('notes', 'insert', note.id, {
+        date: note.date,
+        content: note.content,
+        description: note.description,
+        category: note.category,
+        completed: note.completed,
+        completed_at: note.completed_at,
+        deadline: note.deadline,
+        pinned: note.pinned,
+        sort_order: note.sort_order,
+        created_at: note.created_at,
+        updated_at: note.updated_at,
+      });
       loadNotes();
       return note;
     },
-    [db, date, loadNotes]
+    [db, date, loadNotes, queueOperation]
   );
 
   const reorderNotes = useCallback(
     async (orderedIds: string[]): Promise<void> => {
       if (!db) throw new Error('Database not ready');
 
+      const now = new Date().toISOString();
+
       // Update sort_order for each note based on its position in the array
-      orderedIds.forEach((id, index) => {
-        db.run('UPDATE notes SET sort_order = ? WHERE id = ?', [index, id]);
-      });
+      for (const [index, id] of orderedIds.entries()) {
+        db.run('UPDATE notes SET sort_order = ?, updated_at = ? WHERE id = ?', [index, now, id]);
+        await queueOperation('notes', 'update', id, {
+          sort_order: index,
+          updated_at: now,
+        });
+      }
+
+      await persistDatabase();
+      loadNotes();
+    },
+    [db, loadNotes, queueOperation]
+  );
+
+  const postponeNote = useCallback(
+    async (id: string, newDeadline: string, reason: string): Promise<void> => {
+      if (!db) throw new Error('Database not ready');
+
+      const now = new Date().toISOString();
+
+      // Get current note state
+      const currentResult = db.exec(
+        'SELECT content, description, category, completed, deadline FROM notes WHERE id = ?',
+        [id]
+      );
+      if (currentResult.length === 0 || currentResult[0].values.length === 0) {
+        throw new Error('Note not found');
+      }
+
+      const currentNote = currentResult[0].values[0];
+      const content = currentNote[0] as string;
+      const description = currentNote[1] as string | null;
+      const category = currentNote[2] as NoteCategory;
+      const completed = Boolean(currentNote[3]);
+      const previousDeadline = currentNote[4] as string | null;
+
+      // Update the note's deadline
+      db.run('UPDATE notes SET deadline = ?, updated_at = ? WHERE id = ?', [newDeadline, now, id]);
+
+      // Save to history with postponed action, including the new deadline and previous deadline
+      saveNoteHistory(db, id, content, description, category, completed, 'postponed', reason, previousDeadline);
 
       await persistDatabase();
       loadNotes();
@@ -317,5 +426,6 @@ export function useNotes(date: string) {
     deleteNote,
     restoreNote,
     reorderNotes,
+    postponeNote,
   };
 }

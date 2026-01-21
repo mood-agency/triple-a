@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useDatabase } from '@/contexts/DatabaseContext';
-import type { NoteHistory, NoteCategory } from '@/types/note';
+import { persistDatabase } from '@/db';
+import type { NoteHistory, NoteCategory, ChangelogActionType } from '@/types/note';
 
 export function useNoteHistory(noteId: string | null) {
   const { db, isReady } = useDatabase();
@@ -15,7 +16,7 @@ export function useNoteHistory(noteId: string | null) {
     }
 
     const result = db.exec(
-      'SELECT id, note_id, content, description, category, completed, changed_at FROM note_history WHERE note_id = ? ORDER BY changed_at DESC',
+      'SELECT id, note_id, content, description, category, completed, changed_at, action_type, reason, previous_date FROM note_history WHERE note_id = ? ORDER BY changed_at DESC',
       [noteId]
     );
 
@@ -28,6 +29,9 @@ export function useNoteHistory(noteId: string | null) {
         category: row[4] as NoteCategory,
         completed: Boolean(row[5]),
         changed_at: row[6] as string,
+        action_type: (row[7] as ChangelogActionType) || 'edit',
+        reason: row[8] as string | null,
+        previous_date: row[9] as string | null,
       }));
       setHistory(rows);
     } else {
@@ -35,6 +39,14 @@ export function useNoteHistory(noteId: string | null) {
     }
     setLoading(false);
   }, [db, isReady, noteId]);
+
+  const deleteHistoryEntry = useCallback(async (historyId: string) => {
+    if (!db || !isReady) return;
+
+    db.run('DELETE FROM note_history WHERE id = ?', [historyId]);
+    await persistDatabase();
+    loadHistory();
+  }, [db, isReady, loadHistory]);
 
   useEffect(() => {
     loadHistory();
@@ -44,5 +56,6 @@ export function useNoteHistory(noteId: string | null) {
     history,
     loading,
     reload: loadHistory,
+    deleteHistoryEntry,
   };
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Trash2, Clock, Calendar, Search, Pickaxe, Forward, GripVertical, StickyNote, Tag, Plus, X, Pencil, Pin, CalendarClock, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { Trash2, Clock, Calendar, Search, Pickaxe, Forward, GripVertical, StickyNote, Tag, Plus, X, Pencil, Pin, CalendarClock, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -657,6 +657,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [postponeDialogOpen, setPostponeDialogOpen] = useState(false);
   const [noteToPostpone, setNoteToPostpone] = useState<Note | null>(null);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [sortByDeadline, setSortByDeadline] = useState(false);
+  const [showOverdueOnly, setShowOverdueOnly] = useState(false);
 
   const LABEL_COLORS = [
     '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6',
@@ -695,7 +697,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     setActiveId(String(event.active.id));
   };
 
-  // Filter notes based on search query, category, and labels
+  // Filter notes based on search query, category, labels, and overdue status
   const baseFilteredNotes = notes.filter((note) => {
     // Filter by category
     if (categoryFilter !== 'all' && note.category !== categoryFilter) {
@@ -707,6 +709,13 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       const hasMatchingLabel = labelFilter.some(labelId => noteLabelIds.includes(labelId));
       if (!hasMatchingLabel) return false;
     }
+    // Filter by overdue status (only show tasks with deadlines that have passed)
+    // Uses same logic as the red badge display: deadline < now
+    if (showOverdueOnly) {
+      if (!note.deadline) return false;
+      const isOverdue = new Date(note.deadline) < new Date() && !note.completed;
+      if (!isOverdue) return false;
+    }
     // Filter by search query
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
@@ -716,7 +725,19 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   });
 
   // Separate active and completed notes
-  const activeNotes = baseFilteredNotes.filter((note) => !note.completed);
+  let activeNotes = baseFilteredNotes.filter((note) => !note.completed);
+
+  // Sort active notes by deadline if enabled
+  if (sortByDeadline) {
+    activeNotes = [...activeNotes].sort((a, b) => {
+      // Notes without deadline go to the end
+      if (!a.deadline && !b.deadline) return 0;
+      if (!a.deadline) return 1;
+      if (!b.deadline) return -1;
+      // Sort by deadline ascending (earliest first)
+      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+    });
+  }
   const completedNotes = baseFilteredNotes
     .filter((note) => note.completed)
     .sort((a, b) => {
@@ -1087,6 +1108,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         e.preventDefault();
         setCategoryFilter('all');
         setLabelFilter([]);
+        setSortByDeadline(false);
+        setShowOverdueOnly(false);
         setCategoryJustChanged(true);
         return;
       }
@@ -1220,6 +1243,47 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
             ))}
           </div>
         )}
+        {/* Deadline options */}
+        <div className="flex gap-1 items-center ml-2 pl-2 border-l border-muted-foreground/20">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => setSortByDeadline(!sortByDeadline)}
+                className={`flex items-center gap-1 px-2 h-6 text-xs rounded-md border transition-colors ${
+                  sortByDeadline
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
+                }`}
+              >
+                <ArrowUpDown className="h-3 w-3" />
+                <Calendar className="h-3 w-3" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('sortByDeadline')}</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => setShowOverdueOnly(!showOverdueOnly)}
+                className={`flex items-center gap-1 px-2 h-6 text-xs rounded-md border transition-colors ${
+                  showOverdueOnly
+                    ? 'bg-destructive text-destructive-foreground border-destructive'
+                    : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
+                }`}
+              >
+                <AlertTriangle className="h-3 w-3" />
+                <span>{t('overdue')}</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('showOverdueOnly')}</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
         {/* Toggle sidebar button */}
         <div className="ml-auto">
           <Tooltip>

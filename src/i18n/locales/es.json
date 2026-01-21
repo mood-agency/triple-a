@@ -146,6 +146,9 @@
   "actionCreated": "Creado",
   "showSidebar": "Mostrar panel",
   "hideSidebar": "Ocultar panel",
+  "sortByDeadline": "Ordenar por fecha límite",
+  "overdue": "Vencidas",
+  "showOverdueOnly": "Mostrar solo tareas vencidas",
   "hotkeys": {
     "title": "Atajos de Teclado",
     "global": "Globales",

@@ -55,6 +55,18 @@ export function runMigrations(db: Database): void {
     if (!historyColumns.includes('description')) {
       db.run('ALTER TABLE note_history ADD COLUMN description TEXT DEFAULT NULL');
     }
+    // Migration: add action_type column for changelog
+    if (!historyColumns.includes('action_type')) {
+      db.run("ALTER TABLE note_history ADD COLUMN action_type TEXT DEFAULT 'edit'");
+    }
+    // Migration: add reason column for user-provided explanation
+    if (!historyColumns.includes('reason')) {
+      db.run('ALTER TABLE note_history ADD COLUMN reason TEXT DEFAULT NULL');
+    }
+    // Migration: add previous_date column for tracking postponements
+    if (!historyColumns.includes('previous_date')) {
+      db.run('ALTER TABLE note_history ADD COLUMN previous_date TEXT DEFAULT NULL');
+    }
   }
 
   // Migration: add sort_order column if it doesn't exist
