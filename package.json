@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "start": "serve dist -l ${PORT:-3000}",
     "lint": "eslint .",
     "preview": "vite preview",
     "postinstall": "node -e \"const fs=require('fs');fs.copyFileSync('node_modules/sql.js/dist/sql-wasm.wasm','public/sql-wasm.wasm')\"",
@@ -62,6 +63,7 @@
     "react-hotkeys-hook": "^5.2.3",
     "react-i18next": "^16.5.3",
     "react-router-dom": "^7.12.0",
+    "serve": "^14.2.5",
     "sonner": "^2.0.7",
     "sql.js": "^1.13.0",
     "tailwind-merge": "^3.4.0",
