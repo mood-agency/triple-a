@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Trash2, RotateCcw, AlertTriangle } from 'lucide-react';
 import {
@@ -66,6 +67,7 @@ export const DeletedTasksDialog = memo(function DeletedTasksDialog({
     await queueOperation('notes', 'delete', id);
     refresh();
     setConfirmDelete(null);
+    toast.success(t('toast.permanentDeleteSuccess'));
   };
 
   const handleDeleteAll = async () => {
@@ -78,6 +80,7 @@ export const DeletedTasksDialog = memo(function DeletedTasksDialog({
     await persistDatabase();
     refresh();
     setConfirmDeleteAll(false);
+    toast.success(t('toast.permanentDeleteAllSuccess'));
   };
 
   return (

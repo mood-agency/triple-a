@@ -1,4 +1,6 @@
 import { useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { useAI } from '@/contexts/AIContext';
 import { useLabels } from '@/hooks/useLabels';
 import type { ClassificationCandidate } from '@/types/ai';
@@ -17,6 +19,7 @@ const autoLabeledNotes = new Set<string>();
 
 export function useAutoLabel(options: UseAutoLabelOptions = {}): UseAutoLabelReturn {
   const { minConfidence = 0.7 } = options;
+  const { t } = useTranslation();
   const { service, status, isEnabled } = useAI();
   const { labels, addLabelToNote, getLabelsForNote } = useLabels();
   const processingRef = useRef<Set<string>>(new Set());
@@ -66,19 +69,23 @@ export function useAutoLabel(options: UseAutoLabelOptions = {}): UseAutoLabelRet
         // Filter by confidence and add labels
         const labelsToAdd = result.filter((l) => l.confidence >= minConfidence);
 
-        for (const labelSuggestion of labelsToAdd) {
-          await addLabelToNote(noteId, labelSuggestion.labelId);
+        if (labelsToAdd.length > 0) {
+          for (const labelSuggestion of labelsToAdd) {
+            await addLabelToNote(noteId, labelSuggestion.labelId);
+          }
+          toast.success(t('toast.autoLabelSuccess'));
         }
 
         // Mark as processed
         autoLabeledNotes.add(noteId);
       } catch (error) {
         console.error('Auto-label error:', error);
+        toast.error(t('toast.autoLabelFailed'));
       } finally {
         processingRef.current.delete(noteId);
       }
     },
-    [isReady, service, labels, addLabelToNote, getLabelsForNote, minConfidence]
+    [isReady, service, labels, addLabelToNote, getLabelsForNote, minConfidence, t]
   );
 
   return {

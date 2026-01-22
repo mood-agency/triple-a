@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { Download, Upload, FileJson, AlertCircle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,8 +38,10 @@ export function ImportExportDialog() {
       const data = exportAllData(db);
       downloadExportFile(data);
       setError(null);
+      toast.success(t('toast.exportSuccess'));
     } catch (err) {
       setError(t('importExport.exportError'));
+      toast.error(t('toast.exportError'));
       console.error('Export error:', err);
     }
   };
@@ -69,9 +72,13 @@ export function ImportExportDialog() {
 
       if (!result.success && result.errors.length > 0) {
         setError(result.errors[0]);
+        toast.error(t('toast.importError'));
+      } else {
+        toast.success(t('toast.importSuccess'));
       }
     } catch (err) {
       setError(t('importExport.importError'));
+      toast.error(t('toast.importError'));
       console.error('Import error:', err);
     } finally {
       setImporting(false);

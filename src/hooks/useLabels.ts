@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useSync } from '@/contexts/SyncContext';
 import { persistDatabase } from '@/db';
@@ -11,6 +13,7 @@ function generateId(): string {
 export function useLabels() {
   const { db, isReady } = useDatabase();
   const { queueOperation } = useSync();
+  const { t } = useTranslation();
   const [labels, setLabels] = useState<Label[]>([]);
   const [loading, setLoading] = useState(true);
   const [noteLabelVersion, setNoteLabelVersion] = useState(0);
@@ -67,9 +70,10 @@ export function useLabels() {
         updated_at: label.updated_at,
       });
       loadLabels();
+      toast.success(t('toast.labelCreated'));
       return label;
     },
-    [db, loadLabels, queueOperation]
+    [db, loadLabels, queueOperation, t]
   );
 
   const updateLabel = useCallback(
@@ -92,10 +96,11 @@ export function useLabels() {
         updated_at: now,
       });
       loadLabels();
+      toast.success(t('toast.labelUpdated'));
 
       return { id, name, color, created_at: '', updated_at: now };
     },
-    [db, loadLabels, queueOperation]
+    [db, loadLabels, queueOperation, t]
   );
 
   const deleteLabel = useCallback(
@@ -107,8 +112,9 @@ export function useLabels() {
       await persistDatabase();
       await queueOperation('labels', 'delete', id);
       loadLabels();
+      toast.success(t('toast.labelDeleted'));
     },
-    [db, loadLabels, queueOperation]
+    [db, loadLabels, queueOperation, t]
   );
 
   const getLabelsForNote = useCallback(
@@ -157,8 +163,9 @@ export function useLabels() {
         created_at: now,
       });
       setNoteLabelVersion(v => v + 1);
+      toast.success(t('toast.labelAdded'));
     },
-    [db, queueOperation]
+    [db, queueOperation, t]
   );
 
   const removeLabelFromNote = useCallback(
@@ -173,8 +180,9 @@ export function useLabels() {
         label_id: labelId,
       });
       setNoteLabelVersion(v => v + 1);
+      toast.success(t('toast.labelRemoved'));
     },
-    [db, queueOperation]
+    [db, queueOperation, t]
   );
 
   const setLabelsForNote = useCallback(

@@ -1,4 +1,6 @@
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useSync } from '@/contexts/SyncContext';
 import { persistDatabase } from '@/db';
@@ -11,6 +13,7 @@ import { generateId, saveNoteHistory } from './noteUtils';
 export function useNoteOperations(effectiveDate: string, loadNotes: () => void) {
   const { db } = useDatabase();
   const { queueOperation } = useSync();
+  const { t } = useTranslation();
 
   /**
    * Create a new note
@@ -63,9 +66,10 @@ export function useNoteOperations(effectiveDate: string, loadNotes: () => void) 
         updated_at: note.updated_at,
       });
       loadNotes();
+      toast.success(t('toast.noteCreated'));
       return note;
     },
-    [db, effectiveDate, loadNotes, queueOperation]
+    [db, effectiveDate, loadNotes, queueOperation, t]
   );
 
   /**
@@ -213,9 +217,10 @@ export function useNoteOperations(effectiveDate: string, loadNotes: () => void) 
         setNotes(prevNotes => prevNotes.map(note => note.id === id ? updatedNote : note));
       }
 
+      toast.success(t('toast.noteUpdated'));
       return updatedNote;
     },
-    [db, effectiveDate, queueOperation]
+    [db, effectiveDate, queueOperation, t]
   );
 
   /**
@@ -262,8 +267,9 @@ export function useNoteOperations(effectiveDate: string, loadNotes: () => void) 
         updated_at: now,
       });
       loadNotes();
+      toast.success(t('toast.noteRestored'));
     },
-    [db, loadNotes, queueOperation]
+    [db, loadNotes, queueOperation, t]
   );
 
   return {

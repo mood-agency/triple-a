@@ -1,4 +1,6 @@
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useSync } from '@/contexts/SyncContext';
 import { persistDatabase } from '@/db';
@@ -11,6 +13,7 @@ import { saveNoteHistory } from './noteUtils';
 export function useNoteDeadline(loadNotes: () => void) {
   const { db } = useDatabase();
   const { queueOperation } = useSync();
+  const { t } = useTranslation();
 
   /**
    * Update or clear a note's deadline
@@ -39,8 +42,10 @@ export function useNoteDeadline(loadNotes: () => void) {
           note.id === id ? { ...note, deadline, updated_at: now } : note
         ));
       }
+
+      toast.success(t('toast.deadlineUpdated'));
     },
-    [db, queueOperation]
+    [db, queueOperation, t]
   );
 
   /**
@@ -80,8 +85,9 @@ export function useNoteDeadline(loadNotes: () => void) {
         updated_at: now,
       });
       loadNotes();
+      toast.success(t('toast.notePostponed'));
     },
-    [db, loadNotes, queueOperation]
+    [db, loadNotes, queueOperation, t]
   );
 
   return {

@@ -1,4 +1,6 @@
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useSync } from '@/contexts/SyncContext';
 import { persistDatabase } from '@/db';
@@ -11,6 +13,7 @@ import { saveNoteHistory } from './noteUtils';
 export function useNoteState() {
   const { db } = useDatabase();
   const { queueOperation } = useSync();
+  const { t } = useTranslation();
 
   /**
    * Toggle the completed status of a note
@@ -85,8 +88,10 @@ export function useNoteState() {
           note.id === id ? { ...note, pinned, updated_at: now } : note
         ));
       }
+
+      toast.success(pinned ? t('toast.notePinned') : t('toast.noteUnpinned'));
     },
-    [db, queueOperation]
+    [db, queueOperation, t]
   );
 
   return {
