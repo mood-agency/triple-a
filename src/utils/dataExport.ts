@@ -5,7 +5,7 @@ const EXPORT_VERSION = '1.0';
 
 export function exportAllData(db: Database): ExportData {
   const notesResult = db.exec(`
-    SELECT id, date, content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, updated_at
+    SELECT id, date, content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, updated_at, deleted_at
     FROM notes
     ORDER BY date DESC, sort_order ASC
   `);
@@ -30,6 +30,7 @@ export function exportAllData(db: Database): ExportData {
         sort_order: (row[9] as number) || 0,
         created_at: row[10] as string,
         updated_at: row[11] as string,
+        deleted_at: row[12] as string | null,
       }))
     : [];
 

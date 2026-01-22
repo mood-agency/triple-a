@@ -108,6 +108,7 @@ export function useNotes(date?: string) {
         sort_order: minSortOrder,
         created_at: now,
         updated_at: now,
+        deleted_at: null,
       };
 
       db.run(
@@ -179,7 +180,7 @@ export function useNotes(date?: string) {
       });
       loadNotes();
 
-      return { id, date: effectiveDate, content, description: finalDescription, category: finalCategory, completed, completed_at: completedAt, deadline, pinned, sort_order: sortOrder, created_at: createdAt, updated_at: now };
+      return { id, date: effectiveDate, content, description: finalDescription, category: finalCategory, completed, completed_at: completedAt, deadline, pinned, sort_order: sortOrder, created_at: createdAt, updated_at: now, deleted_at: null };
     },
     [db, effectiveDate, loadNotes, queueOperation]
   );
@@ -344,6 +345,7 @@ export function useNotes(date?: string) {
         sort_order: newSortOrder,
         created_at: now,
         updated_at: now,
+        deleted_at: null,
       };
 
       db.run(
