@@ -1,6 +1,9 @@
 # Force Node.js provider (ignore Deno detection from supabase/ folder)
 providers = ["node"]
 
+[variables]
+NODE_VERSION = "20"
+
 [phases.build]
 cmds = ["npm run build"]
 
