@@ -850,6 +850,52 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     );
   }
 
+  const hasActiveFilters = searchQuery.trim() !== '' || categoryFilter !== 'all' || labelFilter.length > 0 || showOverdueOnly;
+
+  // Special case: show message when there are only completed tasks (no active tasks)
+  const shouldShowOnlyCompletedMessage = hasActiveFilters && activeNotes.length === 0 && completedNotes.length > 0;
+
+  const showNoResultsMessage = (filteredNotes.length === 0 && hasActiveFilters) || shouldShowOnlyCompletedMessage;
+
+  // Build a comprehensive no-results message showing all active filters
+  const getNoResultsMessage = () => {
+    // Special case: filters match only completed tasks (no active tasks)
+    if (shouldShowOnlyCompletedMessage) {
+      if (completedNotes.length === 1) {
+        return t('onlyCompletedTasksSingular');
+      }
+      return t('onlyCompletedTasks', { count: completedNotes.length });
+    }
+
+    const parts: string[] = [];
+
+    if (searchQuery.trim() !== '') {
+      parts.push(`texto "${searchQuery}"`);
+    }
+
+    if (categoryFilter !== 'all') {
+      const categoryName = t(`category${categoryFilter.charAt(0).toUpperCase() + categoryFilter.slice(1)}`);
+      parts.push(`categoría ${categoryName}`);
+    }
+
+    if (labelFilter.length > 0) {
+      const selectedLabels = labels.filter(l => labelFilter.includes(l.id)).map(l => l.name);
+      if (selectedLabels.length > 0) {
+        parts.push(`${selectedLabels.length === 1 ? 'etiqueta' : 'etiquetas'} ${selectedLabels.join(', ')}`);
+      }
+    }
+
+    if (showOverdueOnly) {
+      parts.push('solo tareas vencidas');
+    }
+
+    if (parts.length === 0) {
+      return t('noNotesWithFilters') + ' los filtros aplicados';
+    }
+
+    return t('noNotesWithFilters') + ': ' + parts.join(', ');
+  };
+
   return (
     <div ref={containerRef} className="flex flex-col h-full overflow-hidden" tabIndex={0}>
       <div className="flex gap-2 mb-3 flex-shrink-0">
@@ -1065,19 +1111,29 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       </div>
       <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
         <div className={`${showSidebar ? 'w-[38rem]' : 'flex-1'} shrink-0 flex flex-col overflow-hidden`}>
+          {/* No results message */}
+          {showNoResultsMessage && (
+            <div className="flex-1 flex items-center justify-center">
+              <p className="text-center text-muted-foreground/60 text-sm italic">
+                {getNoResultsMessage()}
+              </p>
+            </div>
+          )}
+
           {/* Active tasks section - 75% */}
-          <div className="overflow-y-auto pr-2 flex-[3]">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={activeNotes.map((n) => n.id)}
-                strategy={verticalListSortingStrategy}
+          {!showNoResultsMessage && (
+            <div className="overflow-y-auto pr-2 flex-[3]">
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
               >
-                {activeNotes.map((note) => (
+                <SortableContext
+                  items={activeNotes.map((n) => n.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {activeNotes.map((note) => (
                   <MemoizedNoteRow
                     key={note.id}
                     note={note}
@@ -1105,13 +1161,14 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                     isFixedInSidebar={fixedNoteId === note.id}
                     onToggleFixInSidebar={toggleFixInSidebarHandlers.get(note.id)!}
                   />
-                ))}
-              </SortableContext>
-            </DndContext>
-          </div>
+                  ))}
+                </SortableContext>
+              </DndContext>
+            </div>
+          )}
 
           {/* Completed tasks section - 25% */}
-          {completedNotes.length > 0 && (
+          {!showNoResultsMessage && completedNotes.length > 0 && (
             <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">
               <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
                 {t('completedTasks')} ({completedNotes.length})
