@@ -48,6 +48,14 @@ export function useNoteHistory(noteId: string | null) {
     loadHistory();
   }, [db, isReady, loadHistory]);
 
+  const updateHistoryReason = useCallback(async (historyId: string, newReason: string) => {
+    if (!db || !isReady) return;
+
+    db.run('UPDATE note_history SET reason = ? WHERE id = ?', [newReason, historyId]);
+    await persistDatabase();
+    loadHistory();
+  }, [db, isReady, loadHistory]);
+
   useEffect(() => {
     loadHistory();
   }, [loadHistory]);
@@ -57,5 +65,6 @@ export function useNoteHistory(noteId: string | null) {
     loading,
     reload: loadHistory,
     deleteHistoryEntry,
+    updateHistoryReason,
   };
 }
