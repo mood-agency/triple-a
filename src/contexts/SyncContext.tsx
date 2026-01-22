@@ -19,11 +19,19 @@ interface PushAllResult {
   pushed: { notes: number; labels: number; noteLabels: number; noteHistory: number }
 }
 
+interface PullAllResult {
+  success: boolean
+  error?: string
+  pulled: { notes: number; labels: number; noteLabels: number }
+}
+
 interface SyncContextType extends SyncContextState {
   syncNow: () => Promise<void>
   queueOperation: (tableName: SyncTable, operation: SyncOperation, recordId: string, data?: Record<string, unknown>) => Promise<void>
   pushAllToSupabase: (onProgress?: (progress: PushAllProgress) => void) => Promise<PushAllResult>
+  pullAllFromSupabase: (onProgress?: (progress: PushAllProgress) => void) => Promise<PullAllResult>
   isPushingAll: boolean
+  isPullingAll: boolean
 }
 
 const SyncContext = createContext<SyncContextType | null>(null)
@@ -43,6 +51,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
 
   const [isPushingAll, setIsPushingAll] = useState(false)
+  const [isPullingAll, setIsPullingAll] = useState(false)
 
   const syncServiceRef = useRef<SyncService | null>(null)
   const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -152,6 +161,39 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       return { success: false, error: errorMsg, pushed: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0 } }
     } finally {
       setIsPushingAll(false)
+    }
+  }, [isOnline])
+
+  // Pull all data from Supabase (full sync from cloud)
+  const pullAllFromSupabase = useCallback(async (
+    onProgress?: (progress: PushAllProgress) => void
+  ): Promise<PullAllResult> => {
+    if (!syncServiceRef.current || !isOnline) {
+      return { success: false, error: 'Not connected', pulled: { notes: 0, labels: 0, noteLabels: 0 } }
+    }
+
+    setIsPullingAll(true)
+    setError(null)
+
+    try {
+      const result = await syncServiceRef.current.pullAllFromSupabase((current, total, item) => {
+        onProgress?.({ current, total, item })
+      })
+
+      if (result.success) {
+        setLastSyncedAt(syncServiceRef.current.getLastSyncedAt())
+        await persistDatabase()
+      } else {
+        setError(result.error || 'Pull failed')
+      }
+
+      return result
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+      setError(errorMsg)
+      return { success: false, error: errorMsg, pulled: { notes: 0, labels: 0, noteLabels: 0 } }
+    } finally {
+      setIsPullingAll(false)
     }
   }, [isOnline])
 
@@ -275,7 +317,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         syncNow,
         queueOperation,
         pushAllToSupabase,
+        pullAllFromSupabase,
         isPushingAll,
+        isPullingAll,
       }}
     >
       {children}

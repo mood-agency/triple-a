@@ -4,6 +4,7 @@ import { Home } from './pages/Home'
 import { About } from './pages/About'
 import { Auth } from './pages/Auth'
 import { ResetPassword } from './pages/ResetPassword'
+import { AITest } from './pages/AITest'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isConfigured } = useAuth()
@@ -47,6 +48,14 @@ function App() {
         element={
           <ProtectedRoute>
             <About />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ai-test"
+        element={
+          <ProtectedRoute>
+            <AITest />
           </ProtectedRoute>
         }
       />

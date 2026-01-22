@@ -1,4 +1,4 @@
-export type NoteCategory = 'todo' | 'followup' | 'notes';
+export type NoteCategory = 'todo' | 'followup' | 'notes' | 'meeting';
 
 export type SyncStatus = 'local' | 'pending' | 'synced' | 'conflict';
 
@@ -17,6 +17,9 @@ export interface Note {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
+  // Computed field from history
+  last_postpone_reason?: string | null;
   // Sync fields
   remote_id?: string | null;
   sync_status?: SyncStatus;

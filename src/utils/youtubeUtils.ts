@@ -1,0 +1,207 @@
+import type {
+  YouTubeVideoMetadata,
+  TranscriptionResult,
+  SummarizationResult,
+} from '@/types/youtube'
+
+/**
+ * Supported YouTube URL patterns
+ */
+const YOUTUBE_URL_PATTERNS = [
+  // Standard watch URL: https://www.youtube.com/watch?v=VIDEO_ID
+  /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+  // Short URL: https://youtu.be/VIDEO_ID
+  /(?:https?:\/\/)?youtu\.be\/([a-zA-Z0-9_-]{11})/,
+  // Embed URL: https://www.youtube.com/embed/VIDEO_ID
+  /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+  // Shorts URL: https://youtube.com/shorts/VIDEO_ID
+  /(?:https?:\/\/)?(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+  // Mobile URL: https://m.youtube.com/watch?v=VIDEO_ID
+  /(?:https?:\/\/)?m\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+]
+
+/**
+ * Allowed YouTube hostnames (for security validation)
+ */
+const ALLOWED_YOUTUBE_HOSTS = [
+  'youtube.com',
+  'www.youtube.com',
+  'm.youtube.com',
+  'youtu.be',
+]
+
+/**
+ * Validates if a URL is a valid YouTube URL (security check)
+ */
+export function isValidYouTubeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return ALLOWED_YOUTUBE_HOSTS.includes(parsed.hostname)
+  } catch {
+    // If URL parsing fails, try with patterns (handles URLs without protocol)
+    return YOUTUBE_URL_PATTERNS.some((pattern) => pattern.test(url))
+  }
+}
+
+/**
+ * Extracts the video ID from a YouTube URL
+ * @returns The video ID or null if not found
+ */
+export function extractVideoId(url: string): string | null {
+  // Security check first
+  if (!isValidYouTubeUrl(url)) {
+    return null
+  }
+
+  for (const pattern of YOUTUBE_URL_PATTERNS) {
+    const match = url.match(pattern)
+    if (match && match[1]) {
+      return match[1]
+    }
+  }
+
+  // Try URL params approach for edge cases
+  try {
+    const parsed = new URL(url)
+    const videoId = parsed.searchParams.get('v')
+    if (videoId && /^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+      return videoId
+    }
+  } catch {
+    // Ignore parsing errors
+  }
+
+  return null
+}
+
+/**
+ * Builds a standard YouTube watch URL from a video ID
+ */
+export function buildVideoUrl(videoId: string): string {
+  return `https://www.youtube.com/watch?v=${videoId}`
+}
+
+/**
+ * Builds a YouTube thumbnail URL
+ * @param quality - 'default' | 'medium' | 'high' | 'maxres'
+ */
+export function buildThumbnailUrl(
+  videoId: string,
+  quality: 'default' | 'medium' | 'high' | 'maxres' = 'high'
+): string {
+  const qualityMap = {
+    default: 'default',
+    medium: 'mqdefault',
+    high: 'hqdefault',
+    maxres: 'maxresdefault',
+  }
+  return `https://img.youtube.com/vi/${videoId}/${qualityMap[quality]}.jpg`
+}
+
+/**
+ * Formats an ISO 8601 duration to human-readable format
+ * @example "PT1H30M45S" -> "1:30:45"
+ * @example "PT10M30S" -> "10:30"
+ * @example "PT45S" -> "0:45"
+ */
+export function formatDuration(isoDuration: string): string {
+  const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
+  if (!match) return isoDuration
+
+  const hours = parseInt(match[1] || '0', 10)
+  const minutes = parseInt(match[2] || '0', 10)
+  const seconds = parseInt(match[3] || '0', 10)
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+  }
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
+}
+
+/**
+ * Formats the transcription and summary into note content
+ */
+export function formatTranscriptionForNote(
+  metadata: YouTubeVideoMetadata,
+  transcription: TranscriptionResult | null,
+  summary: SummarizationResult | null
+): { content: string; description: string | null } {
+  // Note content is the video title with link
+  const content = `📺 ${metadata.title}`
+
+  // Build description with video info, summary, and transcription
+  const descriptionParts: string[] = []
+
+  // Video metadata
+  descriptionParts.push(`**Video:** [${metadata.title}](${buildVideoUrl(metadata.videoId)})`)
+  descriptionParts.push(`**Canal:** ${metadata.channelName}`)
+  descriptionParts.push(`**Duración:** ${formatDuration(metadata.duration)}`)
+  descriptionParts.push('')
+
+  // Summary section
+  if (summary) {
+    descriptionParts.push('## Resumen')
+    descriptionParts.push(summary.summary)
+    descriptionParts.push('')
+
+    if (summary.keyPoints && summary.keyPoints.length > 0) {
+      descriptionParts.push('### Puntos clave')
+      summary.keyPoints.forEach((point) => {
+        descriptionParts.push(`- ${point}`)
+      })
+      descriptionParts.push('')
+    }
+
+    if (summary.topics && summary.topics.length > 0) {
+      descriptionParts.push(`**Temas:** ${summary.topics.join(', ')}`)
+      descriptionParts.push('')
+    }
+  }
+
+  // Transcription section
+  if (transcription) {
+    descriptionParts.push('---')
+    descriptionParts.push('')
+    descriptionParts.push('## Transcripción')
+    descriptionParts.push(
+      `*Idioma: ${transcription.languageName}${transcription.isAutoGenerated ? ' (auto-generado)' : ''}*`
+    )
+    descriptionParts.push('')
+    descriptionParts.push(transcription.text)
+  }
+
+  const description = descriptionParts.join('\n')
+
+  return {
+    content,
+    description: description || null,
+  }
+}
+
+/**
+ * Truncates text to a maximum length with ellipsis
+ */
+export function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
+  return text.slice(0, maxLength - 3) + '...'
+}
+
+/**
+ * Estimates reading time for a text
+ * @returns Reading time in minutes
+ */
+export function estimateReadingTime(text: string): number {
+  const wordsPerMinute = 200
+  const wordCount = text.split(/\s+/).length
+  return Math.ceil(wordCount / wordsPerMinute)
+}
+
+/**
+ * Cleans transcription text by removing excessive whitespace
+ */
+export function cleanTranscriptionText(text: string): string {
+  return text
+    .replace(/\n{3,}/g, '\n\n') // Replace 3+ newlines with 2
+    .replace(/[ \t]+/g, ' ') // Replace multiple spaces/tabs with single space
+    .trim()
+}

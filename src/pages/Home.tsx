@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -10,6 +11,8 @@ import { SyncStatus } from '@/components/sync/SyncStatus';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { CommandPalette } from '@/components/CommandPalette';
 import { HotkeysHelper } from '@/components/HotkeysHelper';
+import { AIStatusIndicator } from '@/components/ai/AIStatusIndicator';
+import { DeletedTasksDialog } from '@/components/notes/DeletedTasksDialog';
 import { useNotes } from '@/hooks/useNotes';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useLabels } from '@/hooks/useLabels';
@@ -39,11 +42,10 @@ export function Home() {
 
   const [labelFilter, setLabelFilter] = useState<string[]>(getInitialLabelFilter);
   const [categoryFilter, setCategoryFilter] = useState<NoteCategory | 'all'>(getInitialCategoryFilter);
+  const [showDeletedTasks, setShowDeletedTasks] = useState(false);
 
-  const today = new Date();
-  const dateKey = today.toISOString().split('T')[0];
-
-  const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote } = useNotes(dateKey);
+  // Load ALL notes without date filtering
+  const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote } = useNotes();
 
   // Sync selected note from URL param when notes load
   useEffect(() => {
@@ -132,6 +134,14 @@ export function Home() {
     }
   };
 
+  const handlePostponeNote = async (id: string, newDeadline: string, reason: string) => {
+    await postponeNote(id, newDeadline, reason);
+    // Update selectedNote if it's the one being postponed
+    if (selectedNote?.id === id) {
+      setSelectedNote({ ...selectedNote, deadline: newDeadline, last_postpone_reason: reason });
+    }
+  };
+
   if (!isReady || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -158,6 +168,17 @@ export function Home() {
                 <p>{t('newTask')}</p>
               </TooltipContent>
             </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={() => setShowDeletedTasks(true)} size="icon" variant="outline">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t('trash.title')}</p>
+              </TooltipContent>
+            </Tooltip>
+            <AIStatusIndicator compact />
             <SyncStatus />
             <Tooltip>
               <TooltipTrigger asChild>
@@ -186,7 +207,7 @@ export function Home() {
             onTogglePinned={togglePinned}
             onUpdateDeadline={handleUpdateDeadline}
             onReorderNotes={reorderNotes}
-            onPostponeNote={postponeNote}
+            onPostponeNote={handlePostponeNote}
             selectedNote={selectedNote}
             onSelectNote={handleSelectNote}
             onCreateNoteAfter={createNoteAfter}
@@ -214,6 +235,12 @@ export function Home() {
       />
 
       <HotkeysHelper />
+
+      <DeletedTasksDialog
+        open={showDeletedTasks}
+        onOpenChange={setShowDeletedTasks}
+        onRestore={restoreNote}
+      />
     </div>
   );
 }

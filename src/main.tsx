@@ -5,6 +5,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { DatabaseProvider } from './contexts/DatabaseContext'
 import { SyncProvider } from './contexts/SyncContext'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { AIProvider } from './contexts/AIContext'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Toaster } from './components/ui/sonner'
 import './index.css'
@@ -19,8 +20,10 @@ createRoot(document.getElementById('root')!).render(
           <AuthProvider>
             <DatabaseProvider>
               <SyncProvider>
-                <App />
-                <Toaster />
+                <AIProvider>
+                  <App />
+                  <Toaster />
+                </AIProvider>
               </SyncProvider>
             </DatabaseProvider>
           </AuthProvider>

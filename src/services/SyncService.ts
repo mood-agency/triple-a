@@ -522,6 +522,212 @@ export class SyncService {
     return result[0]?.values[0]?.[0] as string | null
   }
 
+  // One-way sync: Pull all data from Supabase (ignores lastSyncedAt)
+  async pullAllFromSupabase(
+    onProgress?: (current: number, total: number, item: string) => void
+  ): Promise<{ success: boolean; error?: string; pulled: { notes: number; labels: number; noteLabels: number } }> {
+    const client = getSupabaseClient() as AnySupabaseClient
+    if (!client) {
+      return { success: false, error: 'Supabase not configured', pulled: { notes: 0, labels: 0, noteLabels: 0 } }
+    }
+
+    if (this.isSyncing) {
+      return { success: false, error: 'Sync already in progress', pulled: { notes: 0, labels: 0, noteLabels: 0 } }
+    }
+
+    this.isSyncing = true
+    const pulled = { notes: 0, labels: 0, noteLabels: 0 }
+
+    try {
+      console.log('[SyncService] pullAllFromSupabase - Starting full pull')
+
+      // Get all remote labels
+      const { data: remoteLabels, error: labelsError } = await client
+        .from('labels')
+        .select('*')
+        .eq('user_id', this.userId)
+        .is('deleted_at', null)
+
+      if (labelsError) throw labelsError
+
+      // Get all remote notes
+      const { data: remoteNotes, error: notesError } = await client
+        .from('notes')
+        .select('*')
+        .eq('user_id', this.userId)
+        .is('deleted_at', null)
+
+      if (notesError) throw notesError
+
+      // Get all remote note_labels
+      const { data: remoteNoteLabels, error: noteLabelsError } = await client
+        .from('note_labels')
+        .select('*')
+        .eq('user_id', this.userId)
+
+      if (noteLabelsError) throw noteLabelsError
+
+      const total = (remoteLabels?.length || 0) + (remoteNotes?.length || 0) + (remoteNoteLabels?.length || 0)
+      let current = 0
+
+      console.log('[SyncService] Items to pull:', {
+        labels: remoteLabels?.length || 0,
+        notes: remoteNotes?.length || 0,
+        noteLabels: remoteNoteLabels?.length || 0
+      })
+
+      const now = new Date().toISOString()
+
+      // Pull labels first
+      for (const remoteLabel of remoteLabels || []) {
+        current++
+        onProgress?.(current, total, `Label: ${remoteLabel.name}`)
+
+        const existingResult = this.db.exec(
+          `SELECT id FROM labels WHERE remote_id = ?`,
+          [remoteLabel.id as string]
+        )
+
+        if (existingResult.length === 0 || existingResult[0].values.length === 0) {
+          // Insert new label
+          const localId = crypto.randomUUID()
+          this.db.run(
+            `INSERT INTO labels (id, name, color, created_at, updated_at, remote_id, sync_status, last_synced_at)
+             VALUES (?, ?, ?, ?, ?, ?, 'synced', ?)`,
+            [
+              localId,
+              remoteLabel.name,
+              remoteLabel.color,
+              remoteLabel.created_at,
+              remoteLabel.updated_at,
+              remoteLabel.id,
+              now,
+            ]
+          )
+          pulled.labels++
+        } else {
+          // Update existing
+          const localId = existingResult[0].values[0][0] as string
+          this.db.run(
+            `UPDATE labels SET name = ?, color = ?, updated_at = ?, sync_status = 'synced', last_synced_at = ?
+             WHERE id = ?`,
+            [
+              remoteLabel.name,
+              remoteLabel.color,
+              remoteLabel.updated_at,
+              now,
+              localId,
+            ]
+          )
+          pulled.labels++
+        }
+      }
+
+      // Pull notes
+      for (const remoteNote of remoteNotes || []) {
+        current++
+        onProgress?.(current, total, `Note: ${(remoteNote.content as string).substring(0, 30)}...`)
+
+        const existingResult = this.db.exec(
+          `SELECT id FROM notes WHERE remote_id = ?`,
+          [remoteNote.id as string]
+        )
+
+        if (existingResult.length === 0 || existingResult[0].values.length === 0) {
+          // Insert new note
+          const localId = crypto.randomUUID()
+          this.db.run(
+            `INSERT INTO notes (id, date, content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, updated_at, remote_id, sync_status, last_synced_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)`,
+            [
+              localId,
+              remoteNote.date,
+              remoteNote.content,
+              remoteNote.description,
+              remoteNote.category,
+              remoteNote.completed ? 1 : 0,
+              remoteNote.completed_at,
+              remoteNote.deadline,
+              remoteNote.pinned ? 1 : 0,
+              remoteNote.sort_order,
+              remoteNote.created_at,
+              remoteNote.updated_at,
+              remoteNote.id,
+              now,
+            ]
+          )
+          pulled.notes++
+        } else {
+          // Update existing
+          const localId = existingResult[0].values[0][0] as string
+          this.db.run(
+            `UPDATE notes SET date = ?, content = ?, description = ?, category = ?, completed = ?, completed_at = ?, deadline = ?, pinned = ?, sort_order = ?, updated_at = ?, sync_status = 'synced', last_synced_at = ?
+             WHERE id = ?`,
+            [
+              remoteNote.date,
+              remoteNote.content,
+              remoteNote.description,
+              remoteNote.category,
+              remoteNote.completed ? 1 : 0,
+              remoteNote.completed_at,
+              remoteNote.deadline,
+              remoteNote.pinned ? 1 : 0,
+              remoteNote.sort_order,
+              remoteNote.updated_at,
+              now,
+              localId,
+            ]
+          )
+          pulled.notes++
+        }
+      }
+
+      // Pull note_labels
+      for (const remoteNoteLabel of remoteNoteLabels || []) {
+        current++
+        onProgress?.(current, total, `Note-Label relation`)
+
+        // Get local IDs from remote IDs
+        const noteResult = this.db.exec(`SELECT id FROM notes WHERE remote_id = ?`, [remoteNoteLabel.note_id])
+        const labelResult = this.db.exec(`SELECT id FROM labels WHERE remote_id = ?`, [remoteNoteLabel.label_id])
+
+        const localNoteId = noteResult[0]?.values[0]?.[0] as string | null
+        const localLabelId = labelResult[0]?.values[0]?.[0] as string | null
+
+        if (localNoteId && localLabelId) {
+          // Check if relation exists
+          const existingResult = this.db.exec(
+            `SELECT note_id FROM note_labels WHERE note_id = ? AND label_id = ?`,
+            [localNoteId, localLabelId]
+          )
+
+          if (existingResult.length === 0 || existingResult[0].values.length === 0) {
+            this.db.run(
+              `INSERT INTO note_labels (note_id, label_id, created_at) VALUES (?, ?, ?)`,
+              [localNoteId, localLabelId, remoteNoteLabel.created_at]
+            )
+            pulled.noteLabels++
+          }
+        }
+      }
+
+      // Update last sync time
+      this.db.run(
+        `INSERT OR REPLACE INTO sync_state (key, value) VALUES ('last_synced_at', ?)`,
+        [now]
+      )
+
+      console.log('[SyncService] pullAllFromSupabase - Complete:', pulled)
+      return { success: true, pulled }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[SyncService] pullAllFromSupabase error:', error)
+      return { success: false, error: message, pulled }
+    } finally {
+      this.isSyncing = false
+    }
+  }
+
   // One-way sync: Push all local data to Supabase
   async pushAllToSupabase(
     onProgress?: (current: number, total: number, item: string) => void

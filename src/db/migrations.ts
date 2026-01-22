@@ -157,6 +157,10 @@ export function runMigrations(db: Database): void {
     if (!syncNotesColumns.includes('last_synced_at')) {
       db.run('ALTER TABLE notes ADD COLUMN last_synced_at TEXT DEFAULT NULL');
     }
+    // Migration: add deleted_at column for soft delete
+    if (!syncNotesColumns.includes('deleted_at')) {
+      db.run('ALTER TABLE notes ADD COLUMN deleted_at TEXT DEFAULT NULL');
+    }
   }
 
   // Add sync columns to labels table

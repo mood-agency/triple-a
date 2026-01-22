@@ -213,6 +213,13 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
           >
             {t('categoryNotes')}
           </Badge>
+          <Badge
+            variant={category === 'meeting' ? 'default' : 'secondary'}
+            className="cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => setCategory('meeting')}
+          >
+            {t('categoryMeeting')}
+          </Badge>
         </div>
       )}
       <Textarea

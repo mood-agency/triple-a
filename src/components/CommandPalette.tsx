@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
-import { Pickaxe, Forward, StickyNote, Check, X } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Check, X, Users } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -95,24 +96,15 @@ export function CommandPalette({
     setOpen(newOpen);
   }, [saveFocusState, restoreFocusState]);
 
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
-      if (open) {
-        // Closing via Ctrl+K - restore focus
-        handleOpenChange(false);
-      } else {
-        // Opening via Ctrl+K - save focus state first
-        saveFocusState();
-        setOpen(true);
-      }
+  // Ctrl+K to toggle command palette
+  useHotkeys('ctrl+k, meta+k', () => {
+    if (open) {
+      handleOpenChange(false);
+    } else {
+      saveFocusState();
+      setOpen(true);
     }
-  }, [open, saveFocusState, handleOpenChange]);
-
-  useEffect(() => {
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
+  }, { preventDefault: true, enableOnFormTags: true }, [open, saveFocusState, handleOpenChange]);
 
   const handleSelectLabel = (labelId: string) => {
     onSelectLabel(labelId);
@@ -168,6 +160,11 @@ export function CommandPalette({
             <StickyNote className="mr-2 h-4 w-4" />
             <Check className={`mr-2 h-4 w-4 ${categoryFilter === 'notes' ? 'opacity-100' : 'opacity-0'}`} />
             {t('categoryNotes')}
+          </CommandItem>
+          <CommandItem onSelect={() => handleSelectCategory('meeting')}>
+            <Users className="mr-2 h-4 w-4" />
+            <Check className={`mr-2 h-4 w-4 ${categoryFilter === 'meeting' ? 'opacity-100' : 'opacity-0'}`} />
+            {t('categoryMeeting')}
           </CommandItem>
         </CommandGroup>
 

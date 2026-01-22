@@ -14,10 +14,11 @@ Estos atajos funcionan desde cualquier parte de la aplicación (excepto cuando s
 |-------|--------|
 | `Ctrl+K` | Abrir Command Palette |
 | `Ctrl+F` | Enfocar barra de búsqueda |
-| `Ctrl+A` | Filtrar por categoría "Por Hacer" (toggle) |
-| `Ctrl+S` | Filtrar por categoría "Seguimiento" (toggle) |
-| `Ctrl+D` | Filtrar por categoría "Notas" (toggle) |
-| `Ctrl+C` | Limpiar todos los filtros |
+| `Alt+Q` | Filtrar por categoría "Por Hacer" (toggle) |
+| `Alt+W` | Filtrar por categoría "Seguimiento" (toggle) |
+| `Alt+E` | Filtrar por categoría "Notas" (toggle) |
+| `Alt+R` | Filtrar por categoría "Reunión" (toggle) |
+| `Alt+C` | Limpiar todos los filtros |
 | `↑` | Seleccionar última tarea (si ninguna está seleccionada) |
 | `↓` | Seleccionar primera tarea (si ninguna está seleccionada) |
 | `Escape` | Deseleccionar tarea actual |
