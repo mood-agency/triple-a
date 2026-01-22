@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle, memo, useCallback, useMemo } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
-import { Trash2, Clock, Calendar, Search, Pickaxe, Forward, GripVertical, StickyNote, Tag, Plus, X, Pencil, Pin, CalendarClock, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, Users, ChevronDown, Check } from 'lucide-react';
+import { Trash2, Calendar, Search, Pickaxe, Forward, GripVertical, StickyNote, Tag, Plus, X, Pencil, Pin, CalendarClock, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, Users, ChevronDown, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -109,6 +109,8 @@ interface NoteRowProps {
   onEditLabel?: (label: Label) => void;
   isCommandPaletteOpen?: boolean;
   onAutoLabel?: (noteId: string, content: string, description?: string | null) => void;
+  isFixedInSidebar?: boolean;
+  onToggleFixInSidebar?: () => void;
 }
 
 function NoteRow({
@@ -135,6 +137,8 @@ function NoteRow({
   onEditLabel,
   isCommandPaletteOpen,
   onAutoLabel,
+  isFixedInSidebar = false,
+  onToggleFixInSidebar,
 }: NoteRowProps) {
   const { t } = useTranslation();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -435,7 +439,12 @@ function NoteRow({
                   onKeyDown={handleContentKeyDown}
                   className="flex-1 min-w-0 text-sm leading-normal bg-transparent border-none outline-none p-0 m-0"
                 />
-                <Popover open={showLabelDropdown} onOpenChange={setShowLabelDropdown}>
+                <Popover open={showLabelDropdown} onOpenChange={(open) => {
+                  setShowLabelDropdown(open);
+                  if (!open) {
+                    contentInputRef.current?.focus();
+                  }
+                }}>
                   <PopoverTrigger asChild>
                     <span className="sr-only">Labels</span>
                   </PopoverTrigger>
@@ -498,14 +507,21 @@ function NoteRow({
                     </Command>
                   </PopoverContent>
                 </Popover>
-                <Popover open={showCategoryDropdown} onOpenChange={setShowCategoryDropdown}>
+                <Popover open={showCategoryDropdown} onOpenChange={(open) => {
+                  setShowCategoryDropdown(open);
+                  if (!open) {
+                    contentInputRef.current?.focus();
+                  }
+                }}>
                   <PopoverTrigger asChild>
                     <span className="sr-only">{t('category')}</span>
                   </PopoverTrigger>
                   <PopoverContent className="w-44 p-0" align="start">
                     <Command>
+                      <CommandInput placeholder={t('searchCategory')} className="h-9" />
                       <CommandList>
-                        <CommandGroup heading={t('category')}>
+                        <CommandEmpty>{t('noCategoriesFound')}</CommandEmpty>
+                        <CommandGroup>
                           <CommandItem
                             value="todo"
                             onSelect={() => {
@@ -613,6 +629,25 @@ function NoteRow({
               <p>{note.pinned ? t('unpin') : t('pin')}</p>
             </TooltipContent>
           </Tooltip>
+          {onToggleFixInSidebar && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className={`transition-opacity p-1.5 cursor-pointer ${isFixedInSidebar ? 'text-blue-500 opacity-100' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-blue-500'}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleFixInSidebar();
+                  }}
+                >
+                  <PanelRightOpen className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{isFixedInSidebar ? t('unfixFromSidebar') : t('fixToSidebar')}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -650,29 +685,75 @@ function NoteRow({
   );
 }
 
+// Memoized version of NoteRow to prevent unnecessary re-renders
+// Only re-renders when relevant props actually change
+const MemoizedNoteRow = memo(
+  NoteRow,
+  (prevProps, nextProps) => {
+    // Return true if props are equal (should NOT re-render)
+    // Return false if props are different (should re-render)
+
+    // Core note properties that affect rendering
+    if (prevProps.note.id !== nextProps.note.id) return false;
+    if (prevProps.note.content !== nextProps.note.content) return false;
+    if (prevProps.note.category !== nextProps.note.category) return false;
+    if (prevProps.note.updated_at !== nextProps.note.updated_at) return false;
+    if (prevProps.note.completed_at !== nextProps.note.completed_at) return false;
+    if (prevProps.note.deadline !== nextProps.note.deadline) return false;
+    if (prevProps.note.pinned !== nextProps.note.pinned) return false;
+    if (prevProps.note.sort_order !== nextProps.note.sort_order) return false;
+
+    // Selection state (most important for click performance)
+    if (prevProps.isSelected !== nextProps.isSelected) return false;
+
+    // Focus and navigation state
+    if (prevProps.shouldFocusTitle !== nextProps.shouldFocusTitle) return false;
+    if (prevProps.desiredColumn !== nextProps.desiredColumn) return false;
+    if (prevProps.isDragging !== nextProps.isDragging) return false;
+    if (prevProps.isCommandPaletteOpen !== nextProps.isCommandPaletteOpen) return false;
+
+    // Labels comparison (array of objects)
+    const prevLabels = prevProps.labels || [];
+    const nextLabels = nextProps.labels || [];
+    if (prevLabels.length !== nextLabels.length) return false;
+    // Compare label IDs (shallow comparison is sufficient since labels are managed separately)
+    for (let i = 0; i < prevLabels.length; i++) {
+      if (prevLabels[i].id !== nextLabels[i].id) return false;
+    }
+
+    // AllLabels comparison (only check length for performance, full comparison not needed)
+    const prevAllLabels = prevProps.allLabels || [];
+    const nextAllLabels = nextProps.allLabels || [];
+    if (prevAllLabels.length !== nextAllLabels.length) return false;
+
+    // Callback props - with useCallback in parent, these should be stable references
+    // If callbacks change, we need to re-render
+    if (prevProps.onDeleteWithToast !== nextProps.onDeleteWithToast) return false;
+    if (prevProps.onToggleCompleted !== nextProps.onToggleCompleted) return false;
+    if (prevProps.onTogglePinned !== nextProps.onTogglePinned) return false;
+    if (prevProps.onSelect !== nextProps.onSelect) return false;
+    if (prevProps.onEdit !== nextProps.onEdit) return false;
+    if (prevProps.onNavigateDown !== nextProps.onNavigateDown) return false;
+    if (prevProps.onNavigateUp !== nextProps.onNavigateUp) return false;
+    if (prevProps.onNavigateToDescription !== nextProps.onNavigateToDescription) return false;
+    if (prevProps.onTitleFocused !== nextProps.onTitleFocused) return false;
+    if (prevProps.onCreateNoteAfter !== nextProps.onCreateNoteAfter) return false;
+    if (prevProps.onAddLabel !== nextProps.onAddLabel) return false;
+    if (prevProps.onRemoveLabel !== nextProps.onRemoveLabel) return false;
+    if (prevProps.onCreateLabel !== nextProps.onCreateLabel) return false;
+    if (prevProps.onEditLabel !== nextProps.onEditLabel) return false;
+    if (prevProps.onAutoLabel !== nextProps.onAutoLabel) return false;
+    if (prevProps.isFixedInSidebar !== nextProps.isFixedInSidebar) return false;
+    if (prevProps.onToggleFixInSidebar !== nextProps.onToggleFixInSidebar) return false;
+
+    // All props are equal, don't re-render
+    return true;
+  }
+);
+
 type FocusTarget = 'title' | 'description-start' | 'description-end' | null;
 
 // Helper to format date/time
-function formatDateTime(isoString: string, locale: string): string {
-  const date = new Date(isoString);
-  return date.toLocaleString(locale, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function formatDate(isoString: string, locale: string): string {
-  const date = new Date(isoString);
-  return date.toLocaleString(locale, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 
 export interface NoteListHandle {
@@ -696,7 +777,17 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [desiredColumn, setDesiredColumn] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [internalCategoryFilter, setInternalCategoryFilter] = useState<NoteCategory | 'all'>('all');
-  const { history, deleteHistoryEntry, updateHistoryReason, reload: reloadHistory } = useNoteHistory(selectedNote?.id ?? null);
+  const [fixedNoteId, setFixedNoteId] = useState<string | null>(null);
+
+  // Get the fixed note from the ID (for sidebar)
+  const fixedNote = useMemo(() => {
+    if (!fixedNoteId) return null;
+    return notes.find(n => n.id === fixedNoteId) ?? null;
+  }, [notes, fixedNoteId]);
+
+  // Use fixed note for history if available, otherwise use selected note
+  const noteForSidebar = fixedNote ?? selectedNote;
+  const { history, deleteHistoryEntry, updateHistoryReason, reload: reloadHistory } = useNoteHistory(noteForSidebar?.id ?? null);
   const [historyEntryToDelete, setHistoryEntryToDelete] = useState<string | null>(null);
   const [editingHistoryEntry, setEditingHistoryEntry] = useState<{ id: string; reason: string } | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -705,6 +796,17 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   // Labels state
   const { labels, getLabelsForNote, addLabelToNote, removeLabelFromNote, createLabel, updateLabel, noteLabelVersion } = useLabels();
   const [internalLabelFilter, setInternalLabelFilter] = useState<string[]>([]);
+
+  // PERFORMANCE: Cache all note labels to avoid SQL queries on every render
+  // This computes labels once per render instead of once per note per render
+  const noteLabelsCache = useMemo(() => {
+    const cache = new Map<string, Label[]>();
+    // Only compute for visible notes to avoid unnecessary work
+    for (const note of notes) {
+      cache.set(note.id, getLabelsForNote(note.id));
+    }
+    return cache;
+  }, [notes, getLabelsForNote, noteLabelVersion]);
 
   // Auto-labeling with AI
   const { autoLabelNote } = useAutoLabel();
@@ -744,6 +846,18 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [sortByDeadline, setSortByDeadline] = useState(false);
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
   const [showPostponeHistory, setShowPostponeHistory] = useState(false);
+  const [deadlinePickerOpen, setDeadlinePickerOpen] = useState(false);
+
+  // Fixed note editor state (for right column)
+  const [fixedNoteLabels, setFixedNoteLabels] = useState<Label[]>([]);
+  const [fixedNoteLabelDropdownOpen, setFixedNoteLabelDropdownOpen] = useState(false);
+  const [fixedNoteDeadlinePickerOpen, setFixedNoteDeadlinePickerOpen] = useState(false);
+  const [fixedNoteDescriptionValue, setFixedNoteDescriptionValue] = useState('');
+  const [fixedNoteShowPostponeHistory, setFixedNoteShowPostponeHistory] = useState(false);
+  const fixedNoteDescriptionRef = useRef<EditableDescriptionHandle>(null);
+  const { history: fixedNoteHistory, updateHistoryReason: updateFixedNoteHistoryReason } = useNoteHistory(fixedNote?.id ?? null);
+  const [fixedNoteHistoryEntryToDelete, setFixedNoteHistoryEntryToDelete] = useState<string | null>(null);
+  const [editingFixedNoteHistoryEntry, setEditingFixedNoteHistoryEntry] = useState<{ id: string; reason: string } | null>(null);
 
   const LABEL_COLORS = [
     '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6',
@@ -783,14 +897,16 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   };
 
   // Filter notes based on search query, category, labels, and overdue status
-  const baseFilteredNotes = notes.filter((note) => {
+  // Memoized to avoid recomputing on every render
+  const baseFilteredNotes = useMemo(() => notes.filter((note) => {
     // Filter by category
     if (categoryFilter !== 'all' && note.category !== categoryFilter) {
       return false;
     }
     // Filter by labels (OR logic - note must have at least one selected label)
     if (labelFilter.length > 0) {
-      const noteLabelIds = getLabelsForNote(note.id).map(l => l.id);
+      // PERFORMANCE: Use cached labels instead of SQL query
+      const noteLabelIds = (noteLabelsCache.get(note.id) || []).map(l => l.id);
       const hasMatchingLabel = labelFilter.some(labelId => noteLabelIds.includes(labelId));
       if (!hasMatchingLabel) return false;
     }
@@ -807,33 +923,39 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     const titleMatch = note.content.toLowerCase().includes(query);
     const descriptionMatch = note.description?.toLowerCase().includes(query) ?? false;
     return titleMatch || descriptionMatch;
-  });
+  }), [notes, categoryFilter, labelFilter, showOverdueOnly, searchQuery, noteLabelsCache]);
 
   // Separate active and completed notes
-  let activeNotes = baseFilteredNotes.filter((note) => !note.completed);
+  // Memoized to avoid recomputing sort on every render
+  const activeNotes = useMemo(() => {
+    let active = baseFilteredNotes.filter((note) => !note.completed);
 
-  // Sort active notes by deadline if enabled
-  if (sortByDeadline) {
-    activeNotes = [...activeNotes].sort((a, b) => {
-      // Notes without deadline go to the end
-      if (!a.deadline && !b.deadline) return 0;
-      if (!a.deadline) return 1;
-      if (!b.deadline) return -1;
-      // Sort by deadline ascending (earliest first)
-      return parseLocalDate(a.deadline).getTime() - parseLocalDate(b.deadline).getTime();
-    });
-  }
-  const completedNotes = baseFilteredNotes
+    // Sort active notes by deadline if enabled
+    if (sortByDeadline) {
+      active = [...active].sort((a, b) => {
+        // Notes without deadline go to the end
+        if (!a.deadline && !b.deadline) return 0;
+        if (!a.deadline) return 1;
+        if (!b.deadline) return -1;
+        // Sort by deadline ascending (earliest first)
+        return parseLocalDate(a.deadline).getTime() - parseLocalDate(b.deadline).getTime();
+      });
+    }
+    return active;
+  }, [baseFilteredNotes, sortByDeadline]);
+
+  const completedNotes = useMemo(() => baseFilteredNotes
     .filter((note) => note.completed)
     .sort((a, b) => {
       // Sort by completed_at descending (most recent first)
       const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
       const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
       return bTime - aTime;
-    });
+    }), [baseFilteredNotes]);
 
   // Combined for navigation purposes (active first, then completed)
-  const filteredNotes = [...activeNotes, ...completedNotes];
+  // Memoized to avoid recreating array on every render
+  const filteredNotes = useMemo(() => [...activeNotes, ...completedNotes], [activeNotes, completedNotes]);
 
   // Load labels when selected note changes
   useEffect(() => {
@@ -843,6 +965,15 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       setNoteLabels([]);
     }
   }, [selectedNote, getLabelsForNote]);
+
+  // Sync fixed note labels when fixed note changes
+  useEffect(() => {
+    if (fixedNote) {
+      setFixedNoteLabels(getLabelsForNote(fixedNote.id));
+    } else {
+      setFixedNoteLabels([]);
+    }
+  }, [fixedNote, getLabelsForNote]);
 
   const handleAddLabel = async (labelId: string) => {
     if (!selectedNote) return;
@@ -854,6 +985,19 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     if (!selectedNote) return;
     await removeLabelFromNote(selectedNote.id, labelId);
     setNoteLabels(getLabelsForNote(selectedNote.id));
+  };
+
+  // Fixed note label handlers
+  const handleFixedNoteAddLabel = async (labelId: string) => {
+    if (!fixedNote) return;
+    await addLabelToNote(fixedNote.id, labelId);
+    setFixedNoteLabels(getLabelsForNote(fixedNote.id));
+  };
+
+  const handleFixedNoteRemoveLabel = async (labelId: string) => {
+    if (!fixedNote) return;
+    await removeLabelFromNote(fixedNote.id, labelId);
+    setFixedNoteLabels(getLabelsForNote(fixedNote.id));
   };
 
   const handleCreateLabel = async () => {
@@ -919,7 +1063,24 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     }
   };
 
-  const handleCreateNoteAfter = async (afterNoteId: string) => {
+  const handleFixedNoteDeadlineChange = (date: Date | undefined) => {
+    if (!fixedNote) return;
+
+    if (date) {
+      // If there's an existing deadline, prompt for postpone reason
+      if (fixedNote.deadline) {
+        handleOpenPostponeDialog(fixedNote.id, date);
+      } else {
+        // No existing deadline, just set it directly
+        onUpdateDeadline(fixedNote.id, date.toISOString());
+      }
+    } else {
+      // Clearing the deadline
+      onUpdateDeadline(fixedNote.id, null);
+    }
+  };
+
+  const handleCreateNoteAfter = useCallback(async (afterNoteId: string) => {
     if (!onCreateNoteAfter) return;
     const afterNote = filteredNotes.find((n) => n.id === afterNoteId);
     if (!afterNote) return;
@@ -929,9 +1090,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     onSelectNote(newNote);
     setDesiredColumn(0);
     setFocusTarget('title');
-  };
+  }, [onCreateNoteAfter, filteredNotes, onSelectNote]);
 
-  const handleDeleteWithToast = (note: Note) => {
+  const handleDeleteWithToast = useCallback((note: Note) => {
     const currentIndex = filteredNotes.findIndex((n) => n.id === note.id);
 
     // Determine where to navigate after deletion
@@ -969,10 +1130,23 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         onClick: () => onRestore(note),
       },
     });
-  };
+  }, [filteredNotes, onDelete, onSelectNote, onNavigateToEditor, onRestore, t]);
+
+  // Handle fixing/unfixing a note in the sidebar
+  const handleToggleFixInSidebar = useCallback((noteId: string) => {
+    if (fixedNoteId === noteId) {
+      // Unfix: close sidebar and clear fixed note
+      setFixedNoteId(null);
+      setShowSidebar(false);
+    } else {
+      // Fix: open sidebar and set this note as fixed
+      setFixedNoteId(noteId);
+      setShowSidebar(true);
+    }
+  }, [fixedNoteId]);
 
   // Handle toggle completion with navigation to adjacent task
-  const handleToggleCompletedWithNavigation = (noteId: string, completed: boolean) => {
+  const handleToggleCompletedWithNavigation = useCallback((noteId: string, completed: boolean) => {
     // Find current position in activeNotes (only active notes matter for navigation)
     const currentIndex = activeNotes.findIndex((n) => n.id === noteId);
 
@@ -1013,7 +1187,43 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         toast(t('taskReopened'));
       }
     }
-  };
+  }, [activeNotes, onToggleCompleted, onSelectNote, t]);
+
+  // PERFORMANCE: Cache label operation callbacks per note to prevent re-renders
+  // Using useMemo with a Map ensures stable function references across renders
+  const addLabelHandlers = useMemo(() => {
+    const map = new Map<string, (labelId: string) => Promise<void>>();
+    for (const note of notes) {
+      map.set(note.id, async (labelId: string) => {
+        await addLabelToNote(note.id, labelId);
+      });
+    }
+    return map;
+  }, [notes, addLabelToNote]);
+
+  const removeLabelHandlers = useMemo(() => {
+    const map = new Map<string, (labelId: string) => Promise<void>>();
+    for (const note of notes) {
+      map.set(note.id, async (labelId: string) => {
+        await removeLabelFromNote(note.id, labelId);
+      });
+    }
+    return map;
+  }, [notes, removeLabelFromNote]);
+
+  const autoLabelHandlers = useMemo(() => {
+    const map = new Map<string, ((noteId: string, content: string, description?: string | null) => Promise<void>)>();
+    for (const note of notes) {
+      map.set(note.id, async (noteId: string, content: string, description?: string | null) => {
+        await autoLabelNote(noteId, content, description);
+      });
+    }
+    return map;
+  }, [notes, autoLabelNote]);
+
+  const handleCreateLabelClick = useCallback(() => {
+    setShowCreateLabelDialog(true);
+  }, []);
 
   // Expose method to focus first task from parent
   useImperativeHandle(ref, () => ({
@@ -1032,6 +1242,13 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     // Reset postpone history visibility when note changes
     setShowPostponeHistory(false);
   }, [selectedNote]);
+
+  // Update fixed note description value when fixed note changes
+  useEffect(() => {
+    setFixedNoteDescriptionValue(fixedNote?.description || '');
+    // Reset postpone history visibility when note changes
+    setFixedNoteShowPostponeHistory(false);
+  }, [fixedNote]);
 
   // Aplicar focus según focusTarget
   useEffect(() => {
@@ -1063,7 +1280,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   }, [focusTarget, selectedNote, desiredColumn, descriptionValue]);
 
   // ↓ desde título - returns true if navigation occurred
-  const handleNavigateDownFromTitle = (noteId: string, column: number): boolean => {
+  const handleNavigateDownFromTitle = useCallback((noteId: string, column: number): boolean => {
     const idx = filteredNotes.findIndex((n) => n.id === noteId);
     if (idx < filteredNotes.length - 1) {
       setDesiredColumn(column);
@@ -1072,10 +1289,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       return true;
     }
     return false;
-  };
+  }, [filteredNotes, onSelectNote]);
 
   // ↑ desde título - returns true if navigation occurred
-  const handleNavigateUpFromTitle = (noteId: string, column: number): boolean => {
+  const handleNavigateUpFromTitle = useCallback((noteId: string, column: number): boolean => {
     const idx = filteredNotes.findIndex((n) => n.id === noteId);
     if (idx > 0) {
       setDesiredColumn(column);
@@ -1090,19 +1307,19 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       return true;
     }
     return false;
-  };
+  }, [filteredNotes, onSelectNote]);
 
-  const handleTitleFocused = () => {
+  const handleTitleFocused = useCallback(() => {
     if (focusTarget === 'title') {
       setFocusTarget(null);
     }
-  };
+  }, [focusTarget]);
 
   // Tab from title - always go to description (even if empty)
-  const handleNavigateToDescription = () => {
+  const handleNavigateToDescription = useCallback(() => {
     setDesiredColumn(0);
     setFocusTarget('description-start');
-  };
+  }, []);
 
   // Save description when it changes and user stops typing
   const handleDescriptionBlur = () => {
@@ -1167,6 +1384,26 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           // Go to title of the SAME task (not previous)
           setFocusTarget('title');
         }
+      }
+    }
+  };
+
+  // Fixed note description handlers
+  const handleFixedNoteDescriptionBlur = () => {
+    if (fixedNote && fixedNoteDescriptionValue !== (fixedNote.description || '')) {
+      onEdit(fixedNote.id, fixedNote.content, fixedNote.category, fixedNoteDescriptionValue || null);
+    }
+  };
+
+  const handleFixedNoteDescriptionKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') {
+      setFixedNoteDescriptionValue(fixedNote?.description || '');
+      fixedNoteDescriptionRef.current?.blur();
+    } else if (e.key === 'Tab' && e.shiftKey && fixedNote) {
+      e.preventDefault();
+      // Save current description
+      if (fixedNoteDescriptionValue !== (fixedNote.description || '')) {
+        onEdit(fixedNote.id, fixedNote.content, fixedNote.category, fixedNoteDescriptionValue || null);
       }
     }
   };
@@ -1236,6 +1473,55 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     onSelectNote(null);
     setCategoryJustChanged(false);
   }, hotkeyOptions, [onSelectNote]);
+
+  // Ctrl+T to open deadline picker (only when a task is selected)
+  useHotkeys('ctrl+t', () => {
+    if (selectedNote) {
+      setDeadlinePickerOpen(true);
+    }
+  }, { preventDefault: true, enableOnFormTags: true }, [selectedNote]);
+
+  // PERFORMANCE: Cache navigation and selection handlers per note to prevent creating new functions on every render
+  // This ensures stable function references for React.memo optimization
+  const selectHandlers = useMemo(() => {
+    const map = new Map<string, () => void>();
+    for (const note of notes) {
+      map.set(note.id, () => onSelectNote(note));
+    }
+    return map;
+  }, [notes, onSelectNote]);
+
+  const navigateDownHandlers = useMemo(() => {
+    const map = new Map<string, (column: number) => boolean>();
+    for (const note of notes) {
+      map.set(note.id, (column: number) => handleNavigateDownFromTitle(note.id, column));
+    }
+    return map;
+  }, [notes, handleNavigateDownFromTitle]);
+
+  const navigateUpHandlers = useMemo(() => {
+    const map = new Map<string, (column: number) => boolean>();
+    for (const note of notes) {
+      map.set(note.id, (column: number) => handleNavigateUpFromTitle(note.id, column));
+    }
+    return map;
+  }, [notes, handleNavigateUpFromTitle]);
+
+  const createNoteAfterHandlers = useMemo(() => {
+    const map = new Map<string, () => void>();
+    for (const note of notes) {
+      map.set(note.id, () => handleCreateNoteAfter(note.id));
+    }
+    return map;
+  }, [notes, handleCreateNoteAfter]);
+
+  const toggleFixInSidebarHandlers = useMemo(() => {
+    const map = new Map<string, () => void>();
+    for (const note of notes) {
+      map.set(note.id, () => handleToggleFixInSidebar(note.id));
+    }
+    return map;
+  }, [notes, handleToggleFixInSidebar]);
 
   if (notes.length === 0) {
     return (
@@ -1473,34 +1759,32 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 strategy={verticalListSortingStrategy}
               >
                 {activeNotes.map((note) => (
-                  <NoteRow
+                  <MemoizedNoteRow
                     key={note.id}
                     note={note}
                     onDeleteWithToast={handleDeleteWithToast}
                     onToggleCompleted={handleToggleCompletedWithNavigation}
                     onTogglePinned={onTogglePinned}
                     isSelected={selectedNote?.id === note.id}
-                    onSelect={() => onSelectNote(note)}
+                    onSelect={selectHandlers.get(note.id)!}
                     onEdit={onEdit}
-                    onNavigateDown={(column) => handleNavigateDownFromTitle(note.id, column)}
-                    onNavigateUp={(column) => handleNavigateUpFromTitle(note.id, column)}
+                    onNavigateDown={navigateDownHandlers.get(note.id)!}
+                    onNavigateUp={navigateUpHandlers.get(note.id)!}
                     onNavigateToDescription={handleNavigateToDescription}
                     shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
                     desiredColumn={desiredColumn}
                     onTitleFocused={handleTitleFocused}
-                    onCreateNoteAfter={() => handleCreateNoteAfter(note.id)}
+                    onCreateNoteAfter={createNoteAfterHandlers.get(note.id)!}
                     isDragging={activeId === note.id}
-                    labels={noteLabelVersion >= 0 ? getLabelsForNote(note.id) : []}
+                    labels={noteLabelsCache.get(note.id) || []}
                     allLabels={labels}
-                    onAddLabel={async (labelId) => {
-                      await addLabelToNote(note.id, labelId);
-                    }}
-                    onRemoveLabel={async (labelId) => {
-                      await removeLabelFromNote(note.id, labelId);
-                    }}
-                    onCreateLabel={() => setShowCreateLabelDialog(true)}
+                    onAddLabel={addLabelHandlers.get(note.id)!}
+                    onRemoveLabel={removeLabelHandlers.get(note.id)!}
+                    onCreateLabel={handleCreateLabelClick}
                     onEditLabel={handleEditLabel}
-                    onAutoLabel={autoLabelNote}
+                    onAutoLabel={autoLabelHandlers.get(note.id)!}
+                    isFixedInSidebar={fixedNoteId === note.id}
+                    onToggleFixInSidebar={toggleFixInSidebarHandlers.get(note.id)!}
                   />
                 ))}
               </SortableContext>
@@ -1515,34 +1799,32 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               </div>
               <div className="overflow-y-auto pr-2 flex-1">
                 {completedNotes.map((note) => (
-                  <NoteRow
+                  <MemoizedNoteRow
                     key={note.id}
                     note={note}
                     onDeleteWithToast={handleDeleteWithToast}
                     onToggleCompleted={handleToggleCompletedWithNavigation}
                     onTogglePinned={onTogglePinned}
                     isSelected={selectedNote?.id === note.id}
-                    onSelect={() => onSelectNote(note)}
+                    onSelect={selectHandlers.get(note.id)!}
                     onEdit={onEdit}
-                    onNavigateDown={(column) => handleNavigateDownFromTitle(note.id, column)}
-                    onNavigateUp={(column) => handleNavigateUpFromTitle(note.id, column)}
+                    onNavigateDown={navigateDownHandlers.get(note.id)!}
+                    onNavigateUp={navigateUpHandlers.get(note.id)!}
                     onNavigateToDescription={handleNavigateToDescription}
                     shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
                     desiredColumn={desiredColumn}
                     onTitleFocused={handleTitleFocused}
-                    onCreateNoteAfter={() => handleCreateNoteAfter(note.id)}
+                    onCreateNoteAfter={createNoteAfterHandlers.get(note.id)!}
                     isDragging={false}
-                    labels={noteLabelVersion >= 0 ? getLabelsForNote(note.id) : []}
+                    labels={noteLabelsCache.get(note.id) || []}
                     allLabels={labels}
-                    onAddLabel={async (labelId) => {
-                      await addLabelToNote(note.id, labelId);
-                    }}
-                    onRemoveLabel={async (labelId) => {
-                      await removeLabelFromNote(note.id, labelId);
-                    }}
-                    onCreateLabel={() => setShowCreateLabelDialog(true)}
+                    onAddLabel={addLabelHandlers.get(note.id)!}
+                    onRemoveLabel={removeLabelHandlers.get(note.id)!}
+                    onCreateLabel={handleCreateLabelClick}
                     onEditLabel={handleEditLabel}
-                    onAutoLabel={autoLabelNote}
+                    onAutoLabel={autoLabelHandlers.get(note.id)!}
+                    isFixedInSidebar={fixedNoteId === note.id}
+                    onToggleFixInSidebar={toggleFixInSidebarHandlers.get(note.id)!}
                   />
                 ))}
               </div>
@@ -1556,6 +1838,11 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
             <h1 className={`text-2xl font-semibold flex-shrink-0 ${selectedNote.completed ? 'line-through text-muted-foreground' : ''}`}>
               {selectedNote.content}
             </h1>
+            {selectedNote.created_at && (
+              <p className="text-xs text-muted-foreground/60 mt-1 mb-2">
+                {t('createdAt')}: {new Date(selectedNote.created_at).toLocaleString()}
+              </p>
+            )}
             {selectedNote.last_postpone_reason && (
               <button
                 type="button"
@@ -1588,7 +1875,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{t('categoryTodo')}</p>
+                  <p>{t('categoryTodo')} (Ctrl+C)</p>
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -1606,7 +1893,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{t('categoryFollowUp')}</p>
+                  <p>{t('categoryFollowUp')} (Ctrl+C)</p>
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -1624,7 +1911,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{t('categoryNotes')}</p>
+                  <p>{t('categoryNotes')} (Ctrl+C)</p>
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -1642,7 +1929,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{t('categoryMeeting')}</p>
+                  <p>{t('categoryMeeting')} (Ctrl+C)</p>
                 </TooltipContent>
               </Tooltip>
               {/* Separator between categories and labels */}
@@ -1665,15 +1952,21 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 </span>
               ))}
               <Popover open={labelDropdownOpen} onOpenChange={setLabelDropdownOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className="p-1 text-muted-foreground hover:bg-muted rounded-md"
-                    title={t('addLabel')}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </PopoverTrigger>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="p-1 text-muted-foreground hover:bg-muted rounded-md"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{t('addLabel')} (Ctrl+L)</p>
+                  </TooltipContent>
+                </Tooltip>
                 <PopoverContent className="w-52 p-0" align="start">
                   <Command>
                     <CommandInput placeholder={t('searchLabels')} className="h-9" />
@@ -1726,12 +2019,23 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               {/* Separator between labels and deadline */}
               <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
               {/* Deadline picker */}
-              <DatePicker
-                date={selectedNote.deadline ? parseLocalDate(selectedNote.deadline) : undefined}
-                onDateChange={handleDeadlineChange}
-                placeholder={t('setDeadline')}
-                className="h-7 text-xs w-auto"
-              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <DatePicker
+                      date={selectedNote.deadline ? parseLocalDate(selectedNote.deadline) : undefined}
+                      onDateChange={handleDeadlineChange}
+                      placeholder={t('setDeadline')}
+                      className="h-7 text-xs w-auto"
+                      open={deadlinePickerOpen}
+                      onOpenChange={setDeadlinePickerOpen}
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t('setDeadline')} (Ctrl+T)</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
             <EditableDescription
               ref={descriptionRef}
@@ -1832,75 +2136,302 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       </div>
 
       {showSidebar && (
-      <div className="w-56 shrink-0 border-l border-dashed border-muted-foreground/20 pl-4 overflow-y-auto">
-        {selectedNote ? (
-          <div className="space-y-4">
-            {/* Creation date */}
-            <div>
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70 mb-1">
-                <Calendar className="h-3 w-3" />
-                <span>{t('createdAt')}</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {formatDate(selectedNote.created_at, i18n.language)}
+      <div className="flex-1 min-w-0 border-l border-dashed border-muted-foreground/20 pl-4 overflow-hidden flex flex-col">
+          {fixedNote ? (
+            <>
+            <h1 className={`text-2xl font-semibold flex-shrink-0 ${fixedNote.completed ? 'line-through text-muted-foreground' : ''}`}>
+              {fixedNote.content}
+            </h1>
+            {fixedNote.created_at && (
+              <p className="text-xs text-muted-foreground/60 mt-1 mb-2">
+                {t('createdAt')}: {new Date(fixedNote.created_at).toLocaleString()}
               </p>
+            )}
+            {fixedNote.last_postpone_reason && (
+              <button
+                type="button"
+                onClick={() => setFixedNoteShowPostponeHistory(!fixedNoteShowPostponeHistory)}
+                className="flex items-center gap-2 text-sm text-muted-foreground/80 italic mb-2 hover:text-muted-foreground transition-colors text-left w-full"
+              >
+                <CalendarClock className="h-4 w-4 shrink-0" />
+                <span className="flex-1 truncate">{fixedNote.last_postpone_reason}</span>
+                {fixedNoteHistory.filter(h => h.action_type === 'postponed').length > 0 && (
+                  <span className="text-xs text-muted-foreground/50 bg-muted px-1.5 py-0.5 rounded-full shrink-0">
+                    {fixedNoteHistory.filter(h => h.action_type === 'postponed').length}
+                  </span>
+                )}
+              </button>
+            )}
+            {!fixedNote.last_postpone_reason && <div className="mb-2" />}
+            <div className="flex flex-wrap gap-1 mb-2 flex-shrink-0 items-center">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => onEdit(fixedNote.id, fixedNote.content, 'todo', fixedNote.description)}
+                    className={`p-1.5 rounded-md transition-colors ${
+                      fixedNote.category === 'todo'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <Pickaxe className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t('categoryTodo')} (Ctrl+C)</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => onEdit(fixedNote.id, fixedNote.content, 'followup', fixedNote.description)}
+                    className={`p-1.5 rounded-md transition-colors ${
+                      fixedNote.category === 'followup'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <Forward className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t('categoryFollowUp')} (Ctrl+C)</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => onEdit(fixedNote.id, fixedNote.content, 'notes', fixedNote.description)}
+                    className={`p-1.5 rounded-md transition-colors ${
+                      fixedNote.category === 'notes'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <StickyNote className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t('categoryNotes')} (Ctrl+C)</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => onEdit(fixedNote.id, fixedNote.content, 'meeting', fixedNote.description)}
+                    className={`p-1.5 rounded-md transition-colors ${
+                      fixedNote.category === 'meeting'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <Users className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t('categoryMeeting')} (Ctrl+C)</p>
+                </TooltipContent>
+              </Tooltip>
+              {/* Separator between categories and labels */}
+              <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
+              {/* Labels */}
+              {fixedNoteLabels.map((label) => (
+                <span
+                  key={label.id}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full text-white"
+                  style={{ backgroundColor: label.color }}
+                >
+                  {label.name}
+                  <button
+                    type="button"
+                    onClick={() => handleFixedNoteRemoveLabel(label.id)}
+                    className="hover:bg-white/20 rounded-full p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+              <Popover open={fixedNoteLabelDropdownOpen} onOpenChange={setFixedNoteLabelDropdownOpen}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="p-1 text-muted-foreground hover:bg-muted rounded-md"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{t('addLabel')} (Ctrl+L)</p>
+                  </TooltipContent>
+                </Tooltip>
+                <PopoverContent className="w-52 p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder={t('searchLabels')} className="h-9" />
+                    <CommandList>
+                      <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
+                      <CommandGroup>
+                        {labels.filter(l => !fixedNoteLabels.some(nl => nl.id === l.id)).map((label) => (
+                          <CommandItem
+                            key={label.id}
+                            value={label.name}
+                            onSelect={() => {
+                              handleFixedNoteAddLabel(label.id);
+                              setFixedNoteLabelDropdownOpen(false);
+                            }}
+                            className="group flex items-center justify-between"
+                          >
+                            <div className="flex items-center">
+                              <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
+                              {label.name}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditLabel(label);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
+                            >
+                              <Pencil className="h-3 w-3 text-muted-foreground" />
+                            </button>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                      <CommandSeparator />
+                      <CommandGroup>
+                        <CommandItem
+                          onSelect={() => {
+                            setShowCreateLabelDialog(true);
+                            setFixedNoteLabelDropdownOpen(false);
+                          }}
+                        >
+                          <Plus className="h-3 w-3 mr-2" />
+                          {t('createLabel')}
+                        </CommandItem>
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {/* Separator between labels and deadline */}
+              <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
+              {/* Deadline picker */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <DatePicker
+                      date={fixedNote.deadline ? parseLocalDate(fixedNote.deadline) : undefined}
+                      onDateChange={handleFixedNoteDeadlineChange}
+                      placeholder={t('setDeadline')}
+                      className="h-7 text-xs w-auto"
+                      open={fixedNoteDeadlinePickerOpen}
+                      onOpenChange={setFixedNoteDeadlinePickerOpen}
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t('setDeadline')} (Ctrl+T)</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
-
-            {/* Modification history */}
-            {history.length > 0 && (
-              <div>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70 mb-2">
-                  <Clock className="h-3 w-3" />
-                  <span>{t('history')}</span>
+            <EditableDescription
+              ref={fixedNoteDescriptionRef}
+              value={fixedNoteDescriptionValue}
+              onChange={setFixedNoteDescriptionValue}
+              onBlur={handleFixedNoteDescriptionBlur}
+              onKeyDown={handleFixedNoteDescriptionKeyDown}
+              placeholder={t('writeDescription')}
+              className="flex-1 min-h-0 w-full text-base bg-transparent text-muted-foreground overflow-y-auto"
+            />
+            {/* Postpone history section - toggled by clicking the last postpone reason */}
+            {fixedNoteShowPostponeHistory && fixedNoteHistory.filter(h => h.action_type === 'postponed').length > 0 && (
+              <div className="border-t border-dashed border-muted-foreground/20 pt-3 mt-3 max-h-[25%] flex flex-col shrink-0">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70 mb-2 shrink-0">
+                  <CalendarClock className="h-3 w-3" />
+                  <span>{t('postponeReasons')}</span>
+                  <span className="text-muted-foreground/50">
+                    ({fixedNoteHistory.filter(h => h.action_type === 'postponed').length})
+                  </span>
                 </div>
-                <div className="space-y-2">
-                  {history.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="text-xs border-l-2 border-muted-foreground/20 pl-2 py-1"
-                    >
-                      <p className="text-muted-foreground/60 mb-0.5 flex items-center gap-1">
-                        <span>{formatDateTime(entry.changed_at, i18n.language)}</span>
-                        {entry.action_type && entry.action_type !== 'edit' && (
-                          <span className="text-[10px] px-1 py-0.5 rounded bg-muted">
-                            {entry.action_type === 'postponed' && t('actionPostponed')}
-                            {entry.action_type === 'completed' && t('actionCompleted')}
-                            {entry.action_type === 'uncompleted' && t('actionReopened')}
-                            {entry.action_type === 'created' && t('actionCreated')}
+                <div className="space-y-2 overflow-y-auto">
+                  {fixedNoteHistory
+                    .filter(h => h.action_type === 'postponed')
+                    .map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="group text-sm text-muted-foreground bg-muted/30 rounded-md px-3 py-2 relative flex items-start justify-between gap-2"
+                      >
+                        <div className="flex-1 min-w-0">
+                          {editingFixedNoteHistoryEntry?.id === entry.id ? (
+                            <input
+                              type="text"
+                              value={editingFixedNoteHistoryEntry.reason}
+                              onChange={(e) => setEditingFixedNoteHistoryEntry({ ...editingFixedNoteHistoryEntry, reason: e.target.value })}
+                              onBlur={() => {
+                                if (editingFixedNoteHistoryEntry.reason.trim()) {
+                                  updateFixedNoteHistoryReason(entry.id, editingFixedNoteHistoryEntry.reason.trim());
+                                }
+                                setEditingFixedNoteHistoryEntry(null);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  if (editingFixedNoteHistoryEntry.reason.trim()) {
+                                    updateFixedNoteHistoryReason(entry.id, editingFixedNoteHistoryEntry.reason.trim());
+                                  }
+                                  setEditingFixedNoteHistoryEntry(null);
+                                } else if (e.key === 'Escape') {
+                                  setEditingFixedNoteHistoryEntry(null);
+                                }
+                              }}
+                              className="w-full text-sm italic bg-transparent border-b border-muted-foreground/40 outline-none focus:border-primary"
+                              autoFocus
+                            />
+                          ) : entry.reason ? (
+                            <p className="italic">"{entry.reason}"</p>
+                          ) : (
+                            <p className="italic text-muted-foreground/50">{t('noPostponeReasons')}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-xs text-muted-foreground/60 whitespace-nowrap">
+                            {new Date(entry.changed_at).toLocaleDateString(i18n.language, {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
                           </span>
-                        )}
-                      </p>
-                      {entry.action_type === 'postponed' && entry.previous_date && (
-                        <p className="text-muted-foreground/70 text-[10px] flex items-center gap-1 mb-0.5">
-                          <CalendarClock className="h-3 w-3" />
-                          {t('postponedFrom', { date: new Date(entry.previous_date).toLocaleDateString(i18n.language) })}
-                        </p>
-                      )}
-                      {entry.reason && (
-                        <p className="text-muted-foreground/80 italic text-[10px] mb-0.5">
-                          "{entry.reason}"
-                        </p>
-                      )}
-                      <p className="text-muted-foreground truncate" title={entry.content}>
-                        {entry.content}
-                      </p>
-                      {entry.description && (
-                        <p className="text-muted-foreground/50 truncate text-[10px]" title={entry.description}>
-                          {entry.description}
-                        </p>
-                      )}
-                    </div>
-                  ))}
+                          <button
+                            type="button"
+                            onClick={() => setEditingFixedNoteHistoryEntry({ id: entry.id, reason: entry.reason || '' })}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded text-muted-foreground/60 hover:text-foreground"
+                            title={t('editPostponeReason')}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFixedNoteHistoryEntryToDelete(entry.id)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded text-muted-foreground/60 hover:text-destructive"
+                            title={t('deletePostponeReason')}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                 </div>
               </div>
             )}
-
-            {history.length === 0 && (
-              <p className="text-xs text-muted-foreground/50 italic">
-                {t('noHistory')}
-              </p>
-            )}
-          </div>
+          </>
         ) : (
           <p className="text-sm text-muted-foreground/50 italic">
             {t('selectNoteToEdit')}
@@ -2019,6 +2550,32 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 if (historyEntryToDelete) {
                   deleteHistoryEntry(historyEntryToDelete);
                   setHistoryEntryToDelete(null);
+                }
+              }}
+            >
+              {t('delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Fixed Note Postpone Reason Confirmation Dialog */}
+      <Dialog open={!!fixedNoteHistoryEntryToDelete} onOpenChange={(open) => !open && setFixedNoteHistoryEntryToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('deletePostponeReason')}</DialogTitle>
+            <DialogDescription>{t('confirmDeletePostpone')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFixedNoteHistoryEntryToDelete(null)}>
+              {t('cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (fixedNoteHistoryEntryToDelete) {
+                  deleteHistoryEntry(fixedNoteHistoryEntryToDelete);
+                  setFixedNoteHistoryEntryToDelete(null);
                 }
               }}
             >

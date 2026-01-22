@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { CalendarClock } from 'lucide-react';
@@ -20,7 +21,8 @@ interface PostponeDialogProps {
   initialDate?: Date | null;
 }
 
-export function PostponeDialog({
+// PERFORMANCE: Memoize to prevent unnecessary re-renders
+export const PostponeDialog = memo(function PostponeDialog({
   open,
   onOpenChange,
   onPostpone,
@@ -49,6 +51,13 @@ export function PostponeDialog({
   const handleClose = () => {
     setReason('');
     onOpenChange(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && e.ctrlKey) {
+      e.preventDefault();
+      handlePostpone();
+    }
   };
 
   return (
@@ -86,6 +95,7 @@ export function PostponeDialog({
               id="postpone-reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder={t('postponeReasonPlaceholder')}
               className="mt-1 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               rows={3}
@@ -104,4 +114,4 @@ export function PostponeDialog({
       </DialogContent>
     </Dialog>
   );
-}
+});

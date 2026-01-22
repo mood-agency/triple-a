@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Trash2 } from 'lucide-react';
@@ -22,7 +22,8 @@ export function Home() {
   const { t, i18n } = useTranslation();
   const { isReady } = useDatabase();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  // Optimized: Store only the ID to avoid unnecessary re-renders when note object changes
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(() => searchParams.get('note'));
   const noteListRef = useRef<NoteListHandle>(null);
   const { labels } = useLabels();
 
@@ -47,26 +48,35 @@ export function Home() {
   // Load ALL notes without date filtering
   const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote } = useNotes();
 
-  // Sync selected note from URL param when notes load
+  // Derive the full note object from the ID (memoized)
+  // This prevents re-renders when the note object reference changes but ID stays the same
+  const selectedNote = useMemo(() => {
+    if (!selectedNoteId) return null;
+    return notes.find(n => n.id === selectedNoteId) ?? null;
+  }, [notes, selectedNoteId]);
+
+  // Sync selected note ID from URL param when notes load
   useEffect(() => {
     if (!loading && notes.length > 0) {
       const noteId = searchParams.get('note');
-      if (noteId) {
+      if (noteId && noteId !== selectedNoteId) {
         const note = notes.find(n => n.id === noteId);
-        if (note && (!selectedNote || selectedNote.id !== noteId)) {
-          setSelectedNote(note);
+        if (note) {
+          setSelectedNoteId(noteId);
         }
       }
     }
-  }, [loading, notes, searchParams, selectedNote]);
+  }, [loading, notes, searchParams, selectedNoteId]);
 
   // Update URL when selected note changes
+  // Optimized: Work with note ID instead of full object
   const handleSelectNote = useCallback((note: Note | null) => {
-    setSelectedNote(note);
+    const noteId = note?.id ?? null;
+    setSelectedNoteId(noteId);
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev);
-      if (note) {
-        newParams.set('note', note.id);
+      if (noteId) {
+        newParams.set('note', noteId);
       } else {
         newParams.delete('note');
       }
@@ -102,45 +112,36 @@ export function Home() {
     }, { replace: true });
   }, [setSearchParams]);
 
-  const handleCreateTask = () => {
+  const handleCreateTask = useCallback(() => {
     createNote('Mi tarea aquí', 'todo');
-  };
+  }, [createNote]);
 
-  const toggleLanguage = () => {
+  const toggleLanguage = useCallback(() => {
     const newLang = i18n.language === 'es' ? 'en' : 'es';
     i18n.changeLanguage(newLang);
-  };
+  }, [i18n]);
 
-  const handleDeleteNote = (id: string) => {
-    if (selectedNote?.id === id) {
+  const handleDeleteNote = useCallback((id: string) => {
+    if (selectedNoteId === id) {
       handleSelectNote(null);
     }
     deleteNote(id);
-  };
+  }, [selectedNoteId, handleSelectNote, deleteNote]);
 
-  const handleUpdateNote = async (id: string, content: string, category?: import('@/types/note').NoteCategory, description?: string | null) => {
-    const updatedNote = await updateNote(id, content, category, description);
-    // Update selectedNote if it's the one being edited
-    if (selectedNote?.id === id) {
-      setSelectedNote(updatedNote);
-    }
-  };
+  const handleUpdateNote = useCallback(async (id: string, content: string, category?: import('@/types/note').NoteCategory, description?: string | null) => {
+    await updateNote(id, content, category, description);
+    // Note: selectedNote will automatically update via useMemo when notes array changes
+  }, [updateNote]);
 
-  const handleUpdateDeadline = async (id: string, deadline: string | null) => {
+  const handleUpdateDeadline = useCallback(async (id: string, deadline: string | null) => {
     await updateDeadline(id, deadline);
-    // Update selectedNote if it's the one being edited
-    if (selectedNote?.id === id) {
-      setSelectedNote({ ...selectedNote, deadline });
-    }
-  };
+    // Note: selectedNote will automatically update via useMemo when notes array changes
+  }, [updateDeadline]);
 
-  const handlePostponeNote = async (id: string, newDeadline: string, reason: string) => {
+  const handlePostponeNote = useCallback(async (id: string, newDeadline: string, reason: string) => {
     await postponeNote(id, newDeadline, reason);
-    // Update selectedNote if it's the one being postponed
-    if (selectedNote?.id === id) {
-      setSelectedNote({ ...selectedNote, deadline: newDeadline, last_postpone_reason: reason });
-    }
-  };
+    // Note: selectedNote will automatically update via useMemo when notes array changes
+  }, [postponeNote]);
 
   if (!isReady || loading) {
     return (
@@ -236,11 +237,14 @@ export function Home() {
 
       <HotkeysHelper />
 
-      <DeletedTasksDialog
-        open={showDeletedTasks}
-        onOpenChange={setShowDeletedTasks}
-        onRestore={restoreNote}
-      />
+      {/* PERFORMANCE: Only render DeletedTasksDialog when open to avoid unnecessary re-renders and SQL queries */}
+      {showDeletedTasks && (
+        <DeletedTasksDialog
+          open={showDeletedTasks}
+          onOpenChange={setShowDeletedTasks}
+          onRestore={restoreNote}
+        />
+      )}
     </div>
   );
 }

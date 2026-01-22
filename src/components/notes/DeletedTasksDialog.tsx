@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { Trash2, RotateCcw, AlertTriangle } from 'lucide-react';
@@ -32,7 +33,8 @@ interface DeletedTasksDialogProps {
   onRestore: (note: Note) => Promise<void>;
 }
 
-export function DeletedTasksDialog({
+// PERFORMANCE: Memoize to prevent unnecessary re-renders
+export const DeletedTasksDialog = memo(function DeletedTasksDialog({
   open,
   onOpenChange,
   onRestore,
@@ -205,4 +207,4 @@ export function DeletedTasksDialog({
       </AlertDialog>
     </>
   );
-}
+});
