@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
-import { Trash2, Calendar, Search, Pickaxe, Forward, StickyNote, Tag, Plus, X, Pencil, CalendarClock, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, Users, ChevronDown, Check } from 'lucide-react';
+import { Calendar, Search, Pickaxe, Forward, StickyNote, Tag, X, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, Users, ChevronDown, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -29,10 +29,11 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ColorPicker } from '@/components/ui/color-picker';
-import { EditableDescription, type EditableDescriptionHandle } from '@/components/ui/EditableDescription';
+import type { EditableDescriptionHandle } from '@/components/ui/EditableDescription';
 import { useNoteHistory } from '@/hooks/useNoteHistory';
 import { useLabels } from '@/hooks/useLabels';
 import { useAutoLabel } from '@/hooks/useAutoLabel';
+import { useSettings } from '@/hooks/useSettings';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Command,
@@ -41,12 +42,11 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from '@/components/ui/command';
-import { DatePicker } from '@/components/ui/date-picker';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import { PostponeDialog } from './PostponeDialog';
 import { MemoizedNoteRow } from './NoteRow';
+import { NoteEditorPanel } from './NoteEditorPanel';
 import { parseLocalDate } from '@/utils/dateUtils';
 
 interface NoteListProps {
@@ -87,7 +87,8 @@ function getColumnPosition(text: string, cursorPos: number): number {
 }
 
 export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, externalLabelFilter, externalCategoryFilter, onLabelFilterChange, onCategoryFilterChange }, ref) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const { settings, updateSettings } = useSettings();
   const containerRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<EditableDescriptionHandle>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -161,7 +162,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [postponeDialogOpen, setPostponeDialogOpen] = useState(false);
   const [noteToPostpone, setNoteToPostpone] = useState<Note | null>(null);
   const [pendingPostponeDate, setPendingPostponeDate] = useState<Date | null>(null);
-  const [showSidebar, setShowSidebar] = useState(false);
+  const showSidebar = settings.showSidebar;
+  const setShowSidebar = (value: boolean) => updateSettings({ showSidebar: value });
   const [sortByDeadline, setSortByDeadline] = useState(false);
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
   const [showPostponeHistory, setShowPostponeHistory] = useState(false);
@@ -218,6 +220,18 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   // Filter notes based on search query, category, labels, and overdue status
   // Memoized to avoid recomputing on every render
   const baseFilteredNotes = useMemo(() => notes.filter((note) => {
+    // Pinned notes always pass through filters (except search query)
+    if (note.pinned) {
+      // Still filter by search query if present
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const titleMatch = note.content.toLowerCase().includes(query);
+        const descriptionMatch = note.description?.toLowerCase().includes(query) ?? false;
+        return titleMatch || descriptionMatch;
+      }
+      return true;
+    }
+
     // Filter by category
     if (categoryFilter !== 'all' && note.category !== categoryFilter) {
       return false;
@@ -252,12 +266,24 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     // Sort active notes by deadline if enabled
     if (sortByDeadline) {
       active = [...active].sort((a, b) => {
+        // Pinned notes always come first
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+
+        // Both pinned or both not pinned - sort by deadline
         // Notes without deadline go to the end
         if (!a.deadline && !b.deadline) return 0;
         if (!a.deadline) return 1;
         if (!b.deadline) return -1;
         // Sort by deadline ascending (earliest first)
         return parseLocalDate(a.deadline).getTime() - parseLocalDate(b.deadline).getTime();
+      });
+    } else {
+      // Even without deadline sorting, pinned notes should come first
+      active = [...active].sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return 0; // Maintain original order for non-pinned notes
       });
     }
     return active;
@@ -266,6 +292,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const completedNotes = useMemo(() => baseFilteredNotes
     .filter((note) => note.completed)
     .sort((a, b) => {
+      // Pinned notes always come first, even in completed section
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+
       // Sort by completed_at descending (most recent first)
       const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
       const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
@@ -727,8 +757,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     }
   };
 
-  // Hotkey options for category filters (don't trigger in form fields)
-  const hotkeyOptions = { preventDefault: true, enableOnFormTags: false };
+  // Hotkey options for category filters (work from anywhere, including search bar)
+  const hotkeyOptions = { preventDefault: true, enableOnFormTags: true };
 
   // Ctrl+F to focus search bar (works from anywhere, including form fields)
   useHotkeys('ctrl+f', () => {
@@ -1213,300 +1243,34 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
         <div className="flex-1 min-w-0 border-l border-dashed border-muted-foreground/20 pl-4 overflow-hidden flex flex-col">
           {selectedNote ? (
-            <>
-            <h1 className={`text-2xl font-semibold flex-shrink-0 ${selectedNote.completed ? 'line-through text-muted-foreground' : ''}`}>
-              {selectedNote.content}
-            </h1>
-            {selectedNote.created_at && (
-              <p className="text-xs text-muted-foreground/60 mt-1 mb-2">
-                {t('createdAt')}: {new Date(selectedNote.created_at).toLocaleString()}
-              </p>
-            )}
-            {selectedNote.last_postpone_reason && (
-              <button
-                type="button"
-                onClick={() => setShowPostponeHistory(!showPostponeHistory)}
-                className="flex items-center gap-2 text-sm text-muted-foreground/80 italic mb-2 hover:text-muted-foreground transition-colors text-left w-full"
-              >
-                <CalendarClock className="h-4 w-4 shrink-0" />
-                <span className="flex-1 truncate">{selectedNote.last_postpone_reason}</span>
-                {history.filter(h => h.action_type === 'postponed').length > 0 && (
-                  <span className="text-xs text-muted-foreground/50 bg-muted px-1.5 py-0.5 rounded-full shrink-0">
-                    {history.filter(h => h.action_type === 'postponed').length}
-                  </span>
-                )}
-              </button>
-            )}
-            {!selectedNote.last_postpone_reason && <div className="mb-2" />}
-            <div className="flex flex-wrap gap-1 mb-2 flex-shrink-0 items-center">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => onEdit(selectedNote.id, selectedNote.content, 'todo', selectedNote.description)}
-                    className={`p-1.5 rounded-md transition-colors ${
-                      selectedNote.category === 'todo'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <Pickaxe className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t('categoryTodo')} (Ctrl+C)</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => onEdit(selectedNote.id, selectedNote.content, 'followup', selectedNote.description)}
-                    className={`p-1.5 rounded-md transition-colors ${
-                      selectedNote.category === 'followup'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <Forward className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t('categoryFollowUp')} (Ctrl+C)</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => onEdit(selectedNote.id, selectedNote.content, 'notes', selectedNote.description)}
-                    className={`p-1.5 rounded-md transition-colors ${
-                      selectedNote.category === 'notes'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <StickyNote className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t('categoryNotes')} (Ctrl+C)</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => onEdit(selectedNote.id, selectedNote.content, 'meeting', selectedNote.description)}
-                    className={`p-1.5 rounded-md transition-colors ${
-                      selectedNote.category === 'meeting'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <Users className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t('categoryMeeting')} (Ctrl+C)</p>
-                </TooltipContent>
-              </Tooltip>
-              {/* Separator between categories and labels */}
-              <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
-              {/* Labels */}
-              {noteLabels.map((label) => (
-                <span
-                  key={label.id}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full text-white"
-                  style={{ backgroundColor: label.color }}
-                >
-                  {label.name}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveLabel(label.id)}
-                    className="hover:bg-white/20 rounded-full p-0.5"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-              <Popover open={labelDropdownOpen} onOpenChange={setLabelDropdownOpen}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className="p-1 text-muted-foreground hover:bg-muted rounded-md"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </PopoverTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{t('addLabel')} (Ctrl+L)</p>
-                  </TooltipContent>
-                </Tooltip>
-                <PopoverContent className="w-52 p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder={t('searchLabels')} className="h-9" />
-                    <CommandList>
-                      <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
-                      <CommandGroup>
-                        {labels.filter(l => !noteLabels.some(nl => nl.id === l.id)).map((label) => (
-                          <CommandItem
-                            key={label.id}
-                            value={label.name}
-                            onSelect={() => {
-                              handleAddLabel(label.id);
-                              setLabelDropdownOpen(false);
-                            }}
-                            className="group flex items-center justify-between"
-                          >
-                            <div className="flex items-center">
-                              <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
-                              {label.name}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditLabel(label);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
-                            >
-                              <Pencil className="h-3 w-3 text-muted-foreground" />
-                            </button>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                      <CommandSeparator />
-                      <CommandGroup>
-                        <CommandItem
-                          onSelect={() => {
-                            setShowCreateLabelDialog(true);
-                            setLabelDropdownOpen(false);
-                          }}
-                        >
-                          <Plus className="h-3 w-3 mr-2" />
-                          {t('createLabel')}
-                        </CommandItem>
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-              {/* Separator between labels and deadline */}
-              <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
-              {/* Deadline picker */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <DatePicker
-                      date={selectedNote.deadline ? parseLocalDate(selectedNote.deadline) : undefined}
-                      onDateChange={handleDeadlineChange}
-                      placeholder={t('setDeadline')}
-                      className="h-7 text-xs w-auto"
-                      open={deadlinePickerOpen}
-                      onOpenChange={setDeadlinePickerOpen}
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t('setDeadline')} (Ctrl+T)</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            <EditableDescription
-              ref={descriptionRef}
-              value={descriptionValue}
-              onChange={setDescriptionValue}
-              onBlur={handleDescriptionBlur}
-              onKeyDown={handleDescriptionKeyDown}
-              placeholder={t('writeDescription')}
-              className="flex-1 min-h-0 w-full text-base bg-transparent text-muted-foreground overflow-y-auto"
+            <NoteEditorPanel
+              note={selectedNote}
+              noteLabels={noteLabels}
+              allLabels={labels}
+              descriptionValue={descriptionValue}
+              showPostponeHistory={showPostponeHistory}
+              history={history}
+              labelDropdownOpen={labelDropdownOpen}
+              deadlinePickerOpen={deadlinePickerOpen}
+              editingHistoryEntry={editingHistoryEntry}
+              onEdit={onEdit}
+              onDescriptionChange={setDescriptionValue}
+              onDescriptionBlur={handleDescriptionBlur}
+              onDescriptionKeyDown={handleDescriptionKeyDown}
+              onTogglePostponeHistory={() => setShowPostponeHistory(!showPostponeHistory)}
+              onAddLabel={handleAddLabel}
+              onRemoveLabel={handleRemoveLabel}
+              onEditLabel={handleEditLabel}
+              onCreateLabel={() => setShowCreateLabelDialog(true)}
+              onDeadlineChange={handleDeadlineChange}
+              onDelete={() => handleDeleteWithToast(selectedNote)}
+              onLabelDropdownOpenChange={setLabelDropdownOpen}
+              onDeadlinePickerOpenChange={setDeadlinePickerOpen}
+              onEditHistoryEntry={(entry) => setEditingHistoryEntry(entry)}
+              onUpdateHistoryReason={updateHistoryReason}
+              onDeleteHistoryEntry={(id) => setHistoryEntryToDelete(id)}
+              onSetEditingHistoryEntry={setEditingHistoryEntry}
             />
-            {/* Postpone history section - toggled by clicking the last postpone reason */}
-            {showPostponeHistory && history.filter(h => h.action_type === 'postponed').length > 0 && (
-              <div className="border-t border-dashed border-muted-foreground/20 pt-3 mt-3 max-h-[25%] flex flex-col shrink-0">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70 mb-2 shrink-0">
-                  <CalendarClock className="h-3 w-3" />
-                  <span>{t('postponeReasons')}</span>
-                  <span className="text-muted-foreground/50">
-                    ({history.filter(h => h.action_type === 'postponed').length})
-                  </span>
-                </div>
-                <div className="space-y-2 overflow-y-auto">
-                  {history
-                    .filter(h => h.action_type === 'postponed')
-                    .map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="group text-sm text-muted-foreground bg-muted/30 rounded-md px-3 py-2 relative flex items-start justify-between gap-2"
-                      >
-                        <div className="flex-1 min-w-0">
-                          {editingHistoryEntry?.id === entry.id ? (
-                            <input
-                              type="text"
-                              value={editingHistoryEntry.reason}
-                              onChange={(e) => setEditingHistoryEntry({ ...editingHistoryEntry, reason: e.target.value })}
-                              onBlur={() => {
-                                if (editingHistoryEntry.reason.trim()) {
-                                  updateHistoryReason(entry.id, editingHistoryEntry.reason.trim());
-                                }
-                                setEditingHistoryEntry(null);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  if (editingHistoryEntry.reason.trim()) {
-                                    updateHistoryReason(entry.id, editingHistoryEntry.reason.trim());
-                                  }
-                                  setEditingHistoryEntry(null);
-                                } else if (e.key === 'Escape') {
-                                  setEditingHistoryEntry(null);
-                                }
-                              }}
-                              className="w-full text-sm italic bg-transparent border-b border-muted-foreground/40 outline-none focus:border-primary"
-                              autoFocus
-                            />
-                          ) : entry.reason ? (
-                            <p className="italic">"{entry.reason}"</p>
-                          ) : (
-                            <p className="italic text-muted-foreground/50">{t('noPostponeReasons')}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <span className="text-xs text-muted-foreground/60 whitespace-nowrap">
-                            {new Date(entry.changed_at).toLocaleDateString(i18n.language, {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setEditingHistoryEntry({ id: entry.id, reason: entry.reason || '' })}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded text-muted-foreground/60 hover:text-foreground"
-                            title={t('editPostponeReason')}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setHistoryEntryToDelete(entry.id)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded text-muted-foreground/60 hover:text-destructive"
-                            title={t('deletePostponeReason')}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-          </>
         ) : (
           <p className="text-sm text-muted-foreground/50 italic">
             {t('selectNoteToEdit')}
@@ -1517,300 +1281,34 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       {showSidebar && (
       <div className="flex-1 min-w-0 border-l border-dashed border-muted-foreground/20 pl-4 overflow-hidden flex flex-col">
           {fixedNote ? (
-            <>
-            <h1 className={`text-2xl font-semibold flex-shrink-0 ${fixedNote.completed ? 'line-through text-muted-foreground' : ''}`}>
-              {fixedNote.content}
-            </h1>
-            {fixedNote.created_at && (
-              <p className="text-xs text-muted-foreground/60 mt-1 mb-2">
-                {t('createdAt')}: {new Date(fixedNote.created_at).toLocaleString()}
-              </p>
-            )}
-            {fixedNote.last_postpone_reason && (
-              <button
-                type="button"
-                onClick={() => setFixedNoteShowPostponeHistory(!fixedNoteShowPostponeHistory)}
-                className="flex items-center gap-2 text-sm text-muted-foreground/80 italic mb-2 hover:text-muted-foreground transition-colors text-left w-full"
-              >
-                <CalendarClock className="h-4 w-4 shrink-0" />
-                <span className="flex-1 truncate">{fixedNote.last_postpone_reason}</span>
-                {fixedNoteHistory.filter(h => h.action_type === 'postponed').length > 0 && (
-                  <span className="text-xs text-muted-foreground/50 bg-muted px-1.5 py-0.5 rounded-full shrink-0">
-                    {fixedNoteHistory.filter(h => h.action_type === 'postponed').length}
-                  </span>
-                )}
-              </button>
-            )}
-            {!fixedNote.last_postpone_reason && <div className="mb-2" />}
-            <div className="flex flex-wrap gap-1 mb-2 flex-shrink-0 items-center">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => onEdit(fixedNote.id, fixedNote.content, 'todo', fixedNote.description)}
-                    className={`p-1.5 rounded-md transition-colors ${
-                      fixedNote.category === 'todo'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <Pickaxe className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t('categoryTodo')} (Ctrl+C)</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => onEdit(fixedNote.id, fixedNote.content, 'followup', fixedNote.description)}
-                    className={`p-1.5 rounded-md transition-colors ${
-                      fixedNote.category === 'followup'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <Forward className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t('categoryFollowUp')} (Ctrl+C)</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => onEdit(fixedNote.id, fixedNote.content, 'notes', fixedNote.description)}
-                    className={`p-1.5 rounded-md transition-colors ${
-                      fixedNote.category === 'notes'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <StickyNote className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t('categoryNotes')} (Ctrl+C)</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => onEdit(fixedNote.id, fixedNote.content, 'meeting', fixedNote.description)}
-                    className={`p-1.5 rounded-md transition-colors ${
-                      fixedNote.category === 'meeting'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <Users className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t('categoryMeeting')} (Ctrl+C)</p>
-                </TooltipContent>
-              </Tooltip>
-              {/* Separator between categories and labels */}
-              <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
-              {/* Labels */}
-              {fixedNoteLabels.map((label) => (
-                <span
-                  key={label.id}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full text-white"
-                  style={{ backgroundColor: label.color }}
-                >
-                  {label.name}
-                  <button
-                    type="button"
-                    onClick={() => handleFixedNoteRemoveLabel(label.id)}
-                    className="hover:bg-white/20 rounded-full p-0.5"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-              <Popover open={fixedNoteLabelDropdownOpen} onOpenChange={setFixedNoteLabelDropdownOpen}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className="p-1 text-muted-foreground hover:bg-muted rounded-md"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </PopoverTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{t('addLabel')} (Ctrl+L)</p>
-                  </TooltipContent>
-                </Tooltip>
-                <PopoverContent className="w-52 p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder={t('searchLabels')} className="h-9" />
-                    <CommandList>
-                      <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
-                      <CommandGroup>
-                        {labels.filter(l => !fixedNoteLabels.some(nl => nl.id === l.id)).map((label) => (
-                          <CommandItem
-                            key={label.id}
-                            value={label.name}
-                            onSelect={() => {
-                              handleFixedNoteAddLabel(label.id);
-                              setFixedNoteLabelDropdownOpen(false);
-                            }}
-                            className="group flex items-center justify-between"
-                          >
-                            <div className="flex items-center">
-                              <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
-                              {label.name}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditLabel(label);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
-                            >
-                              <Pencil className="h-3 w-3 text-muted-foreground" />
-                            </button>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                      <CommandSeparator />
-                      <CommandGroup>
-                        <CommandItem
-                          onSelect={() => {
-                            setShowCreateLabelDialog(true);
-                            setFixedNoteLabelDropdownOpen(false);
-                          }}
-                        >
-                          <Plus className="h-3 w-3 mr-2" />
-                          {t('createLabel')}
-                        </CommandItem>
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-              {/* Separator between labels and deadline */}
-              <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
-              {/* Deadline picker */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <DatePicker
-                      date={fixedNote.deadline ? parseLocalDate(fixedNote.deadline) : undefined}
-                      onDateChange={handleFixedNoteDeadlineChange}
-                      placeholder={t('setDeadline')}
-                      className="h-7 text-xs w-auto"
-                      open={fixedNoteDeadlinePickerOpen}
-                      onOpenChange={setFixedNoteDeadlinePickerOpen}
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t('setDeadline')} (Ctrl+T)</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            <EditableDescription
-              ref={fixedNoteDescriptionRef}
-              value={fixedNoteDescriptionValue}
-              onChange={setFixedNoteDescriptionValue}
-              onBlur={handleFixedNoteDescriptionBlur}
-              onKeyDown={handleFixedNoteDescriptionKeyDown}
-              placeholder={t('writeDescription')}
-              className="flex-1 min-h-0 w-full text-base bg-transparent text-muted-foreground overflow-y-auto"
+            <NoteEditorPanel
+              note={fixedNote}
+              noteLabels={fixedNoteLabels}
+              allLabels={labels}
+              descriptionValue={fixedNoteDescriptionValue}
+              showPostponeHistory={fixedNoteShowPostponeHistory}
+              history={fixedNoteHistory}
+              labelDropdownOpen={fixedNoteLabelDropdownOpen}
+              deadlinePickerOpen={fixedNoteDeadlinePickerOpen}
+              editingHistoryEntry={editingFixedNoteHistoryEntry}
+              onEdit={onEdit}
+              onDescriptionChange={setFixedNoteDescriptionValue}
+              onDescriptionBlur={handleFixedNoteDescriptionBlur}
+              onDescriptionKeyDown={handleFixedNoteDescriptionKeyDown}
+              onTogglePostponeHistory={() => setFixedNoteShowPostponeHistory(!fixedNoteShowPostponeHistory)}
+              onAddLabel={handleFixedNoteAddLabel}
+              onRemoveLabel={handleFixedNoteRemoveLabel}
+              onEditLabel={handleEditLabel}
+              onCreateLabel={() => setShowCreateLabelDialog(true)}
+              onDeadlineChange={handleFixedNoteDeadlineChange}
+              onDelete={() => handleDeleteWithToast(fixedNote)}
+              onLabelDropdownOpenChange={setFixedNoteLabelDropdownOpen}
+              onDeadlinePickerOpenChange={setFixedNoteDeadlinePickerOpen}
+              onEditHistoryEntry={(entry) => setEditingFixedNoteHistoryEntry(entry)}
+              onUpdateHistoryReason={updateFixedNoteHistoryReason}
+              onDeleteHistoryEntry={(id) => setFixedNoteHistoryEntryToDelete(id)}
+              onSetEditingHistoryEntry={setEditingFixedNoteHistoryEntry}
             />
-            {/* Postpone history section - toggled by clicking the last postpone reason */}
-            {fixedNoteShowPostponeHistory && fixedNoteHistory.filter(h => h.action_type === 'postponed').length > 0 && (
-              <div className="border-t border-dashed border-muted-foreground/20 pt-3 mt-3 max-h-[25%] flex flex-col shrink-0">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70 mb-2 shrink-0">
-                  <CalendarClock className="h-3 w-3" />
-                  <span>{t('postponeReasons')}</span>
-                  <span className="text-muted-foreground/50">
-                    ({fixedNoteHistory.filter(h => h.action_type === 'postponed').length})
-                  </span>
-                </div>
-                <div className="space-y-2 overflow-y-auto">
-                  {fixedNoteHistory
-                    .filter(h => h.action_type === 'postponed')
-                    .map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="group text-sm text-muted-foreground bg-muted/30 rounded-md px-3 py-2 relative flex items-start justify-between gap-2"
-                      >
-                        <div className="flex-1 min-w-0">
-                          {editingFixedNoteHistoryEntry?.id === entry.id ? (
-                            <input
-                              type="text"
-                              value={editingFixedNoteHistoryEntry.reason}
-                              onChange={(e) => setEditingFixedNoteHistoryEntry({ ...editingFixedNoteHistoryEntry, reason: e.target.value })}
-                              onBlur={() => {
-                                if (editingFixedNoteHistoryEntry.reason.trim()) {
-                                  updateFixedNoteHistoryReason(entry.id, editingFixedNoteHistoryEntry.reason.trim());
-                                }
-                                setEditingFixedNoteHistoryEntry(null);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  if (editingFixedNoteHistoryEntry.reason.trim()) {
-                                    updateFixedNoteHistoryReason(entry.id, editingFixedNoteHistoryEntry.reason.trim());
-                                  }
-                                  setEditingFixedNoteHistoryEntry(null);
-                                } else if (e.key === 'Escape') {
-                                  setEditingFixedNoteHistoryEntry(null);
-                                }
-                              }}
-                              className="w-full text-sm italic bg-transparent border-b border-muted-foreground/40 outline-none focus:border-primary"
-                              autoFocus
-                            />
-                          ) : entry.reason ? (
-                            <p className="italic">"{entry.reason}"</p>
-                          ) : (
-                            <p className="italic text-muted-foreground/50">{t('noPostponeReasons')}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <span className="text-xs text-muted-foreground/60 whitespace-nowrap">
-                            {new Date(entry.changed_at).toLocaleDateString(i18n.language, {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setEditingFixedNoteHistoryEntry({ id: entry.id, reason: entry.reason || '' })}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded text-muted-foreground/60 hover:text-foreground"
-                            title={t('editPostponeReason')}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setFixedNoteHistoryEntryToDelete(entry.id)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded text-muted-foreground/60 hover:text-destructive"
-                            title={t('deletePostponeReason')}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-          </>
         ) : (
           <p className="text-sm text-muted-foreground/50 italic">
             {t('selectNoteToEdit')}
