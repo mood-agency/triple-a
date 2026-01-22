@@ -855,7 +855,6 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   // Special case: show message when there are only completed tasks (no active tasks)
   const shouldShowOnlyCompletedMessage = hasActiveFilters && activeNotes.length === 0 && completedNotes.length > 0;
 
-  const showNoResultsMessage = (filteredNotes.length === 0 && hasActiveFilters) || shouldShowOnlyCompletedMessage;
 
   // Build a comprehensive no-results message showing all active filters
   const getNoResultsMessage = () => {
@@ -1111,18 +1110,22 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       </div>
       <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
         <div className={`${showSidebar ? 'w-[38rem]' : 'flex-1'} shrink-0 flex flex-col overflow-hidden`}>
-          {/* No results message */}
-          {showNoResultsMessage && (
-            <div className="flex-1 flex items-center justify-center">
-              <p className="text-center text-muted-foreground/60 text-sm italic">
-                {getNoResultsMessage()}
-              </p>
-            </div>
-          )}
-
           {/* Active tasks section - 75% */}
-          {!showNoResultsMessage && (
-            <div className="overflow-y-auto pr-2 flex-[3]">
+          <div className="overflow-y-auto pr-2 flex-[3]">
+            {/* Show message when no active tasks but have filters */}
+            {shouldShowOnlyCompletedMessage ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-center text-muted-foreground/60 text-sm italic">
+                  {getNoResultsMessage()}
+                </p>
+              </div>
+            ) : activeNotes.length === 0 && filteredNotes.length === 0 && hasActiveFilters ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-center text-muted-foreground/60 text-sm italic">
+                  {getNoResultsMessage()}
+                </p>
+              </div>
+            ) : (
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -1164,11 +1167,11 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                   ))}
                 </SortableContext>
               </DndContext>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Completed tasks section - 25% */}
-          {!showNoResultsMessage && completedNotes.length > 0 && (
+          {completedNotes.length > 0 && (
             <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">
               <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
                 {t('completedTasks')} ({completedNotes.length})
