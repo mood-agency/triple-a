@@ -1,0 +1,2 @@
+# Ignore Supabase Edge Functions (Deno) - this is a Node.js app
+supabase/

@@ -1,18 +1,28 @@
-import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import type {
   YouTubeVideoMetadata,
   YouTubeCaptionTrack,
   TranscriptionResult,
   SummarizationResult,
   YouTubeImportError,
+  YouTubeImportErrorCode,
 } from '@/types/youtube'
 import { extractVideoId, isValidYouTubeUrl } from '@/utils/youtubeUtils'
 
 /**
+ * Get the API base URL (same origin in production, or configurable for dev)
+ */
+function getApiBaseUrl(): string {
+  // In production, API is served from the same origin
+  // In development, you can set VITE_API_URL if needed
+  return import.meta.env.VITE_API_URL || ''
+}
+
+/**
  * Check if YouTube import feature is available
+ * Now always available since API is part of the same server
  */
 export function isYouTubeImportAvailable(): boolean {
-  return isSupabaseConfigured()
+  return true
 }
 
 /**
@@ -27,62 +37,44 @@ function createError(
 }
 
 /**
- * Get the current session token for authenticated requests
+ * Call an API endpoint
  */
-async function getAuthToken(): Promise<string> {
-  if (!supabase) {
-    throw createError('NOT_CONFIGURED', 'Supabase is not configured')
-  }
-
-  const { data: { session }, error } = await supabase.auth.getSession()
-  if (error || !session) {
-    throw createError('NOT_CONFIGURED', 'User is not authenticated')
-  }
-
-  return session.access_token
-}
-
-/**
- * Call a Supabase Edge Function
- */
-async function callEdgeFunction<T>(
-  functionName: string,
+async function callApi<T>(
+  endpoint: string,
   body: Record<string, unknown>
 ): Promise<T> {
-  if (!supabase) {
-    throw createError('NOT_CONFIGURED', 'Supabase is not configured')
-  }
+  const baseUrl = getApiBaseUrl()
+  const url = `${baseUrl}/api/${endpoint}`
 
-  const token = await getAuthToken()
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
 
-  const { data, error } = await supabase.functions.invoke(functionName, {
-    body,
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
+    const data = await response.json()
 
-  if (error) {
-    console.error(`Edge function ${functionName} error:`, error)
+    if (!response.ok) {
+      // Check for specific error codes
+      if (response.status === 429 || data?.code === 'RATE_LIMITED') {
+        throw createError('RATE_LIMITED', data?.error || 'Rate limit exceeded. Please try again later.')
+      }
 
-    // Check for specific error codes
-    if (error.message?.includes('rate limit')) {
-      throw createError('RATE_LIMITED', 'Rate limit exceeded. Please try again later.')
+      const errorCode = (data?.code || 'UNKNOWN_ERROR') as YouTubeImportErrorCode
+      throw createError(errorCode, data?.error || `Failed to call ${endpoint}`)
     }
 
-    throw createError(
-      'NETWORK_ERROR',
-      error.message || `Failed to call ${functionName}`
-    )
+    return data as T
+  } catch (error) {
+    if ((error as YouTubeImportError).code) {
+      throw error
+    }
+    console.error(`API ${endpoint} error:`, error)
+    throw createError('NETWORK_ERROR', (error as Error).message || `Failed to call ${endpoint}`)
   }
-
-  // Check for error in response data
-  if (data?.error) {
-    const errorCode = data.code || 'UNKNOWN_ERROR'
-    throw createError(errorCode as YouTubeImportError['code'], data.error)
-  }
-
-  return data as T
 }
 
 /**
@@ -99,14 +91,14 @@ export async function getVideoMetadata(url: string): Promise<YouTubeVideoMetadat
     throw createError('INVALID_URL', 'Could not extract video ID from URL')
   }
 
-  return callEdgeFunction<YouTubeVideoMetadata>('youtube-metadata', { videoId })
+  return callApi<YouTubeVideoMetadata>('youtube-metadata', { videoId })
 }
 
 /**
  * Get available caption tracks for a video
  */
 export async function getCaptionTracks(videoId: string): Promise<YouTubeCaptionTrack[]> {
-  const response = await callEdgeFunction<{ tracks: YouTubeCaptionTrack[] }>(
+  const response = await callApi<{ tracks: YouTubeCaptionTrack[] }>(
     'youtube-captions',
     { videoId, action: 'list' }
   )
@@ -121,7 +113,7 @@ export async function getTranscription(
   videoId: string,
   languageCode?: string
 ): Promise<TranscriptionResult> {
-  return callEdgeFunction<TranscriptionResult>('youtube-captions', {
+  return callApi<TranscriptionResult>('youtube-captions', {
     videoId,
     action: 'get',
     languageCode,
@@ -136,7 +128,7 @@ export async function summarizeTranscription(
   videoTitle?: string,
   language: string = 'es'
 ): Promise<SummarizationResult> {
-  return callEdgeFunction<SummarizationResult>('summarize', {
+  return callApi<SummarizationResult>('summarize', {
     text,
     videoTitle,
     language,
