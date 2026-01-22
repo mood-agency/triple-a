@@ -213,6 +213,7 @@ export class SyncService {
                 pinned: data.pinned,
                 sort_order: data.sort_order,
                 updated_at: data.updated_at,
+                deleted_at: data.deleted_at,
               })
               .eq('id', remoteId)
 

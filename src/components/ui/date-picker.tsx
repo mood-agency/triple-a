@@ -16,6 +16,8 @@ interface DatePickerProps {
   onDateChange: (date: Date | undefined) => void
   placeholder?: string
   className?: string
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 export function DatePicker({
@@ -23,8 +25,13 @@ export function DatePicker({
   onDateChange,
   placeholder = "Pick a date",
   className,
+  open: externalOpen,
+  onOpenChange: externalOnOpenChange,
 }: DatePickerProps) {
-  const [open, setOpen] = React.useState(false)
+  const [internalOpen, setInternalOpen] = React.useState(false)
+
+  const open = externalOpen !== undefined ? externalOpen : internalOpen
+  const setOpen = externalOnOpenChange || setInternalOpen
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

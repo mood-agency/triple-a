@@ -124,6 +124,7 @@ export function HotkeysHelper() {
         { keys: ['Ctrl', 'Backspace'], action: t('hotkeys.deleteTask') },
         { keys: ['Ctrl', 'L'], action: t('hotkeys.openLabels') },
         { keys: ['Ctrl', 'C'], action: t('hotkeys.openCategories') },
+        { keys: ['Ctrl', 'T'], action: t('hotkeys.openDeadline') },
       ],
     },
     {

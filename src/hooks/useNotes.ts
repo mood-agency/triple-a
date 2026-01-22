@@ -178,11 +178,28 @@ export function useNotes(date?: string) {
         sort_order: sortOrder,
         updated_at: now,
       });
-      loadNotes();
 
-      return { id, date: effectiveDate, content, description: finalDescription, category: finalCategory, completed, completed_at: completedAt, deadline, pinned, sort_order: sortOrder, created_at: createdAt, updated_at: now, deleted_at: null };
+      // Optimized: Update only the modified note instead of reloading all notes
+      const updatedNote = {
+        id,
+        date: effectiveDate,
+        content,
+        description: finalDescription,
+        category: finalCategory,
+        completed,
+        completed_at: completedAt,
+        deadline,
+        pinned,
+        sort_order: sortOrder,
+        created_at: createdAt,
+        updated_at: now,
+        deleted_at: null
+      };
+      setNotes(prevNotes => prevNotes.map(note => note.id === id ? updatedNote : note));
+
+      return updatedNote;
     },
-    [db, effectiveDate, loadNotes, queueOperation]
+    [db, effectiveDate, queueOperation]
   );
 
   const updateDeadline = useCallback(
@@ -202,9 +219,13 @@ export function useNotes(date?: string) {
         deadline,
         updated_at: now,
       });
-      loadNotes();
+
+      // Optimized: Update only the modified note's deadline
+      setNotes(prevNotes => prevNotes.map(note =>
+        note.id === id ? { ...note, deadline, updated_at: now } : note
+      ));
     },
-    [db, loadNotes, queueOperation]
+    [db, queueOperation]
   );
 
   const toggleCompleted = useCallback(
@@ -239,9 +260,13 @@ export function useNotes(date?: string) {
         completed_at: completedAt,
         updated_at: now,
       });
-      loadNotes();
+
+      // Optimized: Update only the completed status of this note
+      setNotes(prevNotes => prevNotes.map(note =>
+        note.id === id ? { ...note, completed, completed_at: completedAt, updated_at: now } : note
+      ));
     },
-    [db, loadNotes, queueOperation]
+    [db, queueOperation]
   );
 
   const togglePinned = useCallback(
@@ -261,9 +286,13 @@ export function useNotes(date?: string) {
         pinned,
         updated_at: now,
       });
-      loadNotes();
+
+      // Optimized: Update only the pinned status of this note
+      setNotes(prevNotes => prevNotes.map(note =>
+        note.id === id ? { ...note, pinned, updated_at: now } : note
+      ));
     },
-    [db, loadNotes, queueOperation]
+    [db, queueOperation]
   );
 
   const deleteNote = useCallback(
@@ -280,9 +309,11 @@ export function useNotes(date?: string) {
         deleted_at: now,
         updated_at: now,
       });
-      loadNotes();
+
+      // Optimized: Remove the deleted note from the list (soft delete)
+      setNotes(prevNotes => prevNotes.filter(note => note.id !== id));
     },
-    [db, loadNotes, queueOperation]
+    [db, queueOperation]
   );
 
   const restoreNote = useCallback(

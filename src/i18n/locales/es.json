@@ -125,6 +125,8 @@
   "create": "Crear",
   "searchLabels": "Buscar etiquetas...",
   "noLabelsFound": "No se encontraron etiquetas",
+  "searchCategory": "Buscar categoría...",
+  "noCategoriesFound": "No se encontraron categorías",
   "editLabel": "Editar etiqueta",
   "editLabelDescription": "Modifica el nombre y color de la etiqueta",
   "pin": "Fijar",
@@ -159,6 +161,9 @@
   "hideSidebar": "Ocultar panel",
   "pinToPanel": "Abrir en panel lateral",
   "unpinFromPanel": "Cerrar panel lateral",
+  "fixToSidebar": "Fijar en panel lateral",
+  "unfixFromSidebar": "Desfijar del panel",
+  "fixedTask": "Tarea Fija",
   "sortByDeadline": "Ordenar por fecha límite",
   "overdue": "Vencidas",
   "showOverdueOnly": "Mostrar solo tareas vencidas",
@@ -183,6 +188,7 @@
     "deleteTask": "Eliminar tarea",
     "openLabels": "Abrir etiquetas",
     "openCategories": "Cambiar categoría",
+    "openDeadline": "Establecer fecha límite",
     "backToTitle": "Volver al título"
   },
   "youtube": {

@@ -125,6 +125,8 @@
   "create": "Create",
   "searchLabels": "Search labels...",
   "noLabelsFound": "No labels found",
+  "searchCategory": "Search category...",
+  "noCategoriesFound": "No categories found",
   "editLabel": "Edit label",
   "editLabelDescription": "Modify the label name and color",
   "pin": "Pin",
@@ -159,6 +161,9 @@
   "hideSidebar": "Hide panel",
   "pinToPanel": "Open in side panel",
   "unpinFromPanel": "Close side panel",
+  "fixToSidebar": "Fix to sidebar",
+  "unfixFromSidebar": "Unfix from sidebar",
+  "fixedTask": "Fixed Task",
   "sortByDeadline": "Sort by deadline",
   "overdue": "Overdue",
   "showOverdueOnly": "Show only overdue tasks",
@@ -183,6 +188,7 @@
     "deleteTask": "Delete task",
     "openLabels": "Open labels",
     "openCategories": "Change category",
+    "openDeadline": "Set deadline",
     "backToTitle": "Back to title"
   },
   "youtube": {

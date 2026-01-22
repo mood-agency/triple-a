@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect } from 'react';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { persistDatabase } from '@/db';
 import type { Contact, ContactInput } from '@/types/contact';
-import type { Database } from 'sql.js';
 
 function generateId(): string {
   return crypto.randomUUID();

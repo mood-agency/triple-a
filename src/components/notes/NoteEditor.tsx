@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
+import { Check, Pickaxe, Forward, StickyNote, Users } from 'lucide-react';
 import type { NoteCategory } from '@/types/note';
 
 interface NoteEditorProps {
@@ -41,6 +43,20 @@ function splitText(text: string): { title: string; description: string | null } 
   return { title, description };
 }
 
+// Get icon for category
+function getCategoryIcon(category: NoteCategory) {
+  switch (category) {
+    case 'todo':
+      return <Pickaxe className="h-4 w-4" />;
+    case 'followup':
+      return <Forward className="h-4 w-4" />;
+    case 'notes':
+      return <StickyNote className="h-4 w-4" />;
+    case 'meeting':
+      return <Users className="h-4 w-4" />;
+  }
+}
+
 export interface NoteEditorHandle {
   focusDescription: (column?: number) => void;
 }
@@ -60,6 +76,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   const { t } = useTranslation();
   const [text, setText] = useState(() => combineText(initialContent, initialDescription));
   const [category, setCategory] = useState<NoteCategory>(initialCategory);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -187,40 +204,60 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
 
   const { title } = splitText(text);
 
+  const categories: { value: NoteCategory; label: string }[] = [
+    { value: 'todo', label: t('categoryTodo') },
+    { value: 'followup', label: t('categoryFollowUp') },
+    { value: 'notes', label: t('categoryNotes') },
+    { value: 'meeting', label: t('categoryMeeting') },
+  ];
+
   return (
     <div className="space-y-3">
       <h1 className="text-lg font-semibold">{t('newTask')}</h1>
       {showCategorySelector && (
-        <div className="flex gap-2">
-          <Badge
-            variant={category === 'todo' ? 'default' : 'secondary'}
-            className="cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => setCategory('todo')}
-          >
-            {t('categoryTodo')}
-          </Badge>
-          <Badge
-            variant={category === 'followup' ? 'default' : 'secondary'}
-            className="cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => setCategory('followup')}
-          >
-            {t('categoryFollowUp')}
-          </Badge>
-          <Badge
-            variant={category === 'notes' ? 'default' : 'secondary'}
-            className="cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => setCategory('notes')}
-          >
-            {t('categoryNotes')}
-          </Badge>
-          <Badge
-            variant={category === 'meeting' ? 'default' : 'secondary'}
-            className="cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => setCategory('meeting')}
-          >
-            {t('categoryMeeting')}
-          </Badge>
-        </div>
+        <Popover open={showCategoryDropdown} onOpenChange={(open) => {
+          setShowCategoryDropdown(open);
+          if (!open) {
+            textareaRef.current?.focus();
+          }
+        }}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-[200px] justify-start text-left font-normal"
+            >
+              <span className="flex items-center gap-2">
+                {getCategoryIcon(category)}
+                {categories.find(cat => cat.value === category)?.label}
+              </span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[200px] p-0" align="start">
+            <Command>
+              <CommandInput placeholder={t('searchCategory')} className="h-9" />
+              <CommandList>
+                <CommandEmpty>{t('noCategoriesFound')}</CommandEmpty>
+                <CommandGroup>
+                  {categories.map((cat) => (
+                    <CommandItem
+                      key={cat.value}
+                      value={cat.value}
+                      onSelect={() => {
+                        setCategory(cat.value);
+                        setShowCategoryDropdown(false);
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      {getCategoryIcon(cat.value)}
+                      {cat.label}
+                      {category === cat.value && <Check className="h-4 w-4 ml-auto" />}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       )}
       <Textarea
         ref={textareaRef}
