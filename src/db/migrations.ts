@@ -176,6 +176,10 @@ export function runMigrations(db: Database): void {
     if (!syncLabelsColumns.includes('last_synced_at')) {
       db.run('ALTER TABLE labels ADD COLUMN last_synced_at TEXT DEFAULT NULL');
     }
+    // Migration: add deleted_at column for soft delete
+    if (!syncLabelsColumns.includes('deleted_at')) {
+      db.run('ALTER TABLE labels ADD COLUMN deleted_at TEXT DEFAULT NULL');
+    }
   }
 
   // Create pending_sync table for offline operations queue
@@ -201,5 +205,27 @@ export function runMigrations(db: Database): void {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     )
+  `);
+
+  // Create contacts table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS contacts (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      lastname TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      email TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      user_id TEXT DEFAULT NULL
+    )
+  `);
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_contacts_name ON contacts(name)
+  `);
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email)
   `);
 }

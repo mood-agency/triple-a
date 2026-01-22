@@ -3,10 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { MoreVertical, Download, Upload, AlertCircle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -17,6 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useDatabase } from '@/contexts/DatabaseContext';
+import { useSettings } from '@/hooks/useSettings';
 import { persistDatabase } from '@/db';
 import {
   exportAllData,
@@ -30,6 +34,7 @@ import type { ImportResult } from '@/types/note';
 export function SettingsMenu() {
   const { t } = useTranslation();
   const { db } = useDatabase();
+  const { settings, updateSettings } = useSettings();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -107,7 +112,20 @@ export function SettingsMenu() {
             <p>{t('settings')}</p>
           </TooltipContent>
         </Tooltip>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="w-56">
+          <div className="px-2 py-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="auto-sync" className="cursor-pointer text-sm font-normal">
+                {t('settingsMenu.autoSync')}
+              </Label>
+              <Switch
+                id="auto-sync"
+                checked={settings.autoSync}
+                onCheckedChange={(checked) => updateSettings({ autoSync: checked })}
+              />
+            </div>
+          </div>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
             {t('importExport.export')}

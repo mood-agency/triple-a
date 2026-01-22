@@ -213,8 +213,11 @@ function NoteRow({
       setTimeout(() => {
         if (contentInputRef.current) {
           contentInputRef.current.focus();
-          const pos = Math.min(desiredColumn, contentInputRef.current.value.length);
-          contentInputRef.current.setSelectionRange(pos, pos);
+          // CRITICAL FIX: Ensure desiredColumn is clamped to actual text length
+          // This prevents cursor jumping when navigating between tasks of different lengths
+          const actualLength = contentInputRef.current.value.length;
+          const safePosition = Math.max(0, Math.min(desiredColumn, actualLength));
+          contentInputRef.current.setSelectionRange(safePosition, safePosition);
         }
       }, 0);
       onTitleFocused();

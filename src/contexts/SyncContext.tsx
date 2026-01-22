@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, ty
 import { useAuth } from './AuthContext'
 import { useDatabase } from './DatabaseContext'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import { useSettings } from '@/hooks/useSettings'
 import { SyncService } from '@/services/SyncService'
 import { supabase } from '@/lib/supabase'
 import type { SyncContextState, SyncConnectionStatus, SyncState, SyncTable, SyncOperation } from '@/types/sync'
@@ -43,6 +44,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const { db, isReady } = useDatabase()
   const isOnline = useOnlineStatus()
+  const { settings } = useSettings()
 
   const [connectionStatus, setConnectionStatus] = useState<SyncConnectionStatus>('offline')
   const [syncState, setSyncState] = useState<SyncState>('idle')
@@ -216,16 +218,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     setPendingCount(pendingCount)
     await persistDatabase()
 
-    // Try to sync with debounce if online
-    if (isOnline) {
+    // Try to sync with debounce if online and auto-sync is enabled
+    if (isOnline && settings.autoSync) {
       console.log('[Sync] Triggering debounced sync')
       debouncedSync()
     }
-  }, [user, isOnline, debouncedSync])
+  }, [user, isOnline, debouncedSync, settings.autoSync])
 
   // Initial sync and periodic sync
   useEffect(() => {
-    if (!user || !isOnline || !syncServiceRef.current) {
+    if (!user || !isOnline || !syncServiceRef.current || !settings.autoSync) {
       return
     }
 
@@ -248,18 +250,18 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         syncIntervalRef.current = null
       }
     }
-  }, [user, isOnline, syncNow])
+  }, [user, isOnline, syncNow, settings.autoSync])
 
   // Sync when coming back online with pending changes
   useEffect(() => {
-    if (isOnline && pendingCount > 0 && !isSyncingRef.current && initialSyncDoneRef.current) {
+    if (isOnline && pendingCount > 0 && !isSyncingRef.current && initialSyncDoneRef.current && settings.autoSync) {
       debouncedSync()
     }
-  }, [isOnline, pendingCount, debouncedSync])
+  }, [isOnline, pendingCount, debouncedSync, settings.autoSync])
 
   // Set up realtime subscriptions - separate from sync logic
   useEffect(() => {
-    if (!supabase || !user || !db) return
+    if (!supabase || !user || !db || !settings.autoSync) return
 
     const channel = supabase
       .channel('db-changes')
@@ -295,7 +297,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         supabase.removeChannel(channel)
       }
     }
-  }, [user, db, debouncedSync])
+  }, [user, db, debouncedSync, settings.autoSync])
 
   // Cleanup debounce on unmount
   useEffect(() => {

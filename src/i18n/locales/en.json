@@ -72,6 +72,9 @@
   "toggleTheme": "Toggle theme",
   "toggleLanguage": "Toggle language",
   "settings": "Settings",
+  "settingsMenu": {
+    "autoSync": "Automatic sync"
+  },
   "deleteTask": "Delete task",
   "newTask": "New Task",
   "dailyNotes": "Daily Notes",
@@ -154,6 +157,8 @@
   "actionCreated": "Created",
   "showSidebar": "Show panel",
   "hideSidebar": "Hide panel",
+  "pinToPanel": "Open in side panel",
+  "unpinFromPanel": "Close side panel",
   "sortByDeadline": "Sort by deadline",
   "overdue": "Overdue",
   "showOverdueOnly": "Show only overdue tasks",
@@ -249,5 +254,24 @@
       "create": "Create \"{{name}}\"",
       "noResults": "No assignees found"
     }
+  },
+  "contacts": {
+    "title": "Contacts",
+    "addContact": "Add Contact",
+    "editContact": "Edit Contact",
+    "deleteContact": "Delete Contact",
+    "name": "Name",
+    "lastname": "Last Name",
+    "phone": "Phone",
+    "email": "Email",
+    "actions": "Actions",
+    "noContacts": "No contacts yet",
+    "addDescription": "Add a new contact to your list",
+    "editDescription": "Edit contact information",
+    "deleteConfirmation": "Are you sure you want to delete this contact? This action cannot be undone.",
+    "contactCreated": "Contact created successfully",
+    "contactUpdated": "Contact updated successfully",
+    "contactDeleted": "Contact deleted successfully",
+    "error": "An error occurred"
   }
 }

@@ -72,6 +72,9 @@
   "toggleTheme": "Cambiar tema",
   "toggleLanguage": "Cambiar idioma",
   "settings": "Configuración",
+  "settingsMenu": {
+    "autoSync": "Sincronización automática"
+  },
   "deleteTask": "Eliminar tarea",
   "newTask": "Nueva Tarea",
   "dailyNotes": "Notas del Día",
@@ -154,6 +157,8 @@
   "actionCreated": "Creado",
   "showSidebar": "Mostrar panel",
   "hideSidebar": "Ocultar panel",
+  "pinToPanel": "Abrir en panel lateral",
+  "unpinFromPanel": "Cerrar panel lateral",
   "sortByDeadline": "Ordenar por fecha límite",
   "overdue": "Vencidas",
   "showOverdueOnly": "Mostrar solo tareas vencidas",
@@ -249,5 +254,24 @@
       "create": "Crear \"{{name}}\"",
       "noResults": "No se encontraron responsables"
     }
+  },
+  "contacts": {
+    "title": "Contactos",
+    "addContact": "Agregar Contacto",
+    "editContact": "Editar Contacto",
+    "deleteContact": "Eliminar Contacto",
+    "name": "Nombre",
+    "lastname": "Apellido",
+    "phone": "Teléfono",
+    "email": "Correo Electrónico",
+    "actions": "Acciones",
+    "noContacts": "Aún no hay contactos",
+    "addDescription": "Agrega un nuevo contacto a tu lista",
+    "editDescription": "Edita la información del contacto",
+    "deleteConfirmation": "¿Estás seguro de que deseas eliminar este contacto? Esta acción no se puede deshacer.",
+    "contactCreated": "Contacto creado exitosamente",
+    "contactUpdated": "Contacto actualizado exitosamente",
+    "contactDeleted": "Contacto eliminado exitosamente",
+    "error": "Ocurrió un error"
   }
 }

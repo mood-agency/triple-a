@@ -172,6 +172,8 @@ export class SyncService {
               description: data.description,
               category: data.category,
               completed: data.completed,
+              completed_at: data.completed_at,
+              deadline: data.deadline,
               pinned: data.pinned,
               sort_order: data.sort_order ?? 0,
               created_at: data.created_at,
@@ -206,6 +208,8 @@ export class SyncService {
                 description: data.description,
                 category: data.category,
                 completed: data.completed,
+                completed_at: data.completed_at,
+                deadline: data.deadline,
                 pinned: data.pinned,
                 sort_order: data.sort_order,
                 updated_at: data.updated_at,
@@ -432,8 +436,8 @@ export class SyncService {
       // Insert new note from remote (including deleted_at for soft-deleted notes)
       const localId = crypto.randomUUID()
       this.db.run(
-        `INSERT INTO notes (id, date, content, description, category, completed, pinned, sort_order, created_at, updated_at, deleted_at, remote_id, sync_status, last_synced_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)`,
+        `INSERT INTO notes (id, date, content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, updated_at, deleted_at, remote_id, sync_status, last_synced_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)`,
         [
           localId,
           remoteNote.date,
@@ -441,6 +445,8 @@ export class SyncService {
           remoteNote.description,
           remoteNote.category,
           remoteNote.completed ? 1 : 0,
+          remoteNote.completed_at ?? null,
+          remoteNote.deadline ?? null,
           remoteNote.pinned ? 1 : 0,
           remoteNote.sort_order,
           remoteNote.created_at,
@@ -456,13 +462,15 @@ export class SyncService {
       // Only update if remote is newer and local isn't pending
       if (syncStatus === 'synced' || new Date(remoteNote.updated_at as string) > new Date(localUpdatedAt)) {
         this.db.run(
-          `UPDATE notes SET content = ?, description = ?, category = ?, completed = ?, pinned = ?, sort_order = ?, updated_at = ?, deleted_at = ?, sync_status = 'synced', last_synced_at = ?
+          `UPDATE notes SET content = ?, description = ?, category = ?, completed = ?, completed_at = ?, deadline = ?, pinned = ?, sort_order = ?, updated_at = ?, deleted_at = ?, sync_status = 'synced', last_synced_at = ?
            WHERE id = ?`,
           [
             remoteNote.content,
             remoteNote.description,
             remoteNote.category,
             remoteNote.completed ? 1 : 0,
+            remoteNote.completed_at ?? null,
+            remoteNote.deadline ?? null,
             remoteNote.pinned ? 1 : 0,
             remoteNote.sort_order,
             remoteNote.updated_at,
