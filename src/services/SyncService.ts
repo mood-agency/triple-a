@@ -385,12 +385,11 @@ export class SyncService {
     const lastSyncResult = this.db.exec(`SELECT value FROM sync_state WHERE key = 'last_synced_at'`)
     const lastSyncedAt = lastSyncResult[0]?.values[0]?.[0] as string | null
 
-    // Pull notes
+    // Pull notes (include deleted notes to sync deletions from other devices)
     let notesQuery = client
       .from('notes')
       .select('*')
       .eq('user_id', this.userId)
-      .is('deleted_at', null)
 
     if (lastSyncedAt) {
       notesQuery = notesQuery.gt('updated_at', lastSyncedAt)
@@ -403,12 +402,11 @@ export class SyncService {
       this.mergeRemoteNote(remoteNote)
     }
 
-    // Pull labels
+    // Pull labels (include deleted labels to sync deletions from other devices)
     let labelsQuery = client
       .from('labels')
       .select('*')
       .eq('user_id', this.userId)
-      .is('deleted_at', null)
 
     if (lastSyncedAt) {
       labelsQuery = labelsQuery.gt('updated_at', lastSyncedAt)
@@ -431,11 +429,11 @@ export class SyncService {
     const now = new Date().toISOString()
 
     if (existingResult.length === 0 || existingResult[0].values.length === 0) {
-      // Insert new note from remote
+      // Insert new note from remote (including deleted_at for soft-deleted notes)
       const localId = crypto.randomUUID()
       this.db.run(
-        `INSERT INTO notes (id, date, content, description, category, completed, pinned, sort_order, created_at, updated_at, remote_id, sync_status, last_synced_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)`,
+        `INSERT INTO notes (id, date, content, description, category, completed, pinned, sort_order, created_at, updated_at, deleted_at, remote_id, sync_status, last_synced_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)`,
         [
           localId,
           remoteNote.date,
@@ -447,6 +445,7 @@ export class SyncService {
           remoteNote.sort_order,
           remoteNote.created_at,
           remoteNote.updated_at,
+          remoteNote.deleted_at ?? null,
           remoteNote.id,
           now,
         ]
@@ -457,7 +456,7 @@ export class SyncService {
       // Only update if remote is newer and local isn't pending
       if (syncStatus === 'synced' || new Date(remoteNote.updated_at as string) > new Date(localUpdatedAt)) {
         this.db.run(
-          `UPDATE notes SET content = ?, description = ?, category = ?, completed = ?, pinned = ?, sort_order = ?, updated_at = ?, sync_status = 'synced', last_synced_at = ?
+          `UPDATE notes SET content = ?, description = ?, category = ?, completed = ?, pinned = ?, sort_order = ?, updated_at = ?, deleted_at = ?, sync_status = 'synced', last_synced_at = ?
            WHERE id = ?`,
           [
             remoteNote.content,
@@ -467,6 +466,7 @@ export class SyncService {
             remoteNote.pinned ? 1 : 0,
             remoteNote.sort_order,
             remoteNote.updated_at,
+            remoteNote.deleted_at ?? null,
             now,
             localId,
           ]
@@ -486,14 +486,15 @@ export class SyncService {
     if (existingResult.length === 0 || existingResult[0].values.length === 0) {
       const localId = crypto.randomUUID()
       this.db.run(
-        `INSERT INTO labels (id, name, color, created_at, updated_at, remote_id, sync_status, last_synced_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'synced', ?)`,
+        `INSERT INTO labels (id, name, color, created_at, updated_at, deleted_at, remote_id, sync_status, last_synced_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'synced', ?)`,
         [
           localId,
           remoteLabel.name,
           remoteLabel.color,
           remoteLabel.created_at,
           remoteLabel.updated_at,
+          remoteLabel.deleted_at ?? null,
           remoteLabel.id,
           now,
         ]
@@ -503,12 +504,13 @@ export class SyncService {
 
       if (syncStatus === 'synced' || new Date(remoteLabel.updated_at as string) > new Date(localUpdatedAt)) {
         this.db.run(
-          `UPDATE labels SET name = ?, color = ?, updated_at = ?, sync_status = 'synced', last_synced_at = ?
+          `UPDATE labels SET name = ?, color = ?, updated_at = ?, deleted_at = ?, sync_status = 'synced', last_synced_at = ?
            WHERE id = ?`,
           [
             remoteLabel.name,
             remoteLabel.color,
             remoteLabel.updated_at,
+            remoteLabel.deleted_at ?? null,
             now,
             localId,
           ]
