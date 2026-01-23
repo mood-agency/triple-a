@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
-import { Pickaxe, Forward, StickyNote, Check, X, Users, Calendar, List } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Check, X, Users, Calendar, List, BarChart3 } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -43,6 +44,7 @@ export function CommandPalette({
   onToggleViewMode,
 }: CommandPaletteProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const savedFocusRef = useRef<FocusState | null>(null);
 
@@ -130,6 +132,11 @@ export function CommandPalette({
     handleOpenChange(false);
   };
 
+  const handleNavigate = (path: string) => {
+    handleOpenChange(false);
+    navigate(path);
+  };
+
   const hasActiveFilters = selectedLabels.length > 0 || categoryFilter !== 'all';
 
   return (
@@ -159,6 +166,15 @@ export function CommandPalette({
             )}
             {viewMode === 'list' ? t('calendar.switchToCalendarView') : t('calendar.switchToListView')}
             <span className="ml-auto text-xs text-muted-foreground">Ctrl+Shift+C</span>
+          </CommandItem>
+        </CommandGroup>
+
+        <CommandSeparator />
+
+        <CommandGroup heading={t('commandPalette.navigation')}>
+          <CommandItem onSelect={() => handleNavigate('/analytics')}>
+            <BarChart3 className="mr-2 h-4 w-4" />
+            {t('analytics.title')}
           </CommandItem>
         </CommandGroup>
 

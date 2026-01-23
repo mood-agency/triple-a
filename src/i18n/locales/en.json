@@ -161,7 +161,8 @@
   "unpin": "Unpin",
   "commandPalettePlaceholder": "Search labels and categories...",
   "commandPalette": {
-    "view": "View"
+    "view": "View",
+    "navigation": "Navigation"
   },
   "noResults": "No results found",
   "activeFilters": "Active Filters",
@@ -320,5 +321,48 @@
     "contactUpdated": "Contact updated successfully",
     "contactDeleted": "Contact deleted successfully",
     "error": "An error occurred"
+  },
+  "categories": {
+    "todo": "To Do",
+    "followup": "Follow Up",
+    "notes": "Notes",
+    "meeting": "Meeting"
+  },
+  "analytics": {
+    "title": "Analytics",
+    "selectPeriod": "Select period",
+    "showingDataFor": "Showing data for",
+    "noData": "No data available",
+    "noPendingTasks": "No pending tasks",
+    "mostProductiveDay": "Most productive day",
+    "age": "Age",
+    "distribution": "Distribution",
+    "tabs": {
+      "overview": "Overview",
+      "trends": "Trends",
+      "categories": "Categories"
+    },
+    "period": {
+      "7d": "Last 7 days",
+      "30d": "Last 30 days",
+      "90d": "Last 90 days",
+      "year": "This year",
+      "all": "All time"
+    },
+    "metrics": {
+      "created": "Tasks Created",
+      "completed": "Completed",
+      "completionRate": "Completion Rate",
+      "overdue": "Overdue",
+      "pending": "pending",
+      "tasks": "tasks",
+      "avgTime": "Avg. Completion Time"
+    },
+    "charts": {
+      "completionTrend": "Completion Trend",
+      "categoryBreakdown": "Tasks by Category",
+      "productivityByDay": "Productivity by Day",
+      "taskAge": "Pending Task Age"
+    }
   }
 }

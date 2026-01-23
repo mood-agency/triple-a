@@ -6,6 +6,7 @@ import { Auth } from './pages/Auth'
 import { ResetPassword } from './pages/ResetPassword'
 import { AITest } from './pages/AITest'
 import { Contacts } from './pages/Contacts'
+import { Analytics } from './pages/Analytics'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isConfigured } = useAuth()
@@ -65,6 +66,14 @@ function App() {
         element={
           <ProtectedRoute>
             <Contacts />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          <ProtectedRoute>
+            <Analytics />
           </ProtectedRoute>
         }
       />

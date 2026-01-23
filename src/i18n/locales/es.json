@@ -161,7 +161,8 @@
   "unpin": "Desfijar",
   "commandPalettePlaceholder": "Buscar etiquetas y categorías...",
   "commandPalette": {
-    "view": "Vista"
+    "view": "Vista",
+    "navigation": "Navegación"
   },
   "noResults": "No se encontraron resultados",
   "activeFilters": "Filtros activos",
@@ -320,5 +321,48 @@
     "contactUpdated": "Contacto actualizado exitosamente",
     "contactDeleted": "Contacto eliminado exitosamente",
     "error": "Ocurrió un error"
+  },
+  "categories": {
+    "todo": "Por Hacer",
+    "followup": "Seguimiento",
+    "notes": "Notas",
+    "meeting": "Reunión"
+  },
+  "analytics": {
+    "title": "Analíticas",
+    "selectPeriod": "Seleccionar período",
+    "showingDataFor": "Mostrando datos de",
+    "noData": "No hay datos disponibles",
+    "noPendingTasks": "No hay tareas pendientes",
+    "mostProductiveDay": "Día más productivo",
+    "age": "Antigüedad",
+    "distribution": "Distribución",
+    "tabs": {
+      "overview": "Resumen",
+      "trends": "Tendencias",
+      "categories": "Categorías"
+    },
+    "period": {
+      "7d": "Últimos 7 días",
+      "30d": "Últimos 30 días",
+      "90d": "Últimos 90 días",
+      "year": "Este año",
+      "all": "Todo el tiempo"
+    },
+    "metrics": {
+      "created": "Tareas Creadas",
+      "completed": "Completadas",
+      "completionRate": "Tasa de Completado",
+      "overdue": "Vencidas",
+      "pending": "pendientes",
+      "tasks": "tareas",
+      "avgTime": "Tiempo Prom. Completado"
+    },
+    "charts": {
+      "completionTrend": "Tendencia de Completado",
+      "categoryBreakdown": "Tareas por Categoría",
+      "productivityByDay": "Productividad por Día",
+      "taskAge": "Antigüedad de Tareas Pendientes"
+    }
   }
 }
