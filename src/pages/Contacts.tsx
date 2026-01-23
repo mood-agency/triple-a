@@ -5,6 +5,9 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Header } from '@/components/Header';
 import {
   Dialog,
   DialogContent,
@@ -31,14 +34,42 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Pencil, Trash2, Plus } from 'lucide-react';
+import { Pencil, Trash2, Plus, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSettings } from '@/hooks/useSettings';
 import type { Contact, ContactInput } from '@/types/contact';
+
+const BEEPER_API_URL = 'http://localhost:23373';
+const BEEPER_TIMEOUT_MS = 10000; // 10 seconds timeout
+
+// Validates international phone format: +[country code][number]
+function isValidInternationalPhone(phone: string): boolean {
+  const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  // Must start with + followed by country code (1-3 digits) and phone number (7-14 digits)
+  return /^\+\d{1,3}\d{7,14}$/.test(cleaned);
+}
+
+// Fetch with timeout
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 export function Contacts() {
   const { t } = useTranslation();
   const { isReady } = useDatabase();
   const { contacts, loading, createContact, updateContact, deleteContact } = useContacts();
+  const { settings } = useSettings();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -51,6 +82,12 @@ export function Contacts() {
     phone: '',
     email: '',
   });
+
+  // WhatsApp messaging state
+  const [isWhatsAppDialogOpen, setIsWhatsAppDialogOpen] = useState(false);
+  const [whatsAppContact, setWhatsAppContact] = useState<Contact | null>(null);
+  const [whatsAppMessage, setWhatsAppMessage] = useState('');
+  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
 
   const handleOpenDialog = (contact?: Contact) => {
     if (contact) {
@@ -87,6 +124,12 @@ export function Contacts() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validate phone format
+    if (formData.phone && !isValidInternationalPhone(formData.phone)) {
+      toast.error(t('contacts.invalidPhone'));
+      return;
+    }
+
     try {
       if (editingContact) {
         await updateContact(editingContact.id, formData);
@@ -121,6 +164,134 @@ export function Contacts() {
     }
   };
 
+  const handleWhatsAppClick = (contact: Contact) => {
+    if (!contact.phone) {
+      toast.error(t('contacts.whatsapp.noPhone'));
+      return;
+    }
+    setWhatsAppContact(contact);
+    setWhatsAppMessage('');
+    setIsWhatsAppDialogOpen(true);
+  };
+
+  const handleWhatsAppClose = () => {
+    setIsWhatsAppDialogOpen(false);
+    setWhatsAppContact(null);
+    setWhatsAppMessage('');
+  };
+
+  const sendWhatsAppMessage = async () => {
+    if (!whatsAppContact || !whatsAppMessage.trim()) return;
+
+    if (!settings.beeperToken) {
+      toast.error(t('contacts.whatsapp.noToken'));
+      return;
+    }
+
+    setIsSendingWhatsApp(true);
+
+    try {
+      // Format phone number (remove spaces, dashes, etc.)
+      const phoneNumber = whatsAppContact.phone.replace(/[\s\-\(\)]/g, '');
+
+      // First, get WhatsApp account
+      const accountsResponse = await fetchWithTimeout(
+        `${BEEPER_API_URL}/v1/accounts`,
+        {
+          headers: {
+            'Authorization': `Bearer ${settings.beeperToken}`,
+          },
+        },
+        BEEPER_TIMEOUT_MS
+      );
+
+      if (!accountsResponse.ok) {
+        throw new Error(t('contacts.whatsapp.beeperNotRunning'));
+      }
+
+      const accounts = await accountsResponse.json();
+      const whatsappAccount = accounts.find((acc: { accountID?: string; service?: string; network?: string }) =>
+        acc.accountID === 'whatsapp' || acc.service === 'whatsapp' || acc.network?.toLowerCase() === 'whatsapp'
+      );
+
+      if (!whatsappAccount) {
+        throw new Error('No WhatsApp account found in Beeper');
+      }
+
+      // Create or get chat with the contact
+      const createChatResponse = await fetchWithTimeout(
+        `${BEEPER_API_URL}/v1/chats`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${settings.beeperToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            accountID: whatsappAccount.accountID,
+            type: 'single',
+            participantIDs: [phoneNumber],
+          }),
+        },
+        BEEPER_TIMEOUT_MS
+      );
+
+      if (!createChatResponse.ok) {
+        const errorData = await createChatResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to create chat');
+      }
+
+      const chat = await createChatResponse.json();
+
+      // Get chat ID - try different possible field names
+      const chatId = chat.id || chat.chatID || chat.guid;
+      if (!chatId) {
+        throw new Error('Could not get chat ID from response');
+      }
+
+      // Send the message
+      const sendResponse = await fetchWithTimeout(
+        `${BEEPER_API_URL}/v1/chats/${chatId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${settings.beeperToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: `${whatsAppMessage}\n\n${t('contacts.whatsapp.signature')}`,
+          }),
+        },
+        BEEPER_TIMEOUT_MS
+      );
+
+      if (!sendResponse.ok) {
+        const errorData = await sendResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to send message');
+      }
+
+      toast.success(t('contacts.whatsapp.success'));
+      handleWhatsAppClose();
+    } catch (error) {
+      console.error('Error sending WhatsApp message:', error);
+
+      // Handle specific error types
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          toast.error(t('contacts.whatsapp.timeout'));
+        } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          toast.error(t('contacts.whatsapp.connectionFailed'));
+        } else {
+          toast.error(error.message);
+        }
+      } else {
+        toast.error(t('contacts.whatsapp.error'));
+      }
+    } finally {
+      setIsSendingWhatsApp(false);
+    }
+  };
+
   if (!isReady || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -130,16 +301,23 @@ export function Contacts() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">{t('contacts.title')}</h1>
-        <Button onClick={() => handleOpenDialog()}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t('contacts.addContact')}
-        </Button>
-      </div>
+    <div className="h-screen flex flex-col py-8 px-4">
+      <div className="w-full px-4 flex flex-col flex-1 min-h-0">
+        <Header>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={() => handleOpenDialog()}>
+                <Plus className="mr-2 h-4 w-4" />
+                {t('contacts.addContact')}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('contacts.addContact')}</p>
+            </TooltipContent>
+          </Tooltip>
+        </Header>
 
-      <div className="rounded-md border">
+        <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -165,6 +343,14 @@ export function Contacts() {
                   <TableCell>{contact.phone}</TableCell>
                   <TableCell>{contact.email}</TableCell>
                   <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleWhatsAppClick(contact)}
+                      title={t('contacts.whatsapp.sendMessage')}
+                    >
+                      <MessageCircle className="h-4 w-4 text-green-600" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -224,8 +410,10 @@ export function Contacts() {
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="+521234567890"
                   required
                 />
+                <p className="text-xs text-muted-foreground">{t('contacts.phoneHelp')}</p>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="email">{t('contacts.email')}</Label>
@@ -266,6 +454,53 @@ export function Contacts() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={isWhatsAppDialogOpen} onOpenChange={handleWhatsAppClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-green-600" />
+              {t('contacts.whatsapp.dialogTitle')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('contacts.whatsapp.dialogDescription', {
+                name: whatsAppContact ? `${whatsAppContact.name} ${whatsAppContact.lastname}` : '',
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="whatsapp-message">{t('contacts.whatsapp.sendMessage')}</Label>
+              <Textarea
+                id="whatsapp-message"
+                value={whatsAppMessage}
+                onChange={(e) => setWhatsAppMessage(e.target.value)}
+                placeholder={t('contacts.whatsapp.messagePlaceholder')}
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+            {whatsAppContact && (
+              <p className="text-sm text-muted-foreground">
+                {t('contacts.phone')}: {whatsAppContact.phone}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={handleWhatsAppClose}>
+              {t('cancel')}
+            </Button>
+            <Button
+              onClick={sendWhatsAppMessage}
+              disabled={isSendingWhatsApp || !whatsAppMessage.trim()}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isSendingWhatsApp ? t('contacts.whatsapp.sending') : t('contacts.whatsapp.send')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      </div>
     </div>
   );
 }

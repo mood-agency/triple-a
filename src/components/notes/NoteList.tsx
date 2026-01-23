@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback, useMemo, startTransition } from 'react';
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
-import { Calendar, Search, Pickaxe, Forward, StickyNote, Tag, X, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, Users, ChevronDown, Check, List } from 'lucide-react';
+import { Calendar, PanelRightClose, PanelRightOpen, List } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -19,6 +19,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Kbd } from '@/components/ui/kbd';
 import {
   Dialog,
   DialogContent,
@@ -34,21 +35,14 @@ import { useNoteHistory } from '@/hooks/useNoteHistory';
 import { useLabels } from '@/hooks/useLabels';
 import { useAutoLabel } from '@/hooks/useAutoLabel';
 import { useSettings } from '@/hooks/useSettings';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import { PostponeDialog } from './PostponeDialog';
 import { MemoizedNoteRow } from './NoteRow';
 import { NoteEditorPanel } from './NoteEditorPanel';
 import { CalendarView } from './CalendarView';
+import { NoteFilters } from './NoteFilters';
 import { parseLocalDate } from '@/utils/dateUtils';
+import { useContacts } from '@/hooks/useContacts';
 
 interface NoteListProps {
   notes: Note[];
@@ -58,12 +52,13 @@ interface NoteListProps {
   onToggleCompleted: (id: string, completed: boolean) => void;
   onTogglePinned: (id: string, pinned: boolean) => void;
   onUpdateDeadline: (id: string, deadline: string | null) => void;
+  onUpdateAssignee: (id: string, assigneeId: string | null) => void;
   onReorderNotes: (orderedIds: string[]) => void;
   onPostponeNote: (id: string, newDeadline: string, reason: string) => Promise<void>;
   selectedNote: Note | null;
   onSelectNote: (note: Note | null) => void;
   onNavigateToEditor?: (column: number) => void;
-  onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory) => Promise<Note>;
+  onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[]) => Promise<Note>;
   // External filter control (from CommandPalette)
   externalLabelFilter?: string[];
   externalCategoryFilter?: NoteCategory | 'all';
@@ -87,9 +82,10 @@ function getColumnPosition(text: string, cursorPos: number): number {
   return lastNewline === -1 ? cursorPos : cursorPos - lastNewline - 1;
 }
 
-export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, externalLabelFilter, externalCategoryFilter, onLabelFilterChange, onCategoryFilterChange }, ref) {
+export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onUpdateAssignee, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, externalLabelFilter, externalCategoryFilter, onLabelFilterChange, onCategoryFilterChange }, ref) {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
+  const { contacts } = useContacts();
   const containerRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<EditableDescriptionHandle>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -155,6 +151,21 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteIdsKey, getLabelsForNote, noteLabelVersion, EMPTY_LABELS]);
 
+  // PERFORMANCE: Pre-compute assignee names for all notes to avoid per-note lookups
+  const assigneeNamesCache = useMemo(() => {
+    const cache = new Map<string, string | null>();
+    for (const note of notesRef.current) {
+      if (note.assignee_id) {
+        const contact = contacts.find(c => c.id === note.assignee_id);
+        cache.set(note.id, contact ? `${contact.name} ${contact.lastname}`.trim() : null);
+      } else {
+        cache.set(note.id, null);
+      }
+    }
+    return cache;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noteIdsKey, contacts]);
+
   // Auto-labeling with AI
   const { autoLabelNote } = useAutoLabel();
 
@@ -196,6 +207,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const setViewMode = (value: 'list' | 'calendar') => updateSettings({ viewMode: value });
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | undefined>(undefined);
   const [sortByDeadline, setSortByDeadline] = useState(false);
+  const [sortByAssignee, setSortByAssignee] = useState(false);
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
   const [showPostponeHistory, setShowPostponeHistory] = useState(false);
   const [deadlinePickerOpen, setDeadlinePickerOpen] = useState(false);
@@ -294,31 +306,40 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const activeNotes = useMemo(() => {
     let active = baseFilteredNotes.filter((note) => !note.completed);
 
-    // Sort active notes by deadline if enabled
-    if (sortByDeadline) {
-      active = [...active].sort((a, b) => {
-        // Pinned notes always come first
-        if (a.pinned && !b.pinned) return -1;
-        if (!a.pinned && b.pinned) return 1;
+    // Sort active notes
+    active = [...active].sort((a, b) => {
+      // Pinned notes always come first
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
 
-        // Both pinned or both not pinned - sort by deadline
+      // Sort by assignee if enabled
+      if (sortByAssignee) {
+        const aName = assigneeNamesCache.get(a.id) ?? '';
+        const bName = assigneeNamesCache.get(b.id) ?? '';
+        // Tasks with assignee come first, then sort alphabetically
+        if (aName && !bName) return -1;
+        if (!aName && bName) return 1;
+        if (aName && bName) {
+          const nameCompare = aName.localeCompare(bName);
+          if (nameCompare !== 0) return nameCompare;
+        }
+      }
+
+      // Sort by deadline if enabled
+      if (sortByDeadline) {
         // Notes without deadline go to the end
         if (!a.deadline && !b.deadline) return 0;
         if (!a.deadline) return 1;
         if (!b.deadline) return -1;
         // Sort by deadline ascending (earliest first)
         return parseLocalDate(a.deadline).getTime() - parseLocalDate(b.deadline).getTime();
-      });
-    } else {
-      // Even without deadline sorting, pinned notes should come first
-      active = [...active].sort((a, b) => {
-        if (a.pinned && !b.pinned) return -1;
-        if (!a.pinned && b.pinned) return 1;
-        return 0; // Maintain original order for non-pinned notes
-      });
-    }
+      }
+
+      return 0; // Maintain original order
+    });
+
     return active;
-  }, [baseFilteredNotes, sortByDeadline]);
+  }, [baseFilteredNotes, sortByDeadline, sortByAssignee, assigneeNamesCache]);
 
   const completedNotes = useMemo(() => baseFilteredNotes
     .filter((note) => note.completed)
@@ -356,9 +377,21 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       if (note.category !== 'todo' && note.category !== 'followup' && note.category !== 'meeting') return false;
       // Apply category filter if set
       if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
+      // Apply label filter if set
+      if (labelFilter.length > 0) {
+        const noteLabelIds = (noteLabelsCache.get(note.id) ?? EMPTY_LABELS).map(l => l.id);
+        if (!labelFilter.some(labelId => noteLabelIds.includes(labelId))) return false;
+      }
+      // Apply search query filter
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const titleMatch = note.content.toLowerCase().includes(query);
+        const descriptionMatch = note.description?.toLowerCase().includes(query) ?? false;
+        if (!titleMatch && !descriptionMatch) return false;
+      }
       return true;
     });
-  }, [notes, calendarSelectedDate, categoryFilter]);
+  }, [notes, calendarSelectedDate, categoryFilter, labelFilter, searchQuery, noteLabelsCache, EMPTY_LABELS]);
 
   // Calendar view: completed tasks for selected date
   const calendarCompletedNotes = useMemo(() => {
@@ -375,6 +408,18 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       if (note.category !== 'todo' && note.category !== 'followup' && note.category !== 'meeting') return false;
       // Apply category filter if set
       if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
+      // Apply label filter if set
+      if (labelFilter.length > 0) {
+        const noteLabelIds = (noteLabelsCache.get(note.id) ?? EMPTY_LABELS).map(l => l.id);
+        if (!labelFilter.some(labelId => noteLabelIds.includes(labelId))) return false;
+      }
+      // Apply search query filter
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const titleMatch = note.content.toLowerCase().includes(query);
+        const descriptionMatch = note.description?.toLowerCase().includes(query) ?? false;
+        if (!titleMatch && !descriptionMatch) return false;
+      }
       return true;
     }).sort((a, b) => {
       // Sort by completed_at descending (most recent first)
@@ -382,7 +427,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
       return bTime - aTime;
     });
-  }, [notes, calendarSelectedDate, categoryFilter]);
+  }, [notes, calendarSelectedDate, categoryFilter, labelFilter, searchQuery, noteLabelsCache, EMPTY_LABELS]);
 
   // Load labels when selected note changes
   useEffect(() => {
@@ -881,14 +926,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
   // PERFORMANCE: Stable callbacks using refs to avoid dependency on notes array
   // These callbacks remain stable across renders, preventing unnecessary re-renders of child components
-  // Using startTransition to mark selection updates as non-urgent, improving perceived responsiveness
+  // Note: Navigation handlers must be synchronous for proper focus management
   const handleSelectNoteById = useCallback((noteId: string) => {
     const note = notesRef.current.find(n => n.id === noteId);
-    if (note) {
-      startTransition(() => {
-        onSelectNote(note);
-      });
-    }
+    if (note) onSelectNote(note);
   }, [onSelectNote]);
 
   const handleNavigateDownById = useCallback((noteId: string, column: number): boolean => {
@@ -896,9 +937,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     const idx = currentFilteredNotes.findIndex((n) => n.id === noteId);
     if (idx < currentFilteredNotes.length - 1) {
       setDesiredColumn(column);
-      startTransition(() => {
-        onSelectNote(currentFilteredNotes[idx + 1]);
-      });
+      onSelectNote(currentFilteredNotes[idx + 1]);
       setFocusTarget('title');
       return true;
     }
@@ -910,16 +949,12 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     const idx = currentFilteredNotes.findIndex((n) => n.id === noteId);
     if (idx > 0) {
       setDesiredColumn(column);
-      startTransition(() => {
-        onSelectNote(currentFilteredNotes[idx - 1]);
-      });
+      onSelectNote(currentFilteredNotes[idx - 1]);
       setFocusTarget('title');
       return true;
     } else if (idx === 0) {
       // On first task, navigate to the search bar
-      startTransition(() => {
-        onSelectNote(null);
-      });
+      onSelectNote(null);
       searchInputRef.current?.focus();
       return true;
     }
@@ -932,12 +967,18 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     const afterNote = currentFilteredNotes.find((n) => n.id === noteId);
     if (!afterNote) return;
 
-    onCreateNoteAfter(noteId, afterNote.category).then((newNote) => {
+    // In calendar mode with a selected date, set the deadline to the selected date
+    const deadline = viewMode === 'calendar' && calendarSelectedDate
+      ? calendarSelectedDate.toISOString().split('T')[0]
+      : undefined;
+
+    // Pass label filter so new task is visible with current filters
+    onCreateNoteAfter(noteId, afterNote.category, deadline, labelFilter).then((newNote) => {
       onSelectNote(newNote);
       setDesiredColumn(0);
       setFocusTarget('title');
     });
-  }, [onCreateNoteAfter, onSelectNote]);
+  }, [onCreateNoteAfter, onSelectNote, viewMode, calendarSelectedDate, labelFilter]);
 
   const handleToggleFixInSidebarById = useCallback((noteId: string) => {
     if (fixedNoteId === noteId) {
@@ -1018,215 +1059,44 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
             <button
               type="button"
               onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
-              className={`p-1.5 rounded-md transition-colors ${
-                viewMode === 'calendar'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted'
-              }`}
+              className="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted"
             >
               {viewMode === 'calendar' ? <List className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
             </button>
           </TooltipTrigger>
-          <TooltipContent>
+          <TooltipContent className="flex items-center gap-2">
             <p>{viewMode === 'calendar' ? t('calendar.switchToListView') : t('calendar.switchToCalendarView')}</p>
+            <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>Shift</Kbd><Kbd>C</Kbd></span>
           </TooltipContent>
         </Tooltip>
-        <div className="relative w-48">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground/50" />
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowDown' && filteredNotes.length > 0) {
-                e.preventDefault();
-                onSelectNote(filteredNotes[0]);
-                setDesiredColumn(0);
-                setFocusTarget('title');
-              } else if (e.key === 'Escape') {
-                setSearchQuery('');
-                searchInputRef.current?.blur();
-              }
-            }}
-            placeholder={t('searchNotes')}
-            className="w-full pl-7 h-7 text-xs bg-transparent border border-muted-foreground/20 rounded-md outline-none focus:border-muted-foreground/40 transition-colors"
-          />
-        </div>
-        {/* Category filters */}
-        <div className="flex gap-1">
-            <button
-              type="button"
-              onClick={() => setCategoryFilter(categoryFilter === 'todo' ? 'all' : 'todo')}
-              className={`flex items-center gap-1.5 px-2.5 h-7 text-xs rounded-md border transition-colors ${
-                categoryFilter === 'todo'
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
-              }`}
-              title={t('categoryTodo')}
-            >
-              <Pickaxe className="h-3.5 w-3.5" />
-              <span>{t('categoryTodo')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCategoryFilter(categoryFilter === 'followup' ? 'all' : 'followup')}
-              className={`flex items-center gap-1.5 px-2.5 h-7 text-xs rounded-md border transition-colors ${
-                categoryFilter === 'followup'
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
-              }`}
-              title={t('categoryFollowUp')}
-            >
-              <Forward className="h-3.5 w-3.5" />
-              <span>{t('categoryFollowUp')}</span>
-            </button>
-            {/* Notes category - hidden in calendar view since calendar only shows tasks with deadlines */}
-            {viewMode !== 'calendar' && (
-              <button
-                type="button"
-                onClick={() => setCategoryFilter(categoryFilter === 'notes' ? 'all' : 'notes')}
-                className={`flex items-center gap-1.5 px-2.5 h-7 text-xs rounded-md border transition-colors ${
-                  categoryFilter === 'notes'
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
-                }`}
-                title={t('categoryNotes')}
-              >
-                <StickyNote className="h-3.5 w-3.5" />
-                <span>{t('categoryNotes')}</span>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setCategoryFilter(categoryFilter === 'meeting' ? 'all' : 'meeting')}
-              className={`flex items-center gap-1.5 px-2.5 h-7 text-xs rounded-md border transition-colors ${
-                categoryFilter === 'meeting'
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
-              }`}
-              title={t('categoryMeeting')}
-            >
-              <Users className="h-3.5 w-3.5" />
-              <span>{t('categoryMeeting')}</span>
-            </button>
-        </div>
-        {/* Label filters dropdown */}
-        {labels.length > 0 && (
-          <div className="flex gap-1 items-center ml-2 pl-2 border-l border-muted-foreground/20">
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 px-2.5 h-7 text-xs rounded-md border border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40 transition-colors"
-                >
-                  <Tag className="h-3.5 w-3.5" />
-                  <span>{t('labels')}</span>
-                  <ChevronDown className="h-3 w-3" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-52 p-0" align="start">
-                <Command>
-                  <CommandInput placeholder={t('searchLabels')} className="h-9" />
-                  <CommandList>
-                    <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
-                    <CommandGroup>
-                      {labels.map((label) => {
-                        const isSelected = labelFilter.includes(label.id);
-                        return (
-                          <CommandItem
-                            key={label.id}
-                            value={label.name}
-                            onSelect={() => {
-                              setLabelFilter(prev =>
-                                prev.includes(label.id)
-                                  ? prev.filter(id => id !== label.id)
-                                  : [...prev, label.id]
-                              );
-                            }}
-                            className="flex items-center justify-between"
-                          >
-                            <div className="flex items-center">
-                              <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
-                              {label.name}
-                            </div>
-                            {isSelected && <Check className="h-4 w-4" />}
-                          </CommandItem>
-                        );
-                      })}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            {/* Selected label chips */}
-            {labelFilter.length > 0 && (
-              <div className="flex gap-1 items-center">
-                {labelFilter.map((labelId) => {
-                  const label = labels.find(l => l.id === labelId);
-                  if (!label) return null;
-                  return (
-                    <span
-                      key={label.id}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full text-white"
-                      style={{ backgroundColor: label.color }}
-                    >
-                      {label.name}
-                      <button
-                        type="button"
-                        onClick={() => setLabelFilter(prev => prev.filter(id => id !== label.id))}
-                        className="hover:bg-white/20 rounded-full p-0.5"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-        {/* Deadline options */}
-        <div className="flex gap-1 items-center ml-2 pl-2 border-l border-muted-foreground/20">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={() => setSortByDeadline(!sortByDeadline)}
-                className={`flex items-center gap-1 px-2 h-6 text-xs rounded-md border transition-colors ${
-                  sortByDeadline
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
-                }`}
-              >
-                <ArrowUpDown className="h-3 w-3" />
-                <Calendar className="h-3 w-3" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('sortByDeadline')}</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={() => setShowOverdueOnly(!showOverdueOnly)}
-                className={`flex items-center gap-1 px-2 h-6 text-xs rounded-md border transition-colors ${
-                  showOverdueOnly
-                    ? 'bg-destructive text-destructive-foreground border-destructive'
-                    : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
-                }`}
-              >
-                <AlertTriangle className="h-3 w-3" />
-                <span>{t('overdue')}</span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('showOverdueOnly')}</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
+        <NoteFilters
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onSearchKeyDown={(e) => {
+            if (e.key === 'ArrowDown' && filteredNotes.length > 0) {
+              e.preventDefault();
+              onSelectNote(filteredNotes[0]);
+              setDesiredColumn(0);
+              setFocusTarget('title');
+            } else if (e.key === 'Escape') {
+              setSearchQuery('');
+              searchInputRef.current?.blur();
+            }
+          }}
+          searchInputRef={searchInputRef}
+          categoryFilter={categoryFilter}
+          onCategoryFilterChange={setCategoryFilter}
+          viewMode={viewMode}
+          labels={labels}
+          labelFilter={labelFilter}
+          onLabelFilterChange={setLabelFilter}
+          sortByDeadline={sortByDeadline}
+          onSortByDeadlineChange={setSortByDeadline}
+          showOverdueOnly={showOverdueOnly}
+          onShowOverdueOnlyChange={setShowOverdueOnly}
+          sortByAssignee={sortByAssignee}
+          onSortByAssigneeChange={setSortByAssignee}
+        />
         {/* Sidebar button */}
         <div className="ml-auto">
           <Tooltip>
@@ -1290,6 +1160,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         isFixedInSidebar={fixedNoteId === note.id}
                         onToggleFixInSidebar={handleToggleFixInSidebarById}
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
+                        assigneeName={assigneeNamesCache.get(note.id)}
                       />
                     ))
                   ) : (
@@ -1339,6 +1210,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         isFixedInSidebar={fixedNoteId === note.id}
                         onToggleFixInSidebar={handleToggleFixInSidebarById}
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
+                        assigneeName={assigneeNamesCache.get(note.id)}
                       />
                     ))}
                   </div>
@@ -1401,6 +1273,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         isFixedInSidebar={fixedNoteId === note.id}
                         onToggleFixInSidebar={handleToggleFixInSidebarById}
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
+                        assigneeName={assigneeNamesCache.get(note.id)}
                       />
                       ))}
                     </SortableContext>
@@ -1443,6 +1316,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         isFixedInSidebar={fixedNoteId === note.id}
                         onToggleFixInSidebar={handleToggleFixInSidebarById}
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
+                        assigneeName={assigneeNamesCache.get(note.id)}
                       />
                     ))}
                   </div>
@@ -1467,6 +1341,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               categoryDropdownOpen={categoryDropdownOpen}
               deadlinePickerOpen={deadlinePickerOpen}
               editingHistoryEntry={editingHistoryEntry}
+              contacts={contacts}
               onEdit={onEdit}
               onDescriptionChange={setDescriptionValue}
               onDescriptionBlur={handleDescriptionBlur}
@@ -1477,6 +1352,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onEditLabel={handleEditLabel}
               onCreateLabel={() => setShowCreateLabelDialog(true)}
               onDeadlineChange={handleDeadlineChange}
+              onUpdateAssignee={onUpdateAssignee}
               onDelete={() => handleDeleteWithToast(selectedNote)}
               onLabelDropdownOpenChange={setLabelDropdownOpen}
               onCategoryDropdownOpenChange={setCategoryDropdownOpen}
@@ -1509,6 +1385,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               categoryDropdownOpen={fixedNoteCategoryDropdownOpen}
               deadlinePickerOpen={fixedNoteDeadlinePickerOpen}
               editingHistoryEntry={editingFixedNoteHistoryEntry}
+              contacts={contacts}
               onEdit={onEdit}
               onDescriptionChange={setFixedNoteDescriptionValue}
               onDescriptionBlur={handleFixedNoteDescriptionBlur}
@@ -1519,6 +1396,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onEditLabel={handleEditLabel}
               onCreateLabel={() => setShowCreateLabelDialog(true)}
               onDeadlineChange={handleFixedNoteDeadlineChange}
+              onUpdateAssignee={onUpdateAssignee}
               onDelete={() => handleDeleteWithToast(fixedNote)}
               onLabelDropdownOpenChange={setFixedNoteLabelDropdownOpen}
               onCategoryDropdownOpenChange={setFixedNoteCategoryDropdownOpen}

@@ -4,6 +4,7 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import { X, Pickaxe, Forward, StickyNote, Users, CalendarClock, Plus, Pencil, Trash2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Kbd } from '@/components/ui/kbd';
 import { EditableDescription, type EditableDescriptionHandle } from '@/components/ui/EditableDescription';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -16,7 +17,9 @@ import {
   CommandSeparator,
 } from '@/components/ui/command';
 import { DatePicker } from '@/components/ui/date-picker';
+import { AssigneePicker } from '@/components/notes/AssigneePicker';
 import type { Note, NoteCategory, Label, NoteHistory } from '@/types/note';
+import type { Contact } from '@/types/contact';
 
 // Parse a date string as a local date to avoid timezone issues
 function parseLocalDate(dateStr: string): Date {
@@ -45,6 +48,9 @@ interface TaskDescriptionPanelProps {
   onEditLabel: (label: Label) => void;
   // Deadline
   onUpdateDeadline: (id: string, deadline: string | null) => void;
+  // Assignee
+  contacts: Contact[];
+  onUpdateAssignee: (id: string, assigneeId: string | null) => void;
   // Postpone history (optional - only main panel needs full history editing)
   history?: NoteHistory[];
   onUpdateHistoryReason?: (historyId: string, reason: string) => void;
@@ -75,6 +81,8 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
       onCreateLabel,
       onEditLabel,
       onUpdateDeadline,
+      contacts,
+      onUpdateAssignee,
       history,
       onUpdateHistoryReason,
       onDeleteHistoryEntry,
@@ -108,10 +116,12 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
       }
     }, [ref]);
 
-    // Ctrl+D to toggle task completion
+    // Ctrl+D to toggle task completion (only for non-notes categories)
     useHotkeys('ctrl+d, meta+d', () => {
-      onToggleComplete(note.id);
-    }, { preventDefault: true, enableOnFormTags: true }, [note.id, onToggleComplete]);
+      if (note.category !== 'notes') {
+        onToggleComplete(note.id);
+      }
+    }, { preventDefault: true, enableOnFormTags: true }, [note.id, note.category, onToggleComplete]);
 
     const handleDescriptionBlur = () => {
       if (descriptionValue !== (note.description || '')) {
@@ -155,8 +165,9 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
                   />
                 </div>
               </TooltipTrigger>
-              <TooltipContent>
-                <p>{note.completed ? t('markIncomplete') : t('markComplete')} (Ctrl+D)</p>
+              <TooltipContent className="flex items-center gap-2">
+                <p>{note.completed ? t('markIncomplete') : t('markComplete')}</p>
+                <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>D</Kbd></span>
               </TooltipContent>
             </Tooltip>
             <h1 className={`text-2xl font-semibold ${note.completed ? 'line-through text-muted-foreground' : ''}`}>
@@ -216,8 +227,9 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
                 <Pickaxe className="h-4 w-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent>
+            <TooltipContent className="flex items-center gap-2">
               <p>{t('categoryTodo')}</p>
+              <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>C</Kbd></span>
             </TooltipContent>
           </Tooltip>
           <Tooltip>
@@ -234,8 +246,9 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
                 <Forward className="h-4 w-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent>
+            <TooltipContent className="flex items-center gap-2">
               <p>{t('categoryFollowUp')}</p>
+              <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>C</Kbd></span>
             </TooltipContent>
           </Tooltip>
           <Tooltip>
@@ -252,8 +265,9 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
                 <StickyNote className="h-4 w-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent>
+            <TooltipContent className="flex items-center gap-2">
               <p>{t('categoryNotes')}</p>
+              <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>C</Kbd></span>
             </TooltipContent>
           </Tooltip>
           <Tooltip>
@@ -270,8 +284,9 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
                 <Users className="h-4 w-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent>
+            <TooltipContent className="flex items-center gap-2">
               <p>{t('categoryMeeting')}</p>
+              <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>C</Kbd></span>
             </TooltipContent>
           </Tooltip>
 
@@ -365,6 +380,18 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
             date={note.deadline ? parseLocalDate(note.deadline) : undefined}
             onDateChange={handleDeadlineChange}
             placeholder={t('setDeadline')}
+            className="h-7 text-xs w-auto"
+          />
+
+          {/* Separator between deadline and assignee */}
+          <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
+
+          {/* Assignee picker */}
+          <AssigneePicker
+            contacts={contacts}
+            value={note.assignee_id}
+            onChange={(assigneeId) => onUpdateAssignee(note.id, assigneeId)}
+            compact
             className="h-7 text-xs w-auto"
           />
         </div>

@@ -25,7 +25,7 @@ export function useUserPreferences(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data, error } = await (supabase as any)
           .from('user_preferences')
-          .select('show_sidebar, auto_sync, fixed_note_id')
+          .select('show_sidebar, auto_sync, fixed_note_id, beeper_token')
           .eq('user_id', user.id)
           .single();
 
@@ -42,6 +42,7 @@ export function useUserPreferences(
                 show_sidebar: settings.showSidebar,
                 auto_sync: settings.autoSync,
                 fixed_note_id: settings.fixedNoteId,
+                beeper_token: settings.beeperToken,
               });
           } else {
             console.error('[UserPreferences] Error loading preferences:', error);
@@ -56,6 +57,7 @@ export function useUserPreferences(
             showSidebar: data.show_sidebar,
             autoSync: data.auto_sync,
             fixedNoteId: data.fixed_note_id,
+            beeperToken: data.beeper_token,
           });
           hasLoadedRef.current = true;
         }
@@ -91,6 +93,7 @@ export function useUserPreferences(
               show_sidebar: settings.showSidebar,
               auto_sync: settings.autoSync,
               fixed_note_id: settings.fixedNoteId,
+              beeper_token: settings.beeperToken,
               updated_at: new Date().toISOString(),
             },
             {
@@ -137,6 +140,7 @@ export function useUserPreferences(
               showSidebar: newData.show_sidebar,
               autoSync: newData.auto_sync,
               fixedNoteId: newData.fixed_note_id,
+              beeperToken: newData.beeper_token,
             });
           }
         }

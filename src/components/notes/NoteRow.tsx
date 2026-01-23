@@ -12,6 +12,7 @@ import {
   Pin,
   PanelRightOpen,
   Users,
+  User,
   Check,
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
@@ -67,6 +68,7 @@ export interface NoteRowProps {
   isFixedInSidebar?: boolean;
   onToggleFixInSidebar?: (noteId: string) => void;
   onContentChange?: (content: string) => void;
+  assigneeName?: string | null;
 }
 
 /**
@@ -99,6 +101,7 @@ function NoteRow({
   isFixedInSidebar = false,
   onToggleFixInSidebar,
   onContentChange,
+  assigneeName,
 }: NoteRowProps) {
   const { t } = useTranslation();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -108,7 +111,7 @@ function NoteRow({
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
   const contentInputRef = useRef<HTMLInputElement>(null);
-  const clickCaretPosRef = useRef<number | null>(null);
+  const clickXRef = useRef<number | null>(null);
   const focusFromNavigationRef = useRef(false);
   const hasAutoFocusedRef = useRef(false);
 
@@ -159,11 +162,7 @@ function NoteRow({
         return;
       }
       contentInputRef.current.focus();
-      // If we have a click position stored, apply it immediately
-      if (clickCaretPosRef.current !== null) {
-        contentInputRef.current.setSelectionRange(clickCaretPosRef.current, clickCaretPosRef.current);
-        clickCaretPosRef.current = null;
-      }
+      // Caret positioning from click is now handled in onFocus handler
     }
   }, [isEditingContent]);
 
@@ -188,10 +187,6 @@ function NoteRow({
     }
   }, [shouldFocusTitle, isSelected, desiredColumn, onTitleFocused]);
 
-  const handleToggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-  };
-
   const handleCheckedChange = () => {
     onToggleCompleted(note.id, !note.completed);
   };
@@ -210,49 +205,14 @@ function NoteRow({
     e.stopPropagation();
     onSelect(note.id);
 
-    // Calculate caret position from click using binary search (O(log n) instead of O(n))
-    const target = e.currentTarget;
-    const span = target.querySelector('span');
-    if (span) {
-      const rect = span.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const text = note.content;
-      const computedStyle = window.getComputedStyle(span);
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-
-      let clickPos = text.length;
-      if (ctx && text.length > 0) {
-        ctx.font = `${computedStyle.fontStyle} ${computedStyle.fontWeight} ${computedStyle.fontSize} ${computedStyle.fontFamily}`;
-
-        // Binary search for the character position
-        let low = 0;
-        let high = text.length;
-        while (low < high) {
-          const mid = Math.floor((low + high) / 2);
-          const width = ctx.measureText(text.substring(0, mid + 1)).width;
-          if (width < clickX) {
-            low = mid + 1;
-          } else {
-            high = mid;
-          }
-        }
-        // Check if click is closer to the character before or after
-        if (low > 0) {
-          const widthBefore = ctx.measureText(text.substring(0, low)).width;
-          const widthAt = ctx.measureText(text.substring(0, low + 1)).width;
-          const midpoint = (widthBefore + widthAt) / 2;
-          clickPos = clickX < midpoint ? low : Math.min(low + 1, text.length);
-        } else {
-          clickPos = low;
-        }
-      }
-
-      clickCaretPosRef.current = clickPos;
-      setIsEditingContent(true);
-    } else {
-      setIsEditingContent(true);
+    // Get click position relative to where user actually clicked
+    // e.target is the actual element clicked (should be the text span)
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'SPAN' && target.textContent === contentValue) {
+      const rect = target.getBoundingClientRect();
+      clickXRef.current = e.clientX - rect.left;
     }
+    setIsEditingContent(true);
   };
 
   const handleContentBlur = () => {
@@ -348,28 +308,8 @@ function NoteRow({
         }}
         style={style}
         onClick={() => onSelect(note.id)}
-        className={`group grid grid-cols-[24px_1fr_84px] py-0.5 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' ? 'opacity-50' : ''} ${isSelected ? 'bg-muted/50' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
+        className={`group grid grid-cols-[1fr_84px] py-0.5 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' ? 'opacity-50' : ''} ${isSelected ? 'bg-muted/50' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
       >
-        <div
-          className="flex items-center justify-center cursor-pointer select-none"
-          onClick={note.category !== 'notes' ? handleToggle : undefined}
-        >
-          {note.category !== 'notes' && (
-            note.completed ? (
-              <Checkbox
-                checked={true}
-                onCheckedChange={handleCheckedChange}
-              />
-            ) : (
-              <Checkbox
-                checked={false}
-                onCheckedChange={handleCheckedChange}
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
-              />
-            )
-          )}
-        </div>
-
         <div className={`px-2 select-none py-0.5 flex flex-col gap-0.5 ${isEditingContent ? '' : 'overflow-hidden'}`} onClick={handleContentClick}>
           {/* Title row */}
           <div className="flex items-center gap-1.5">
@@ -381,14 +321,35 @@ function NoteRow({
             >
               <GripVertical className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground/70 transition-colors" />
             </div>
-            {note.category === 'todo' ? (
-              <Pickaxe className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
-            ) : note.category === 'followup' ? (
-              <Forward className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
-            ) : note.category === 'meeting' ? (
-              <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+            {/* Category icon that changes to checkbox on hover (for non-notes) */}
+            {note.category !== 'notes' ? (
+              <div
+                className="relative w-4 h-4 shrink-0 cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCheckedChange();
+                }}
+              >
+                {/* Category icon - hidden on hover when not completed */}
+                <span className={`absolute inset-0 flex items-center justify-center ${note.completed ? 'hidden' : 'group-hover:hidden'}`}>
+                  {note.category === 'todo' ? (
+                    <Pickaxe className="h-4 w-4 text-muted-foreground/70" />
+                  ) : note.category === 'followup' ? (
+                    <Forward className="h-4 w-4 text-muted-foreground/70" />
+                  ) : (
+                    <Users className="h-4 w-4 text-muted-foreground/70" />
+                  )}
+                </span>
+                {/* Checkbox - shown on hover or when completed */}
+                <span className={`absolute inset-0 flex items-center justify-center ${note.completed ? 'block' : 'hidden group-hover:block'}`}>
+                  <Checkbox
+                    checked={note.completed}
+                    onCheckedChange={handleCheckedChange}
+                  />
+                </span>
+              </div>
             ) : (
-              <StickyNote className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+              <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground/70" />
             )}
             {isEditingContent ? (
               <>
@@ -406,6 +367,40 @@ function NoteRow({
                     handleContentBlur();
                   }}
                   onKeyDown={handleContentKeyDown}
+                  onFocus={(e) => {
+                    // Calculate caret position from stored click X using input's font
+                    if (clickXRef.current !== null) {
+                      const clickX = clickXRef.current;
+                      clickXRef.current = null;
+                      const input = e.target as HTMLInputElement;
+                      const text = input.value;
+
+                      if (text.length === 0 || clickX <= 0) {
+                        input.setSelectionRange(0, 0);
+                        return;
+                      }
+
+                      // Create canvas with input's font to measure text
+                      const canvas = document.createElement('canvas');
+                      const ctx = canvas.getContext('2d');
+                      if (ctx) {
+                        const style = window.getComputedStyle(input);
+                        ctx.font = `${style.fontSize} ${style.fontFamily}`;
+
+                        // Find the position where click occurred
+                        let pos = text.length;
+                        for (let i = 1; i <= text.length; i++) {
+                          const width = ctx.measureText(text.substring(0, i)).width;
+                          if (width >= clickX) {
+                            const prevWidth = ctx.measureText(text.substring(0, i - 1)).width;
+                            pos = (clickX - prevWidth) <= (width - clickX) ? i - 1 : i;
+                            break;
+                          }
+                        }
+                        input.setSelectionRange(pos, pos);
+                      }
+                    }
+                  }}
                   className="flex-1 min-w-0 text-sm leading-normal bg-transparent border-none outline-none p-0 m-0"
                 />
                 <Popover open={showLabelDropdown} onOpenChange={(open) => {
@@ -577,6 +572,12 @@ function NoteRow({
                 <span>{parseLocalDate(note.deadline).toLocaleDateString()}</span>
               </div>
             )}
+            {assigneeName && (
+              <div className="flex items-center gap-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded text-muted-foreground bg-muted">
+                <User className="h-3 w-3" />
+                <span>{assigneeName}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -675,6 +676,7 @@ export const MemoizedNoteRow = memo(
     if (prevProps.note.completed !== nextProps.note.completed) return false;
     if (prevProps.note.deadline !== nextProps.note.deadline) return false;
     if (prevProps.note.pinned !== nextProps.note.pinned) return false;
+    if (prevProps.assigneeName !== nextProps.assigneeName) return false;
 
     // Selection state (most important for click performance)
     if (prevProps.isSelected !== nextProps.isSelected) return false;

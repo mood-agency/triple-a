@@ -6,6 +6,7 @@ export interface AppSettings {
   showSidebar: boolean
   fixedNoteId: string | null
   viewMode: 'list' | 'calendar'
+  beeperToken: string | null
 }
 
 const SETTINGS_KEY = 'app-settings'
@@ -15,6 +16,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   showSidebar: false,
   fixedNoteId: null,
   viewMode: 'list',
+  beeperToken: null,
 }
 
 function loadSettings(): AppSettings {

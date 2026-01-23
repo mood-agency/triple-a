@@ -94,8 +94,42 @@ export function useNoteState() {
     [db, queueOperation, t]
   );
 
+  /**
+   * Update the assignee of a note
+   */
+  const updateAssignee = useCallback(
+    async (id: string, assigneeId: string | null, setNotes?: React.Dispatch<React.SetStateAction<Note[]>>): Promise<void> => {
+      if (!db) throw new Error('Database not ready');
+
+      const now = new Date().toISOString();
+
+      db.run('UPDATE notes SET assignee_id = ?, updated_at = ? WHERE id = ?', [
+        assigneeId,
+        now,
+        id,
+      ]);
+
+      await persistDatabase();
+      await queueOperation('notes', 'update', id, {
+        assignee_id: assigneeId,
+        updated_at: now,
+      });
+
+      // Optimized: Update only the assignee of this note
+      if (setNotes) {
+        setNotes(prevNotes => prevNotes.map(note =>
+          note.id === id ? { ...note, assignee_id: assigneeId, updated_at: now } : note
+        ));
+      }
+
+      toast.success(t('toast.assigneeUpdated'));
+    },
+    [db, queueOperation, t]
+  );
+
   return {
     toggleCompleted,
     togglePinned,
+    updateAssignee,
   };
 }

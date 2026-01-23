@@ -29,10 +29,10 @@ export function useNotes(date?: string) {
     // Include last postpone reason from note_history
     // Filter out soft-deleted notes (deleted_at IS NULL)
     const query = date
-      ? `SELECT n.id, n.date, n.content, n.description, n.category, n.completed, n.completed_at, n.deadline, n.pinned, n.sort_order, n.created_at, n.updated_at, n.deleted_at,
+      ? `SELECT n.id, n.date, n.content, n.description, n.category, n.completed, n.completed_at, n.deadline, n.pinned, n.sort_order, n.created_at, n.updated_at, n.deleted_at, n.assignee_id,
           (SELECT h.reason FROM note_history h WHERE h.note_id = n.id AND h.action_type = 'postponed' ORDER BY h.changed_at DESC LIMIT 1) as last_postpone_reason
          FROM notes n WHERE n.date = ? AND n.deleted_at IS NULL ORDER BY n.pinned DESC, n.sort_order ASC`
-      : `SELECT n.id, n.date, n.content, n.description, n.category, n.completed, n.completed_at, n.deadline, n.pinned, n.sort_order, n.created_at, n.updated_at, n.deleted_at,
+      : `SELECT n.id, n.date, n.content, n.description, n.category, n.completed, n.completed_at, n.deadline, n.pinned, n.sort_order, n.created_at, n.updated_at, n.deleted_at, n.assignee_id,
           (SELECT h.reason FROM note_history h WHERE h.note_id = n.id AND h.action_type = 'postponed' ORDER BY h.changed_at DESC LIMIT 1) as last_postpone_reason
          FROM notes n WHERE n.deleted_at IS NULL ORDER BY n.date DESC, n.pinned DESC, n.sort_order ASC`;
 
@@ -54,7 +54,8 @@ export function useNotes(date?: string) {
         created_at: row[10] as string,
         updated_at: row[11] as string,
         deleted_at: row[12] as string | null,
-        last_postpone_reason: row[13] as string | null,
+        assignee_id: row[13] as string | null,
+        last_postpone_reason: row[14] as string | null,
       }));
       setNotes(rows);
     } else {
@@ -105,6 +106,11 @@ export function useNotes(date?: string) {
     [deadline]
   );
 
+  const updateAssignee = useCallback(
+    (id: string, assigneeId: string | null) => state.updateAssignee(id, assigneeId, setNotes),
+    [state]
+  );
+
   const postponeNote = deadline.postponeNote;
   const reorderNotes = reorder.reorderNotes;
 
@@ -115,6 +121,7 @@ export function useNotes(date?: string) {
     createNoteAfter,
     updateNote,
     updateDeadline,
+    updateAssignee,
     toggleCompleted,
     togglePinned,
     deleteNote,

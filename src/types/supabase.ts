@@ -41,6 +41,7 @@ export type Database = {
           show_sidebar: boolean
           auto_sync: boolean
           fixed_note_id: string | null
+          beeper_token: string | null
           created_at: string
           updated_at: string
         }
@@ -49,6 +50,7 @@ export type Database = {
           show_sidebar?: boolean
           auto_sync?: boolean
           fixed_note_id?: string | null
+          beeper_token?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -57,6 +59,7 @@ export type Database = {
           show_sidebar?: boolean
           auto_sync?: boolean
           fixed_note_id?: string | null
+          beeper_token?: string | null
           created_at?: string
           updated_at?: string
         }

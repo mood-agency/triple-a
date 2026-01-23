@@ -16,10 +16,10 @@ export function useNoteOperations(effectiveDate: string, loadNotes: () => void) 
   const { t } = useTranslation();
 
   /**
-   * Create a new note
+   * Create a new note with optional labels
    */
   const createNote = useCallback(
-    async (content: string, category: NoteCategory = 'todo', description: string | null = null): Promise<Note> => {
+    async (content: string, category: NoteCategory = 'todo', description: string | null = null, labelIds: string[] = []): Promise<Note> => {
       if (!db) throw new Error('Database not ready');
 
       const now = new Date().toISOString();
@@ -44,12 +44,21 @@ export function useNoteOperations(effectiveDate: string, loadNotes: () => void) 
         created_at: now,
         updated_at: now,
         deleted_at: null,
+        assignee_id: null,
       };
 
       db.run(
         'INSERT INTO notes (id, date, content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [note.id, note.date, note.content, note.description, note.category, 0, null, null, 0, note.sort_order, note.created_at, note.updated_at]
       );
+
+      // Add labels to the note if provided
+      for (const labelId of labelIds) {
+        db.run(
+          'INSERT OR IGNORE INTO note_labels (note_id, label_id, created_at) VALUES (?, ?, ?)',
+          [note.id, labelId, now]
+        );
+      }
 
       await persistDatabase();
       await queueOperation('notes', 'insert', note.id, {
@@ -65,6 +74,16 @@ export function useNoteOperations(effectiveDate: string, loadNotes: () => void) 
         created_at: note.created_at,
         updated_at: note.updated_at,
       });
+
+      // Queue label operations
+      for (const labelId of labelIds) {
+        await queueOperation('note_labels', 'insert', `${note.id}-${labelId}`, {
+          note_id: note.id,
+          label_id: labelId,
+          created_at: now,
+        });
+      }
+
       loadNotes();
       toast.success(t('toast.noteCreated'));
       return note;
@@ -76,7 +95,7 @@ export function useNoteOperations(effectiveDate: string, loadNotes: () => void) 
    * Create a new note after another note (for keyboard navigation)
    */
   const createNoteAfter = useCallback(
-    async (afterNoteId: string, category: NoteCategory = 'todo'): Promise<Note> => {
+    async (afterNoteId: string, category: NoteCategory = 'todo', deadline?: string | null, labelIds: string[] = []): Promise<Note> => {
       if (!db) throw new Error('Database not ready');
 
       // Get the sort_order of the note we're inserting after
@@ -111,18 +130,27 @@ export function useNoteOperations(effectiveDate: string, loadNotes: () => void) 
         category,
         completed: false,
         completed_at: null,
-        deadline: null,
+        deadline: deadline ?? null,
         pinned: false,
         sort_order: newSortOrder,
         created_at: now,
         updated_at: now,
         deleted_at: null,
+        assignee_id: null,
       };
 
       db.run(
-        'INSERT INTO notes (id, date, content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [note.id, note.date, note.content, note.description, note.category, 0, null, null, 0, note.sort_order, note.created_at, note.updated_at]
+        'INSERT INTO notes (id, date, content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, updated_at, assignee_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [note.id, note.date, note.content, note.description, note.category, 0, null, note.deadline, 0, note.sort_order, note.created_at, note.updated_at, null]
       );
+
+      // Add labels to the note if provided
+      for (const labelId of labelIds) {
+        db.run(
+          'INSERT OR IGNORE INTO note_labels (note_id, label_id, created_at) VALUES (?, ?, ?)',
+          [note.id, labelId, now]
+        );
+      }
 
       await persistDatabase();
       await queueOperation('notes', 'insert', note.id, {
@@ -138,6 +166,16 @@ export function useNoteOperations(effectiveDate: string, loadNotes: () => void) 
         created_at: note.created_at,
         updated_at: note.updated_at,
       });
+
+      // Queue label operations
+      for (const labelId of labelIds) {
+        await queueOperation('note_labels', 'insert', `${note.id}-${labelId}`, {
+          note_id: note.id,
+          label_id: labelId,
+          created_at: now,
+        });
+      }
+
       loadNotes();
       return note;
     },
@@ -160,7 +198,7 @@ export function useNoteOperations(effectiveDate: string, loadNotes: () => void) 
       const now = new Date().toISOString();
 
       // Get current note state for history
-      const currentResult = db.exec('SELECT content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at FROM notes WHERE id = ?', [id]);
+      const currentResult = db.exec('SELECT content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, assignee_id FROM notes WHERE id = ?', [id]);
       const currentNote = currentResult.length > 0 ? currentResult[0].values[0] : null;
 
       const finalCategory = category || (currentNote ? currentNote[2] as NoteCategory : 'todo');
@@ -171,6 +209,7 @@ export function useNoteOperations(effectiveDate: string, loadNotes: () => void) 
       const pinned = currentNote ? Boolean(currentNote[6]) : false;
       const sortOrder = currentNote ? (currentNote[7] as number) || 0 : 0;
       const createdAt = currentNote ? currentNote[8] as string : now;
+      const assigneeId = currentNote ? currentNote[9] as string | null : null;
 
       db.run('UPDATE notes SET content = ?, description = ?, category = ?, updated_at = ? WHERE id = ?', [
         content,
@@ -196,7 +235,7 @@ export function useNoteOperations(effectiveDate: string, loadNotes: () => void) 
         updated_at: now,
       });
 
-      const updatedNote = {
+      const updatedNote: Note = {
         id,
         date: effectiveDate,
         content,
@@ -209,7 +248,8 @@ export function useNoteOperations(effectiveDate: string, loadNotes: () => void) 
         sort_order: sortOrder,
         created_at: createdAt,
         updated_at: now,
-        deleted_at: null
+        deleted_at: null,
+        assignee_id: assigneeId,
       };
 
       // Optimized: Update only the modified note instead of reloading all notes

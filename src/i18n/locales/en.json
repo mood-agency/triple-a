@@ -73,7 +73,13 @@
   "toggleLanguage": "Toggle language",
   "settings": "Settings",
   "settingsMenu": {
-    "autoSync": "Automatic sync"
+    "autoSync": "Automatic sync",
+    "beeperConfig": "Configure Beeper",
+    "beeperDescription": "Configure your Beeper Desktop token to send WhatsApp messages from the app.",
+    "beeperToken": "Beeper Token",
+    "beeperTokenPlaceholder": "Paste your Beeper token here...",
+    "beeperHelp": "Get your token in Beeper Desktop: Settings → Developers → Approved connections",
+    "beeperConfigured": "Beeper configured successfully"
   },
   "deleteTask": "Delete task",
   "markComplete": "Mark as complete",
@@ -117,6 +123,7 @@
     "notePostponed": "Task postponed",
     "notePinned": "Task pinned",
     "noteUnpinned": "Task unpinned",
+    "assigneeUpdated": "Assignee updated",
     "labelCreated": "Label created",
     "labelUpdated": "Label updated",
     "labelDeleted": "Label deleted",
@@ -168,7 +175,7 @@
   "noResults": "No results found",
   "activeFilters": "Active Filters",
   "clearAllFilters": "Clear all filters",
-  "filterByCategory": "Filter by category",
+  "filterByCategory": "Filter by {{category}}",
   "filterByLabel": "Filter by label",
   "allCategories": "All categories",
   "completedTasks": "Completed",
@@ -198,6 +205,7 @@
   "unfixFromSidebar": "Unfix from sidebar",
   "fixedTask": "Fixed Task",
   "sortByDeadline": "Sort by deadline",
+  "sortByAssignee": "Sort by assignee",
   "overdue": "Overdue",
   "showOverdueOnly": "Show only overdue tasks",
   "hotkeys": {
@@ -304,6 +312,11 @@
     "tasksCount": "{{count}} task(s)",
     "selectDateHint": "Select a date to see tasks"
   },
+  "assignee": {
+    "placeholder": "Assignee",
+    "search": "Search assignee...",
+    "noResults": "No contacts"
+  },
   "contacts": {
     "title": "Contacts",
     "addContact": "Add Contact",
@@ -321,6 +334,24 @@
     "contactCreated": "Contact created successfully",
     "contactUpdated": "Contact updated successfully",
     "contactDeleted": "Contact deleted successfully",
-    "error": "An error occurred"
+    "error": "An error occurred",
+    "whatsapp": {
+      "sendMessage": "Send WhatsApp",
+      "dialogTitle": "Send WhatsApp message",
+      "dialogDescription": "Write a message to send to {{name}} via WhatsApp",
+      "messagePlaceholder": "Write your message...",
+      "send": "Send",
+      "sending": "Sending...",
+      "success": "Message sent successfully",
+      "error": "Error sending message",
+      "noPhone": "This contact has no phone number",
+      "beeperNotRunning": "Make sure Beeper Desktop is running",
+      "noToken": "Configure your Beeper token in Settings to send messages",
+      "signature": "- Sent from Triple A -",
+      "connectionFailed": "Could not connect to Beeper. Make sure it is running.",
+      "timeout": "Request timed out. Please try again."
+    },
+    "invalidPhone": "Phone must be in international format (e.g., +521234567890)",
+    "phoneHelp": "International format with country code (e.g., +52 for Mexico)"
   }
 }

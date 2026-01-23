@@ -73,7 +73,13 @@
   "toggleLanguage": "Cambiar idioma",
   "settings": "Configuración",
   "settingsMenu": {
-    "autoSync": "Sincronización automática"
+    "autoSync": "Sincronización automática",
+    "beeperConfig": "Configurar Beeper",
+    "beeperDescription": "Configura tu token de Beeper Desktop para enviar mensajes por WhatsApp desde la app.",
+    "beeperToken": "Token de Beeper",
+    "beeperTokenPlaceholder": "Pega tu token de Beeper aquí...",
+    "beeperHelp": "Obtén tu token en Beeper Desktop: Settings → Developers → Approved connections",
+    "beeperConfigured": "Beeper configurado correctamente"
   },
   "deleteTask": "Eliminar tarea",
   "markComplete": "Marcar como completado",
@@ -117,6 +123,7 @@
     "notePostponed": "Tarea pospuesta",
     "notePinned": "Tarea fijada",
     "noteUnpinned": "Tarea desfijada",
+    "assigneeUpdated": "Responsable actualizado",
     "labelCreated": "Etiqueta creada",
     "labelUpdated": "Etiqueta actualizada",
     "labelDeleted": "Etiqueta eliminada",
@@ -168,7 +175,7 @@
   "noResults": "No se encontraron resultados",
   "activeFilters": "Filtros activos",
   "clearAllFilters": "Limpiar todos los filtros",
-  "filterByCategory": "Filtrar por categoría",
+  "filterByCategory": "Filtrar por {{category}}",
   "filterByLabel": "Filtrar por etiqueta",
   "allCategories": "Todas las categorías",
   "completedTasks": "Completadas",
@@ -198,6 +205,7 @@
   "unfixFromSidebar": "Desfijar del panel",
   "fixedTask": "Tarea Fija",
   "sortByDeadline": "Ordenar por fecha límite",
+  "sortByAssignee": "Ordenar por responsable",
   "overdue": "Vencidas",
   "showOverdueOnly": "Mostrar solo tareas vencidas",
   "hotkeys": {
@@ -304,6 +312,11 @@
     "tasksCount": "{{count}} tarea(s)",
     "selectDateHint": "Selecciona una fecha para ver las tareas"
   },
+  "assignee": {
+    "placeholder": "Responsable",
+    "search": "Buscar responsable...",
+    "noResults": "No hay contactos"
+  },
   "contacts": {
     "title": "Contactos",
     "addContact": "Agregar Contacto",
@@ -321,6 +334,24 @@
     "contactCreated": "Contacto creado exitosamente",
     "contactUpdated": "Contacto actualizado exitosamente",
     "contactDeleted": "Contacto eliminado exitosamente",
-    "error": "Ocurrió un error"
+    "error": "Ocurrió un error",
+    "whatsapp": {
+      "sendMessage": "Enviar WhatsApp",
+      "dialogTitle": "Enviar mensaje por WhatsApp",
+      "dialogDescription": "Escribe un mensaje para enviar a {{name}} por WhatsApp",
+      "messagePlaceholder": "Escribe tu mensaje...",
+      "send": "Enviar",
+      "sending": "Enviando...",
+      "success": "Mensaje enviado exitosamente",
+      "error": "Error al enviar mensaje",
+      "noPhone": "Este contacto no tiene número de teléfono",
+      "beeperNotRunning": "Asegúrate de que Beeper Desktop esté ejecutándose",
+      "noToken": "Configura tu token de Beeper en Configuración para enviar mensajes",
+      "signature": "- Enviado desde Triple A",
+      "connectionFailed": "No se pudo conectar con Beeper. Verifica que esté ejecutándose.",
+      "timeout": "La solicitud tardó demasiado. Intenta de nuevo."
+    },
+    "invalidPhone": "El teléfono debe estar en formato internacional (ej: +521234567890)",
+    "phoneHelp": "Formato internacional con código de país (ej: +52 para México)"
   }
 }

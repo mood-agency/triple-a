@@ -4,6 +4,7 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import { Trash2, Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Kbd } from '@/components/ui/kbd';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Command,
@@ -16,7 +17,9 @@ import {
 } from '@/components/ui/command';
 import { DatePicker } from '@/components/ui/date-picker';
 import { EditableDescription, type EditableDescriptionHandle } from '@/components/ui/EditableDescription';
+import { AssigneePicker } from '@/components/notes/AssigneePicker';
 import type { Note, NoteCategory, Label, NoteHistory } from '@/types/note';
+import type { Contact } from '@/types/contact';
 import { parseLocalDate } from '@/utils/dateUtils';
 
 interface NoteEditorPanelProps {
@@ -31,6 +34,8 @@ interface NoteEditorPanelProps {
   categoryDropdownOpen: boolean;
   deadlinePickerOpen: boolean;
   editingHistoryEntry: { id: string; reason: string } | null;
+  // Contacts for assignee picker
+  contacts: Contact[];
   onEdit: (id: string, content: string, category?: NoteCategory, description?: string | null) => void;
   onDescriptionChange: (value: string) => void;
   onDescriptionBlur: () => void;
@@ -41,6 +46,7 @@ interface NoteEditorPanelProps {
   onEditLabel: (label: Label) => void;
   onCreateLabel: () => void;
   onDeadlineChange: (date: Date | undefined) => void;
+  onUpdateAssignee: (id: string, assigneeId: string | null) => void;
   onDelete: () => void;
   onLabelDropdownOpenChange: (open: boolean) => void;
   onCategoryDropdownOpenChange: (open: boolean) => void;
@@ -64,6 +70,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
   categoryDropdownOpen,
   deadlinePickerOpen,
   editingHistoryEntry,
+  contacts,
   onEdit,
   onDescriptionChange,
   onDescriptionBlur,
@@ -74,6 +81,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
   onEditLabel,
   onCreateLabel,
   onDeadlineChange,
+  onUpdateAssignee,
   onDelete,
   onLabelDropdownOpenChange,
   onCategoryDropdownOpenChange,
@@ -86,10 +94,12 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
 }, ref) {
   const { t, i18n } = useTranslation();
 
-  // Ctrl+D to toggle task completion
+  // Ctrl+D to toggle task completion (only for non-notes categories)
   useHotkeys('ctrl+d, meta+d', () => {
-    onToggleComplete(note.id);
-  }, { preventDefault: true, enableOnFormTags: true }, [note.id, onToggleComplete]);
+    if (note.category !== 'notes') {
+      onToggleComplete(note.id);
+    }
+  }, { preventDefault: true, enableOnFormTags: true }, [note.id, note.category, onToggleComplete]);
 
   return (
     <>
@@ -104,8 +114,9 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
               />
             </div>
           </TooltipTrigger>
-          <TooltipContent>
-            <p>{note.completed ? t('markIncomplete') : t('markComplete')} (Ctrl+D)</p>
+          <TooltipContent className="flex items-center gap-2">
+            <p>{note.completed ? t('markIncomplete') : t('markComplete')}</p>
+            <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>D</Kbd></span>
           </TooltipContent>
         </Tooltip>
         <h1 className={`text-2xl font-semibold ${note.completed ? 'line-through text-muted-foreground' : ''}`}>
@@ -158,8 +169,9 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
                 </button>
               </PopoverTrigger>
             </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('changeCategory')} (Alt+C)</p>
+            <TooltipContent className="flex items-center gap-2">
+              <p>{t('changeCategory')}</p>
+              <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>C</Kbd></span>
             </TooltipContent>
           </Tooltip>
           <PopoverContent className="w-44 p-0" align="start">
@@ -254,8 +266,9 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
                 </button>
               </PopoverTrigger>
             </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('addLabel')} (Ctrl+L)</p>
+            <TooltipContent className="flex items-center gap-2">
+              <p>{t('addLabel')}</p>
+              <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>L</Kbd></span>
             </TooltipContent>
           </Tooltip>
           <PopoverContent className="w-52 p-0" align="start">
@@ -325,12 +338,25 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
               />
             </div>
           </TooltipTrigger>
-          <TooltipContent>
-            <p>{t('setDeadline')} (Alt+T)</p>
+          <TooltipContent className="flex items-center gap-2">
+            <p>{t('setDeadline')}</p>
+            <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>T</Kbd></span>
           </TooltipContent>
         </Tooltip>
 
-        {/* Separator between deadline and delete */}
+        {/* Separator between deadline and assignee */}
+        <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
+
+        {/* Assignee picker */}
+        <AssigneePicker
+          contacts={contacts}
+          value={note.assignee_id}
+          onChange={(assigneeId) => onUpdateAssignee(note.id, assigneeId)}
+          compact
+          className="h-7 text-xs w-auto"
+        />
+
+        {/* Separator between assignee and delete */}
         <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
 
         {/* Delete button */}

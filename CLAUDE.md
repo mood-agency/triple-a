@@ -40,5 +40,16 @@ src/
 ### Adding Components
 Use shadcn/ui CLI or manually add to `src/components/ui/`. Components use CVA (class-variance-authority) for variants.
 
+### shadcn/ui Guidelines
+**IMPORTANT: Always use official shadcn/ui components and styles.**
+
+- **Never manually modify** shadcn/ui component styles (button variants, sizes, colors, etc.)
+- **To add/update components**, use the CLI: `pnpm dlx shadcn@latest add <component> -o`
+- **Style**: `new-york` (configured in `components.json`)
+- **Base color**: `neutral`
+- If a user asks for style changes to shadcn components, suggest using the CLI to reinstall or check the official docs
+- For custom styling needs, add className overrides at the usage site, not in the component file
+- Official docs: https://ui.shadcn.com/docs/components
+
 ### Adding Translations
 Add keys to both `src/i18n/locales/en.json` and `src/i18n/locales/es.json`. Use `useTranslation()` hook to access translations in components.

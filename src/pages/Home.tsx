@@ -1,17 +1,10 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { Header } from '@/components/Header';
 import { NoteList, type NoteListHandle } from '@/components/notes/NoteList';
-import { SettingsMenu } from '@/components/SettingsMenu';
-import { SyncStatus } from '@/components/sync/SyncStatus';
-import { UserMenu } from '@/components/auth/UserMenu';
 import { CommandPalette } from '@/components/CommandPalette';
 import { HotkeysHelper } from '@/components/HotkeysHelper';
-import { AIStatusIndicator } from '@/components/ai/AIStatusIndicator';
 import { DeletedTasksDialog } from '@/components/notes/DeletedTasksDialog';
 import { useNotes } from '@/hooks/useNotes';
 import { useDatabase } from '@/contexts/DatabaseContext';
@@ -20,7 +13,7 @@ import { useSettings } from '@/hooks/useSettings';
 import type { Note, NoteCategory } from '@/types/note';
 
 export function Home() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { isReady } = useDatabase();
   const [searchParams, setSearchParams] = useSearchParams();
   // Optimized: Store only the ID to avoid unnecessary re-renders when note object changes
@@ -53,7 +46,7 @@ export function Home() {
   const [showDeletedTasks, setShowDeletedTasks] = useState(false);
 
   // Load ALL notes without date filtering
-  const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote } = useNotes();
+  const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, updateAssignee, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote } = useNotes();
 
   // Derive the full note object from the ID (memoized)
   // This prevents re-renders when the note object reference changes but ID stays the same
@@ -120,13 +113,11 @@ export function Home() {
   }, [setSearchParams]);
 
   const handleCreateTask = useCallback(() => {
-    createNote('Mi tarea aquí', 'todo');
-  }, [createNote]);
-
-  const toggleLanguage = useCallback(() => {
-    const newLang = i18n.language === 'es' ? 'en' : 'es';
-    i18n.changeLanguage(newLang);
-  }, [i18n]);
+    // Use category filter if set, otherwise default to 'todo'
+    const category = categoryFilter !== 'all' ? categoryFilter : 'todo';
+    // Pass label filter so new task is visible with current filters
+    createNote('Mi tarea aquí', category, null, labelFilter);
+  }, [createNote, categoryFilter, labelFilter]);
 
   const handleDeleteNote = useCallback((id: string) => {
     if (selectedNoteId === id) {
@@ -161,48 +152,10 @@ export function Home() {
   return (
     <div className="h-screen flex flex-col py-8 px-4">
       <div className="w-full px-4 flex flex-col flex-1 min-h-0">
-        <div className="flex justify-between items-center mb-6 flex-shrink-0">
-          <h1 className="text-2xl font-bold">Triple A</h1>
-          <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={handleCreateTask} size="icon" variant="outline">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 5v14M5 12h14"/>
-                  </svg>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{t('newTask')}</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={() => setShowDeletedTasks(true)} size="icon" variant="outline">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{t('trash.title')}</p>
-              </TooltipContent>
-            </Tooltip>
-            <AIStatusIndicator compact />
-            <SyncStatus />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="secondary" size="sm" onClick={toggleLanguage}>
-                  {i18n.language.toUpperCase()}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{t('toggleLanguage')}</p>
-              </TooltipContent>
-            </Tooltip>
-            <ThemeToggle />
-            <SettingsMenu />
-            <UserMenu />
-          </div>
-        </div>
+        <Header
+          onCreateTask={handleCreateTask}
+          onShowDeletedTasks={() => setShowDeletedTasks(true)}
+        />
 
         <div className="flex-1 min-h-0">
           <NoteList
@@ -214,6 +167,7 @@ export function Home() {
             onToggleCompleted={toggleCompleted}
             onTogglePinned={togglePinned}
             onUpdateDeadline={handleUpdateDeadline}
+            onUpdateAssignee={updateAssignee}
             onReorderNotes={reorderNotes}
             onPostponeNote={handlePostponeNote}
             selectedNote={selectedNote}

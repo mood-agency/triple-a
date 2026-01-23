@@ -18,6 +18,8 @@ export interface Note {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  // Assignee (references contacts table)
+  assignee_id: string | null;
   // Computed field from history
   last_postpone_reason?: string | null;
   // Sync fields

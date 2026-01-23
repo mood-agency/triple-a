@@ -228,4 +228,17 @@ export function runMigrations(db: Database): void {
   db.run(`
     CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email)
   `);
+
+  // Migration: add assignee_id column to notes table (references contacts)
+  const assigneeNotesInfo = db.exec("PRAGMA table_info(notes)");
+  if (assigneeNotesInfo.length > 0) {
+    const assigneeNotesColumns = assigneeNotesInfo[0].values.map((row) => row[1]);
+    if (!assigneeNotesColumns.includes('assignee_id')) {
+      db.run('ALTER TABLE notes ADD COLUMN assignee_id TEXT DEFAULT NULL');
+    }
+  }
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_notes_assignee_id ON notes(assignee_id)
+  `);
 }

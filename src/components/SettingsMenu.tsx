@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MoreVertical, Download, Upload, AlertCircle, CheckCircle } from 'lucide-react';
+import { MoreVertical, Download, Upload, AlertCircle, CheckCircle, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -16,6 +17,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -40,6 +42,10 @@ export function SettingsMenu() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Beeper token dialog state
+  const [beeperDialogOpen, setBeeperDialogOpen] = useState(false);
+  const [beeperTokenInput, setBeeperTokenInput] = useState('');
 
   const handleExport = () => {
     if (!db) return;
@@ -97,6 +103,21 @@ export function SettingsMenu() {
     setError(null);
   };
 
+  const handleBeeperDialogOpen = () => {
+    setBeeperTokenInput(settings.beeperToken || '');
+    setBeeperDialogOpen(true);
+  };
+
+  const handleBeeperDialogClose = () => {
+    setBeeperDialogOpen(false);
+    setBeeperTokenInput('');
+  };
+
+  const handleBeeperTokenSave = () => {
+    updateSettings({ beeperToken: beeperTokenInput || null });
+    setBeeperDialogOpen(false);
+  };
+
   return (
     <>
       <DropdownMenu>
@@ -133,6 +154,11 @@ export function SettingsMenu() {
           <DropdownMenuItem onClick={handleImportClick}>
             <Upload className="h-4 w-4 mr-2" />
             {t('importExport.import')}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleBeeperDialogOpen}>
+            <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
+            {t('settingsMenu.beeperConfig')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -172,6 +198,51 @@ export function SettingsMenu() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={beeperDialogOpen} onOpenChange={handleBeeperDialogClose}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-green-600" />
+              {t('settingsMenu.beeperConfig')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('settingsMenu.beeperDescription')}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="beeper-token">{t('settingsMenu.beeperToken')}</Label>
+              <Input
+                id="beeper-token"
+                type="password"
+                value={beeperTokenInput}
+                onChange={(e) => setBeeperTokenInput(e.target.value)}
+                placeholder={t('settingsMenu.beeperTokenPlaceholder')}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t('settingsMenu.beeperHelp')}
+            </p>
+            {settings.beeperToken && (
+              <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm">
+                <CheckCircle className="h-4 w-4" />
+                {t('settingsMenu.beeperConfigured')}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={handleBeeperDialogClose}>
+              {t('cancel')}
+            </Button>
+            <Button onClick={handleBeeperTokenSave} className="bg-green-600 hover:bg-green-700">
+              {t('save')}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

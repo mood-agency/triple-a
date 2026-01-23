@@ -11,13 +11,13 @@ export function useDeletedNotes() {
     if (!db || !isReady) return;
 
     // Load only soft-deleted notes (deleted_at IS NOT NULL)
-    const query = `SELECT id, date, content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, updated_at, deleted_at
+    const query = `SELECT id, date, content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, updated_at, deleted_at, assignee_id
        FROM notes WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC`;
 
     const result = db.exec(query);
 
     if (result.length > 0) {
-      const rows = result[0].values.map((row) => ({
+      const rows: Note[] = result[0].values.map((row) => ({
         id: row[0] as string,
         date: row[1] as string,
         content: row[2] as string,
@@ -31,6 +31,7 @@ export function useDeletedNotes() {
         created_at: row[10] as string,
         updated_at: row[11] as string,
         deleted_at: row[12] as string | null,
+        assignee_id: row[13] as string | null,
       }));
       setDeletedNotes(rows);
     } else {
