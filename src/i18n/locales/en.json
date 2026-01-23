@@ -160,6 +160,9 @@
   "pin": "Pin",
   "unpin": "Unpin",
   "commandPalettePlaceholder": "Search labels and categories...",
+  "commandPalette": {
+    "view": "View"
+  },
   "noResults": "No results found",
   "activeFilters": "Active Filters",
   "clearAllFilters": "Clear all filters",
@@ -217,7 +220,8 @@
     "openLabels": "Open labels",
     "openCategories": "Change category",
     "openDeadline": "Set deadline",
-    "backToTitle": "Back to title"
+    "backToTitle": "Back to title",
+    "toggleView": "Toggle calendar/list view"
   },
   "youtube": {
     "import": "Import from YouTube",
@@ -288,6 +292,15 @@
       "create": "Create \"{{name}}\"",
       "noResults": "No assignees found"
     }
+  },
+  "calendar": {
+    "switchToCalendarView": "Switch to calendar view",
+    "switchToListView": "Switch to list view",
+    "noTasksWithDeadlines": "No tasks with deadlines",
+    "addDeadlinesHint": "Add deadlines to todos, followups and meetings to see them here",
+    "noTasks": "No tasks",
+    "tasksCount": "{{count}} task(s)",
+    "selectDateHint": "Select a date to see tasks"
   },
   "contacts": {
     "title": "Contacts",

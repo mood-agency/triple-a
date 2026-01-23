@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
-import { Pickaxe, Forward, StickyNote, Check, X, Users } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Check, X, Users, Calendar, List } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -27,6 +27,8 @@ interface CommandPaletteProps {
   categoryFilter: NoteCategory | 'all';
   onSelectCategory: (category: NoteCategory | 'all') => void;
   onOpenStateChange?: (isOpen: boolean) => void;
+  viewMode: 'list' | 'calendar';
+  onToggleViewMode: () => void;
 }
 
 export function CommandPalette({
@@ -37,6 +39,8 @@ export function CommandPalette({
   categoryFilter,
   onSelectCategory,
   onOpenStateChange,
+  viewMode,
+  onToggleViewMode,
 }: CommandPaletteProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -121,6 +125,11 @@ export function CommandPalette({
     handleOpenChange(false);
   };
 
+  const handleToggleViewMode = () => {
+    onToggleViewMode();
+    handleOpenChange(false);
+  };
+
   const hasActiveFilters = selectedLabels.length > 0 || categoryFilter !== 'all';
 
   return (
@@ -140,6 +149,20 @@ export function CommandPalette({
             <CommandSeparator />
           </>
         )}
+
+        <CommandGroup heading={t('commandPalette.view')}>
+          <CommandItem onSelect={handleToggleViewMode}>
+            {viewMode === 'list' ? (
+              <Calendar className="mr-2 h-4 w-4" />
+            ) : (
+              <List className="mr-2 h-4 w-4" />
+            )}
+            {viewMode === 'list' ? t('calendar.switchToCalendarView') : t('calendar.switchToListView')}
+            <span className="ml-auto text-xs text-muted-foreground">Ctrl+Shift+C</span>
+          </CommandItem>
+        </CommandGroup>
+
+        <CommandSeparator />
 
         <CommandGroup heading={t('filterByCategory')}>
           <CommandItem onSelect={() => handleSelectCategory('all')}>
