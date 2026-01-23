@@ -46,26 +46,26 @@ export interface NoteRowProps {
   onToggleCompleted: (id: string, completed: boolean) => void;
   onTogglePinned: (id: string, pinned: boolean) => void;
   isSelected: boolean;
-  onSelect: () => void;
+  onSelect: (noteId: string) => void;
   onEdit: (id: string, content: string, category?: NoteCategory, description?: string | null) => void;
-  onNavigateDown: (column: number) => boolean;
-  onNavigateUp: (column: number) => boolean;
+  onNavigateDown: (noteId: string, column: number) => boolean;
+  onNavigateUp: (noteId: string, column: number) => boolean;
   onNavigateToDescription: () => void;
   shouldFocusTitle: boolean;
   desiredColumn: number;
   onTitleFocused: () => void;
-  onCreateNoteAfter?: () => void;
+  onCreateNoteAfter?: (noteId: string) => void;
   isDragging?: boolean;
   labels?: Label[];
   allLabels?: Label[];
-  onAddLabel?: (labelId: string) => void;
-  onRemoveLabel?: (labelId: string) => void;
+  onAddLabel?: (noteId: string, labelId: string) => void;
+  onRemoveLabel?: (noteId: string, labelId: string) => void;
   onCreateLabel?: () => void;
   onEditLabel?: (label: Label) => void;
   isCommandPaletteOpen?: boolean;
   onAutoLabel?: (noteId: string, content: string, description?: string | null) => void;
   isFixedInSidebar?: boolean;
-  onToggleFixInSidebar?: () => void;
+  onToggleFixInSidebar?: (noteId: string) => void;
   onContentChange?: (content: string) => void;
 }
 
@@ -143,7 +143,7 @@ function NoteRow({
 
   useEffect(() => {
     if (isSelected && rowRef.current) {
-      rowRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      rowRef.current.scrollIntoView({ block: 'nearest', behavior: 'auto' });
     }
   }, [isSelected]);
 
@@ -208,40 +208,46 @@ function NoteRow({
 
   const handleContentClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
-    onSelect();
+    onSelect(note.id);
 
-    // Calculate approximate caret position from click
+    // Calculate caret position from click using binary search (O(log n) instead of O(n))
     const target = e.currentTarget;
     const span = target.querySelector('span');
     if (span) {
-      // Get click position relative to the text
       const rect = span.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
-
-      // Measure character positions using canvas for accuracy
       const text = note.content;
       const computedStyle = window.getComputedStyle(span);
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
 
       let clickPos = text.length;
-      if (ctx) {
+      if (ctx && text.length > 0) {
         ctx.font = `${computedStyle.fontStyle} ${computedStyle.fontWeight} ${computedStyle.fontSize} ${computedStyle.fontFamily}`;
 
-        // Find position by checking midpoint of each character
-        for (let i = 0; i < text.length; i++) {
-          const widthBefore = ctx.measureText(text.substring(0, i)).width;
-          const widthAfter = ctx.measureText(text.substring(0, i + 1)).width;
-          const charMidpoint = (widthBefore + widthAfter) / 2;
-
-          if (clickX < charMidpoint) {
-            clickPos = i;
-            break;
+        // Binary search for the character position
+        let low = 0;
+        let high = text.length;
+        while (low < high) {
+          const mid = Math.floor((low + high) / 2);
+          const width = ctx.measureText(text.substring(0, mid + 1)).width;
+          if (width < clickX) {
+            low = mid + 1;
+          } else {
+            high = mid;
           }
+        }
+        // Check if click is closer to the character before or after
+        if (low > 0) {
+          const widthBefore = ctx.measureText(text.substring(0, low)).width;
+          const widthAt = ctx.measureText(text.substring(0, low + 1)).width;
+          const midpoint = (widthBefore + widthAt) / 2;
+          clickPos = clickX < midpoint ? low : Math.min(low + 1, text.length);
+        } else {
+          clickPos = low;
         }
       }
 
-      // Store position in ref so useEffect can apply it immediately after focus
       clickCaretPosRef.current = clickPos;
       setIsEditingContent(true);
     } else {
@@ -302,7 +308,7 @@ function NoteRow({
       }
       setIsEditingContent(false);
       // Create new note after this one
-      onCreateNoteAfter?.();
+      onCreateNoteAfter?.(note.id);
     } else if (e.key === 'Backspace' && contentValue === '') {
       e.preventDefault();
       setIsEditingContent(false);
@@ -314,14 +320,14 @@ function NoteRow({
       onNavigateToDescription();
     } else if (e.key === 'ArrowDown') {
       const column = contentInputRef.current?.selectionStart ?? 0;
-      const didNavigate = onNavigateDown(column);
+      const didNavigate = onNavigateDown(note.id, column);
       if (didNavigate) {
         e.preventDefault();
         handleContentBlur();
       }
     } else if (e.key === 'ArrowUp') {
       const column = contentInputRef.current?.selectionStart ?? 0;
-      const didNavigate = onNavigateUp(column);
+      const didNavigate = onNavigateUp(note.id, column);
       if (didNavigate) {
         e.preventDefault();
         handleContentBlur();
@@ -341,7 +347,7 @@ function NoteRow({
           (rowRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
         }}
         style={style}
-        onClick={onSelect}
+        onClick={() => onSelect(note.id)}
         className={`group grid grid-cols-[24px_1fr_84px] py-0.5 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' ? 'opacity-50' : ''} ${isSelected ? 'bg-muted/50' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
       >
         <div
@@ -425,9 +431,9 @@ function NoteRow({
                                 value={label.name}
                                 onSelect={() => {
                                   if (isAssigned) {
-                                    onRemoveLabel?.(label.id);
+                                    onRemoveLabel?.(note.id, label.id);
                                   } else {
-                                    onAddLabel?.(label.id);
+                                    onAddLabel?.(note.id, label.id);
                                   }
                                   setShowLabelDropdown(false);
                                   contentInputRef.current?.focus();
@@ -600,7 +606,7 @@ function NoteRow({
                   className={`transition-opacity p-1.5 cursor-pointer ${isFixedInSidebar ? 'text-blue-500 opacity-100' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-blue-500'}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onToggleFixInSidebar();
+                    onToggleFixInSidebar?.(note.id);
                   }}
                 >
                   <PanelRightOpen className="h-4 w-4" />
@@ -651,6 +657,10 @@ function NoteRow({
 /**
  * Memoized version of NoteRow to prevent unnecessary re-renders
  * Only re-renders when relevant props actually change
+ *
+ * PERFORMANCE: Callbacks now use noteId parameter pattern, so they can be stable
+ * references from the parent. This dramatically reduces re-renders since callback
+ * identity no longer changes per-note.
  */
 export const MemoizedNoteRow = memo(
   NoteRow,
@@ -662,54 +672,38 @@ export const MemoizedNoteRow = memo(
     if (prevProps.note.id !== nextProps.note.id) return false;
     if (prevProps.note.content !== nextProps.note.content) return false;
     if (prevProps.note.category !== nextProps.note.category) return false;
-    if (prevProps.note.updated_at !== nextProps.note.updated_at) return false;
-    if (prevProps.note.completed_at !== nextProps.note.completed_at) return false;
+    if (prevProps.note.completed !== nextProps.note.completed) return false;
     if (prevProps.note.deadline !== nextProps.note.deadline) return false;
     if (prevProps.note.pinned !== nextProps.note.pinned) return false;
-    if (prevProps.note.sort_order !== nextProps.note.sort_order) return false;
 
     // Selection state (most important for click performance)
     if (prevProps.isSelected !== nextProps.isSelected) return false;
 
-    // Focus and navigation state
-    if (prevProps.shouldFocusTitle !== nextProps.shouldFocusTitle) return false;
-    if (prevProps.desiredColumn !== nextProps.desiredColumn) return false;
-    if (prevProps.isDragging !== nextProps.isDragging) return false;
-    if (prevProps.isCommandPaletteOpen !== nextProps.isCommandPaletteOpen) return false;
-
-    // Labels comparison (array of objects)
-    const prevLabels = prevProps.labels || [];
-    const nextLabels = nextProps.labels || [];
-    if (prevLabels.length !== nextLabels.length) return false;
-    // Compare label IDs (shallow comparison is sufficient since labels are managed separately)
-    for (let i = 0; i < prevLabels.length; i++) {
-      if (prevLabels[i].id !== nextLabels[i].id) return false;
+    // Focus and navigation state - only compare when selected
+    if (prevProps.isSelected || nextProps.isSelected) {
+      if (prevProps.shouldFocusTitle !== nextProps.shouldFocusTitle) return false;
+      if (prevProps.desiredColumn !== nextProps.desiredColumn) return false;
     }
 
-    // AllLabels comparison (only check length for performance, full comparison not needed)
-    const prevAllLabels = prevProps.allLabels || [];
-    const nextAllLabels = nextProps.allLabels || [];
-    if (prevAllLabels.length !== nextAllLabels.length) return false;
-
-    // Callback props - with useCallback in parent, these should be stable references
-    // If callbacks change, we need to re-render
-    if (prevProps.onDeleteWithToast !== nextProps.onDeleteWithToast) return false;
-    if (prevProps.onToggleCompleted !== nextProps.onToggleCompleted) return false;
-    if (prevProps.onTogglePinned !== nextProps.onTogglePinned) return false;
-    if (prevProps.onSelect !== nextProps.onSelect) return false;
-    if (prevProps.onEdit !== nextProps.onEdit) return false;
-    if (prevProps.onNavigateDown !== nextProps.onNavigateDown) return false;
-    if (prevProps.onNavigateUp !== nextProps.onNavigateUp) return false;
-    if (prevProps.onNavigateToDescription !== nextProps.onNavigateToDescription) return false;
-    if (prevProps.onTitleFocused !== nextProps.onTitleFocused) return false;
-    if (prevProps.onCreateNoteAfter !== nextProps.onCreateNoteAfter) return false;
-    if (prevProps.onAddLabel !== nextProps.onAddLabel) return false;
-    if (prevProps.onRemoveLabel !== nextProps.onRemoveLabel) return false;
-    if (prevProps.onCreateLabel !== nextProps.onCreateLabel) return false;
-    if (prevProps.onEditLabel !== nextProps.onEditLabel) return false;
-    if (prevProps.onAutoLabel !== nextProps.onAutoLabel) return false;
+    if (prevProps.isDragging !== nextProps.isDragging) return false;
     if (prevProps.isFixedInSidebar !== nextProps.isFixedInSidebar) return false;
-    if (prevProps.onToggleFixInSidebar !== nextProps.onToggleFixInSidebar) return false;
+
+    // Labels comparison - use reference equality first (fast path)
+    if (prevProps.labels !== nextProps.labels) {
+      const prevLabels = prevProps.labels || [];
+      const nextLabels = nextProps.labels || [];
+      if (prevLabels.length !== nextLabels.length) return false;
+      for (let i = 0; i < prevLabels.length; i++) {
+        if (prevLabels[i].id !== nextLabels[i].id) return false;
+      }
+    }
+
+    // AllLabels - only check reference equality (parent should memoize)
+    if (prevProps.allLabels !== nextProps.allLabels) return false;
+
+    // Callback props - these should now be stable references from parent
+    // since they use noteId parameter pattern instead of per-note closures
+    // Skip comparison for callbacks that are expected to be stable
 
     // All props are equal, don't re-render
     return true;

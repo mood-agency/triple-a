@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback, useMemo, startTransition } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
 import { Calendar, Search, Pickaxe, Forward, StickyNote, Tag, X, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, Users, ChevronDown, Check, List } from 'lucide-react';
@@ -93,9 +93,17 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const containerRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<EditableDescriptionHandle>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // PERFORMANCE: Use refs to access latest values without creating callback dependencies
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+  const filteredNotesRef = useRef<Note[]>([]);
+  const activeNotesRef = useRef<Note[]>([]);
+  const focusTargetRef = useRef<FocusTarget>(null);
   const [descriptionValue, setDescriptionValue] = useState('');
   const [titleValue, setTitleValue] = useState('');
   const [focusTarget, setFocusTarget] = useState<FocusTarget>(null);
+  focusTargetRef.current = focusTarget; // Keep ref in sync
   const [desiredColumn, setDesiredColumn] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [internalCategoryFilter, setInternalCategoryFilter] = useState<NoteCategory | 'all'>('all');
@@ -119,19 +127,33 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [categoryJustChanged, setCategoryJustChanged] = useState(false);
 
   // Labels state
-  const { labels, getLabelsForNote, addLabelToNote, removeLabelFromNote, createLabel, updateLabel, noteLabelVersion } = useLabels();
+  const { labels: rawLabels, getLabelsForNote, addLabelToNote, removeLabelFromNote, createLabel, updateLabel, noteLabelVersion } = useLabels();
   const [internalLabelFilter, setInternalLabelFilter] = useState<string[]>([]);
+
+  // PERFORMANCE: Stable empty array to avoid creating new references
+  const EMPTY_LABELS: Label[] = useMemo(() => [], []);
+
+  // PERFORMANCE: Memoize labels array to prevent unnecessary re-renders of all NoteRows
+  // Only update the reference when label IDs change (not on every useLabels update)
+  const labelsKey = rawLabels.map(l => l.id).join(',');
+  const labels = useMemo(() => rawLabels, [labelsKey]);
 
   // PERFORMANCE: Cache all note labels to avoid SQL queries on every render
   // This computes labels once per render instead of once per note per render
+  // Use note IDs as key to avoid recomputation when notes array reference changes but IDs stay the same
+  const noteIdsKey = notes.map(n => n.id).join(',');
   const noteLabelsCache = useMemo(() => {
     const cache = new Map<string, Label[]>();
     // Only compute for visible notes to avoid unnecessary work
-    for (const note of notes) {
-      cache.set(note.id, getLabelsForNote(note.id));
+    // Use notesRef.current to access latest notes without adding to dependencies
+    for (const note of notesRef.current) {
+      const noteLabels = getLabelsForNote(note.id);
+      // Use stable empty array reference for notes without labels
+      cache.set(note.id, noteLabels.length > 0 ? noteLabels : EMPTY_LABELS);
     }
     return cache;
-  }, [notes, getLabelsForNote, noteLabelVersion]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noteIdsKey, getLabelsForNote, noteLabelVersion, EMPTY_LABELS]);
 
   // Auto-labeling with AI
   const { autoLabelNote } = useAutoLabel();
@@ -195,17 +217,16 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     '#3b82f6', '#8b5cf6', '#ec4899', '#6b7280',
   ];
 
-  // DnD sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
+  // DnD sensors - memoized to prevent recreation on every render
+  const pointerSensor = useSensor(PointerSensor, {
+    activationConstraint: {
+      distance: 8,
+    },
+  });
+  const keyboardSensor = useSensor(KeyboardSensor, {
+    coordinateGetter: sortableKeyboardCoordinates,
+  });
+  const sensors = useSensors(pointerSensor, keyboardSensor);
 
   // Handle drag end
   const handleDragEnd = (event: DragEndEvent) => {
@@ -249,7 +270,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     // Filter by labels (OR logic - note must have at least one selected label)
     if (labelFilter.length > 0) {
       // PERFORMANCE: Use cached labels instead of SQL query
-      const noteLabelIds = (noteLabelsCache.get(note.id) || []).map(l => l.id);
+      const noteLabelIds = (noteLabelsCache.get(note.id) ?? EMPTY_LABELS).map(l => l.id);
       const hasMatchingLabel = labelFilter.some(labelId => noteLabelIds.includes(labelId));
       if (!hasMatchingLabel) return false;
     }
@@ -316,6 +337,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   // Memoized to avoid recreating array on every render
   const filteredNotes = useMemo(() => [...activeNotes, ...completedNotes], [activeNotes, completedNotes]);
 
+  // PERFORMANCE: Keep refs updated for use in stable callbacks
+  filteredNotesRef.current = filteredNotes;
+  activeNotesRef.current = activeNotes;
+
   // Calendar view: filter notes by selected date (only open followups and meetings with deadlines)
   const calendarFilteredNotes = useMemo(() => {
     if (!calendarSelectedDate) return [];
@@ -332,6 +357,30 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       // Apply category filter if set
       if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
       return true;
+    });
+  }, [notes, calendarSelectedDate, categoryFilter]);
+
+  // Calendar view: completed tasks for selected date
+  const calendarCompletedNotes = useMemo(() => {
+    if (!calendarSelectedDate) return [];
+    const dateKey = calendarSelectedDate.toISOString().split('T')[0];
+    return notes.filter((note) => {
+      // Only show completed tasks
+      if (!note.completed) return false;
+      // Must have a deadline matching the selected date
+      if (!note.deadline) return false;
+      const noteDeadline = note.deadline.split('T')[0];
+      if (noteDeadline !== dateKey) return false;
+      // Only show todos, followups and meetings (not notes)
+      if (note.category !== 'todo' && note.category !== 'followup' && note.category !== 'meeting') return false;
+      // Apply category filter if set
+      if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
+      return true;
+    }).sort((a, b) => {
+      // Sort by completed_at descending (most recent first)
+      const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+      const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+      return bTime - aTime;
     });
   }, [notes, calendarSelectedDate, categoryFilter]);
 
@@ -458,34 +507,24 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     }
   };
 
-  const handleCreateNoteAfter = useCallback(async (afterNoteId: string) => {
-    if (!onCreateNoteAfter) return;
-    const afterNote = filteredNotes.find((n) => n.id === afterNoteId);
-    if (!afterNote) return;
-
-    const newNote = await onCreateNoteAfter(afterNoteId, afterNote.category);
-    // Select and focus the new note
-    onSelectNote(newNote);
-    setDesiredColumn(0);
-    setFocusTarget('title');
-  }, [onCreateNoteAfter, filteredNotes, onSelectNote]);
-
+  // PERFORMANCE: Uses ref to avoid dependency on filteredNotes
   const handleDeleteWithToast = useCallback((note: Note) => {
-    const currentIndex = filteredNotes.findIndex((n) => n.id === note.id);
+    const currentFilteredNotes = filteredNotesRef.current;
+    const currentIndex = currentFilteredNotes.findIndex((n) => n.id === note.id);
 
     // Determine where to navigate after deletion
     let targetNote: Note | null = null;
     let shouldNavigateToEditor = false;
 
-    if (filteredNotes.length === 1) {
+    if (currentFilteredNotes.length === 1) {
       // Last task, navigate to editor
       shouldNavigateToEditor = true;
     } else if (currentIndex > 0) {
       // Has task above, navigate to it
-      targetNote = filteredNotes[currentIndex - 1];
+      targetNote = currentFilteredNotes[currentIndex - 1];
     } else {
       // First task (no task above), navigate to task below
-      targetNote = filteredNotes[currentIndex + 1];
+      targetNote = currentFilteredNotes[currentIndex + 1];
     }
 
     // Delete first, then navigate
@@ -508,40 +547,28 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         onClick: () => onRestore(note),
       },
     });
-  }, [filteredNotes, onDelete, onSelectNote, onNavigateToEditor, onRestore, t]);
+  }, [onDelete, onSelectNote, onNavigateToEditor, onRestore, t]);
 
-  // Handle fixing/unfixing a note in the sidebar
-  const handleToggleFixInSidebar = useCallback((noteId: string) => {
-    if (fixedNoteId === noteId) {
-      // Unfix: close sidebar and clear fixed note
-      setFixedNoteId(null);
-      setShowSidebar(false);
-    } else {
-      // Fix: open sidebar and set this note as fixed
-      setFixedNoteId(noteId);
-      setShowSidebar(true);
-    }
-  }, [fixedNoteId]);
-
-  // Handle toggle completion with navigation to adjacent task
+  // PERFORMANCE: Uses ref to avoid dependency on activeNotes
   const handleToggleCompletedWithNavigation = useCallback((noteId: string, completed: boolean) => {
+    const currentActiveNotes = activeNotesRef.current;
     // Find current position in activeNotes (only active notes matter for navigation)
-    const currentIndex = activeNotes.findIndex((n) => n.id === noteId);
+    const currentIndex = currentActiveNotes.findIndex((n) => n.id === noteId);
 
     // Only navigate when completing a task (not when uncompleting)
     if (completed && currentIndex !== -1) {
       // Determine where to navigate after completion
       let targetNote: Note | null = null;
 
-      if (activeNotes.length === 1) {
+      if (currentActiveNotes.length === 1) {
         // Last active task, deselect (show default description area)
         targetNote = null;
-      } else if (currentIndex < activeNotes.length - 1) {
+      } else if (currentIndex < currentActiveNotes.length - 1) {
         // Has task below, navigate to it
-        targetNote = activeNotes[currentIndex + 1];
+        targetNote = currentActiveNotes[currentIndex + 1];
       } else if (currentIndex > 0) {
         // Last task in list but has task above, navigate to it
-        targetNote = activeNotes[currentIndex - 1];
+        targetNote = currentActiveNotes[currentIndex - 1];
       }
 
       // Toggle completion
@@ -565,39 +592,21 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         toast(t('taskReopened'));
       }
     }
-  }, [activeNotes, onToggleCompleted, onSelectNote, t]);
+  }, [onToggleCompleted, onSelectNote, t]);
 
-  // PERFORMANCE: Cache label operation callbacks per note to prevent re-renders
-  // Using useMemo with a Map ensures stable function references across renders
-  const addLabelHandlers = useMemo(() => {
-    const map = new Map<string, (labelId: string) => Promise<void>>();
-    for (const note of notes) {
-      map.set(note.id, async (labelId: string) => {
-        await addLabelToNote(note.id, labelId);
-      });
-    }
-    return map;
-  }, [notes, addLabelToNote]);
+  // PERFORMANCE: Stable callbacks that accept noteId as parameter
+  // This avoids creating per-note closures which cause re-renders when notes array changes
+  const handleAddLabelToNote = useCallback(async (noteId: string, labelId: string) => {
+    await addLabelToNote(noteId, labelId);
+  }, [addLabelToNote]);
 
-  const removeLabelHandlers = useMemo(() => {
-    const map = new Map<string, (labelId: string) => Promise<void>>();
-    for (const note of notes) {
-      map.set(note.id, async (labelId: string) => {
-        await removeLabelFromNote(note.id, labelId);
-      });
-    }
-    return map;
-  }, [notes, removeLabelFromNote]);
+  const handleRemoveLabelFromNote = useCallback(async (noteId: string, labelId: string) => {
+    await removeLabelFromNote(noteId, labelId);
+  }, [removeLabelFromNote]);
 
-  const autoLabelHandlers = useMemo(() => {
-    const map = new Map<string, ((noteId: string, content: string, description?: string | null) => Promise<void>)>();
-    for (const note of notes) {
-      map.set(note.id, async (noteId: string, content: string, description?: string | null) => {
-        await autoLabelNote(noteId, content, description);
-      });
-    }
-    return map;
-  }, [notes, autoLabelNote]);
+  const handleAutoLabelNote = useCallback(async (noteId: string, content: string, description?: string | null) => {
+    await autoLabelNote(noteId, content, description);
+  }, [autoLabelNote]);
 
   const handleCreateLabelClick = useCallback(() => {
     setShowCreateLabelDialog(true);
@@ -658,41 +667,12 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     // 'title' se maneja via prop shouldFocusTitle en NoteRow
   }, [focusTarget, selectedNote, desiredColumn, descriptionValue]);
 
-  // ↓ desde título - returns true if navigation occurred
-  const handleNavigateDownFromTitle = useCallback((noteId: string, column: number): boolean => {
-    const idx = filteredNotes.findIndex((n) => n.id === noteId);
-    if (idx < filteredNotes.length - 1) {
-      setDesiredColumn(column);
-      onSelectNote(filteredNotes[idx + 1]);
-      setFocusTarget('title');
-      return true;
-    }
-    return false;
-  }, [filteredNotes, onSelectNote]);
-
-  // ↑ desde título - returns true if navigation occurred
-  const handleNavigateUpFromTitle = useCallback((noteId: string, column: number): boolean => {
-    const idx = filteredNotes.findIndex((n) => n.id === noteId);
-    if (idx > 0) {
-      setDesiredColumn(column);
-      const prevNote = filteredNotes[idx - 1];
-      onSelectNote(prevNote);
-      setFocusTarget('title');
-      return true;
-    } else if (idx === 0) {
-      // On first task, navigate to the search bar
-      onSelectNote(null);
-      searchInputRef.current?.focus();
-      return true;
-    }
-    return false;
-  }, [filteredNotes, onSelectNote]);
-
+  // PERFORMANCE: Uses ref to avoid dependency on focusTarget
   const handleTitleFocused = useCallback(() => {
-    if (focusTarget === 'title') {
+    if (focusTargetRef.current === 'title') {
       setFocusTarget(null);
     }
-  }, [focusTarget]);
+  }, []);
 
   // Tab from title - always go to description (even if empty)
   const handleNavigateToDescription = useCallback(() => {
@@ -899,47 +879,77 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     setViewMode(viewMode === 'list' ? 'calendar' : 'list');
   }, hotkeyOptions, [viewMode, setViewMode]);
 
-  // PERFORMANCE: Cache navigation and selection handlers per note to prevent creating new functions on every render
-  // This ensures stable function references for React.memo optimization
-  const selectHandlers = useMemo(() => {
-    const map = new Map<string, () => void>();
-    for (const note of notes) {
-      map.set(note.id, () => onSelectNote(note));
+  // PERFORMANCE: Stable callbacks using refs to avoid dependency on notes array
+  // These callbacks remain stable across renders, preventing unnecessary re-renders of child components
+  // Using startTransition to mark selection updates as non-urgent, improving perceived responsiveness
+  const handleSelectNoteById = useCallback((noteId: string) => {
+    const note = notesRef.current.find(n => n.id === noteId);
+    if (note) {
+      startTransition(() => {
+        onSelectNote(note);
+      });
     }
-    return map;
-  }, [notes, onSelectNote]);
+  }, [onSelectNote]);
 
-  const navigateDownHandlers = useMemo(() => {
-    const map = new Map<string, (column: number) => boolean>();
-    for (const note of notes) {
-      map.set(note.id, (column: number) => handleNavigateDownFromTitle(note.id, column));
+  const handleNavigateDownById = useCallback((noteId: string, column: number): boolean => {
+    const currentFilteredNotes = filteredNotesRef.current;
+    const idx = currentFilteredNotes.findIndex((n) => n.id === noteId);
+    if (idx < currentFilteredNotes.length - 1) {
+      setDesiredColumn(column);
+      startTransition(() => {
+        onSelectNote(currentFilteredNotes[idx + 1]);
+      });
+      setFocusTarget('title');
+      return true;
     }
-    return map;
-  }, [notes, handleNavigateDownFromTitle]);
+    return false;
+  }, [onSelectNote]);
 
-  const navigateUpHandlers = useMemo(() => {
-    const map = new Map<string, (column: number) => boolean>();
-    for (const note of notes) {
-      map.set(note.id, (column: number) => handleNavigateUpFromTitle(note.id, column));
+  const handleNavigateUpById = useCallback((noteId: string, column: number): boolean => {
+    const currentFilteredNotes = filteredNotesRef.current;
+    const idx = currentFilteredNotes.findIndex((n) => n.id === noteId);
+    if (idx > 0) {
+      setDesiredColumn(column);
+      startTransition(() => {
+        onSelectNote(currentFilteredNotes[idx - 1]);
+      });
+      setFocusTarget('title');
+      return true;
+    } else if (idx === 0) {
+      // On first task, navigate to the search bar
+      startTransition(() => {
+        onSelectNote(null);
+      });
+      searchInputRef.current?.focus();
+      return true;
     }
-    return map;
-  }, [notes, handleNavigateUpFromTitle]);
+    return false;
+  }, [onSelectNote]);
 
-  const createNoteAfterHandlers = useMemo(() => {
-    const map = new Map<string, () => void>();
-    for (const note of notes) {
-      map.set(note.id, () => handleCreateNoteAfter(note.id));
-    }
-    return map;
-  }, [notes, handleCreateNoteAfter]);
+  const handleCreateNoteAfterById = useCallback((noteId: string) => {
+    if (!onCreateNoteAfter) return;
+    const currentFilteredNotes = filteredNotesRef.current;
+    const afterNote = currentFilteredNotes.find((n) => n.id === noteId);
+    if (!afterNote) return;
 
-  const toggleFixInSidebarHandlers = useMemo(() => {
-    const map = new Map<string, () => void>();
-    for (const note of notes) {
-      map.set(note.id, () => handleToggleFixInSidebar(note.id));
+    onCreateNoteAfter(noteId, afterNote.category).then((newNote) => {
+      onSelectNote(newNote);
+      setDesiredColumn(0);
+      setFocusTarget('title');
+    });
+  }, [onCreateNoteAfter, onSelectNote]);
+
+  const handleToggleFixInSidebarById = useCallback((noteId: string) => {
+    if (fixedNoteId === noteId) {
+      // Unfix: close sidebar and clear fixed note
+      setFixedNoteId(null);
+      setShowSidebar(false);
+    } else {
+      // Fix: open sidebar and set this note as fixed
+      setFixedNoteId(noteId);
+      setShowSidebar(true);
     }
-    return map;
-  }, [notes, handleToggleFixInSidebar]);
+  }, [fixedNoteId, setFixedNoteId, setShowSidebar]);
 
   // Handler for real-time title updates (only for selected note)
   const handleContentChange = useCallback((content: string) => {
@@ -1249,7 +1259,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 />
               </div>
               {/* Task list for selected date - below calendar */}
-              <div className="flex-1 overflow-y-auto pr-2 mt-2">
+              <div className="flex-[3] overflow-y-auto pr-2 mt-2">
                 {calendarSelectedDate ? (
                   calendarFilteredNotes.length > 0 ? (
                     calendarFilteredNotes.map((note) => (
@@ -1260,25 +1270,25 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         onToggleCompleted={handleToggleCompletedWithNavigation}
                         onTogglePinned={onTogglePinned}
                         isSelected={selectedNote?.id === note.id}
-                        onSelect={selectHandlers.get(note.id)!}
+                        onSelect={handleSelectNoteById}
                         onEdit={onEdit}
-                        onNavigateDown={navigateDownHandlers.get(note.id)!}
-                        onNavigateUp={navigateUpHandlers.get(note.id)!}
+                        onNavigateDown={handleNavigateDownById}
+                        onNavigateUp={handleNavigateUpById}
                         onNavigateToDescription={handleNavigateToDescription}
                         shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
                         desiredColumn={desiredColumn}
                         onTitleFocused={handleTitleFocused}
-                        onCreateNoteAfter={createNoteAfterHandlers.get(note.id)!}
+                        onCreateNoteAfter={handleCreateNoteAfterById}
                         isDragging={false}
-                        labels={noteLabelsCache.get(note.id) || []}
+                        labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
                         allLabels={labels}
-                        onAddLabel={addLabelHandlers.get(note.id)!}
-                        onRemoveLabel={removeLabelHandlers.get(note.id)!}
+                        onAddLabel={handleAddLabelToNote}
+                        onRemoveLabel={handleRemoveLabelFromNote}
                         onCreateLabel={handleCreateLabelClick}
                         onEditLabel={handleEditLabel}
-                        onAutoLabel={autoLabelHandlers.get(note.id)!}
+                        onAutoLabel={handleAutoLabelNote}
                         isFixedInSidebar={fixedNoteId === note.id}
-                        onToggleFixInSidebar={toggleFixInSidebarHandlers.get(note.id)!}
+                        onToggleFixInSidebar={handleToggleFixInSidebarById}
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                       />
                     ))
@@ -1293,6 +1303,47 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                   </p>
                 )}
               </div>
+
+              {/* Completed tasks section for calendar view */}
+              {calendarSelectedDate && calendarCompletedNotes.length > 0 && (
+                <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">
+                  <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
+                    {t('completedTasks')} ({calendarCompletedNotes.length})
+                  </div>
+                  <div className="overflow-y-auto pr-2 flex-1">
+                    {calendarCompletedNotes.map((note) => (
+                      <MemoizedNoteRow
+                        key={note.id}
+                        note={note}
+                        onDeleteWithToast={handleDeleteWithToast}
+                        onToggleCompleted={handleToggleCompletedWithNavigation}
+                        onTogglePinned={onTogglePinned}
+                        isSelected={selectedNote?.id === note.id}
+                        onSelect={handleSelectNoteById}
+                        onEdit={onEdit}
+                        onNavigateDown={handleNavigateDownById}
+                        onNavigateUp={handleNavigateUpById}
+                        onNavigateToDescription={handleNavigateToDescription}
+                        shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
+                        desiredColumn={desiredColumn}
+                        onTitleFocused={handleTitleFocused}
+                        onCreateNoteAfter={handleCreateNoteAfterById}
+                        isDragging={false}
+                        labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
+                        allLabels={labels}
+                        onAddLabel={handleAddLabelToNote}
+                        onRemoveLabel={handleRemoveLabelFromNote}
+                        onCreateLabel={handleCreateLabelClick}
+                        onEditLabel={handleEditLabel}
+                        onAutoLabel={handleAutoLabelNote}
+                        isFixedInSidebar={fixedNoteId === note.id}
+                        onToggleFixInSidebar={handleToggleFixInSidebarById}
+                        onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -1330,25 +1381,25 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         onToggleCompleted={handleToggleCompletedWithNavigation}
                         onTogglePinned={onTogglePinned}
                         isSelected={selectedNote?.id === note.id}
-                        onSelect={selectHandlers.get(note.id)!}
+                        onSelect={handleSelectNoteById}
                         onEdit={onEdit}
-                        onNavigateDown={navigateDownHandlers.get(note.id)!}
-                        onNavigateUp={navigateUpHandlers.get(note.id)!}
+                        onNavigateDown={handleNavigateDownById}
+                        onNavigateUp={handleNavigateUpById}
                         onNavigateToDescription={handleNavigateToDescription}
                         shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
                         desiredColumn={desiredColumn}
                         onTitleFocused={handleTitleFocused}
-                        onCreateNoteAfter={createNoteAfterHandlers.get(note.id)!}
+                        onCreateNoteAfter={handleCreateNoteAfterById}
                         isDragging={activeId === note.id}
-                        labels={noteLabelsCache.get(note.id) || []}
+                        labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
                         allLabels={labels}
-                        onAddLabel={addLabelHandlers.get(note.id)!}
-                        onRemoveLabel={removeLabelHandlers.get(note.id)!}
+                        onAddLabel={handleAddLabelToNote}
+                        onRemoveLabel={handleRemoveLabelFromNote}
                         onCreateLabel={handleCreateLabelClick}
                         onEditLabel={handleEditLabel}
-                        onAutoLabel={autoLabelHandlers.get(note.id)!}
+                        onAutoLabel={handleAutoLabelNote}
                         isFixedInSidebar={fixedNoteId === note.id}
-                        onToggleFixInSidebar={toggleFixInSidebarHandlers.get(note.id)!}
+                        onToggleFixInSidebar={handleToggleFixInSidebarById}
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                       />
                       ))}
@@ -1372,25 +1423,25 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         onToggleCompleted={handleToggleCompletedWithNavigation}
                         onTogglePinned={onTogglePinned}
                         isSelected={selectedNote?.id === note.id}
-                        onSelect={selectHandlers.get(note.id)!}
+                        onSelect={handleSelectNoteById}
                         onEdit={onEdit}
-                        onNavigateDown={navigateDownHandlers.get(note.id)!}
-                        onNavigateUp={navigateUpHandlers.get(note.id)!}
+                        onNavigateDown={handleNavigateDownById}
+                        onNavigateUp={handleNavigateUpById}
                         onNavigateToDescription={handleNavigateToDescription}
                         shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
                         desiredColumn={desiredColumn}
                         onTitleFocused={handleTitleFocused}
-                        onCreateNoteAfter={createNoteAfterHandlers.get(note.id)!}
+                        onCreateNoteAfter={handleCreateNoteAfterById}
                         isDragging={false}
-                        labels={noteLabelsCache.get(note.id) || []}
+                        labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
                         allLabels={labels}
-                        onAddLabel={addLabelHandlers.get(note.id)!}
-                        onRemoveLabel={removeLabelHandlers.get(note.id)!}
+                        onAddLabel={handleAddLabelToNote}
+                        onRemoveLabel={handleRemoveLabelFromNote}
                         onCreateLabel={handleCreateLabelClick}
                         onEditLabel={handleEditLabel}
-                        onAutoLabel={autoLabelHandlers.get(note.id)!}
+                        onAutoLabel={handleAutoLabelNote}
                         isFixedInSidebar={fixedNoteId === note.id}
-                        onToggleFixInSidebar={toggleFixInSidebarHandlers.get(note.id)!}
+                        onToggleFixInSidebar={handleToggleFixInSidebarById}
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                       />
                     ))}

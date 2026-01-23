@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { persistDatabase } from '@/db';
 import type { NoteHistory, NoteCategory, ChangelogActionType } from '@/types/note';
@@ -7,6 +7,7 @@ export function useNoteHistory(noteId: string | null) {
   const { db, isReady } = useDatabase();
   const [history, setHistory] = useState<NoteHistory[]>([]);
   const [loading, setLoading] = useState(true);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadHistory = useCallback(() => {
     if (!db || !isReady || !noteId) {
@@ -56,9 +57,33 @@ export function useNoteHistory(noteId: string | null) {
     loadHistory();
   }, [db, isReady, loadHistory]);
 
+  // PERFORMANCE: Debounce history loading to avoid blocking click interactions
+  // This delays the SQL query until after the UI has updated
   useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
+    // Clear any pending timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Clear history immediately when noteId changes (for immediate UI feedback)
+    if (!noteId) {
+      setHistory([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    // Delay the SQL query to not block the click event
+    timeoutRef.current = setTimeout(() => {
+      loadHistory();
+    }, 50); // 50ms delay - imperceptible to users but allows click to complete
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [noteId]); // Note: intentionally not including loadHistory to avoid re-running on every noteId change
 
   return {
     history,
