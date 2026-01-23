@@ -1,6 +1,8 @@
 import { forwardRef, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { X, Pickaxe, Forward, StickyNote, Users, CalendarClock, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { EditableDescription, type EditableDescriptionHandle } from '@/components/ui/EditableDescription';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -29,6 +31,7 @@ function parseLocalDate(dateStr: string): Date {
 interface TaskDescriptionPanelProps {
   note: Note;
   onEdit: (id: string, content: string, category?: NoteCategory, description?: string | null) => void;
+  onToggleComplete: (id: string) => void;
   onClose?: () => void;
   onDescriptionKeyDown?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   className?: string;
@@ -60,6 +63,7 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
     {
       note,
       onEdit,
+      onToggleComplete,
       onClose,
       onDescriptionKeyDown,
       className = '',
@@ -104,6 +108,11 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
       }
     }, [ref]);
 
+    // Ctrl+D to toggle task completion
+    useHotkeys('ctrl+d, meta+d', () => {
+      onToggleComplete(note.id);
+    }, { preventDefault: true, enableOnFormTags: true }, [note.id, onToggleComplete]);
+
     const handleDescriptionBlur = () => {
       if (descriptionValue !== (note.description || '')) {
         onEdit(note.id, note.content, note.category, descriptionValue || null);
@@ -133,11 +142,27 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
 
     return (
       <div className={`flex flex-col overflow-hidden ${className}`}>
-        {/* Title with close button */}
+        {/* Title with checkbox and close button */}
         <div className="flex items-start justify-between flex-shrink-0 gap-2">
-          <h1 className={`text-2xl font-semibold ${note.completed ? 'line-through text-muted-foreground' : ''}`}>
-            {note.content}
-          </h1>
+          <div className="flex items-start gap-3">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="pt-1.5">
+                  <Checkbox
+                    checked={note.completed}
+                    onCheckedChange={() => onToggleComplete(note.id)}
+                    className="h-5 w-5"
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{note.completed ? t('markIncomplete') : t('markComplete')} (Ctrl+D)</p>
+              </TooltipContent>
+            </Tooltip>
+            <h1 className={`text-2xl font-semibold ${note.completed ? 'line-through text-muted-foreground' : ''}`}>
+              {note.content}
+            </h1>
+          </div>
           {showCloseButton && onClose && (
             <Tooltip>
               <TooltipTrigger asChild>

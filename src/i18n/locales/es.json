@@ -76,6 +76,8 @@
     "autoSync": "Sincronización automática"
   },
   "deleteTask": "Eliminar tarea",
+  "markComplete": "Marcar como completado",
+  "markIncomplete": "Marcar como incompleto",
   "newTask": "Nueva Tarea",
   "dailyNotes": "Notas del Día",
   "writeNote": "Escribe tu nota...",

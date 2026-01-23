@@ -1,6 +1,8 @@
 import { forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { Trash2, Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -47,6 +49,7 @@ interface NoteEditorPanelProps {
   onUpdateHistoryReason: (id: string, reason: string) => void;
   onDeleteHistoryEntry: (id: string) => void;
   onSetEditingHistoryEntry: (entry: { id: string; reason: string } | null) => void;
+  onToggleComplete: (id: string) => void;
 }
 
 export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorPanelProps>(function NoteEditorPanel({
@@ -79,14 +82,36 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
   onUpdateHistoryReason,
   onDeleteHistoryEntry,
   onSetEditingHistoryEntry,
+  onToggleComplete,
 }, ref) {
   const { t, i18n } = useTranslation();
 
+  // Ctrl+D to toggle task completion
+  useHotkeys('ctrl+d, meta+d', () => {
+    onToggleComplete(note.id);
+  }, { preventDefault: true, enableOnFormTags: true }, [note.id, onToggleComplete]);
+
   return (
     <>
-      <h1 className={`text-2xl font-semibold flex-shrink-0 ${note.completed ? 'line-through text-muted-foreground' : ''}`}>
-        {titleValue ?? note.content}
-      </h1>
+      <div className="flex items-start gap-3 flex-shrink-0">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="pt-1.5">
+              <Checkbox
+                checked={note.completed}
+                onCheckedChange={() => onToggleComplete(note.id)}
+                className="h-5 w-5"
+              />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{note.completed ? t('markIncomplete') : t('markComplete')} (Ctrl+D)</p>
+          </TooltipContent>
+        </Tooltip>
+        <h1 className={`text-2xl font-semibold ${note.completed ? 'line-through text-muted-foreground' : ''}`}>
+          {titleValue ?? note.content}
+        </h1>
+      </div>
       {note.created_at && (
         <p className="text-xs text-muted-foreground/60 mt-1 mb-2">
           {t('createdAt')}: {new Date(note.created_at).toLocaleString()}

@@ -327,8 +327,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       if (!note.deadline) return false;
       const noteDeadline = note.deadline.split('T')[0];
       if (noteDeadline !== dateKey) return false;
-      // Only show followups and meetings
-      if (note.category !== 'followup' && note.category !== 'meeting') return false;
+      // Only show todos, followups and meetings (not notes)
+      if (note.category !== 'todo' && note.category !== 'followup' && note.category !== 'meeting') return false;
       // Apply category filter if set
       if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
       return true;
@@ -708,7 +708,14 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   };
 
   const handleDescriptionKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'l' && e.ctrlKey && selectedNote) {
+    if (e.key === 'd' && e.ctrlKey && selectedNote) {
+      e.preventDefault();
+      // Save description before toggling
+      if (descriptionValue !== (selectedNote.description || '')) {
+        onEdit(selectedNote.id, selectedNote.content, selectedNote.category, descriptionValue || null);
+      }
+      handleToggleCompletedWithNavigation(selectedNote.id, !selectedNote.completed);
+    } else if (e.key === 'l' && e.ctrlKey && selectedNote) {
       e.preventDefault();
       setLabelDropdownOpen(true);
     } else if (e.key === 'c' && e.altKey && selectedNote) {
@@ -784,7 +791,14 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   };
 
   const handleFixedNoteDescriptionKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'l' && e.ctrlKey && fixedNote) {
+    if (e.key === 'd' && e.ctrlKey && fixedNote) {
+      e.preventDefault();
+      // Save description before toggling
+      if (fixedNoteDescriptionValue !== (fixedNote.description || '')) {
+        onEdit(fixedNote.id, fixedNote.content, fixedNote.category, fixedNoteDescriptionValue || null);
+      }
+      handleToggleCompletedWithNavigation(fixedNote.id, !fixedNote.completed);
+    } else if (e.key === 'l' && e.ctrlKey && fixedNote) {
       e.preventDefault();
       setFixedNoteLabelDropdownOpen(true);
     } else if (e.key === 'c' && e.altKey && fixedNote) {
@@ -1029,9 +1043,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
             className="w-full pl-7 h-7 text-xs bg-transparent border border-muted-foreground/20 rounded-md outline-none focus:border-muted-foreground/40 transition-colors"
           />
         </div>
-        {/* Category filters - hidden in calendar mode */}
-        {viewMode !== 'calendar' && (
-          <div className="flex gap-1">
+        {/* Category filters */}
+        <div className="flex gap-1">
             <button
               type="button"
               onClick={() => setCategoryFilter(categoryFilter === 'todo' ? 'all' : 'todo')}
@@ -1058,19 +1071,22 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               <Forward className="h-3.5 w-3.5" />
               <span>{t('categoryFollowUp')}</span>
             </button>
-            <button
-              type="button"
-              onClick={() => setCategoryFilter(categoryFilter === 'notes' ? 'all' : 'notes')}
-              className={`flex items-center gap-1.5 px-2.5 h-7 text-xs rounded-md border transition-colors ${
-                categoryFilter === 'notes'
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
-              }`}
-              title={t('categoryNotes')}
-            >
-              <StickyNote className="h-3.5 w-3.5" />
-              <span>{t('categoryNotes')}</span>
-            </button>
+            {/* Notes category - hidden in calendar view since calendar only shows tasks with deadlines */}
+            {viewMode !== 'calendar' && (
+              <button
+                type="button"
+                onClick={() => setCategoryFilter(categoryFilter === 'notes' ? 'all' : 'notes')}
+                className={`flex items-center gap-1.5 px-2.5 h-7 text-xs rounded-md border transition-colors ${
+                  categoryFilter === 'notes'
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
+                }`}
+                title={t('categoryNotes')}
+              >
+                <StickyNote className="h-3.5 w-3.5" />
+                <span>{t('categoryNotes')}</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setCategoryFilter(categoryFilter === 'meeting' ? 'all' : 'meeting')}
@@ -1084,8 +1100,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               <Users className="h-3.5 w-3.5" />
               <span>{t('categoryMeeting')}</span>
             </button>
-          </div>
-        )}
+        </div>
         {/* Label filters dropdown */}
         {labels.length > 0 && (
           <div className="flex gap-1 items-center ml-2 pl-2 border-l border-muted-foreground/20">
@@ -1221,7 +1236,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         </div>
       </div>
       <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
-        <div className={`${showSidebar ? 'w-[38rem]' : 'flex-1'} shrink-0 flex flex-col overflow-hidden`}>
+        <div className="w-[40rem] shrink-0 flex flex-col overflow-hidden">
           {viewMode === 'calendar' ? (
             <div className="flex flex-col h-full overflow-hidden">
               {/* Calendar picker - centered */}
@@ -1419,6 +1434,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onUpdateHistoryReason={updateHistoryReason}
               onDeleteHistoryEntry={(id) => setHistoryEntryToDelete(id)}
               onSetEditingHistoryEntry={setEditingHistoryEntry}
+              onToggleComplete={(id) => handleToggleCompletedWithNavigation(id, !selectedNote.completed)}
             />
         ) : (
           <p className="text-sm text-muted-foreground/50 italic">
@@ -1460,6 +1476,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onUpdateHistoryReason={updateFixedNoteHistoryReason}
               onDeleteHistoryEntry={(id) => setFixedNoteHistoryEntryToDelete(id)}
               onSetEditingHistoryEntry={setEditingFixedNoteHistoryEntry}
+              onToggleComplete={(id) => handleToggleCompletedWithNavigation(id, !fixedNote.completed)}
             />
         ) : (
           <p className="text-sm text-muted-foreground/50 italic">
