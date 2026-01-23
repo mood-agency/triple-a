@@ -35,6 +35,32 @@ export type Database = {
           updated_at?: string
         }
       }
+      user_preferences: {
+        Row: {
+          user_id: string
+          show_sidebar: boolean
+          auto_sync: boolean
+          fixed_note_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          show_sidebar?: boolean
+          auto_sync?: boolean
+          fixed_note_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          show_sidebar?: boolean
+          auto_sync?: boolean
+          fixed_note_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       notes: {
         Row: {
           id: string

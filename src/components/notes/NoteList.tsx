@@ -93,11 +93,15 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const descriptionRef = useRef<EditableDescriptionHandle>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [descriptionValue, setDescriptionValue] = useState('');
+  const [titleValue, setTitleValue] = useState('');
   const [focusTarget, setFocusTarget] = useState<FocusTarget>(null);
   const [desiredColumn, setDesiredColumn] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [internalCategoryFilter, setInternalCategoryFilter] = useState<NoteCategory | 'all'>('all');
-  const [fixedNoteId, setFixedNoteId] = useState<string | null>(null);
+
+  // Use fixedNoteId from settings for persistence
+  const fixedNoteId = settings.fixedNoteId;
+  const setFixedNoteId = (value: string | null) => updateSettings({ fixedNoteId: value });
 
   // Get the fixed note from the ID (for sidebar)
   const fixedNote = useMemo(() => {
@@ -159,6 +163,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [editLabelName, setEditLabelName] = useState('');
   const [editLabelColor, setEditLabelColor] = useState('#6b7280');
   const [labelDropdownOpen, setLabelDropdownOpen] = useState(false);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [postponeDialogOpen, setPostponeDialogOpen] = useState(false);
   const [noteToPostpone, setNoteToPostpone] = useState<Note | null>(null);
   const [pendingPostponeDate, setPendingPostponeDate] = useState<Date | null>(null);
@@ -172,6 +177,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   // Fixed note editor state (for right column)
   const [fixedNoteLabels, setFixedNoteLabels] = useState<Label[]>([]);
   const [fixedNoteLabelDropdownOpen, setFixedNoteLabelDropdownOpen] = useState(false);
+  const [fixedNoteCategoryDropdownOpen, setFixedNoteCategoryDropdownOpen] = useState(false);
   const [fixedNoteDeadlinePickerOpen, setFixedNoteDeadlinePickerOpen] = useState(false);
   const [fixedNoteDescriptionValue, setFixedNoteDescriptionValue] = useState('');
   const [fixedNoteShowPostponeHistory, setFixedNoteShowPostponeHistory] = useState(false);
@@ -585,9 +591,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     },
   }), [filteredNotes, onSelectNote]);
 
-  // Update description value when selected note changes
+  // Update description and title values when selected note changes
   useEffect(() => {
     setDescriptionValue(selectedNote?.description || '');
+    setTitleValue(selectedNote?.content || '');
     // Reset postpone history visibility when note changes
     setShowPostponeHistory(false);
   }, [selectedNote]);
@@ -678,7 +685,13 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   };
 
   const handleDescriptionKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Escape') {
+    if (e.key === 'l' && e.ctrlKey && selectedNote) {
+      e.preventDefault();
+      setLabelDropdownOpen(true);
+    } else if (e.key === 'c' && e.altKey && selectedNote) {
+      e.preventDefault();
+      setCategoryDropdownOpen(true);
+    } else if (e.key === 'Escape') {
       setDescriptionValue(selectedNote?.description || '');
       descriptionRef.current?.blur();
     } else if (e.key === 'Tab' && e.shiftKey && selectedNote) {
@@ -745,7 +758,13 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   };
 
   const handleFixedNoteDescriptionKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Escape') {
+    if (e.key === 'l' && e.ctrlKey && fixedNote) {
+      e.preventDefault();
+      setFixedNoteLabelDropdownOpen(true);
+    } else if (e.key === 'c' && e.altKey && fixedNote) {
+      e.preventDefault();
+      setFixedNoteCategoryDropdownOpen(true);
+    } else if (e.key === 'Escape') {
       setFixedNoteDescriptionValue(fixedNote?.description || '');
       fixedNoteDescriptionRef.current?.blur();
     } else if (e.key === 'Tab' && e.shiftKey && fixedNote) {
@@ -823,12 +842,14 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     setCategoryJustChanged(false);
   }, hotkeyOptions, [onSelectNote]);
 
-  // Ctrl+T to open deadline picker (only when a task is selected)
-  useHotkeys('ctrl+t', () => {
+  // Alt+T to open deadline picker (only when a task is selected)
+  useHotkeys('alt+t', () => {
+    console.log('Alt+T pressed, selectedNote:', selectedNote);
     if (selectedNote) {
+      console.log('Opening deadline picker');
       setDeadlinePickerOpen(true);
     }
-  }, { preventDefault: true, enableOnFormTags: true }, [selectedNote]);
+  }, { preventDefault: true, enableOnFormTags: true, enableOnContentEditable: true }, [selectedNote]);
 
   // PERFORMANCE: Cache navigation and selection handlers per note to prevent creating new functions on every render
   // This ensures stable function references for React.memo optimization
@@ -871,6 +892,11 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     }
     return map;
   }, [notes, handleToggleFixInSidebar]);
+
+  // Handler for real-time title updates (only for selected note)
+  const handleContentChange = useCallback((content: string) => {
+    setTitleValue(content);
+  }, []);
 
   if (notes.length === 0) {
     return (
@@ -1193,6 +1219,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                     onAutoLabel={autoLabelHandlers.get(note.id)!}
                     isFixedInSidebar={fixedNoteId === note.id}
                     onToggleFixInSidebar={toggleFixInSidebarHandlers.get(note.id)!}
+                    onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                   />
                   ))}
                 </SortableContext>
@@ -1234,6 +1261,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                     onAutoLabel={autoLabelHandlers.get(note.id)!}
                     isFixedInSidebar={fixedNoteId === note.id}
                     onToggleFixInSidebar={toggleFixInSidebarHandlers.get(note.id)!}
+                    onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                   />
                 ))}
               </div>
@@ -1244,13 +1272,16 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         <div className="flex-1 min-w-0 border-l border-dashed border-muted-foreground/20 pl-4 overflow-hidden flex flex-col">
           {selectedNote ? (
             <NoteEditorPanel
+              ref={descriptionRef}
               note={selectedNote}
               noteLabels={noteLabels}
               allLabels={labels}
               descriptionValue={descriptionValue}
+              titleValue={titleValue}
               showPostponeHistory={showPostponeHistory}
               history={history}
               labelDropdownOpen={labelDropdownOpen}
+              categoryDropdownOpen={categoryDropdownOpen}
               deadlinePickerOpen={deadlinePickerOpen}
               editingHistoryEntry={editingHistoryEntry}
               onEdit={onEdit}
@@ -1265,6 +1296,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onDeadlineChange={handleDeadlineChange}
               onDelete={() => handleDeleteWithToast(selectedNote)}
               onLabelDropdownOpenChange={setLabelDropdownOpen}
+              onCategoryDropdownOpenChange={setCategoryDropdownOpen}
               onDeadlinePickerOpenChange={setDeadlinePickerOpen}
               onEditHistoryEntry={(entry) => setEditingHistoryEntry(entry)}
               onUpdateHistoryReason={updateHistoryReason}
@@ -1282,6 +1314,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       <div className="flex-1 min-w-0 border-l border-dashed border-muted-foreground/20 pl-4 overflow-hidden flex flex-col">
           {fixedNote ? (
             <NoteEditorPanel
+              ref={fixedNoteDescriptionRef}
               note={fixedNote}
               noteLabels={fixedNoteLabels}
               allLabels={labels}
@@ -1289,6 +1322,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               showPostponeHistory={fixedNoteShowPostponeHistory}
               history={fixedNoteHistory}
               labelDropdownOpen={fixedNoteLabelDropdownOpen}
+              categoryDropdownOpen={fixedNoteCategoryDropdownOpen}
               deadlinePickerOpen={fixedNoteDeadlinePickerOpen}
               editingHistoryEntry={editingFixedNoteHistoryEntry}
               onEdit={onEdit}
@@ -1303,6 +1337,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onDeadlineChange={handleFixedNoteDeadlineChange}
               onDelete={() => handleDeleteWithToast(fixedNote)}
               onLabelDropdownOpenChange={setFixedNoteLabelDropdownOpen}
+              onCategoryDropdownOpenChange={setFixedNoteCategoryDropdownOpen}
               onDeadlinePickerOpenChange={setFixedNoteDeadlinePickerOpen}
               onEditHistoryEntry={(entry) => setEditingFixedNoteHistoryEntry(entry)}
               onUpdateHistoryReason={updateFixedNoteHistoryReason}

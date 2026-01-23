@@ -66,6 +66,7 @@ export interface NoteRowProps {
   onAutoLabel?: (noteId: string, content: string, description?: string | null) => void;
   isFixedInSidebar?: boolean;
   onToggleFixInSidebar?: () => void;
+  onContentChange?: (content: string) => void;
 }
 
 /**
@@ -97,6 +98,7 @@ function NoteRow({
   onAutoLabel,
   isFixedInSidebar = false,
   onToggleFixInSidebar,
+  onContentChange,
 }: NoteRowProps) {
   const { t } = useTranslation();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -388,7 +390,10 @@ function NoteRow({
                   ref={contentInputRef}
                   type="text"
                   value={contentValue}
-                  onChange={(e) => setContentValue(e.target.value)}
+                  onChange={(e) => {
+                    setContentValue(e.target.value);
+                    onContentChange?.(e.target.value);
+                  }}
                   onBlur={() => {
                     // Don't blur if clicking inside the label or category dropdown
                     if (showLabelDropdown || showCategoryDropdown) return;

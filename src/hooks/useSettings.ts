@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react'
+import { useUserPreferences } from './useUserPreferences'
 
 export interface AppSettings {
   autoSync: boolean
+  showSidebar: boolean
+  fixedNoteId: string | null
 }
 
 const SETTINGS_KEY = 'app-settings'
 
 const DEFAULT_SETTINGS: AppSettings = {
   autoSync: true,
+  showSidebar: false,
+  fixedNoteId: null,
 }
 
 function loadSettings(): AppSettings {
@@ -34,6 +39,7 @@ function saveSettings(settings: AppSettings): void {
 export function useSettings() {
   const [settings, setSettings] = useState<AppSettings>(loadSettings)
 
+  // Save to localStorage whenever settings change
   useEffect(() => {
     saveSettings(settings)
   }, [settings])
@@ -41,6 +47,9 @@ export function useSettings() {
   const updateSettings = (partial: Partial<AppSettings>) => {
     setSettings((prev) => ({ ...prev, ...partial }))
   }
+
+  // Sync with Supabase
+  useUserPreferences(settings, updateSettings)
 
   return {
     settings,
