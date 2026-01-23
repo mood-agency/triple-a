@@ -320,5 +320,16 @@
     "contactUpdated": "Contact updated successfully",
     "contactDeleted": "Contact deleted successfully",
     "error": "An error occurred"
+  },
+  "mobile": {
+    "tasks": "Tasks",
+    "tasksCount": "tasks",
+    "showCompleted": "Show completed",
+    "hideCompleted": "Hide completed",
+    "pinned": "Pinned",
+    "active": "Active",
+    "createFirst": "Create your first task",
+    "newTaskPlaceholder": "What do you need to do?",
+    "description": "Description"
   }
 }

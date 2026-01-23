@@ -320,5 +320,16 @@
     "contactUpdated": "Contacto actualizado exitosamente",
     "contactDeleted": "Contacto eliminado exitosamente",
     "error": "Ocurrió un error"
+  },
+  "mobile": {
+    "tasks": "Tareas",
+    "tasksCount": "tareas",
+    "showCompleted": "Mostrar completadas",
+    "hideCompleted": "Ocultar completadas",
+    "pinned": "Fijadas",
+    "active": "Activas",
+    "createFirst": "Crea tu primera tarea",
+    "newTaskPlaceholder": "¿Qué necesitas hacer?",
+    "description": "Descripción"
   }
 }
