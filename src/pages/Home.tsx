@@ -16,6 +16,7 @@ import { DeletedTasksDialog } from '@/components/notes/DeletedTasksDialog';
 import { useNotes } from '@/hooks/useNotes';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useLabels } from '@/hooks/useLabels';
+import { useSettings } from '@/hooks/useSettings';
 import type { Note, NoteCategory } from '@/types/note';
 
 export function Home() {
@@ -26,6 +27,12 @@ export function Home() {
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(() => searchParams.get('note'));
   const noteListRef = useRef<NoteListHandle>(null);
   const { labels } = useLabels();
+  const { settings, updateSettings } = useSettings();
+
+  const viewMode = settings.viewMode;
+  const toggleViewMode = useCallback(() => {
+    updateSettings({ viewMode: viewMode === 'list' ? 'calendar' : 'list' });
+  }, [viewMode, updateSettings]);
 
   // Initialize filters from URL params
   const getInitialLabelFilter = useCallback(() => {
@@ -233,6 +240,8 @@ export function Home() {
         onClearLabels={() => handleLabelFilterChange([])}
         categoryFilter={categoryFilter}
         onSelectCategory={handleCategoryFilterChange}
+        viewMode={viewMode}
+        onToggleViewMode={toggleViewMode}
       />
 
       <HotkeysHelper />

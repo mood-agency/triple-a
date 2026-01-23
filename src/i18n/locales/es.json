@@ -160,6 +160,9 @@
   "pin": "Fijar",
   "unpin": "Desfijar",
   "commandPalettePlaceholder": "Buscar etiquetas y categorías...",
+  "commandPalette": {
+    "view": "Vista"
+  },
   "noResults": "No se encontraron resultados",
   "activeFilters": "Filtros activos",
   "clearAllFilters": "Limpiar todos los filtros",
@@ -217,7 +220,8 @@
     "openLabels": "Abrir etiquetas",
     "openCategories": "Cambiar categoría",
     "openDeadline": "Establecer fecha límite",
-    "backToTitle": "Volver al título"
+    "backToTitle": "Volver al título",
+    "toggleView": "Cambiar vista calendario/lista"
   },
   "youtube": {
     "import": "Importar de YouTube",
@@ -288,6 +292,15 @@
       "create": "Crear \"{{name}}\"",
       "noResults": "No se encontraron responsables"
     }
+  },
+  "calendar": {
+    "switchToCalendarView": "Cambiar a vista calendario",
+    "switchToListView": "Cambiar a vista lista",
+    "noTasksWithDeadlines": "No hay tareas con fecha límite",
+    "addDeadlinesHint": "Agrega fechas límite a tareas, seguimientos y reuniones para verlos aquí",
+    "noTasks": "Sin tareas",
+    "tasksCount": "{{count}} tarea(s)",
+    "selectDateHint": "Selecciona una fecha para ver las tareas"
   },
   "contacts": {
     "title": "Contactos",

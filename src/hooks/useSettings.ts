@@ -5,6 +5,7 @@ export interface AppSettings {
   autoSync: boolean
   showSidebar: boolean
   fixedNoteId: string | null
+  viewMode: 'list' | 'calendar'
 }
 
 const SETTINGS_KEY = 'app-settings'
@@ -13,6 +14,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   autoSync: true,
   showSidebar: false,
   fixedNoteId: null,
+  viewMode: 'list',
 }
 
 function loadSettings(): AppSettings {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
-import { Calendar, Search, Pickaxe, Forward, StickyNote, Tag, X, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, Users, ChevronDown, Check } from 'lucide-react';
+import { Calendar, Search, Pickaxe, Forward, StickyNote, Tag, X, PanelRightClose, PanelRightOpen, ArrowUpDown, AlertTriangle, Users, ChevronDown, Check, List } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -47,6 +47,7 @@ import type { Note, NoteCategory, Label } from '@/types/note';
 import { PostponeDialog } from './PostponeDialog';
 import { MemoizedNoteRow } from './NoteRow';
 import { NoteEditorPanel } from './NoteEditorPanel';
+import { CalendarView } from './CalendarView';
 import { parseLocalDate } from '@/utils/dateUtils';
 
 interface NoteListProps {
@@ -169,6 +170,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [pendingPostponeDate, setPendingPostponeDate] = useState<Date | null>(null);
   const showSidebar = settings.showSidebar;
   const setShowSidebar = (value: boolean) => updateSettings({ showSidebar: value });
+  const viewMode = settings.viewMode;
+  const setViewMode = (value: 'list' | 'calendar') => updateSettings({ viewMode: value });
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | undefined>(undefined);
   const [sortByDeadline, setSortByDeadline] = useState(false);
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
   const [showPostponeHistory, setShowPostponeHistory] = useState(false);
@@ -311,6 +315,25 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   // Combined for navigation purposes (active first, then completed)
   // Memoized to avoid recreating array on every render
   const filteredNotes = useMemo(() => [...activeNotes, ...completedNotes], [activeNotes, completedNotes]);
+
+  // Calendar view: filter notes by selected date (only open followups and meetings with deadlines)
+  const calendarFilteredNotes = useMemo(() => {
+    if (!calendarSelectedDate) return [];
+    const dateKey = calendarSelectedDate.toISOString().split('T')[0];
+    return notes.filter((note) => {
+      // Only show open (not completed) tasks
+      if (note.completed) return false;
+      // Must have a deadline matching the selected date
+      if (!note.deadline) return false;
+      const noteDeadline = note.deadline.split('T')[0];
+      if (noteDeadline !== dateKey) return false;
+      // Only show followups and meetings
+      if (note.category !== 'followup' && note.category !== 'meeting') return false;
+      // Apply category filter if set
+      if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
+      return true;
+    });
+  }, [notes, calendarSelectedDate, categoryFilter]);
 
   // Load labels when selected note changes
   useEffect(() => {
@@ -692,7 +715,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       e.preventDefault();
       setCategoryDropdownOpen(true);
     } else if (e.key === 'Escape') {
-      setDescriptionValue(selectedNote?.description || '');
+      // Save changes before blurring
+      if (selectedNote && descriptionValue !== (selectedNote.description || '')) {
+        onEdit(selectedNote.id, selectedNote.content, selectedNote.category, descriptionValue || null);
+      }
       descriptionRef.current?.blur();
     } else if (e.key === 'Tab' && e.shiftKey && selectedNote) {
       e.preventDefault();
@@ -765,7 +791,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       e.preventDefault();
       setFixedNoteCategoryDropdownOpen(true);
     } else if (e.key === 'Escape') {
-      setFixedNoteDescriptionValue(fixedNote?.description || '');
+      // Save changes before blurring
+      if (fixedNote && fixedNoteDescriptionValue !== (fixedNote.description || '')) {
+        onEdit(fixedNote.id, fixedNote.content, fixedNote.category, fixedNoteDescriptionValue || null);
+      }
       fixedNoteDescriptionRef.current?.blur();
     } else if (e.key === 'Tab' && e.shiftKey && fixedNote) {
       e.preventDefault();
@@ -850,6 +879,11 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       setDeadlinePickerOpen(true);
     }
   }, { preventDefault: true, enableOnFormTags: true, enableOnContentEditable: true }, [selectedNote]);
+
+  // Ctrl+Shift+C to toggle calendar/list view
+  useHotkeys('ctrl+shift+c', () => {
+    setViewMode(viewMode === 'list' ? 'calendar' : 'list');
+  }, hotkeyOptions, [viewMode, setViewMode]);
 
   // PERFORMANCE: Cache navigation and selection handlers per note to prevent creating new functions on every render
   // This ensures stable function references for React.memo optimization
@@ -954,6 +988,25 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   return (
     <div ref={containerRef} className="flex flex-col h-full overflow-hidden" tabIndex={0}>
       <div className="flex gap-2 mb-3 flex-shrink-0">
+        {/* View mode toggle - at the beginning */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
+              className={`p-1.5 rounded-md transition-colors ${
+                viewMode === 'calendar'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              {viewMode === 'calendar' ? <List className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{viewMode === 'calendar' ? t('calendar.switchToListView') : t('calendar.switchToCalendarView')}</p>
+          </TooltipContent>
+        </Tooltip>
         <div className="relative w-48">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground/50" />
           <input
@@ -976,60 +1029,63 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
             className="w-full pl-7 h-7 text-xs bg-transparent border border-muted-foreground/20 rounded-md outline-none focus:border-muted-foreground/40 transition-colors"
           />
         </div>
-        <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={() => setCategoryFilter(categoryFilter === 'todo' ? 'all' : 'todo')}
-            className={`flex items-center gap-1.5 px-2.5 h-7 text-xs rounded-md border transition-colors ${
-              categoryFilter === 'todo'
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
-            }`}
-            title={t('categoryTodo')}
-          >
-            <Pickaxe className="h-3.5 w-3.5" />
-            <span>{t('categoryTodo')}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setCategoryFilter(categoryFilter === 'followup' ? 'all' : 'followup')}
-            className={`flex items-center gap-1.5 px-2.5 h-7 text-xs rounded-md border transition-colors ${
-              categoryFilter === 'followup'
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
-            }`}
-            title={t('categoryFollowUp')}
-          >
-            <Forward className="h-3.5 w-3.5" />
-            <span>{t('categoryFollowUp')}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setCategoryFilter(categoryFilter === 'notes' ? 'all' : 'notes')}
-            className={`flex items-center gap-1.5 px-2.5 h-7 text-xs rounded-md border transition-colors ${
-              categoryFilter === 'notes'
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
-            }`}
-            title={t('categoryNotes')}
-          >
-            <StickyNote className="h-3.5 w-3.5" />
-            <span>{t('categoryNotes')}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setCategoryFilter(categoryFilter === 'meeting' ? 'all' : 'meeting')}
-            className={`flex items-center gap-1.5 px-2.5 h-7 text-xs rounded-md border transition-colors ${
-              categoryFilter === 'meeting'
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
-            }`}
-            title={t('categoryMeeting')}
-          >
-            <Users className="h-3.5 w-3.5" />
-            <span>{t('categoryMeeting')}</span>
-          </button>
-        </div>
+        {/* Category filters - hidden in calendar mode */}
+        {viewMode !== 'calendar' && (
+          <div className="flex gap-1">
+            <button
+              type="button"
+              onClick={() => setCategoryFilter(categoryFilter === 'todo' ? 'all' : 'todo')}
+              className={`flex items-center gap-1.5 px-2.5 h-7 text-xs rounded-md border transition-colors ${
+                categoryFilter === 'todo'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
+              }`}
+              title={t('categoryTodo')}
+            >
+              <Pickaxe className="h-3.5 w-3.5" />
+              <span>{t('categoryTodo')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setCategoryFilter(categoryFilter === 'followup' ? 'all' : 'followup')}
+              className={`flex items-center gap-1.5 px-2.5 h-7 text-xs rounded-md border transition-colors ${
+                categoryFilter === 'followup'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
+              }`}
+              title={t('categoryFollowUp')}
+            >
+              <Forward className="h-3.5 w-3.5" />
+              <span>{t('categoryFollowUp')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setCategoryFilter(categoryFilter === 'notes' ? 'all' : 'notes')}
+              className={`flex items-center gap-1.5 px-2.5 h-7 text-xs rounded-md border transition-colors ${
+                categoryFilter === 'notes'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
+              }`}
+              title={t('categoryNotes')}
+            >
+              <StickyNote className="h-3.5 w-3.5" />
+              <span>{t('categoryNotes')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setCategoryFilter(categoryFilter === 'meeting' ? 'all' : 'meeting')}
+              className={`flex items-center gap-1.5 px-2.5 h-7 text-xs rounded-md border transition-colors ${
+                categoryFilter === 'meeting'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-transparent border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40'
+              }`}
+              title={t('categoryMeeting')}
+            >
+              <Users className="h-3.5 w-3.5" />
+              <span>{t('categoryMeeting')}</span>
+            </button>
+          </div>
+        )}
         {/* Label filters dropdown */}
         {labels.length > 0 && (
           <div className="flex gap-1 items-center ml-2 pl-2 border-l border-muted-foreground/20">
@@ -1146,7 +1202,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
             </TooltipContent>
           </Tooltip>
         </div>
-        {/* Toggle sidebar button */}
+        {/* Sidebar button */}
         <div className="ml-auto">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1166,106 +1222,167 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       </div>
       <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
         <div className={`${showSidebar ? 'w-[38rem]' : 'flex-1'} shrink-0 flex flex-col overflow-hidden`}>
-          {/* Active tasks section - 75% */}
-          <div className="overflow-y-auto pr-2 flex-[3]">
-            {/* Show message when no active tasks but have filters */}
-            {shouldShowOnlyCompletedMessage ? (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-center text-muted-foreground/60 text-sm italic">
-                  {getNoResultsMessage()}
-                </p>
+          {viewMode === 'calendar' ? (
+            <div className="flex flex-col h-full overflow-hidden">
+              {/* Calendar picker - centered */}
+              <div className="flex-shrink-0 flex justify-center p-2">
+                <CalendarView
+                  notes={notes}
+                  categoryFilter={categoryFilter}
+                  selectedDate={calendarSelectedDate}
+                  onSelectDate={setCalendarSelectedDate}
+                />
               </div>
-            ) : activeNotes.length === 0 && filteredNotes.length === 0 && hasActiveFilters ? (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-center text-muted-foreground/60 text-sm italic">
-                  {getNoResultsMessage()}
-                </p>
-              </div>
-            ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={activeNotes.map((n) => n.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {activeNotes.map((note) => (
-                  <MemoizedNoteRow
-                    key={note.id}
-                    note={note}
-                    onDeleteWithToast={handleDeleteWithToast}
-                    onToggleCompleted={handleToggleCompletedWithNavigation}
-                    onTogglePinned={onTogglePinned}
-                    isSelected={selectedNote?.id === note.id}
-                    onSelect={selectHandlers.get(note.id)!}
-                    onEdit={onEdit}
-                    onNavigateDown={navigateDownHandlers.get(note.id)!}
-                    onNavigateUp={navigateUpHandlers.get(note.id)!}
-                    onNavigateToDescription={handleNavigateToDescription}
-                    shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
-                    desiredColumn={desiredColumn}
-                    onTitleFocused={handleTitleFocused}
-                    onCreateNoteAfter={createNoteAfterHandlers.get(note.id)!}
-                    isDragging={activeId === note.id}
-                    labels={noteLabelsCache.get(note.id) || []}
-                    allLabels={labels}
-                    onAddLabel={addLabelHandlers.get(note.id)!}
-                    onRemoveLabel={removeLabelHandlers.get(note.id)!}
-                    onCreateLabel={handleCreateLabelClick}
-                    onEditLabel={handleEditLabel}
-                    onAutoLabel={autoLabelHandlers.get(note.id)!}
-                    isFixedInSidebar={fixedNoteId === note.id}
-                    onToggleFixInSidebar={toggleFixInSidebarHandlers.get(note.id)!}
-                    onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
-                  />
-                  ))}
-                </SortableContext>
-              </DndContext>
-            )}
-          </div>
-
-          {/* Completed tasks section - 25% */}
-          {completedNotes.length > 0 && (
-            <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">
-              <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
-                {t('completedTasks')} ({completedNotes.length})
-              </div>
-              <div className="overflow-y-auto pr-2 flex-1">
-                {completedNotes.map((note) => (
-                  <MemoizedNoteRow
-                    key={note.id}
-                    note={note}
-                    onDeleteWithToast={handleDeleteWithToast}
-                    onToggleCompleted={handleToggleCompletedWithNavigation}
-                    onTogglePinned={onTogglePinned}
-                    isSelected={selectedNote?.id === note.id}
-                    onSelect={selectHandlers.get(note.id)!}
-                    onEdit={onEdit}
-                    onNavigateDown={navigateDownHandlers.get(note.id)!}
-                    onNavigateUp={navigateUpHandlers.get(note.id)!}
-                    onNavigateToDescription={handleNavigateToDescription}
-                    shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
-                    desiredColumn={desiredColumn}
-                    onTitleFocused={handleTitleFocused}
-                    onCreateNoteAfter={createNoteAfterHandlers.get(note.id)!}
-                    isDragging={false}
-                    labels={noteLabelsCache.get(note.id) || []}
-                    allLabels={labels}
-                    onAddLabel={addLabelHandlers.get(note.id)!}
-                    onRemoveLabel={removeLabelHandlers.get(note.id)!}
-                    onCreateLabel={handleCreateLabelClick}
-                    onEditLabel={handleEditLabel}
-                    onAutoLabel={autoLabelHandlers.get(note.id)!}
-                    isFixedInSidebar={fixedNoteId === note.id}
-                    onToggleFixInSidebar={toggleFixInSidebarHandlers.get(note.id)!}
-                    onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
-                  />
-                ))}
+              {/* Task list for selected date - below calendar */}
+              <div className="flex-1 overflow-y-auto pr-2 mt-2">
+                {calendarSelectedDate ? (
+                  calendarFilteredNotes.length > 0 ? (
+                    calendarFilteredNotes.map((note) => (
+                      <MemoizedNoteRow
+                        key={note.id}
+                        note={note}
+                        onDeleteWithToast={handleDeleteWithToast}
+                        onToggleCompleted={handleToggleCompletedWithNavigation}
+                        onTogglePinned={onTogglePinned}
+                        isSelected={selectedNote?.id === note.id}
+                        onSelect={selectHandlers.get(note.id)!}
+                        onEdit={onEdit}
+                        onNavigateDown={navigateDownHandlers.get(note.id)!}
+                        onNavigateUp={navigateUpHandlers.get(note.id)!}
+                        onNavigateToDescription={handleNavigateToDescription}
+                        shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
+                        desiredColumn={desiredColumn}
+                        onTitleFocused={handleTitleFocused}
+                        onCreateNoteAfter={createNoteAfterHandlers.get(note.id)!}
+                        isDragging={false}
+                        labels={noteLabelsCache.get(note.id) || []}
+                        allLabels={labels}
+                        onAddLabel={addLabelHandlers.get(note.id)!}
+                        onRemoveLabel={removeLabelHandlers.get(note.id)!}
+                        onCreateLabel={handleCreateLabelClick}
+                        onEditLabel={handleEditLabel}
+                        onAutoLabel={autoLabelHandlers.get(note.id)!}
+                        isFixedInSidebar={fixedNoteId === note.id}
+                        onToggleFixInSidebar={toggleFixInSidebarHandlers.get(note.id)!}
+                        onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
+                      />
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
+                      {t('calendar.noTasks')}
+                    </p>
+                  )
+                ) : (
+                  <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
+                    {t('calendar.selectDateHint')}
+                  </p>
+                )}
               </div>
             </div>
+          ) : (
+            <>
+              {/* Active tasks section - 75% */}
+              <div className="overflow-y-auto pr-2 flex-[3]">
+                {/* Show message when no active tasks but have filters */}
+                {shouldShowOnlyCompletedMessage ? (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-center text-muted-foreground/60 text-sm italic">
+                      {getNoResultsMessage()}
+                    </p>
+                  </div>
+                ) : activeNotes.length === 0 && filteredNotes.length === 0 && hasActiveFilters ? (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-center text-muted-foreground/60 text-sm italic">
+                      {getNoResultsMessage()}
+                    </p>
+                  </div>
+                ) : (
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={activeNotes.map((n) => n.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {activeNotes.map((note) => (
+                      <MemoizedNoteRow
+                        key={note.id}
+                        note={note}
+                        onDeleteWithToast={handleDeleteWithToast}
+                        onToggleCompleted={handleToggleCompletedWithNavigation}
+                        onTogglePinned={onTogglePinned}
+                        isSelected={selectedNote?.id === note.id}
+                        onSelect={selectHandlers.get(note.id)!}
+                        onEdit={onEdit}
+                        onNavigateDown={navigateDownHandlers.get(note.id)!}
+                        onNavigateUp={navigateUpHandlers.get(note.id)!}
+                        onNavigateToDescription={handleNavigateToDescription}
+                        shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
+                        desiredColumn={desiredColumn}
+                        onTitleFocused={handleTitleFocused}
+                        onCreateNoteAfter={createNoteAfterHandlers.get(note.id)!}
+                        isDragging={activeId === note.id}
+                        labels={noteLabelsCache.get(note.id) || []}
+                        allLabels={labels}
+                        onAddLabel={addLabelHandlers.get(note.id)!}
+                        onRemoveLabel={removeLabelHandlers.get(note.id)!}
+                        onCreateLabel={handleCreateLabelClick}
+                        onEditLabel={handleEditLabel}
+                        onAutoLabel={autoLabelHandlers.get(note.id)!}
+                        isFixedInSidebar={fixedNoteId === note.id}
+                        onToggleFixInSidebar={toggleFixInSidebarHandlers.get(note.id)!}
+                        onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
+                      />
+                      ))}
+                    </SortableContext>
+                  </DndContext>
+                )}
+              </div>
+
+              {/* Completed tasks section - 25% */}
+              {completedNotes.length > 0 && (
+                <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">
+                  <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
+                    {t('completedTasks')} ({completedNotes.length})
+                  </div>
+                  <div className="overflow-y-auto pr-2 flex-1">
+                    {completedNotes.map((note) => (
+                      <MemoizedNoteRow
+                        key={note.id}
+                        note={note}
+                        onDeleteWithToast={handleDeleteWithToast}
+                        onToggleCompleted={handleToggleCompletedWithNavigation}
+                        onTogglePinned={onTogglePinned}
+                        isSelected={selectedNote?.id === note.id}
+                        onSelect={selectHandlers.get(note.id)!}
+                        onEdit={onEdit}
+                        onNavigateDown={navigateDownHandlers.get(note.id)!}
+                        onNavigateUp={navigateUpHandlers.get(note.id)!}
+                        onNavigateToDescription={handleNavigateToDescription}
+                        shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
+                        desiredColumn={desiredColumn}
+                        onTitleFocused={handleTitleFocused}
+                        onCreateNoteAfter={createNoteAfterHandlers.get(note.id)!}
+                        isDragging={false}
+                        labels={noteLabelsCache.get(note.id) || []}
+                        allLabels={labels}
+                        onAddLabel={addLabelHandlers.get(note.id)!}
+                        onRemoveLabel={removeLabelHandlers.get(note.id)!}
+                        onCreateLabel={handleCreateLabelClick}
+                        onEditLabel={handleEditLabel}
+                        onAutoLabel={autoLabelHandlers.get(note.id)!}
+                        isFixedInSidebar={fixedNoteId === note.id}
+                        onToggleFixInSidebar={toggleFixInSidebarHandlers.get(note.id)!}
+                        onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 

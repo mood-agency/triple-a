@@ -110,6 +110,7 @@ export function HotkeysHelper() {
         { keys: ['Alt', 'E'], action: t('hotkeys.filterNotes') },
         { keys: ['Alt', 'R'], action: t('hotkeys.filterMeeting') },
         { keys: ['Alt', 'C'], action: t('hotkeys.clearFilters') },
+        { keys: ['Ctrl', 'Shift', 'C'], action: t('hotkeys.toggleView') },
         { keys: ['Esc'], action: t('hotkeys.deselectTask') },
       ],
     },
