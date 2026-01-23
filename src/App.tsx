@@ -7,6 +7,7 @@ import { ResetPassword } from './pages/ResetPassword'
 import { AITest } from './pages/AITest'
 import { Contacts } from './pages/Contacts'
 import { Tasks } from './pages/Tasks'
+import { useMobileDetect } from './hooks/useMobileDetect'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isConfigured } = useAuth()
@@ -32,6 +33,19 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <Navigate to="/auth" replace />
 }
 
+/**
+ * Redirects mobile users to /tasks, desktop users see Home
+ */
+function HomeWithMobileRedirect() {
+  const isMobile = useMobileDetect()
+
+  if (isMobile) {
+    return <Navigate to="/tasks" replace />
+  }
+
+  return <Home />
+}
+
 function App() {
   return (
     <Routes>
@@ -41,7 +55,7 @@ function App() {
         path="/"
         element={
           <ProtectedRoute>
-            <Home />
+            <HomeWithMobileRedirect />
           </ProtectedRoute>
         }
       />
