@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
-import { Calendar, PanelRightClose, PanelRightOpen, List, Pickaxe, Forward, StickyNote, Users as UsersIcon, User, Tag, AlertCircle, AlignJustify } from 'lucide-react';
+import { Calendar, PanelRightClose, PanelRightOpen, List, Pickaxe, Forward, StickyNote, Users as UsersIcon, User, Tag, AlertCircle, AlignJustify, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -60,6 +60,7 @@ interface NoteListProps {
   onSelectNote: (note: Note | null) => void;
   onNavigateToEditor?: (column: number) => void;
   onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[]) => Promise<Note>;
+  onCreateTask?: () => void;
   // External filter control (from CommandPalette)
   externalLabelFilter?: string[];
   externalCategoryFilter?: NoteCategory | 'all';
@@ -85,7 +86,7 @@ function getColumnPosition(text: string, cursorPos: number): number {
   return lastNewline === -1 ? cursorPos : cursorPos - lastNewline - 1;
 }
 
-export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onUpdateAssignee, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange }, ref) {
+export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onUpdateAssignee, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange }, ref) {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { contacts } = useContacts();
@@ -1229,7 +1230,21 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   return (
     <div ref={containerRef} className="flex flex-col h-full overflow-hidden" tabIndex={0}>
       <div className="flex gap-2 mb-3 flex-shrink-0">
-        {/* View mode toggle - at the beginning */}
+        {/* Create task button - first position */}
+        {onCreateTask && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={onCreateTask} size="icon" variant="outline" className="h-8 w-8 shadow-none">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('newTask')}</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {/* View mode toggle */}
         <div className="flex">
           <Tooltip>
             <TooltipTrigger asChild>

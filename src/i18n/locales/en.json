@@ -85,6 +85,7 @@
   "markComplete": "Mark as complete",
   "markIncomplete": "Mark as incomplete",
   "newTask": "New Task",
+  "newTaskPlaceholder": "New task...",
   "dailyNotes": "Daily Notes",
   "writeNote": "Write your note...",
   "writeDescription": "Description (optional)...",

@@ -85,6 +85,7 @@
   "markComplete": "Marcar como completado",
   "markIncomplete": "Marcar como incompleto",
   "newTask": "Nueva Tarea",
+  "newTaskPlaceholder": "Nueva tarea...",
   "dailyNotes": "Notas del Día",
   "writeNote": "Escribe tu nota...",
   "writeDescription": "Descripción (opcional)...",
