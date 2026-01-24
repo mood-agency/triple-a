@@ -205,7 +205,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const setShowSidebar = (value: boolean) => updateSettings({ showSidebar: value });
   const viewMode = settings.viewMode;
   const setViewMode = (value: 'list' | 'calendar') => updateSettings({ viewMode: value });
-  const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | undefined>(undefined);
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | undefined>(new Date());
   const [sortByDeadline, setSortByDeadline] = useState(false);
   const [sortByAssignee, setSortByAssignee] = useState(false);
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
@@ -365,7 +365,11 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   // Calendar view: filter notes by selected date (only open followups and meetings with deadlines)
   const calendarFilteredNotes = useMemo(() => {
     if (!calendarSelectedDate) return [];
-    const dateKey = calendarSelectedDate.toISOString().split('T')[0];
+    // Use local date format to avoid timezone issues (toISOString converts to UTC)
+    const year = calendarSelectedDate.getFullYear();
+    const month = String(calendarSelectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(calendarSelectedDate.getDate()).padStart(2, '0');
+    const dateKey = `${year}-${month}-${day}`;
     return notes.filter((note) => {
       // Only show open (not completed) tasks
       if (note.completed) return false;
@@ -396,7 +400,11 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   // Calendar view: completed tasks for selected date
   const calendarCompletedNotes = useMemo(() => {
     if (!calendarSelectedDate) return [];
-    const dateKey = calendarSelectedDate.toISOString().split('T')[0];
+    // Use local date format to avoid timezone issues (toISOString converts to UTC)
+    const year = calendarSelectedDate.getFullYear();
+    const month = String(calendarSelectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(calendarSelectedDate.getDate()).padStart(2, '0');
+    const dateKey = `${year}-${month}-${day}`;
     return notes.filter((note) => {
       // Only show completed tasks
       if (!note.completed) return false;
@@ -1103,7 +1111,13 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
             <TooltipTrigger asChild>
               <button
                 type="button"
-                onClick={() => setShowSidebar(!showSidebar)}
+                onClick={() => {
+                  if (showSidebar) {
+                    // When closing sidebar, also clear the fixed note
+                    setFixedNoteId(null);
+                  }
+                  setShowSidebar(!showSidebar);
+                }}
                 className="p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors"
               >
                 {showSidebar ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
@@ -1116,7 +1130,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         </div>
       </div>
       <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
-        <div className="w-[40rem] shrink-0 flex flex-col overflow-hidden">
+        <div className="w-[32rem] shrink-0 flex flex-col overflow-hidden">
           {viewMode === 'calendar' ? (
             <div className="flex flex-col h-full overflow-hidden">
               {/* Calendar picker - centered */}

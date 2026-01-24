@@ -229,6 +229,24 @@ export function runMigrations(db: Database): void {
     CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email)
   `);
 
+  // Add sync columns to contacts table
+  const syncContactsInfo = db.exec("PRAGMA table_info(contacts)");
+  if (syncContactsInfo.length > 0) {
+    const syncContactsColumns = syncContactsInfo[0].values.map((row) => row[1]);
+    if (!syncContactsColumns.includes('remote_id')) {
+      db.run('ALTER TABLE contacts ADD COLUMN remote_id TEXT DEFAULT NULL');
+    }
+    if (!syncContactsColumns.includes('sync_status')) {
+      db.run("ALTER TABLE contacts ADD COLUMN sync_status TEXT DEFAULT 'local'");
+    }
+    if (!syncContactsColumns.includes('last_synced_at')) {
+      db.run('ALTER TABLE contacts ADD COLUMN last_synced_at TEXT DEFAULT NULL');
+    }
+    if (!syncContactsColumns.includes('deleted_at')) {
+      db.run('ALTER TABLE contacts ADD COLUMN deleted_at TEXT DEFAULT NULL');
+    }
+  }
+
   // Migration: add assignee_id column to notes table (references contacts)
   const assigneeNotesInfo = db.exec("PRAGMA table_info(notes)");
   if (assigneeNotesInfo.length > 0) {

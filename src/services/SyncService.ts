@@ -184,7 +184,7 @@ export class SyncService {
    */
   async pullAllFromSupabase(
     onProgress?: (current: number, total: number, item: string) => void
-  ): Promise<{ success: boolean; error?: string; pulled: { notes: number; labels: number; noteLabels: number } }> {
+  ): Promise<{ success: boolean; error?: string; pulled: { notes: number; labels: number; noteLabels: number; contacts: number } }> {
     return this.bulkService.pullAllFromSupabase(onProgress);
   }
 
@@ -193,7 +193,7 @@ export class SyncService {
    */
   async pushAllToSupabase(
     onProgress?: (current: number, total: number, item: string) => void
-  ): Promise<{ success: boolean; error?: string; pushed: { notes: number; labels: number; noteLabels: number; noteHistory: number } }> {
+  ): Promise<{ success: boolean; error?: string; pushed: { notes: number; labels: number; noteLabels: number; noteHistory: number; contacts: number } }> {
     return this.bulkService.pushAllToSupabase(onProgress);
   }
 }

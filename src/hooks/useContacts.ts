@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useDatabase } from '@/contexts/DatabaseContext';
+import { useSync } from '@/contexts/SyncContext';
 import { persistDatabase } from '@/db';
 import type { Contact, ContactInput } from '@/types/contact';
 
@@ -9,13 +10,14 @@ function generateId(): string {
 
 export function useContacts() {
   const { db, isReady } = useDatabase();
+  const { queueOperation } = useSync();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadContacts = useCallback(() => {
     if (!db || !isReady) return;
 
-    const query = 'SELECT * FROM contacts ORDER BY name ASC, lastname ASC';
+    const query = 'SELECT id, name, lastname, phone, email, created_at, updated_at, user_id FROM contacts WHERE deleted_at IS NULL ORDER BY name ASC, lastname ASC';
     const result = db.exec(query);
 
     if (result.length > 0) {
@@ -53,15 +55,23 @@ export function useContacts() {
       };
 
       db.run(
-        'INSERT INTO contacts (id, name, lastname, phone, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [contact.id, contact.name, contact.lastname, contact.phone, contact.email, contact.created_at, contact.updated_at]
+        'INSERT INTO contacts (id, name, lastname, phone, email, created_at, updated_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [contact.id, contact.name, contact.lastname, contact.phone, contact.email, contact.created_at, contact.updated_at, 'local']
       );
 
       await persistDatabase();
+      await queueOperation('contacts', 'insert', contact.id, {
+        name: contact.name,
+        lastname: contact.lastname,
+        phone: contact.phone,
+        email: contact.email,
+        created_at: contact.created_at,
+        updated_at: contact.updated_at,
+      });
       loadContacts();
       return contact;
     },
-    [db, loadContacts]
+    [db, loadContacts, queueOperation]
   );
 
   const updateContact = useCallback(
@@ -73,22 +83,27 @@ export function useContacts() {
       // Build dynamic update query
       const updates: string[] = [];
       const params: any[] = [];
+      const syncData: Record<string, any> = { updated_at: now };
 
       if (contactInput.name !== undefined) {
         updates.push('name = ?');
         params.push(contactInput.name);
+        syncData.name = contactInput.name;
       }
       if (contactInput.lastname !== undefined) {
         updates.push('lastname = ?');
         params.push(contactInput.lastname);
+        syncData.lastname = contactInput.lastname;
       }
       if (contactInput.phone !== undefined) {
         updates.push('phone = ?');
         params.push(contactInput.phone);
+        syncData.phone = contactInput.phone;
       }
       if (contactInput.email !== undefined) {
         updates.push('email = ?');
         params.push(contactInput.email);
+        syncData.email = contactInput.email;
       }
 
       updates.push('updated_at = ?');
@@ -101,10 +116,11 @@ export function useContacts() {
       );
 
       await persistDatabase();
+      await queueOperation('contacts', 'update', id, syncData);
       loadContacts();
 
       // Return the updated contact
-      const result = db.exec('SELECT * FROM contacts WHERE id = ?', [id]);
+      const result = db.exec('SELECT id, name, lastname, phone, email, created_at, updated_at, user_id FROM contacts WHERE id = ?', [id]);
       if (result.length === 0 || result[0].values.length === 0) {
         throw new Error('Contact not found after update');
       }
@@ -121,18 +137,22 @@ export function useContacts() {
         user_id: row[7] as string | undefined,
       };
     },
-    [db, loadContacts]
+    [db, loadContacts, queueOperation]
   );
 
   const deleteContact = useCallback(
     async (id: string): Promise<void> => {
       if (!db) throw new Error('Database not ready');
 
-      db.run('DELETE FROM contacts WHERE id = ?', [id]);
+      // Soft delete for sync support
+      const now = new Date().toISOString();
+      db.run('UPDATE contacts SET deleted_at = ?, updated_at = ? WHERE id = ?', [now, now, id]);
+
       await persistDatabase();
+      await queueOperation('contacts', 'delete', id);
       loadContacts();
     },
-    [db, loadContacts]
+    [db, loadContacts, queueOperation]
   );
 
   return {

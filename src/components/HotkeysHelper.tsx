@@ -55,6 +55,7 @@ export function HotkeysHelper() {
           labels: result.pushed.labels,
           noteLabels: result.pushed.noteLabels,
           history: result.pushed.noteHistory,
+          contacts: result.pushed.contacts,
         }),
       });
     } else {
@@ -87,6 +88,7 @@ export function HotkeysHelper() {
           notes: result.pulled.notes,
           labels: result.pulled.labels,
           noteLabels: result.pulled.noteLabels,
+          contacts: result.pulled.contacts,
         }),
       });
     } else {
