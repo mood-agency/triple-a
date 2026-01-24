@@ -97,7 +97,6 @@ export function useNotesStore(date?: string) {
     if (!store) return;
 
     const listenerId = store.addTableListener('notes', () => {
-      console.log('[useNotesStore] Table listener triggered, reloading notes');
       loadNotes();
     });
 

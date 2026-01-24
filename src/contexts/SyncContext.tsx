@@ -90,9 +90,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       if (tinybaseStore) {
         tinybaseSyncRef.current = new SupabaseDataSync(tinybaseStore, {
           userId: user.id,
-          onProgress: (progress) => {
-            console.log('[TinyBaseSync] Progress:', progress)
-          },
           onError: (error, table) => {
             console.error(`[TinyBaseSync] Error in ${table}:`, error)
             setError(error.message)
@@ -100,7 +97,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         })
         initialSyncDoneRef.current = false
         setIsSyncServiceReady(true)
-        console.log('[Sync] TinyBase sync service ready')
       } else {
         setIsSyncServiceReady(false)
       }
@@ -141,41 +137,23 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   // Sync function - stable reference using ref for state check
   const syncNow = useCallback(async () => {
-    if (!isOnline || isSyncingRef.current) {
-      console.log('[Sync] syncNow skipped - offline or already syncing')
-      return
-    }
+    if (!isOnline || isSyncingRef.current) return
 
     // TinyBase mode
     if (useTinyBaseEnabled) {
-      if (!tinybaseSyncRef.current) {
-        console.log('[Sync] TinyBase sync not ready')
-        return
-      }
+      if (!tinybaseSyncRef.current) return
 
       isSyncingRef.current = true
       setSyncState('syncing')
       setError(null)
 
       try {
-        console.log('[Sync] Starting TinyBase sync...')
         lastSyncTimeRef.current = Date.now()
         await tinybaseSyncRef.current.sync()
         lastSyncTimeRef.current = Date.now()
         const status = tinybaseSyncRef.current.getSyncStatus()
         setLastSyncedAt(status.lastSyncedAt)
         setSyncState('idle')
-        console.log('[Sync] TinyBase sync completed')
-
-        // Notify other clients via broadcast that we synced changes
-        if (broadcastChannelRef.current && supabase) {
-          console.log('[Sync] Broadcasting sync notification to other clients')
-          broadcastChannelRef.current.send({
-            type: 'broadcast',
-            event: 'sync-needed',
-            payload: { clientId: clientIdRef.current, timestamp: Date.now() },
-          })
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error')
         setSyncState('error')
@@ -380,14 +358,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     // Initial sync only once per session
     if (!initialSyncDoneRef.current) {
       initialSyncDoneRef.current = true
-      console.log('[Sync] TinyBase initial sync starting...')
       syncNow()
     }
 
     // Set up periodic sync
     const intervalId = setInterval(() => {
       if (!isSyncingRef.current) {
-        console.log('[Sync] TinyBase periodic sync...')
         syncNow()
       }
     }, SYNC_INTERVAL)
@@ -431,7 +407,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
   }, [isOnline, pendingCount, debouncedSync, settings.autoSync, useTinyBaseEnabled])
 
-  // Listen for local TinyBase changes and trigger sync
+  // Listen for local TinyBase changes and trigger sync + broadcast
   useEffect(() => {
     if (!useTinyBaseEnabled || !tinybaseStore || !settings.autoSync || !isSyncServiceReady) return
 
@@ -443,15 +419,29 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         (row) => (row as Record<string, unknown>).sync_status === 'pending'
       )
       if (hasPending && !isSyncingRef.current) {
-        console.log('[Sync] TinyBase: Local changes detected, triggering sync...')
-        debouncedSync()
+        // Debounced sync that also broadcasts to other clients after completion
+        if (syncDebounceRef.current) {
+          clearTimeout(syncDebounceRef.current)
+        }
+        syncDebounceRef.current = setTimeout(async () => {
+          if (isSyncingRef.current) return
+          await syncNowRef.current()
+          // Only broadcast after syncing LOCAL changes (not pulls from other clients)
+          if (broadcastChannelRef.current && supabase) {
+            broadcastChannelRef.current.send({
+              type: 'broadcast',
+              event: 'sync-needed',
+              payload: { clientId: clientIdRef.current, timestamp: Date.now() },
+            })
+          }
+        }, SYNC_DEBOUNCE)
       }
     })
 
     return () => {
       tinybaseStore.delListener(listenerId)
     }
-  }, [useTinyBaseEnabled, tinybaseStore, settings.autoSync, isSyncServiceReady, debouncedSync])
+  }, [useTinyBaseEnabled, tinybaseStore, settings.autoSync, isSyncServiceReady])
 
   // Ref for syncNow to avoid stale closures in realtime callbacks
   const syncNowRef = useRef(syncNow)
@@ -464,111 +454,22 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     if (!useTinyBaseEnabled) return
     if (!supabase || !user?.id || !settings.autoSync) return
 
-    console.log('[Sync] Setting up TinyBase realtime subscriptions for user:', user.id, 'client:', clientIdRef.current)
-
     // Create a user-specific channel for broadcast messages
     const broadcastChannel = supabase
       .channel(`sync-broadcast-${user.id}`)
       .on('broadcast', { event: 'sync-needed' }, (payload) => {
-        const { clientId, timestamp } = payload.payload as { clientId: string; timestamp: number }
-        console.log('[Sync] Received broadcast sync notification:', { clientId, timestamp, myClientId: clientIdRef.current })
-
+        const { clientId } = payload.payload as { clientId: string; timestamp: number }
         // Only sync if the notification came from a different client
         if (clientId !== clientIdRef.current) {
-          console.log('[Sync] TinyBase: Remote change notification received from another client, triggering sync')
           syncNowRef.current()
-        } else {
-          console.log('[Sync] TinyBase: Ignoring own broadcast')
         }
       })
-      .subscribe((status, err) => {
-        console.log('[Sync] Broadcast channel subscription status:', status, err ? `Error: ${err.message}` : '')
-      })
+      .subscribe()
 
     broadcastChannelRef.current = broadcastChannel
 
-    // Also set up postgres_changes as a fallback (may not work depending on Supabase config)
-    const dbChannel = supabase
-      .channel('tinybase-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notes',
-        },
-        (payload) => {
-          console.log('[Sync] TinyBase: Received postgres_changes event for notes:', {
-            eventType: payload.eventType,
-            old: payload.old,
-            new: payload.new,
-          })
-          // Filter client-side to only handle our user's changes
-          const payloadUserId = (payload.new as Record<string, unknown>)?.user_id || (payload.old as Record<string, unknown>)?.user_id
-          if (payloadUserId === user.id) {
-            // Check if this is likely our own change echoing back
-            const timeSinceLastSync = Date.now() - lastSyncTimeRef.current
-            if (timeSinceLastSync < SELF_CHANGE_THRESHOLD && isSyncingRef.current) {
-              console.log('[Sync] TinyBase: Ignoring likely self-triggered event (syncing)')
-              return
-            }
-            console.log('[Sync] TinyBase: Remote notes change detected via postgres_changes, triggering sync')
-            syncNowRef.current()
-          } else {
-            console.log('[Sync] TinyBase: Ignoring change for different user:', payloadUserId)
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'labels',
-        },
-        (payload) => {
-          console.log('[Sync] TinyBase: Received postgres_changes event for labels')
-          const payloadUserId = (payload.new as Record<string, unknown>)?.user_id || (payload.old as Record<string, unknown>)?.user_id
-          if (payloadUserId === user.id) {
-            const timeSinceLastSync = Date.now() - lastSyncTimeRef.current
-            if (timeSinceLastSync < SELF_CHANGE_THRESHOLD && isSyncingRef.current) {
-              console.log('[Sync] TinyBase: Ignoring likely self-triggered event (syncing)')
-              return
-            }
-            console.log('[Sync] TinyBase: Remote labels change detected via postgres_changes, triggering sync')
-            syncNowRef.current()
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'contacts',
-        },
-        (payload) => {
-          console.log('[Sync] TinyBase: Received postgres_changes event for contacts')
-          const payloadUserId = (payload.new as Record<string, unknown>)?.user_id || (payload.old as Record<string, unknown>)?.user_id
-          if (payloadUserId === user.id) {
-            const timeSinceLastSync = Date.now() - lastSyncTimeRef.current
-            if (timeSinceLastSync < SELF_CHANGE_THRESHOLD && isSyncingRef.current) {
-              console.log('[Sync] TinyBase: Ignoring likely self-triggered event (syncing)')
-              return
-            }
-            console.log('[Sync] TinyBase: Remote contacts change detected via postgres_changes, triggering sync')
-            syncNowRef.current()
-          }
-        }
-      )
-      .subscribe((status, err) => {
-        console.log('[Sync] TinyBase postgres_changes subscription status:', status, err ? `Error: ${err.message}` : '')
-      })
-
     return () => {
-      console.log('[Sync] Removing TinyBase realtime channels')
       supabase.removeChannel(broadcastChannel)
-      supabase.removeChannel(dbChannel)
       broadcastChannelRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
