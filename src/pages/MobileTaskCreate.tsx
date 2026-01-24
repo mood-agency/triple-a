@@ -78,11 +78,13 @@ export function MobileTaskCreate() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // Get notes for the selected date
-  const selectedDateStr = formatLocalDate(selectedDate);
-  const { notes, createNote, updateAssignee, toggleCompleted } = useNotes(selectedDateStr);
+  // Get ALL notes (no date filter) - we'll filter by deadline client-side like CalendarView does
+  const { notes, createNote, updateAssignee, toggleCompleted, updateDeadline } = useNotes();
   const { labels, getLabelsForNote } = useLabels();
   const { contacts } = useContacts();
+
+  // Category filter state (like CalendarView)
+  const [categoryFilter, setCategoryFilter] = useState<NoteCategory | 'all'>('all');
 
   // Task creation dialog state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -180,6 +182,10 @@ export function MobileTaskCreate() {
       const labelIds = selectedLabels.map((l) => l.id);
       const note = await createNote(title.trim(), category, description.trim() || null, labelIds);
 
+      // Set deadline to the selected date so the task appears in the calendar view
+      const deadlineDate = formatLocalDate(selectedDate);
+      await updateDeadline(note.id, deadlineDate);
+
       if (selectedAssigneeState) {
         await updateAssignee(note.id, selectedAssigneeState.id);
       }
@@ -199,15 +205,46 @@ export function MobileTaskCreate() {
 
   const CategoryIcon = categoryIcons[category];
 
-  // Sort notes: incomplete first, then by sort_order
-  const sortedNotes = useMemo(() => {
-    return [...notes].sort((a, b) => {
-      if (a.completed !== b.completed) {
-        return a.completed ? 1 : -1;
-      }
-      return a.sort_order - b.sort_order;
+  // Filter notes by deadline date - same logic as CalendarView
+  // Only show todos, followups, and meetings (not notes category)
+  const filteredNotes = useMemo(() => {
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    const dateKey = `${year}-${month}-${day}`;
+
+    return notes.filter((note) => {
+      // Must have a deadline matching the selected date
+      if (!note.deadline) return false;
+      const noteDeadline = note.deadline.split('T')[0];
+      if (noteDeadline !== dateKey) return false;
+
+      // Only show todos, followups and meetings (not notes category)
+      if (note.category !== 'todo' && note.category !== 'followup' && note.category !== 'meeting') return false;
+
+      // Apply category filter if set
+      if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
+
+      return true;
     });
-  }, [notes]);
+  }, [notes, selectedDate, categoryFilter]);
+
+  // Separate active and completed notes
+  const activeNotes = useMemo(() => {
+    return filteredNotes
+      .filter((note) => !note.completed)
+      .sort((a, b) => a.sort_order - b.sort_order);
+  }, [filteredNotes]);
+
+  const completedNotes = useMemo(() => {
+    return filteredNotes
+      .filter((note) => note.completed)
+      .sort((a, b) => {
+        const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+        const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+        return bTime - aTime;
+      });
+  }, [filteredNotes]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -266,32 +303,84 @@ export function MobileTaskCreate() {
         </div>
       </div>
 
-      {/* Selected Date Header */}
+      {/* Selected Date Header with Category Filter */}
       <div className="px-4 py-3 border-b bg-muted/50">
-        <p className="text-sm font-medium">
-          {selectedDate.toLocaleDateString(isSpanish ? 'es-ES' : 'en-US', {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-          })}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {sortedNotes.length === 0
-            ? t('mobile.noTasks')
-            : t('mobile.tasksCount', { count: sortedNotes.length })}
-        </p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-medium">
+            {selectedDate.toLocaleDateString(isSpanish ? 'es-ES' : 'en-US', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+            })}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {filteredNotes.length === 0
+              ? t('mobile.noTasks')
+              : t('mobile.tasksCount', { count: filteredNotes.length })}
+          </p>
+        </div>
+        {/* Category Filter Chips */}
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          <button
+            onClick={() => setCategoryFilter('all')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap',
+              categoryFilter === 'all'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            )}
+          >
+            {t('categoryAll')}
+          </button>
+          <button
+            onClick={() => setCategoryFilter('todo')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap',
+              categoryFilter === 'todo'
+                ? 'bg-red-500 text-white'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            )}
+          >
+            <Pickaxe className="h-3 w-3" />
+            {t('categoryTodo')}
+          </button>
+          <button
+            onClick={() => setCategoryFilter('followup')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap',
+              categoryFilter === 'followup'
+                ? 'bg-yellow-500 text-white'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            )}
+          >
+            <Forward className="h-3 w-3" />
+            {t('categoryFollowUp')}
+          </button>
+          <button
+            onClick={() => setCategoryFilter('meeting')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap',
+              categoryFilter === 'meeting'
+                ? 'bg-green-500 text-white'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            )}
+          >
+            <Users className="h-3 w-3" />
+            {t('categoryMeeting')}
+          </button>
+        </div>
       </div>
 
       {/* Task List */}
       <div className="flex-1 overflow-auto">
-        {sortedNotes.length === 0 ? (
+        {activeNotes.length === 0 && completedNotes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <Circle className="h-12 w-12 mb-3 opacity-50" />
             <p className="text-sm">{t('mobile.noTasksForDay')}</p>
           </div>
         ) : (
           <div className="divide-y">
-            {sortedNotes.map((note) => {
+            {activeNotes.map((note) => {
               const NoteIcon = categoryIcons[note.category];
               const noteLabels = getLabelsForNote(note.id);
               const assignee = contacts.find((c) => c.id === note.assignee_id);
@@ -344,6 +433,62 @@ export function MobileTaskCreate() {
                 </div>
               );
             })}
+
+            {/* Completed Tasks Section */}
+            {completedNotes.length > 0 && (
+              <>
+                <div className="px-4 py-2 bg-muted/30">
+                  <p className="text-xs text-muted-foreground font-medium">
+                    {t('completedTasks')} ({completedNotes.length})
+                  </p>
+                </div>
+                {completedNotes.map((note) => {
+                  const NoteIcon = categoryIcons[note.category];
+                  const noteLabels = getLabelsForNote(note.id);
+                  const assignee = contacts.find((c) => c.id === note.assignee_id);
+
+                  return (
+                    <div
+                      key={note.id}
+                      className="flex items-start gap-3 px-4 py-3 opacity-60"
+                    >
+                      <Checkbox
+                        checked={note.completed}
+                        onCheckedChange={() => handleToggleTask(note)}
+                        className="mt-1"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <NoteIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span className="text-sm font-medium truncate line-through">
+                            {note.content}
+                          </span>
+                        </div>
+                        {(noteLabels.length > 0 || assignee) && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {noteLabels.map((label) => (
+                              <Badge
+                                key={label.id}
+                                variant="secondary"
+                                className="text-xs px-1.5 py-0"
+                                style={{ backgroundColor: label.color, color: 'white' }}
+                              >
+                                {label.name}
+                              </Badge>
+                            ))}
+                            {assignee && (
+                              <Badge variant="outline" className="text-xs px-1.5 py-0">
+                                {assignee.name}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
           </div>
         )}
       </div>
