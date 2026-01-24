@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
-import { Calendar, PanelRightClose, PanelRightOpen, List } from 'lucide-react';
+import { Calendar, PanelRightClose, PanelRightOpen, List, Pickaxe, Forward, StickyNote, Users as UsersIcon, User, Tag, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -30,6 +30,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ColorPicker } from '@/components/ui/color-picker';
 import type { EditableDescriptionHandle } from '@/components/ui/EditableDescription';
 import { useNoteHistory } from '@/hooks/useNoteHistory';
@@ -43,6 +44,7 @@ import { CalendarView } from './CalendarView';
 import { NoteFilters } from './NoteFilters';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { useContacts } from '@/hooks/useContacts';
+import { useDeletedNotes } from '@/hooks/useDeletedNotes';
 
 interface NoteListProps {
   notes: Note[];
@@ -88,6 +90,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { contacts } = useContacts();
+  const { deletedNotes } = useDeletedNotes();
   const containerRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<EditableDescriptionHandle>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -1063,43 +1066,125 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const shouldShowOnlyCompletedMessage = hasActiveFilters && activeNotes.length === 0 && completedNotes.length > 0;
 
 
-  // Build a comprehensive no-results message showing all active filters
-  const getNoResultsMessage = () => {
+  // Category icons and colors mapping
+  const categoryStyles: Record<NoteCategory, { icon: React.ReactNode; className: string }> = {
+    todo: { icon: <Pickaxe className="h-3 w-3" />, className: 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30' },
+    followup: { icon: <Forward className="h-3 w-3" />, className: 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30' },
+    notes: { icon: <StickyNote className="h-3 w-3" />, className: 'bg-gray-500/20 text-gray-700 dark:text-gray-300 border-gray-500/30' },
+    meeting: { icon: <UsersIcon className="h-3 w-3" />, className: 'bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30' },
+  };
+
+  // Build a comprehensive no-results message showing all active filters with badges
+  const renderNoResultsMessage = (completedCount?: number) => {
     // Special case: filters match only completed tasks (no active tasks)
-    if (shouldShowOnlyCompletedMessage) {
-      if (completedNotes.length === 1) {
-        return t('onlyCompletedTasksSingular');
+    const effectiveCompletedCount = completedCount ?? completedNotes.length;
+    if (shouldShowOnlyCompletedMessage || (completedCount !== undefined && completedCount > 0)) {
+      if (effectiveCompletedCount === 1) {
+        return <span>{t('onlyCompletedTasksSingular')}</span>;
       }
-      return t('onlyCompletedTasks', { count: completedNotes.length });
+      return <span>{t('onlyCompletedTasks', { count: effectiveCompletedCount })}</span>;
     }
 
-    const parts: string[] = [];
+    const elements: React.ReactNode[] = [];
 
+    // Search text - bold
     if (searchQuery.trim() !== '') {
-      parts.push(`texto "${searchQuery}"`);
+      elements.push(
+        <span key="search" className="inline-flex items-center gap-1">
+          {t('filterTextPrefix')} <strong className="font-semibold">"{searchQuery}"</strong>
+        </span>
+      );
     }
 
+    // Category - badge with icon
     if (categoryFilter !== 'all') {
       const categoryName = t(`category${categoryFilter.charAt(0).toUpperCase() + categoryFilter.slice(1)}`);
-      parts.push(`categoría ${categoryName}`);
+      const style = categoryStyles[categoryFilter];
+      elements.push(
+        <span key="category" className="inline-flex items-center gap-1">
+          {t('filterCategoryPrefix')}
+          <Badge className={`${style.className} gap-1`}>
+            {style.icon}
+            {categoryName}
+          </Badge>
+        </span>
+      );
     }
 
+    // Labels - badges with colors
     if (labelFilter.length > 0) {
-      const selectedLabels = labels.filter(l => labelFilter.includes(l.id)).map(l => l.name);
+      const selectedLabels = labels.filter(l => labelFilter.includes(l.id));
       if (selectedLabels.length > 0) {
-        parts.push(`${selectedLabels.length === 1 ? 'etiqueta' : 'etiquetas'} ${selectedLabels.join(', ')}`);
+        elements.push(
+          <span key="labels" className="inline-flex items-center gap-1 flex-wrap">
+            {t('filterLabelsPrefix')}
+            {selectedLabels.map(label => (
+              <Badge
+                key={label.id}
+                className="gap-1"
+                style={{
+                  backgroundColor: `${label.color}20`,
+                  color: label.color,
+                  borderColor: `${label.color}50`,
+                }}
+              >
+                <Tag className="h-3 w-3" />
+                {label.name}
+              </Badge>
+            ))}
+          </span>
+        );
       }
     }
 
+    // Assignees - badges
+    if (assigneeFilter.length > 0) {
+      const selectedAssignees = contacts.filter(c => assigneeFilter.includes(c.id));
+      if (selectedAssignees.length > 0) {
+        elements.push(
+          <span key="assignees" className="inline-flex items-center gap-1 flex-wrap">
+            {t('filterAssigneesPrefix')}
+            {selectedAssignees.map(contact => (
+              <Badge
+                key={contact.id}
+                className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30 gap-1"
+              >
+                <User className="h-3 w-3" />
+                {`${contact.name} ${contact.lastname}`.trim()}
+              </Badge>
+            ))}
+          </span>
+        );
+      }
+    }
+
+    // Overdue only - badge
     if (showOverdueOnly) {
-      parts.push('solo tareas vencidas');
+      elements.push(
+        <span key="overdue" className="inline-flex items-center gap-1">
+          <Badge className="bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30 gap-1">
+            <AlertCircle className="h-3 w-3" />
+            {t('filterOverdueOnly')}
+          </Badge>
+        </span>
+      );
     }
 
-    if (parts.length === 0) {
-      return t('noNotesWithFilters') + ' los filtros aplicados';
+    if (elements.length === 0) {
+      return <span>{t('noNotesWithFilters')} {t('filterApplied')}</span>;
     }
 
-    return t('noNotesWithFilters') + ': ' + parts.join(', ');
+    return (
+      <span className="inline-flex items-center gap-1.5 flex-wrap justify-center">
+        {t('noNotesWithFilters')}:
+        {elements.map((el, idx) => (
+          <span key={idx} className="inline-flex items-center gap-1">
+            {idx > 0 && <span className="text-muted-foreground/50">,</span>}
+            {el}
+          </span>
+        ))}
+      </span>
+    );
   };
 
   return (
@@ -1239,6 +1324,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         assigneeName={assigneeNamesCache.get(note.id)}
                       />
                     ))
+                  ) : hasActiveFilters ? (
+                    <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
+                      {renderNoResultsMessage(calendarCompletedNotes.length)}
+                    </p>
                   ) : (
                     <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
                       {t('calendar.noTasks')}
@@ -1300,13 +1389,13 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 {shouldShowOnlyCompletedMessage ? (
                   <div className="flex items-center justify-center h-full">
                     <p className="text-center text-muted-foreground/60 text-sm italic">
-                      {getNoResultsMessage()}
+                      {renderNoResultsMessage()}
                     </p>
                   </div>
                 ) : activeNotes.length === 0 && filteredNotes.length === 0 && hasActiveFilters ? (
                   <div className="flex items-center justify-center h-full">
                     <p className="text-center text-muted-foreground/60 text-sm italic">
-                      {getNoResultsMessage()}
+                      {renderNoResultsMessage()}
                     </p>
                   </div>
                 ) : (
@@ -1390,6 +1479,49 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         onToggleFixInSidebar={handleToggleFixInSidebarById}
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                         assigneeName={assigneeNamesCache.get(note.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Deleted tasks section */}
+              {deletedNotes.length > 0 && (
+                <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">
+                  <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
+                    {t('trash.title')} ({deletedNotes.length})
+                  </div>
+                  <div className="overflow-y-auto pr-2 flex-1">
+                    {deletedNotes.map((note) => (
+                      <MemoizedNoteRow
+                        key={note.id}
+                        note={note}
+                        onDeleteWithToast={handleDeleteWithToast}
+                        onToggleCompleted={handleToggleCompletedWithNavigation}
+                        onTogglePinned={onTogglePinned}
+                        isSelected={selectedNote?.id === note.id}
+                        onSelect={handleSelectNoteById}
+                        onEdit={onEdit}
+                        onNavigateDown={handleNavigateDownById}
+                        onNavigateUp={handleNavigateUpById}
+                        onNavigateToDescription={handleNavigateToDescription}
+                        shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
+                        desiredColumn={desiredColumn}
+                        onTitleFocused={handleTitleFocused}
+                        onCreateNoteAfter={handleCreateNoteAfterById}
+                        isDragging={false}
+                        labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
+                        allLabels={labels}
+                        onAddLabel={handleAddLabelToNote}
+                        onRemoveLabel={handleRemoveLabelFromNote}
+                        onCreateLabel={handleCreateLabelClick}
+                        onEditLabel={handleEditLabel}
+                        isFixedInSidebar={fixedNoteId === note.id}
+                        onToggleFixInSidebar={handleToggleFixInSidebarById}
+                        onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
+                        assigneeName={assigneeNamesCache.get(note.id)}
+                        isDeleted={true}
+                        onRestore={() => onRestore(note)}
                       />
                     ))}
                   </div>

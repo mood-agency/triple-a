@@ -14,6 +14,7 @@ import {
   Users,
   User,
   Check,
+  RotateCcw,
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -68,6 +69,8 @@ export interface NoteRowProps {
   onToggleFixInSidebar?: (noteId: string) => void;
   onContentChange?: (content: string) => void;
   assigneeName?: string | null;
+  isDeleted?: boolean;
+  onRestore?: () => void;
 }
 
 /**
@@ -100,6 +103,8 @@ function NoteRow({
   onToggleFixInSidebar,
   onContentChange,
   assigneeName,
+  isDeleted = false,
+  onRestore,
 }: NoteRowProps) {
   const { t } = useTranslation();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -301,13 +306,13 @@ function NoteRow({
         }}
         style={style}
         onClick={() => onSelect(note.id)}
-        className={`group grid grid-cols-[1fr_84px] py-0.5 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' ? 'opacity-50' : ''} ${isSelected ? 'bg-muted/50' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
+        className={`group grid grid-cols-[1fr_84px] py-0.5 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' ? 'opacity-50' : ''} ${isSelected ? 'bg-gray-200/70 dark:bg-gray-600/30' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
       >
         <div className={`px-2 select-none py-0.5 flex flex-col gap-0.5 ${isEditingContent ? '' : 'overflow-hidden'}`} onClick={handleContentClick}>
           {/* Title row */}
           <div className="flex items-center gap-1.5">
             <div
-              className="flex items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none shrink-0"
+              className="flex items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none shrink-0 h-5"
               {...attributes}
               {...listeners}
               onClick={(e) => e.stopPropagation()}
@@ -317,14 +322,14 @@ function NoteRow({
             {/* Category icon that changes to checkbox on hover (for non-notes) */}
             {note.category !== 'notes' ? (
               <div
-                className="relative w-4 h-4 shrink-0 cursor-pointer"
+                className="relative w-4 h-5 shrink-0 cursor-pointer flex items-center justify-center"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleCheckedChange();
                 }}
               >
                 {/* Category icon - hidden on hover when not completed */}
-                <span className={`absolute inset-0 flex items-center justify-center ${note.completed ? 'hidden' : 'group-hover:hidden'}`}>
+                <span className={`flex items-center justify-center ${note.completed ? 'hidden' : 'group-hover:hidden'}`}>
                   {note.category === 'todo' ? (
                     <Pickaxe className="h-4 w-4 text-muted-foreground/70" />
                   ) : note.category === 'followup' ? (
@@ -334,7 +339,7 @@ function NoteRow({
                   )}
                 </span>
                 {/* Checkbox - shown on hover or when completed */}
-                <span className={`absolute inset-0 flex items-center justify-center ${note.completed ? 'block' : 'hidden group-hover:block'}`}>
+                <span className={`absolute flex items-center justify-center ${note.completed ? 'flex' : 'hidden group-hover:flex'}`}>
                   <Checkbox
                     checked={note.completed}
                     onCheckedChange={handleCheckedChange}
@@ -342,7 +347,9 @@ function NoteRow({
                 </span>
               </div>
             ) : (
-              <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+              <div className="h-5 flex items-center">
+                <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+              </div>
             )}
             {isEditingContent ? (
               <>
@@ -394,7 +401,8 @@ function NoteRow({
                       }
                     }
                   }}
-                  className="flex-1 min-w-0 text-sm leading-normal bg-transparent border-none outline-none p-0 m-0 text-foreground caret-foreground"
+                  placeholder={t('newTaskPlaceholder')}
+                  className="flex-1 min-w-0 text-sm leading-5 bg-transparent border-none outline-none p-0 m-0 text-foreground caret-foreground placeholder:text-muted-foreground/50"
                 />
                 <Popover open={showLabelDropdown} onOpenChange={(open) => {
                   setShowLabelDropdown(open);
@@ -538,11 +546,11 @@ function NoteRow({
                 </Popover>
               </>
             ) : (
-              <span className={`text-sm leading-normal truncate ${note.completed ? 'line-through text-muted-foreground' : ''} ${isSelected ? 'cursor-text' : ''}`}>
-                {contentValue}
+              <span className={`text-sm leading-5 truncate ${note.completed ? 'line-through text-muted-foreground' : ''} ${isSelected ? 'cursor-text' : ''} ${!contentValue ? 'text-muted-foreground/50 italic' : ''}`}>
+                {contentValue || t('newTaskPlaceholder')}
               </span>
             )}
-            {labels.length > 0 && (
+            {!isSelected && labels.length > 0 && (
               <div className="flex gap-1 shrink-0">
                 {labels.map((label) => (
                   <span
@@ -555,7 +563,7 @@ function NoteRow({
                 ))}
               </div>
             )}
-            {note.deadline && (
+            {!isSelected && note.deadline && (
               <div className={`flex items-center gap-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded ${
                 parseLocalDate(note.deadline) < new Date() && !note.completed
                   ? 'text-destructive bg-destructive/10'
@@ -565,7 +573,7 @@ function NoteRow({
                 <span>{parseLocalDate(note.deadline).toLocaleDateString()}</span>
               </div>
             )}
-            {assigneeName && (
+            {!isSelected && assigneeName && (
               <div className="flex items-center gap-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded text-muted-foreground bg-muted">
                 <User className="h-3 w-3" />
                 <span>{assigneeName}</span>
@@ -611,20 +619,37 @@ function NoteRow({
               </TooltipContent>
             </Tooltip>
           )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/60 hover:text-destructive p-1.5 cursor-pointer"
-                onClick={handleDeleteClick}
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('deleteTask')}</p>
-            </TooltipContent>
-          </Tooltip>
+          {isDeleted && onRestore ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/60 hover:text-primary p-1.5 cursor-pointer"
+                  onClick={onRestore}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t('trash.restore')}</p>
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/60 hover:text-destructive p-1.5 cursor-pointer"
+                  onClick={handleDeleteClick}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t('deleteTask')}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
 
