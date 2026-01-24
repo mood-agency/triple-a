@@ -820,10 +820,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         onEdit(selectedNote.id, selectedNote.content, selectedNote.category, descriptionValue || null);
       }
       handleToggleCompletedWithNavigation(selectedNote.id, !selectedNote.completed);
-    } else if (e.key === 'l' && e.ctrlKey && selectedNote) {
+    } else if (e.key === 'l' && e.altKey && selectedNote) {
       e.preventDefault();
       setLabelDropdownOpen(true);
-    } else if (e.key === 'c' && e.ctrlKey && selectedNote) {
+    } else if (e.key === 'c' && e.altKey && selectedNote) {
       e.preventDefault();
       setCategoryDropdownOpen(true);
     } else if (e.key === 'u' && e.ctrlKey && selectedNote) {
@@ -906,10 +906,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         onEdit(fixedNote.id, fixedNote.content, fixedNote.category, fixedNoteDescriptionValue || null);
       }
       handleToggleCompletedWithNavigation(fixedNote.id, !fixedNote.completed);
-    } else if (e.key === 'l' && e.ctrlKey && fixedNote) {
+    } else if (e.key === 'l' && e.altKey && fixedNote) {
       e.preventDefault();
       setFixedNoteLabelDropdownOpen(true);
-    } else if (e.key === 'c' && e.ctrlKey && fixedNote) {
+    } else if (e.key === 'c' && e.altKey && fixedNote) {
       e.preventDefault();
       setFixedNoteCategoryDropdownOpen(true);
     } else if (e.key === 'u' && e.ctrlKey && fixedNote) {
@@ -1407,6 +1407,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                             onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                             assigneeName={assigneeNamesCache.get(note.id)}
                             compactView={compactTaskView}
+                            isDescriptionFocused={(focusTarget === 'description-start' || focusTarget === 'description-end') && selectedNote?.id === note.id}
                           />
                         ))
                       ) : hasActiveFilters ? (
@@ -1456,6 +1457,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                               onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                               assigneeName={assigneeNamesCache.get(note.id)}
                               compactView={compactTaskView}
+                            isDescriptionFocused={(focusTarget === 'description-start' || focusTarget === 'description-end') && selectedNote?.id === note.id}
                             />
                           ))}
                         </>
@@ -1504,6 +1506,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                               isDeleted={true}
                               onRestore={() => onRestore(note)}
                               compactView={compactTaskView}
+                            isDescriptionFocused={(focusTarget === 'description-start' || focusTarget === 'description-end') && selectedNote?.id === note.id}
                             />
                           ))}
                         </>
@@ -1579,6 +1582,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                         assigneeName={assigneeNamesCache.get(note.id)}
                         compactView={compactTaskView}
+                            isDescriptionFocused={(focusTarget === 'description-start' || focusTarget === 'description-end') && selectedNote?.id === note.id}
                       />
                       ))}
                     </SortableContext>
@@ -1623,6 +1627,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                         assigneeName={assigneeNamesCache.get(note.id)}
                         compactView={compactTaskView}
+                            isDescriptionFocused={(focusTarget === 'description-start' || focusTarget === 'description-end') && selectedNote?.id === note.id}
                       />
                     ))}
                   </div>
@@ -1667,6 +1672,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         isDeleted={true}
                         onRestore={() => onRestore(note)}
                         compactView={compactTaskView}
+                            isDescriptionFocused={(focusTarget === 'description-start' || focusTarget === 'description-end') && selectedNote?.id === note.id}
                       />
                     ))}
                   </div>

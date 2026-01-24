@@ -266,7 +266,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
             </TooltipTrigger>
             <TooltipContent className="flex items-center gap-2">
               <p>{t('addLabel')}</p>
-              <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>L</Kbd></span>
+              <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>L</Kbd></span>
             </TooltipContent>
           </Tooltip>
           <PopoverContent className="w-52 p-0" align="start">

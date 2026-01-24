@@ -71,6 +71,7 @@ export interface NoteRowProps {
   isDeleted?: boolean;
   onRestore?: () => void;
   compactView?: boolean;
+  isDescriptionFocused?: boolean;
 }
 
 /**
@@ -106,6 +107,7 @@ function NoteRow({
   isDeleted = false,
   onRestore,
   compactView = false,
+  isDescriptionFocused = false,
 }: NoteRowProps) {
   const { t } = useTranslation();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -171,22 +173,11 @@ function NoteRow({
   }, [isEditingContent]);
 
   // Focus externo desde el padre (navegación con flechas)
-  // IMPORTANT: Set isEditingContent synchronously to avoid flash of underline style
-  // We use a ref to track if we need to focus after render
-  const needsFocusRef = useRef(false);
-
-  if (shouldFocusTitle && isSelected && !isEditingContent) {
-    // Mark that focus is from navigation to prevent duplicate focus in isEditingContent effect
-    focusFromNavigationRef.current = true;
-    needsFocusRef.current = true;
-    setIsEditingContent(true);
-    // Call onTitleFocused synchronously to clear the flag immediately
-    onTitleFocused();
-  }
-
   useEffect(() => {
-    if (needsFocusRef.current && isEditingContent) {
-      needsFocusRef.current = false;
+    if (shouldFocusTitle && isSelected) {
+      // Mark that focus is from navigation to prevent duplicate focus in isEditingContent effect
+      focusFromNavigationRef.current = true;
+      setIsEditingContent(true);
       // Use setTimeout to ensure the input is rendered before focusing
       setTimeout(() => {
         if (contentInputRef.current) {
@@ -198,8 +189,9 @@ function NoteRow({
           contentInputRef.current.setSelectionRange(safePosition, safePosition);
         }
       }, 0);
+      onTitleFocused();
     }
-  }, [isEditingContent, desiredColumn]);
+  }, [shouldFocusTitle, isSelected, desiredColumn, onTitleFocused]);
 
   const handleCheckedChange = () => {
     onToggleCompleted(note.id, !note.completed);
@@ -263,10 +255,10 @@ function NoteRow({
       onDeleteWithToast(note);
       return;
     }
-    if (e.key === 'l' && e.ctrlKey) {
+    if (e.key === 'l' && e.altKey) {
       e.preventDefault();
       setShowLabelDropdown(true);
-    } else if (e.key === 'c' && e.ctrlKey) {
+    } else if (e.key === 'c' && e.altKey) {
       e.preventDefault();
       setShowCategoryDropdown(true);
     } else if (e.key === 'Enter' && !e.shiftKey) {
@@ -554,7 +546,7 @@ function NoteRow({
               </>
             ) : (
               <span
-                className={`text-sm leading-4 truncate ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${note.completed ? 'line-through text-muted-foreground' : ''} ${isSelected ? 'cursor-text underline decoration-primary decoration-2 underline-offset-2' : ''} ${!contentValue ? 'text-muted-foreground/50 italic' : ''}`}
+                className={`text-sm leading-4 truncate ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${note.completed ? 'line-through text-muted-foreground' : ''} ${isSelected && isDescriptionFocused ? 'cursor-text underline decoration-primary decoration-2 underline-offset-2' : ''} ${!contentValue ? 'text-muted-foreground/50 italic' : ''}`}
                 {...attributes}
                 {...listeners}
               >
@@ -724,6 +716,7 @@ export const MemoizedNoteRow = memo(
     if (prevProps.isDragging !== nextProps.isDragging) return false;
     if (prevProps.isFixedInSidebar !== nextProps.isFixedInSidebar) return false;
     if (prevProps.compactView !== nextProps.compactView) return false;
+    if (prevProps.isDescriptionFocused !== nextProps.isDescriptionFocused) return false;
 
     // Labels comparison - use reference equality first (fast path)
     if (prevProps.labels !== nextProps.labels) {
