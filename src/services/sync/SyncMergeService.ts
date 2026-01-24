@@ -62,6 +62,23 @@ export class SyncMergeService {
     for (const remoteLabel of remoteLabels || []) {
       this.mergeRemoteLabel(remoteLabel);
     }
+
+    // Pull note_history (using changed_at for incremental sync)
+    let historyQuery = client
+      .from('note_history')
+      .select('*')
+      .eq('user_id', this.userId);
+
+    if (lastSyncedAt) {
+      historyQuery = historyQuery.gt('changed_at', lastSyncedAt);
+    }
+
+    const { data: remoteHistory, error: historyError } = await historyQuery;
+    if (historyError) throw historyError;
+
+    for (const remoteHistoryEntry of remoteHistory || []) {
+      this.mergeRemoteNoteHistory(remoteHistoryEntry);
+    }
   }
 
   /**
@@ -172,6 +189,50 @@ export class SyncMergeService {
           ]
         );
       }
+    }
+  }
+
+  /**
+   * Merge a remote note_history entry into local database
+   * Uses note_id + changed_at as unique identifier to avoid duplicates
+   */
+  mergeRemoteNoteHistory(remoteHistory: Record<string, unknown>): void {
+    // Get local note ID from remote note ID
+    const noteResult = this.db.exec(
+      `SELECT id FROM notes WHERE remote_id = ?`,
+      [remoteHistory.note_id as string]
+    );
+
+    const localNoteId = noteResult[0]?.values[0]?.[0] as string | null;
+
+    // Skip if the note doesn't exist locally
+    if (!localNoteId) return;
+
+    // Check if this history entry already exists (by note_id + changed_at)
+    const existingResult = this.db.exec(
+      `SELECT id FROM note_history WHERE note_id = ? AND changed_at = ?`,
+      [localNoteId, remoteHistory.changed_at as string]
+    );
+
+    if (existingResult.length === 0 || existingResult[0].values.length === 0) {
+      // Insert new history entry
+      const localId = crypto.randomUUID();
+      this.db.run(
+        `INSERT INTO note_history (id, note_id, content, description, category, completed, changed_at, action_type, reason, previous_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          localId,
+          localNoteId,
+          remoteHistory.content,
+          remoteHistory.description ?? null,
+          remoteHistory.category,
+          remoteHistory.completed ? 1 : 0,
+          remoteHistory.changed_at,
+          remoteHistory.action_type ?? 'edit',
+          remoteHistory.reason ?? null,
+          remoteHistory.previous_date ?? null,
+        ]
+      );
     }
   }
 }
