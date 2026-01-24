@@ -20,16 +20,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { AssigneePicker } from '@/components/notes/AssigneePicker';
 import type { Note, NoteCategory, Label, NoteHistory } from '@/types/note';
 import type { Contact } from '@/types/contact';
-
-// Parse a date string as a local date to avoid timezone issues
-function parseLocalDate(dateStr: string): Date {
-  const datePart = dateStr.split('T')[0];
-  const [year, month, day] = datePart.split('-').map(Number);
-  if (isNaN(year) || isNaN(month) || isNaN(day)) {
-    return new Date(dateStr);
-  }
-  return new Date(year, month - 1, day);
-}
+import { parseLocalDate, formatLocalDate } from '@/utils/dateUtils';
 
 interface TaskDescriptionPanelProps {
   note: Note;
@@ -143,8 +134,7 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
 
     const handleDeadlineChange = (date: Date | undefined) => {
       if (date) {
-        const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0);
-        onUpdateDeadline(note.id, localDate.toISOString().split('T')[0]);
+        onUpdateDeadline(note.id, formatLocalDate(date));
       } else {
         onUpdateDeadline(note.id, null);
       }

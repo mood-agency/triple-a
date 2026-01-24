@@ -20,6 +20,7 @@ import {
 } from '@dnd-kit/sortable';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   Dialog,
   DialogContent,
@@ -1062,21 +1063,35 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     <div ref={containerRef} className="flex flex-col h-full overflow-hidden" tabIndex={0}>
       <div className="flex gap-2 mb-3 flex-shrink-0">
         {/* View mode toggle - at the beginning */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
-              className="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted"
-            >
-              {viewMode === 'calendar' ? <List className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent className="flex items-center gap-2">
-            <p>{viewMode === 'calendar' ? t('calendar.switchToListView') : t('calendar.switchToCalendarView')}</p>
-            <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>Shift</Kbd><Kbd>C</Kbd></span>
-          </TooltipContent>
-        </Tooltip>
+        <ToggleGroup
+          type="single"
+          value={viewMode}
+          onValueChange={(value) => value && setViewMode(value as 'list' | 'calendar')}
+          className="h-8"
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <ToggleGroupItem value="list" aria-label={t('calendar.switchToListView')} className="h-8 w-8 p-0">
+                <List className="h-4 w-4" />
+              </ToggleGroupItem>
+            </TooltipTrigger>
+            <TooltipContent className="flex items-center gap-2">
+              <p>{t('calendar.switchToListView')}</p>
+              <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>Shift</Kbd><Kbd>C</Kbd></span>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <ToggleGroupItem value="calendar" aria-label={t('calendar.switchToCalendarView')} className="h-8 w-8 p-0">
+                <Calendar className="h-4 w-4" />
+              </ToggleGroupItem>
+            </TooltipTrigger>
+            <TooltipContent className="flex items-center gap-2">
+              <p>{t('calendar.switchToCalendarView')}</p>
+              <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>Shift</Kbd><Kbd>C</Kbd></span>
+            </TooltipContent>
+          </Tooltip>
+        </ToggleGroup>
         <NoteFilters
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}

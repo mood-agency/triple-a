@@ -145,6 +145,16 @@ export class SyncBulkService {
         current++;
         onProgress?.(current, total, `Note: ${(remoteNote.content as string).substring(0, 30)}...`);
 
+        // Map remote assignee_id to local contact id
+        let localAssigneeId: string | null = null;
+        if (remoteNote.assignee_id) {
+          const contactResult = this.db.exec(
+            `SELECT id FROM contacts WHERE remote_id = ?`,
+            [remoteNote.assignee_id]
+          );
+          localAssigneeId = contactResult[0]?.values[0]?.[0] as string | null;
+        }
+
         const existingResult = this.db.exec(
           `SELECT id FROM notes WHERE remote_id = ?`,
           [remoteNote.id as string]
@@ -154,8 +164,8 @@ export class SyncBulkService {
           // Insert new note
           const localId = crypto.randomUUID();
           this.db.run(
-            `INSERT INTO notes (id, date, content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, updated_at, remote_id, sync_status, last_synced_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)`,
+            `INSERT INTO notes (id, date, content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, updated_at, remote_id, sync_status, last_synced_at, assignee_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?, ?)`,
             [
               localId,
               remoteNote.date,
@@ -171,6 +181,7 @@ export class SyncBulkService {
               remoteNote.updated_at,
               remoteNote.id,
               now,
+              localAssigneeId,
             ]
           );
           pulled.notes++;
@@ -178,7 +189,7 @@ export class SyncBulkService {
           // Update existing
           const localId = existingResult[0].values[0][0] as string;
           this.db.run(
-            `UPDATE notes SET date = ?, content = ?, description = ?, category = ?, completed = ?, completed_at = ?, deadline = ?, pinned = ?, sort_order = ?, updated_at = ?, sync_status = 'synced', last_synced_at = ?
+            `UPDATE notes SET date = ?, content = ?, description = ?, category = ?, completed = ?, completed_at = ?, deadline = ?, pinned = ?, sort_order = ?, updated_at = ?, sync_status = 'synced', last_synced_at = ?, assignee_id = ?
              WHERE id = ?`,
             [
               remoteNote.date,
@@ -192,6 +203,7 @@ export class SyncBulkService {
               remoteNote.sort_order,
               remoteNote.updated_at,
               now,
+              localAssigneeId,
               localId,
             ]
           );
@@ -315,7 +327,7 @@ export class SyncBulkService {
 
     try {
       // Get all local data
-      const notesResult = this.db.exec(`SELECT id, date, content, description, category, completed, pinned, sort_order, created_at, updated_at, remote_id, deadline, completed_at FROM notes`);
+      const notesResult = this.db.exec(`SELECT id, date, content, description, category, completed, pinned, sort_order, created_at, updated_at, remote_id, deadline, completed_at, assignee_id FROM notes`);
       const labelsResult = this.db.exec(`SELECT id, name, color, created_at, updated_at, remote_id FROM labels`);
       const noteLabelsResult = this.db.exec(`SELECT note_id, label_id, created_at FROM note_labels`);
       const noteHistoryResult = this.db.exec(`SELECT id, note_id, content, description, category, completed, changed_at, action_type, reason, previous_date FROM note_history`);
@@ -385,9 +397,16 @@ export class SyncBulkService {
 
       // Push all notes
       for (const row of notes) {
-        const [id, date, content, description, category, completed, pinned, sort_order, created_at, updated_at, remote_id, deadline, completed_at] = row as [string, string, string, string | null, string, number, number, number, string, string, string | null, string | null, string | null];
+        const [id, date, content, description, category, completed, pinned, sort_order, created_at, updated_at, remote_id, deadline, completed_at, assignee_id] = row as [string, string, string, string | null, string, number, number, number, string, string, string | null, string | null, string | null, string | null];
         current++;
         onProgress?.(current, total, `Note: ${content.substring(0, 30)}...`);
+
+        // Map local assignee_id to remote contact id
+        let remoteAssigneeId: string | null = null;
+        if (assignee_id) {
+          const contactResult = this.db.exec(`SELECT remote_id FROM contacts WHERE id = ?`, [assignee_id]);
+          remoteAssigneeId = contactResult[0]?.values[0]?.[0] as string | null;
+        }
 
         try {
           if (remote_id) {
@@ -408,6 +427,7 @@ export class SyncBulkService {
                 updated_at,
                 deadline,
                 completed_at,
+                assignee_id: remoteAssigneeId,
               });
 
             if (error) throw error;
@@ -428,6 +448,7 @@ export class SyncBulkService {
                 updated_at,
                 deadline,
                 completed_at,
+                assignee_id: remoteAssigneeId,
               })
               .select('id')
               .single();
