@@ -15,7 +15,11 @@ import {
   CircleDot,
   CheckCircle2,
   Trash2,
+  CalendarRange,
 } from 'lucide-react';
+import { format } from 'date-fns';
+import { es, enUS } from 'date-fns/locale';
+import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -31,6 +35,11 @@ import {
 } from '@/components/ui/command';
 import type { NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
+
+interface DateRange {
+  from: Date | undefined;
+  to: Date | undefined;
+}
 
 interface NoteFiltersProps {
   // Search
@@ -54,6 +63,10 @@ interface NoteFiltersProps {
   onSortByDeadlineChange: (value: boolean) => void;
   showOverdueOnly: boolean;
   onShowOverdueOnlyChange: (value: boolean) => void;
+
+  // Date range filter
+  dateRangeFilter: DateRange;
+  onDateRangeFilterChange: (range: DateRange) => void;
 
   // Assignee options
   sortByAssignee: boolean;
@@ -86,6 +99,8 @@ export function NoteFilters({
   onSortByDeadlineChange,
   showOverdueOnly,
   onShowOverdueOnlyChange,
+  dateRangeFilter,
+  onDateRangeFilterChange,
   sortByAssignee,
   onSortByAssigneeChange,
   contacts,
@@ -96,7 +111,8 @@ export function NoteFilters({
   hasCompletedTasks = false,
   hasDeletedTasks = false,
 }: NoteFiltersProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language === 'es' ? es : enUS;
 
   return (
     <>
@@ -391,6 +407,62 @@ export function NoteFilters({
             <p>{t('showOverdueOnly')}</p>
           </TooltipContent>
         </Tooltip>
+        {/* Date range filter */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={`h-8 shadow-none ${dateRangeFilter.from || dateRangeFilter.to ? 'bg-accent text-accent-foreground' : ''}`}
+              aria-label={t('dateRange.filter')}
+            >
+              <CalendarRange className="h-3.5 w-3.5" />
+              {dateRangeFilter.from || dateRangeFilter.to ? (
+                <span className="ml-1 text-xs">
+                  {dateRangeFilter.from && dateRangeFilter.to
+                    ? `${format(dateRangeFilter.from, 'dd/MM', { locale })} - ${format(dateRangeFilter.to, 'dd/MM', { locale })}`
+                    : dateRangeFilter.from
+                    ? `${t('dateRange.from')} ${format(dateRangeFilter.from, 'dd/MM', { locale })}`
+                    : `${t('dateRange.to')} ${format(dateRangeFilter.to!, 'dd/MM', { locale })}`}
+                </span>
+              ) : (
+                <ChevronDown className="h-3 w-3 ml-0.5" />
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <div className="p-3 border-b">
+              <p className="text-sm font-medium">{t('dateRange.filter')}</p>
+              <p className="text-xs text-muted-foreground">{t('dateRange.filterDescription')}</p>
+            </div>
+            <Calendar
+              mode="range"
+              selected={{ from: dateRangeFilter.from, to: dateRangeFilter.to }}
+              onSelect={(range) => {
+                onDateRangeFilterChange({
+                  from: range?.from,
+                  to: range?.to,
+                });
+              }}
+              locale={locale}
+              weekStartsOn={1}
+              numberOfMonths={1}
+            />
+            {(dateRangeFilter.from || dateRangeFilter.to) && (
+              <div className="p-2 border-t">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => onDateRangeFilterChange({ from: undefined, to: undefined })}
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  {t('dateRange.clear')}
+                </Button>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Task status filter */}

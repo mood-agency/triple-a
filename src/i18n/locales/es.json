@@ -187,6 +187,7 @@
   "completedTasks": "Completadas",
   "deadline": "Fecha límite",
   "setDeadline": "Establecer fecha límite",
+  "naturalDatePlaceholder": "tomorrow, next friday, in 3 days",
   "postpone": "Posponer",
   "postponeTask": "Registrar motivo de aplazamiento",
   "newDeadline": "Nueva fecha límite",
@@ -214,6 +215,13 @@
   "sortByAssignee": "Ordenar por responsable",
   "overdue": "Vencidas",
   "showOverdueOnly": "Mostrar solo tareas vencidas",
+  "dateRange": {
+    "filter": "Rango de fechas",
+    "filterDescription": "Filtrar tareas por rango de fecha límite",
+    "from": "Desde",
+    "to": "Hasta",
+    "clear": "Limpiar rango"
+  },
   "compactView": "Vista compacta",
   "compactViewTooltip": "Ocultar iconos, fechas y etiquetas en la lista de tareas",
   "hotkeys": {

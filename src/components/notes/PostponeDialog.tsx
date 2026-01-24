@@ -42,9 +42,8 @@ export const PostponeDialog = memo(function PostponeDialog({
 
   const handlePostpone = () => {
     if (!initialDate || !reason.trim()) return;
-    // Use date-fns format to ensure the saved date matches the displayed date
-    const dateStr = format(initialDate, 'yyyy-MM-dd');
-    onPostpone(dateStr, reason.trim());
+    // Use ISO string to preserve both date and time
+    onPostpone(initialDate.toISOString(), reason.trim());
     handleClose();
   };
 
@@ -80,7 +79,7 @@ export const PostponeDialog = memo(function PostponeDialog({
               <CalendarClock className="h-4 w-4" />
               <span>{t('newDeadline')}:</span>
               <span className="font-medium text-foreground">
-                {format(initialDate, 'EEEE, d MMMM yyyy', { locale: i18n.language === 'es' ? undefined : undefined })}
+                {format(initialDate, 'EEEE, d MMMM yyyy, HH:mm', { locale: i18n.language === 'es' ? undefined : undefined })}
               </span>
             </div>
           )}

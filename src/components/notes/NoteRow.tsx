@@ -39,6 +39,7 @@ import {
   CommandSeparator,
 } from '@/components/ui/command';
 import type { Note, NoteCategory, Label } from '@/types/note';
+import type { Contact } from '@/types/contact';
 import { parseLocalDate } from '@/utils/dateUtils';
 
 export interface NoteRowProps {
@@ -72,6 +73,8 @@ export interface NoteRowProps {
   onRestore?: () => void;
   compactView?: boolean;
   isDescriptionFocused?: boolean;
+  contacts?: Contact[];
+  onUpdateAssignee?: (noteId: string, assigneeId: string | null) => void;
 }
 
 /**
@@ -108,6 +111,8 @@ function NoteRow({
   onRestore,
   compactView = false,
   isDescriptionFocused = false,
+  contacts = [],
+  onUpdateAssignee,
 }: NoteRowProps) {
   const { t } = useTranslation();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -115,6 +120,7 @@ function NoteRow({
   const [contentValue, setContentValue] = useState(note.content);
   const [showLabelDropdown, setShowLabelDropdown] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
   const contentInputRef = useRef<HTMLInputElement>(null);
   const clickXRef = useRef<number | null>(null);
@@ -261,6 +267,9 @@ function NoteRow({
     } else if (e.key === 'c' && e.altKey) {
       e.preventDefault();
       setShowCategoryDropdown(true);
+    } else if (e.key === 'p' && e.altKey) {
+      e.preventDefault();
+      setShowAssigneeDropdown(true);
     } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       // Save current content first
@@ -538,6 +547,45 @@ function NoteRow({
                             {t('categoryMeeting')}
                             {note.category === 'meeting' && <Check className="h-4 w-4 ml-auto" />}
                           </CommandItem>
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                <Popover open={showAssigneeDropdown} onOpenChange={(open) => {
+                  setShowAssigneeDropdown(open);
+                  if (!open) {
+                    contentInputRef.current?.focus();
+                  }
+                }}>
+                  <PopoverTrigger asChild>
+                    <span className="sr-only">{t('assignee.setAssignee')}</span>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder={t('assignee.search')} className="h-9" />
+                      <CommandList>
+                        <CommandEmpty>{t('assignee.noResults')}</CommandEmpty>
+                        <CommandGroup>
+                          {contacts.map((contact) => {
+                            const fullName = `${contact.name} ${contact.lastname}`.trim();
+                            return (
+                              <CommandItem
+                                key={contact.id}
+                                value={fullName}
+                                onSelect={() => {
+                                  onUpdateAssignee?.(note.id, contact.id === note.assignee_id ? null : contact.id);
+                                  setShowAssigneeDropdown(false);
+                                  contentInputRef.current?.focus();
+                                }}
+                                className="flex items-center gap-2"
+                              >
+                                <Check className={`h-4 w-4 ${note.assignee_id === contact.id ? 'opacity-100' : 'opacity-0'}`} />
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                <span className="truncate">{fullName}</span>
+                              </CommandItem>
+                            );
+                          })}
                         </CommandGroup>
                       </CommandList>
                     </Command>

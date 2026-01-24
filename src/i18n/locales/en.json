@@ -187,6 +187,7 @@
   "completedTasks": "Completed",
   "deadline": "Deadline",
   "setDeadline": "Set deadline",
+  "naturalDatePlaceholder": "tomorrow, next friday, in 3 days",
   "postpone": "Postpone",
   "postponeTask": "Record postponement reason",
   "newDeadline": "New deadline",
@@ -214,6 +215,13 @@
   "sortByAssignee": "Sort by assignee",
   "overdue": "Overdue",
   "showOverdueOnly": "Show only overdue tasks",
+  "dateRange": {
+    "filter": "Date range",
+    "filterDescription": "Filter tasks by deadline date range",
+    "from": "From",
+    "to": "To",
+    "clear": "Clear date range"
+  },
   "compactView": "Compact view",
   "compactViewTooltip": "Hide icons, dates, and labels in task list",
   "hotkeys": {

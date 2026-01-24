@@ -12,6 +12,8 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Kbd } from '@/components/ui/kbd';
 import type { Contact } from '@/types/contact';
 
 interface AssigneePickerProps {
@@ -61,51 +63,59 @@ export function AssigneePicker({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          role="combobox"
-          aria-expanded={open}
-          disabled={disabled}
-          size={iconOnly ? 'sm' : 'default'}
-          className={cn(
-            iconOnly ? 'h-6 px-2 gap-1 shadow-none' : 'justify-between',
-            !iconOnly && compact ? 'h-7 px-2 text-xs' : !iconOnly && 'h-9 px-3',
-            !iconOnly && !selectedContact && 'text-muted-foreground',
-            className
-          )}
-        >
-          {iconOnly ? (
-            <>
-              <Plus className="h-3 w-3" />
-              <User className="h-3 w-3" />
-            </>
-          ) : (
-            <>
-              <div className="flex items-center gap-2 min-w-0">
-                <User className={cn('shrink-0', compact ? 'h-3 w-3' : 'h-4 w-4')} />
-                <span className="truncate">
-                  {displayName || t('assignee.placeholder')}
-                </span>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                {selectedContact && (
-                  <X
-                    className={cn(
-                      'shrink-0 opacity-50 hover:opacity-100',
-                      compact ? 'h-3 w-3' : 'h-4 w-4'
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              role="combobox"
+              aria-expanded={open}
+              disabled={disabled}
+              size={iconOnly ? 'sm' : 'default'}
+              className={cn(
+                iconOnly ? 'h-6 px-2 gap-1 shadow-none' : 'justify-between',
+                !iconOnly && compact ? 'h-7 px-2 text-xs' : !iconOnly && 'h-9 px-3',
+                !iconOnly && !selectedContact && 'text-muted-foreground',
+                className
+              )}
+            >
+              {iconOnly ? (
+                <>
+                  <Plus className="h-3 w-3" />
+                  <User className="h-3 w-3" />
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <User className={cn('shrink-0', compact ? 'h-3 w-3' : 'h-4 w-4')} />
+                    <span className="truncate">
+                      {displayName || t('assignee.placeholder')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {selectedContact && (
+                      <X
+                        className={cn(
+                          'shrink-0 opacity-50 hover:opacity-100',
+                          compact ? 'h-3 w-3' : 'h-4 w-4'
+                        )}
+                        onClick={handleClear}
+                      />
                     )}
-                    onClick={handleClear}
-                  />
-                )}
-                <ChevronsUpDown
-                  className={cn('shrink-0 opacity-50', compact ? 'h-3 w-3' : 'h-4 w-4')}
-                />
-              </div>
-            </>
-          )}
-        </Button>
-      </PopoverTrigger>
+                    <ChevronsUpDown
+                      className={cn('shrink-0 opacity-50', compact ? 'h-3 w-3' : 'h-4 w-4')}
+                    />
+                  </div>
+                </>
+              )}
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent className="flex items-center gap-2">
+          <p>{t('assignee.setAssignee')}</p>
+          <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>P</Kbd></span>
+        </TooltipContent>
+      </Tooltip>
       <PopoverContent className="w-56 p-0" align="start">
         <Command>
           <CommandInput placeholder={t('assignee.search')} />
