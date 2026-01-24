@@ -40,8 +40,9 @@ import { PostponeDialog } from './PostponeDialog';
 import { MemoizedNoteRow } from './NoteRow';
 import { NoteEditorPanel } from './NoteEditorPanel';
 import { CalendarView } from './CalendarView';
+import { TimelineView } from './TimelineView';
 import { NoteFilters } from './NoteFilters';
-import { parseLocalDate, startOfDay, endOfDay } from '@/utils/dateUtils';
+import { parseLocalDate, startOfDay, endOfDay, getLocalDateKey } from '@/utils/dateUtils';
 import { useContacts } from '@/hooks/useContacts';
 import { useDeletedNotes } from '@/hooks/useDeletedNotes';
 
@@ -68,6 +69,8 @@ interface NoteListProps {
   onLabelFilterChange?: (labels: string[]) => void;
   onCategoryFilterChange?: (category: NoteCategory | 'all') => void;
   onAssigneeFilterChange?: (assignees: string[]) => void;
+  // Sidebar trigger element
+  sidebarTrigger?: React.ReactNode;
 }
 
 type FocusTarget = 'title' | 'description-start' | 'description-end' | null;
@@ -86,7 +89,7 @@ function getColumnPosition(text: string, cursorPos: number): number {
   return lastNewline === -1 ? cursorPos : cursorPos - lastNewline - 1;
 }
 
-export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onUpdateAssignee, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange }, ref) {
+export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onUpdateAssignee, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, sidebarTrigger }, ref) {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { contacts } = useContacts();
@@ -161,6 +164,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   }, [noteIdsKey, getLabelsForNote, noteLabelVersion, EMPTY_LABELS]);
 
   // PERFORMANCE: Pre-compute assignee names for all notes to avoid per-note lookups
+  // Include assignee IDs in the key so cache updates when assignees change
+  const assigneeIdsKey = notes.map(n => n.assignee_id ?? '').join(',');
   const assigneeNamesCache = useMemo(() => {
     const cache = new Map<string, string | null>();
     for (const note of notesRef.current) {
@@ -173,7 +178,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     }
     return cache;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [noteIdsKey, contacts]);
+  }, [noteIdsKey, assigneeIdsKey, contacts]);
 
 
   // Use external filters if provided, otherwise use internal state
@@ -409,7 +414,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       if (note.completed) return false;
       // Must have a deadline matching the selected date
       if (!note.deadline) return false;
-      const noteDeadline = note.deadline.split('T')[0];
+      const noteDeadline = getLocalDateKey(note.deadline);
       if (noteDeadline !== dateKey) return false;
       // Only show todos, followups and meetings (not notes)
       if (note.category !== 'todo' && note.category !== 'followup' && note.category !== 'meeting') return false;
@@ -448,7 +453,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       if (!note.completed) return false;
       // Must have a deadline matching the selected date
       if (!note.deadline) return false;
-      const noteDeadline = note.deadline.split('T')[0];
+      const noteDeadline = getLocalDateKey(note.deadline);
       if (noteDeadline !== dateKey) return false;
       // Only show todos, followups and meetings (not notes)
       if (note.category !== 'todo' && note.category !== 'followup' && note.category !== 'meeting') return false;
@@ -490,7 +495,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     return deletedNotes.filter((note) => {
       // Must have a deadline matching the selected date
       if (!note.deadline) return false;
-      const noteDeadline = note.deadline.split('T')[0];
+      const noteDeadline = getLocalDateKey(note.deadline);
       if (noteDeadline !== dateKey) return false;
       // Only show todos, followups and meetings (not notes)
       if (note.category !== 'todo' && note.category !== 'followup' && note.category !== 'meeting') return false;
@@ -615,34 +620,54 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     if (!selectedNote) return;
 
     if (date) {
-      // If there's an existing deadline, prompt for postpone reason
-      if (selectedNote.deadline) {
-        handleOpenPostponeDialog(selectedNote.id, date);
-      } else {
-        // No existing deadline, just set it directly
-        onUpdateDeadline(selectedNote.id, date.toISOString());
-      }
+      // Just update the deadline directly (no postpone dialog on every change)
+      onUpdateDeadline(selectedNote.id, date.toISOString());
     } else {
       // Clearing the deadline
       onUpdateDeadline(selectedNote.id, null);
     }
   };
 
+  // Called when user clicks Save button in the date picker
+  const handleDeadlineSave = (date: Date) => {
+    if (!selectedNote) return;
+
+    // If there's an existing deadline that changed, prompt for postpone reason
+    if (selectedNote.deadline) {
+      const existingDate = parseLocalDate(selectedNote.deadline);
+      // Only show postpone dialog if the date actually changed
+      if (existingDate.getTime() !== date.getTime()) {
+        handleOpenPostponeDialog(selectedNote.id, date);
+      }
+    }
+    // If no existing deadline, the change was already applied via handleDeadlineChange
+  };
+
   const handleFixedNoteDeadlineChange = (date: Date | undefined) => {
     if (!fixedNote) return;
 
     if (date) {
-      // If there's an existing deadline, prompt for postpone reason
-      if (fixedNote.deadline) {
-        handleOpenPostponeDialog(fixedNote.id, date);
-      } else {
-        // No existing deadline, just set it directly
-        onUpdateDeadline(fixedNote.id, date.toISOString());
-      }
+      // Just update the deadline directly (no postpone dialog on every change)
+      onUpdateDeadline(fixedNote.id, date.toISOString());
     } else {
       // Clearing the deadline
       onUpdateDeadline(fixedNote.id, null);
     }
+  };
+
+  // Called when user clicks Save button in the fixed note date picker
+  const handleFixedNoteDeadlineSave = (date: Date) => {
+    if (!fixedNote) return;
+
+    // If there's an existing deadline that changed, prompt for postpone reason
+    if (fixedNote.deadline) {
+      const existingDate = parseLocalDate(fixedNote.deadline);
+      // Only show postpone dialog if the date actually changed
+      if (existingDate.getTime() !== date.getTime()) {
+        handleOpenPostponeDialog(fixedNote.id, date);
+      }
+    }
+    // If no existing deadline, the change was already applied via handleFixedNoteDeadlineChange
   };
 
   // PERFORMANCE: Uses ref to avoid dependency on filteredNotes
@@ -1296,7 +1321,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   return (
     <div ref={containerRef} className="flex flex-col h-full overflow-hidden" tabIndex={0}>
       <div className="flex gap-2 mb-3 flex-shrink-0">
-        {/* Create task button - first position */}
+        {/* Sidebar trigger - first position */}
+        {sidebarTrigger}
+
+        {/* Create task button */}
         {onCreateTask && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1439,164 +1467,53 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                   onSelectDate={setCalendarSelectedDate}
                 />
               </div>
-              {/* Task list for selected date - below calendar */}
-              <div className="flex-1 overflow-y-auto pr-2 mt-2">
-                {calendarSelectedDate ? (
-                  <>
-                    {/* Active tasks */}
-                    {taskStatusFilter === 'active' && (
-                      calendarFilteredNotes.length > 0 ? (
-                        calendarFilteredNotes.map((note) => (
-                          <MemoizedNoteRow
-                            key={note.id}
-                            note={note}
-                            onDeleteWithToast={handleDeleteWithToast}
-                            onToggleCompleted={handleToggleCompletedWithNavigation}
-                            onTogglePinned={onTogglePinned}
-                            isSelected={selectedNote?.id === note.id}
-                            onSelect={handleSelectNoteById}
-                            onEdit={onEdit}
-                            onNavigateDown={handleNavigateDownById}
-                            onNavigateUp={handleNavigateUpById}
-                            onNavigateToDescription={handleNavigateToDescription}
-                            shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
-                            desiredColumn={desiredColumn}
-                            onTitleFocused={handleTitleFocused}
-                            onCreateNoteAfter={handleCreateNoteAfterById}
-                            isDragging={false}
-                            labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
-                            allLabels={labels}
-                            onAddLabel={handleAddLabelToNote}
-                            onRemoveLabel={handleRemoveLabelFromNote}
-                            onCreateLabel={handleCreateLabelClick}
-                            onEditLabel={handleEditLabel}
-                            isFixedInSidebar={fixedNoteId === note.id}
-                            onToggleFixInSidebar={handleToggleFixInSidebarById}
-                            onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
-                            assigneeName={assigneeNamesCache.get(note.id)}
-                            compactView={compactTaskView}
-                            isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
-                            contacts={contacts}
-                            onUpdateAssignee={onUpdateAssignee}
-                          />
-                        ))
-                      ) : hasActiveFilters ? (
-                        <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
-                          {renderNoResultsMessage(calendarCompletedNotes.length)}
-                        </p>
-                      ) : (
-                        <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
-                          {t('calendar.noTasks')}
-                        </p>
-                      )
-                    )}
-
-                    {/* Completed tasks */}
-                    {taskStatusFilter === 'completed' && (
-                      calendarCompletedNotes.length > 0 ? (
-                        <>
-                          <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
-                            {t('completedTasks')} ({calendarCompletedNotes.length})
-                          </div>
-                          {calendarCompletedNotes.map((note) => (
-                            <MemoizedNoteRow
-                              key={note.id}
-                              note={note}
-                              onDeleteWithToast={handleDeleteWithToast}
-                              onToggleCompleted={handleToggleCompletedWithNavigation}
-                              onTogglePinned={onTogglePinned}
-                              isSelected={selectedNote?.id === note.id}
-                              onSelect={handleSelectNoteById}
-                              onEdit={onEdit}
-                              onNavigateDown={handleNavigateDownById}
-                              onNavigateUp={handleNavigateUpById}
-                              onNavigateToDescription={handleNavigateToDescription}
-                              shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
-                              desiredColumn={desiredColumn}
-                              onTitleFocused={handleTitleFocused}
-                              onCreateNoteAfter={handleCreateNoteAfterById}
-                              isDragging={false}
-                              labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
-                              allLabels={labels}
-                              onAddLabel={handleAddLabelToNote}
-                              onRemoveLabel={handleRemoveLabelFromNote}
-                              onCreateLabel={handleCreateLabelClick}
-                              onEditLabel={handleEditLabel}
-                              isFixedInSidebar={fixedNoteId === note.id}
-                              onToggleFixInSidebar={handleToggleFixInSidebarById}
-                              onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
-                              assigneeName={assigneeNamesCache.get(note.id)}
-                              compactView={compactTaskView}
-                            isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
-                            contacts={contacts}
-                            onUpdateAssignee={onUpdateAssignee}
-                            />
-                          ))}
-                        </>
-                      ) : (
-                        <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
-                          {t('calendar.noTasks')}
-                        </p>
-                      )
-                    )}
-
-                    {/* Deleted tasks */}
-                    {taskStatusFilter === 'deleted' && (
-                      calendarDeletedNotes.length > 0 ? (
-                        <>
-                          <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
-                            {t('trash.title')} ({calendarDeletedNotes.length})
-                          </div>
-                          {calendarDeletedNotes.map((note) => (
-                            <MemoizedNoteRow
-                              key={note.id}
-                              note={note}
-                              onDeleteWithToast={handleDeleteWithToast}
-                              onToggleCompleted={handleToggleCompletedWithNavigation}
-                              onTogglePinned={onTogglePinned}
-                              isSelected={selectedNote?.id === note.id}
-                              onSelect={handleSelectNoteById}
-                              onEdit={onEdit}
-                              onNavigateDown={handleNavigateDownById}
-                              onNavigateUp={handleNavigateUpById}
-                              onNavigateToDescription={handleNavigateToDescription}
-                              shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
-                              desiredColumn={desiredColumn}
-                              onTitleFocused={handleTitleFocused}
-                              onCreateNoteAfter={handleCreateNoteAfterById}
-                              isDragging={false}
-                              labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
-                              allLabels={labels}
-                              onAddLabel={handleAddLabelToNote}
-                              onRemoveLabel={handleRemoveLabelFromNote}
-                              onCreateLabel={handleCreateLabelClick}
-                              onEditLabel={handleEditLabel}
-                              isFixedInSidebar={fixedNoteId === note.id}
-                              onToggleFixInSidebar={handleToggleFixInSidebarById}
-                              onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
-                              assigneeName={assigneeNamesCache.get(note.id)}
-                              isDeleted={true}
-                              onRestore={() => onRestore(note)}
-                              compactView={compactTaskView}
-                            isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
-                            contacts={contacts}
-                            onUpdateAssignee={onUpdateAssignee}
-                            />
-                          ))}
-                        </>
-                      ) : (
-                        <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
-                          {t('calendar.noTasks')}
-                        </p>
-                      )
-                    )}
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
-                    {t('calendar.selectDateHint')}
-                  </p>
-                )}
-              </div>
+              {/* Timeline view for selected date - below calendar */}
+              {calendarSelectedDate ? (
+                <TimelineView
+                  notes={calendarFilteredNotes}
+                  completedNotes={calendarCompletedNotes}
+                  deletedNotes={calendarDeletedNotes}
+                  selectedDate={calendarSelectedDate}
+                  selectedNote={selectedNote}
+                  onSelectNote={handleSelectNoteById}
+                  onDeleteWithToast={handleDeleteWithToast}
+                  onToggleCompleted={handleToggleCompletedWithNavigation}
+                  onTogglePinned={onTogglePinned}
+                  onEdit={onEdit}
+                  onNavigateDown={handleNavigateDownById}
+                  onNavigateUp={handleNavigateUpById}
+                  onNavigateToDescription={handleNavigateToDescription}
+                  focusTarget={focusTarget}
+                  desiredColumn={desiredColumn}
+                  onTitleFocused={handleTitleFocused}
+                  onCreateNoteAfter={handleCreateNoteAfterById}
+                  labels={labels}
+                  noteLabelsCache={noteLabelsCache}
+                  onAddLabel={handleAddLabelToNote}
+                  onRemoveLabel={handleRemoveLabelFromNote}
+                  onCreateLabel={handleCreateLabelClick}
+                  onEditLabel={handleEditLabel}
+                  fixedNoteId={fixedNoteId}
+                  onToggleFixInSidebar={handleToggleFixInSidebarById}
+                  onContentChange={handleContentChange}
+                  assigneeNamesCache={assigneeNamesCache}
+                  compactView={compactTaskView}
+                  isDescriptionFocused={isDescriptionFocused}
+                  contacts={contacts}
+                  onUpdateAssignee={onUpdateAssignee}
+                  taskStatusFilter={taskStatusFilter}
+                  onRestoreNote={(noteId) => {
+                    const note = calendarDeletedNotes.find(n => n.id === noteId);
+                    if (note) onRestore(note);
+                  }}
+                  hasActiveFilters={hasActiveFilters}
+                  renderNoResultsMessage={(completedCount) => renderNoResultsMessage(completedCount)}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
+                  {t('calendar.selectDateHint')}
+                </p>
+              )}
             </div>
           ) : (
             <>
@@ -1789,6 +1706,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onEditLabel={handleEditLabel}
               onCreateLabel={() => setShowCreateLabelDialog(true)}
               onDeadlineChange={handleDeadlineChange}
+              onDeadlineSave={handleDeadlineSave}
               onUpdateAssignee={onUpdateAssignee}
               onDelete={() => handleDeleteWithToast(selectedNote)}
               onLabelDropdownOpenChange={handleLabelDropdownOpenChange}
@@ -1831,6 +1749,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onEditLabel={handleEditLabel}
               onCreateLabel={() => setShowCreateLabelDialog(true)}
               onDeadlineChange={handleFixedNoteDeadlineChange}
+              onDeadlineSave={handleFixedNoteDeadlineSave}
               onUpdateAssignee={onUpdateAssignee}
               onDelete={() => handleDeleteWithToast(fixedNote)}
               onLabelDropdownOpenChange={setFixedNoteLabelDropdownOpen}
