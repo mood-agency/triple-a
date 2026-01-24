@@ -1067,6 +1067,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           type="single"
           value={viewMode}
           onValueChange={(value) => value && setViewMode(value as 'list' | 'calendar')}
+          variant="outline"
           className="h-8"
         >
           <Tooltip>
@@ -1145,7 +1146,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         </div>
       </div>
       <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
-        <div className="w-[32rem] shrink-0 flex flex-col overflow-hidden">
+        {/* NOTE LIST COLUMN WIDTH - adjust w-[40%] to change the note list width */}
+        <div className="w-[40%] shrink-0 flex flex-col overflow-hidden">
           {viewMode === 'calendar' ? (
             <div className="flex flex-col h-full overflow-hidden">
               {/* Calendar picker - centered */}
