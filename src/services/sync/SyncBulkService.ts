@@ -32,18 +32,18 @@ export class SyncBulkService {
    */
   async pullAllFromSupabase(
     onProgress?: (current: number, total: number, item: string) => void
-  ): Promise<{ success: boolean; error?: string; pulled: { notes: number; labels: number; noteLabels: number; contacts: number } }> {
+  ): Promise<{ success: boolean; error?: string; pulled: { notes: number; labels: number; noteLabels: number; noteHistory: number; contacts: number } }> {
     const client = this.supabaseClient;
     if (!client) {
-      return { success: false, error: 'Supabase not configured', pulled: { notes: 0, labels: 0, noteLabels: 0, contacts: 0 } };
+      return { success: false, error: 'Supabase not configured', pulled: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0, contacts: 0 } };
     }
 
     if (this.isSyncing) {
-      return { success: false, error: 'Sync already in progress', pulled: { notes: 0, labels: 0, noteLabels: 0, contacts: 0 } };
+      return { success: false, error: 'Sync already in progress', pulled: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0, contacts: 0 } };
     }
 
     this.isSyncing = true;
-    const pulled = { notes: 0, labels: 0, noteLabels: 0, contacts: 0 };
+    const pulled = { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0, contacts: 0 };
 
     try {
       console.log('[SyncBulkService] pullAllFromSupabase - Starting full pull');
@@ -83,14 +83,23 @@ export class SyncBulkService {
 
       if (contactsError) throw contactsError;
 
-      const total = (remoteLabels?.length || 0) + (remoteNotes?.length || 0) + (remoteNoteLabels?.length || 0) + (remoteContacts?.length || 0);
+      // Get all remote note_history
+      const { data: remoteNoteHistory, error: noteHistoryError } = await client
+        .from('note_history')
+        .select('*')
+        .eq('user_id', this.userId);
+
+      if (noteHistoryError) throw noteHistoryError;
+
+      const total = (remoteLabels?.length || 0) + (remoteNotes?.length || 0) + (remoteNoteLabels?.length || 0) + (remoteContacts?.length || 0) + (remoteNoteHistory?.length || 0);
       let current = 0;
 
       console.log('[SyncBulkService] Items to pull:', {
         labels: remoteLabels?.length || 0,
         notes: remoteNotes?.length || 0,
         noteLabels: remoteNoteLabels?.length || 0,
-        contacts: remoteContacts?.length || 0
+        contacts: remoteContacts?.length || 0,
+        noteHistory: remoteNoteHistory?.length || 0
       });
 
       const now = new Date().toISOString();
@@ -286,6 +295,45 @@ export class SyncBulkService {
               [localNoteId, localLabelId, remoteNoteLabel.created_at]
             );
             pulled.noteLabels++;
+          }
+        }
+      }
+
+      // Pull note_history
+      for (const remoteHistory of remoteNoteHistory || []) {
+        current++;
+        onProgress?.(current, total, `History: ${remoteHistory.action_type}`);
+
+        // Get local note ID from remote note ID
+        const noteResult = this.db.exec(`SELECT id FROM notes WHERE remote_id = ?`, [remoteHistory.note_id]);
+        const localNoteId = noteResult[0]?.values[0]?.[0] as string | null;
+
+        if (localNoteId) {
+          // Check if this history entry already exists (by note_id + changed_at to avoid duplicates)
+          const existingResult = this.db.exec(
+            `SELECT id FROM note_history WHERE note_id = ? AND changed_at = ?`,
+            [localNoteId, remoteHistory.changed_at]
+          );
+
+          if (existingResult.length === 0 || existingResult[0].values.length === 0) {
+            const localId = crypto.randomUUID();
+            this.db.run(
+              `INSERT INTO note_history (id, note_id, content, description, category, completed, changed_at, action_type, reason, previous_date)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                localId,
+                localNoteId,
+                remoteHistory.content,
+                remoteHistory.description ?? null,
+                remoteHistory.category,
+                remoteHistory.completed ? 1 : 0,
+                remoteHistory.changed_at,
+                remoteHistory.action_type ?? 'edit',
+                remoteHistory.reason ?? null,
+                remoteHistory.previous_date ?? null,
+              ]
+            );
+            pulled.noteHistory++;
           }
         }
       }
