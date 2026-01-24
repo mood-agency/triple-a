@@ -280,34 +280,6 @@
     "taskDeletedPermanently": "Tarea eliminada permanentemente",
     "deletedAt": "Eliminado"
   },
-  "ai": {
-    "status": {
-      "disabled": "IA desactivada",
-      "loading": "Cargando...",
-      "ready": "IA lista",
-      "error": "Error",
-      "unloaded": "IA no cargada"
-    },
-    "tooltip": {
-      "clickToEnable": "Clic para activar sugerencias de IA",
-      "loading": "Cargando modelo",
-      "ready": "IA lista para sugerir etiquetas y responsables",
-      "error": "Clic para reintentar",
-      "clickToLoad": "Clic para cargar modelo de IA (~50MB)"
-    },
-    "suggestions": {
-      "title": "Sugerencias de IA",
-      "clickToAccept": "Clic para aceptar",
-      "acceptAll": "Aceptar todas",
-      "dismiss": "Descartar"
-    },
-    "assignee": {
-      "placeholder": "Responsable",
-      "search": "Buscar responsable...",
-      "create": "Crear \"{{name}}\"",
-      "noResults": "No se encontraron responsables"
-    }
-  },
   "calendar": {
     "switchToCalendarView": "Cambiar a vista calendario",
     "switchToListView": "Cambiar a vista lista",

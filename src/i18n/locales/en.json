@@ -280,34 +280,6 @@
     "taskDeletedPermanently": "Task permanently deleted",
     "deletedAt": "Deleted"
   },
-  "ai": {
-    "status": {
-      "disabled": "AI disabled",
-      "loading": "Loading...",
-      "ready": "AI ready",
-      "error": "Error",
-      "unloaded": "AI not loaded"
-    },
-    "tooltip": {
-      "clickToEnable": "Click to enable AI suggestions",
-      "loading": "Loading model",
-      "ready": "AI is ready to suggest labels and assignees",
-      "error": "Click to retry",
-      "clickToLoad": "Click to load AI model (~50MB)"
-    },
-    "suggestions": {
-      "title": "AI Suggestions",
-      "clickToAccept": "Click to accept",
-      "acceptAll": "Accept all",
-      "dismiss": "Dismiss"
-    },
-    "assignee": {
-      "placeholder": "Assignee",
-      "search": "Search assignee...",
-      "create": "Create \"{{name}}\"",
-      "noResults": "No assignees found"
-    }
-  },
   "calendar": {
     "switchToCalendarView": "Switch to calendar view",
     "switchToListView": "Switch to list view",
