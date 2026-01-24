@@ -21,7 +21,6 @@ import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   Command,
   CommandEmpty,
@@ -118,68 +117,78 @@ export function NoteFilters({
       </div>
 
       {/* Category filters */}
-      <ToggleGroup
-        type="single"
-        value={categoryFilter === 'all' ? undefined : categoryFilter}
-        onValueChange={(value) => onCategoryFilterChange(value ? value as NoteCategory : 'all')}
-        variant="outline"
-        className="h-8"
-      >
-        <ToggleGroupItem value="todo" aria-label={t('categoryTodo')} className="h-8 w-8 p-0">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="flex items-center justify-center w-full h-full">
-                <Pickaxe className="h-4 w-4" />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              <p>{t('filterByCategory', { category: t('categoryTodo') })}</p>
-              <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>Q</Kbd></span>
-            </TooltipContent>
-          </Tooltip>
-        </ToggleGroupItem>
-        <ToggleGroupItem value="followup" aria-label={t('categoryFollowUp')} className="h-8 w-8 p-0">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="flex items-center justify-center w-full h-full">
-                <Forward className="h-4 w-4" />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              <p>{t('filterByCategory', { category: t('categoryFollowUp') })}</p>
-              <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>W</Kbd></span>
-            </TooltipContent>
-          </Tooltip>
-        </ToggleGroupItem>
-        <ToggleGroupItem value="meeting" aria-label={t('categoryMeeting')} className="h-8 w-8 p-0">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="flex items-center justify-center w-full h-full">
-                <Users className="h-4 w-4" />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              <p>{t('filterByCategory', { category: t('categoryMeeting') })}</p>
-              <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>R</Kbd></span>
-            </TooltipContent>
-          </Tooltip>
-        </ToggleGroupItem>
+      <div className="flex">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className={`h-8 w-8 rounded-r-none border-r-0 shadow-none ${categoryFilter === 'todo' ? 'bg-accent text-accent-foreground' : ''}`}
+              onClick={() => onCategoryFilterChange(categoryFilter === 'todo' ? 'all' : 'todo')}
+              aria-label={t('categoryTodo')}
+            >
+              <Pickaxe className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="flex items-center gap-2">
+            <p>{t('filterByCategory', { category: t('categoryTodo') })}</p>
+            <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>Q</Kbd></span>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className={`h-8 w-8 rounded-none border-r-0 shadow-none ${categoryFilter === 'followup' ? 'bg-accent text-accent-foreground' : ''}`}
+              onClick={() => onCategoryFilterChange(categoryFilter === 'followup' ? 'all' : 'followup')}
+              aria-label={t('categoryFollowUp')}
+            >
+              <Forward className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="flex items-center gap-2">
+            <p>{t('filterByCategory', { category: t('categoryFollowUp') })}</p>
+            <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>W</Kbd></span>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className={`h-8 w-8 shadow-none ${viewMode !== 'calendar' ? 'rounded-none border-r-0' : 'rounded-l-none'} ${categoryFilter === 'meeting' ? 'bg-accent text-accent-foreground' : ''}`}
+              onClick={() => onCategoryFilterChange(categoryFilter === 'meeting' ? 'all' : 'meeting')}
+              aria-label={t('categoryMeeting')}
+            >
+              <Users className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="flex items-center gap-2">
+            <p>{t('filterByCategory', { category: t('categoryMeeting') })}</p>
+            <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>R</Kbd></span>
+          </TooltipContent>
+        </Tooltip>
         {viewMode !== 'calendar' && (
-          <ToggleGroupItem value="notes" aria-label={t('categoryNotes')} className="h-8 w-8 p-0">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="flex items-center justify-center w-full h-full">
-                  <StickyNote className="h-4 w-4" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent className="flex items-center gap-2">
-                <p>{t('filterByCategory', { category: t('categoryNotes') })}</p>
-                <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>E</Kbd></span>
-              </TooltipContent>
-            </Tooltip>
-          </ToggleGroupItem>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className={`h-8 w-8 rounded-l-none shadow-none ${categoryFilter === 'notes' ? 'bg-accent text-accent-foreground' : ''}`}
+                onClick={() => onCategoryFilterChange(categoryFilter === 'notes' ? 'all' : 'notes')}
+                aria-label={t('categoryNotes')}
+              >
+                <StickyNote className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="flex items-center gap-2">
+              <p>{t('filterByCategory', { category: t('categoryNotes') })}</p>
+              <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>E</Kbd></span>
+            </TooltipContent>
+          </Tooltip>
         )}
-      </ToggleGroup>
+      </div>
 
       {/* Label and Assignee filters dropdown */}
       {(labels.length > 0 || contacts.length > 0) && (
@@ -337,9 +346,9 @@ export function NoteFilters({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant={sortByDeadline ? 'default' : 'outline'}
+              variant="outline"
               size="icon"
-              className="h-8 w-8 shadow-none"
+              className={`h-8 w-8 shadow-none ${sortByDeadline ? 'bg-accent text-accent-foreground' : ''}`}
               onClick={() => onSortByDeadlineChange(!sortByDeadline)}
               aria-label={t('sortByDeadline')}
             >
@@ -353,9 +362,9 @@ export function NoteFilters({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant={sortByAssignee ? 'default' : 'outline'}
+              variant="outline"
               size="icon"
-              className="h-8 w-8 shadow-none"
+              className={`h-8 w-8 shadow-none ${sortByAssignee ? 'bg-accent text-accent-foreground' : ''}`}
               onClick={() => onSortByAssigneeChange(!sortByAssignee)}
               aria-label={t('sortByAssignee')}
             >
@@ -386,18 +395,18 @@ export function NoteFilters({
 
       {/* Task status filter */}
       <div className="flex items-center ml-2 pl-2 border-l border-muted-foreground/20">
-        <ToggleGroup
-          type="single"
-          value={taskStatusFilter}
-          onValueChange={(value) => value && onTaskStatusFilterChange(value as 'active' | 'completed' | 'deleted')}
-          variant="outline"
-          className="h-8"
-        >
+        <div className="flex">
           <Tooltip>
             <TooltipTrigger asChild>
-              <ToggleGroupItem value="active" aria-label={t('activeTasks')} className="h-8 w-8 p-0">
+              <Button
+                variant="outline"
+                size="icon"
+                className={`h-8 w-8 shadow-none ${!hasCompletedTasks && !hasDeletedTasks ? 'rounded-md' : 'rounded-r-none border-r-0'} ${taskStatusFilter === 'active' ? 'bg-accent text-accent-foreground' : ''}`}
+                onClick={() => onTaskStatusFilterChange('active')}
+                aria-label={t('activeTasks')}
+              >
                 <CircleDot className="h-4 w-4" />
-              </ToggleGroupItem>
+              </Button>
             </TooltipTrigger>
             <TooltipContent>
               <p>{t('activeTasks')}</p>
@@ -406,9 +415,15 @@ export function NoteFilters({
           {hasCompletedTasks && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <ToggleGroupItem value="completed" aria-label={t('completedTasks')} className="h-8 w-8 p-0">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className={`h-8 w-8 shadow-none ${!hasDeletedTasks ? 'rounded-l-none' : 'rounded-none border-r-0'} ${taskStatusFilter === 'completed' ? 'bg-accent text-accent-foreground' : ''}`}
+                  onClick={() => onTaskStatusFilterChange('completed')}
+                  aria-label={t('completedTasks')}
+                >
                   <CheckCircle2 className="h-4 w-4" />
-                </ToggleGroupItem>
+                </Button>
               </TooltipTrigger>
               <TooltipContent>
                 <p>{t('completedTasks')}</p>
@@ -418,16 +433,22 @@ export function NoteFilters({
           {hasDeletedTasks && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <ToggleGroupItem value="deleted" aria-label={t('trash.title')} className="h-8 w-8 p-0">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className={`h-8 w-8 rounded-l-none shadow-none ${taskStatusFilter === 'deleted' ? 'bg-accent text-accent-foreground' : ''}`}
+                  onClick={() => onTaskStatusFilterChange('deleted')}
+                  aria-label={t('trash.title')}
+                >
                   <Trash2 className="h-4 w-4" />
-                </ToggleGroupItem>
+                </Button>
               </TooltipTrigger>
               <TooltipContent>
                 <p>{t('trash.title')}</p>
               </TooltipContent>
             </Tooltip>
           )}
-        </ToggleGroup>
+        </div>
       </div>
     </>
   );

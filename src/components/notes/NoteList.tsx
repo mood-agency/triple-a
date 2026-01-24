@@ -20,7 +20,6 @@ import {
 } from '@dnd-kit/sortable';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   Dialog,
   DialogContent,
@@ -1231,18 +1230,18 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     <div ref={containerRef} className="flex flex-col h-full overflow-hidden" tabIndex={0}>
       <div className="flex gap-2 mb-3 flex-shrink-0">
         {/* View mode toggle - at the beginning */}
-        <ToggleGroup
-          type="single"
-          value={viewMode}
-          onValueChange={(value) => value && setViewMode(value as 'list' | 'calendar')}
-          variant="outline"
-          className="h-8"
-        >
+        <div className="flex">
           <Tooltip>
             <TooltipTrigger asChild>
-              <ToggleGroupItem value="list" aria-label={t('calendar.switchToListView')} className="h-8 w-8 p-0">
+              <Button
+                variant="outline"
+                size="icon"
+                className={`h-8 w-8 rounded-r-none border-r-0 shadow-none ${viewMode === 'list' ? 'bg-accent text-accent-foreground' : ''}`}
+                onClick={() => setViewMode('list')}
+                aria-label={t('calendar.switchToListView')}
+              >
                 <List className="h-4 w-4" />
-              </ToggleGroupItem>
+              </Button>
             </TooltipTrigger>
             <TooltipContent className="flex items-center gap-2">
               <p>{t('calendar.switchToListView')}</p>
@@ -1251,16 +1250,22 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <ToggleGroupItem value="calendar" aria-label={t('calendar.switchToCalendarView')} className="h-8 w-8 p-0">
+              <Button
+                variant="outline"
+                size="icon"
+                className={`h-8 w-8 rounded-l-none shadow-none ${viewMode === 'calendar' ? 'bg-accent text-accent-foreground' : ''}`}
+                onClick={() => setViewMode('calendar')}
+                aria-label={t('calendar.switchToCalendarView')}
+              >
                 <Calendar className="h-4 w-4" />
-              </ToggleGroupItem>
+              </Button>
             </TooltipTrigger>
             <TooltipContent className="flex items-center gap-2">
               <p>{t('calendar.switchToCalendarView')}</p>
               <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>Shift</Kbd><Kbd>C</Kbd></span>
             </TooltipContent>
           </Tooltip>
-        </ToggleGroup>
+        </div>
         <Tooltip>
           <TooltipTrigger asChild>
             <button
