@@ -10,19 +10,26 @@ interface DatabaseContextType {
 
 const DatabaseContext = createContext<DatabaseContextType | null>(null);
 
-export function DatabaseProvider({ children }: { children: ReactNode }) {
+interface DatabaseProviderProps {
+  children: ReactNode;
+  skipInit?: boolean;
+}
+
+export function DatabaseProvider({ children, skipInit = false }: DatabaseProviderProps) {
   const [db, setDb] = useState<Database | null>(null);
-  const [isReady, setIsReady] = useState(false);
+  const [isReady, setIsReady] = useState(skipInit);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (skipInit) return;
+
     initDatabase()
       .then((database) => {
         setDb(database);
         setIsReady(true);
       })
       .catch((err) => setError(err));
-  }, []);
+  }, [skipInit]);
 
   return (
     <DatabaseContext.Provider value={{ db, isReady, error }}>
