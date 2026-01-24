@@ -1,7 +1,7 @@
 import { forwardRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
@@ -128,30 +128,14 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
         onDelete={onDelete}
         titleValue={titleValue}
       />
-      {note.created_at && (
-        <p className="flex items-center gap-1 text-xs text-muted-foreground/60 mt-1">
-          <CalendarPlus className="h-3 w-3" />
-          {new Date(note.created_at).toLocaleString()}
-        </p>
-      )}
-      {/* Postpone reason row */}
-      {note.last_postpone_reason && (
-        <button
-          type="button"
-          onClick={onTogglePostponeHistory}
-          className="flex items-center gap-2 text-sm text-muted-foreground/80 italic mt-1 hover:text-muted-foreground transition-colors text-left w-full"
-        >
-          <CalendarClock className="h-4 w-4 shrink-0" />
-          <span className="flex-1 truncate">{note.last_postpone_reason}</span>
-          {history.filter(h => h.action_type === 'postponed').length > 0 && (
-            <span className="text-xs text-muted-foreground/50 bg-muted px-1.5 py-0.5 rounded-full shrink-0">
-              {history.filter(h => h.action_type === 'postponed').length}
-            </span>
-          )}
-        </button>
-      )}
       {/* Category row */}
-      <div className="flex flex-wrap gap-2 mt-1 mb-2 flex-shrink-0 items-center">
+      <div className="flex gap-2 mt-1 mb-1 flex-shrink-0 items-center">
+        <div className="w-5 flex justify-center shrink-0">
+          {note.category === 'todo' && <Pickaxe className="h-4 w-4 text-muted-foreground" />}
+          {note.category === 'followup' && <Forward className="h-4 w-4 text-muted-foreground" />}
+          {note.category === 'notes' && <StickyNote className="h-4 w-4 text-muted-foreground" />}
+          {note.category === 'meeting' && <Users className="h-4 w-4 text-muted-foreground" />}
+        </div>
         {/* Category dropdown */}
         <Popover open={categoryDropdownOpen} onOpenChange={onCategoryDropdownOpenChange}>
           <PopoverTrigger asChild>
@@ -160,10 +144,6 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
               size="sm"
               className="h-7 px-2 text-xs gap-1.5"
             >
-              {note.category === 'todo' && <Pickaxe className="h-3.5 w-3.5" />}
-              {note.category === 'followup' && <Forward className="h-3.5 w-3.5" />}
-              {note.category === 'notes' && <StickyNote className="h-3.5 w-3.5" />}
-              {note.category === 'meeting' && <Users className="h-3.5 w-3.5" />}
               <span>
                 {note.category === 'todo' && t('categoryTodo')}
                 {note.category === 'followup' && t('categoryFollowUp')}
@@ -241,7 +221,10 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
       </div>
 
       {/* Deadline row */}
-      <div className="flex flex-wrap gap-2 mb-2 flex-shrink-0 items-center">
+      <div className="flex gap-2 mb-1 flex-shrink-0 items-center">
+        <div className="w-5 flex justify-center shrink-0">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+        </div>
         <DatePicker
           date={note.deadline ? parseLocalDate(note.deadline) : undefined}
           onDateChange={onDeadlineChange}
@@ -250,22 +233,25 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           onOpenChange={onDeadlinePickerOpenChange}
           className="h-7 text-xs"
           showTime
+          hideIcon
         />
       </div>
 
       {/* Labels row */}
-      <div className="flex flex-wrap gap-1.5 mb-2 flex-shrink-0 items-center">
+      <div className="flex gap-2 mb-1 flex-shrink-0 items-center">
+        <div className="w-5 flex justify-center shrink-0">
+          <Tag className="h-4 w-4 text-muted-foreground" />
+        </div>
         <Popover open={labelDropdownOpen} onOpenChange={onLabelDropdownOpenChange}>
           <Tooltip>
             <TooltipTrigger asChild>
               <PopoverTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-xs gap-1"
+                  size="icon"
+                  className="h-7 w-7"
                 >
-                  <Plus className="h-3 w-3" />
-                  <Tag className="h-3 w-3" />
+                  <Plus className="h-3.5 w-3.5" />
                 </Button>
               </PopoverTrigger>
             </TooltipTrigger>
@@ -342,7 +328,10 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
       </div>
 
       {/* Assignee row */}
-      <div className="flex flex-wrap gap-1.5 mb-2 flex-shrink-0 items-center">
+      <div className="flex gap-2 mb-1 flex-shrink-0 items-center">
+        <div className="w-5 flex justify-center shrink-0">
+          <User className="h-4 w-4 text-muted-foreground" />
+        </div>
         <AssigneePicker
           contacts={contacts}
           value={note.assignee_id}
@@ -351,11 +340,11 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           iconOnly
           open={assigneePickerOpen}
           onOpenChange={onAssigneePickerOpenChange}
-          className="h-6"
+          className="h-7 w-7"
+          hideIcon
         />
         {assigneeName && (
           <span className="px-2 py-0.5 text-xs rounded-full bg-purple-500/80 text-white leading-none flex items-center gap-1">
-            <User className="h-3 w-3" />
             {assigneeName}
             <button
               type="button"
@@ -369,7 +358,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
       </div>
 
       {/* Separator */}
-      <div className="border-t border-muted-foreground/20 my-2" />
+      <div className="border-t border-muted-foreground/20 my-1.5" />
 
       <EditableDescription
         ref={ref}
@@ -380,6 +369,33 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
         placeholder={t('writeDescription')}
         className="flex-1 min-h-0 w-full text-base bg-transparent text-muted-foreground overflow-y-auto"
       />
+
+      {/* Footer: Creation time and postpone reason */}
+      {(note.created_at || note.last_postpone_reason) && (
+        <div className="border-t border-muted-foreground/20 pt-2 mt-2 space-y-1 shrink-0">
+          {note.last_postpone_reason && (
+            <button
+              type="button"
+              onClick={onTogglePostponeHistory}
+              className="flex items-center gap-2 text-xs text-muted-foreground/70 italic hover:text-muted-foreground transition-colors text-left w-full"
+            >
+              <CalendarClock className="h-3 w-3 shrink-0" />
+              <span className="flex-1 truncate">{note.last_postpone_reason}</span>
+              {history.filter(h => h.action_type === 'postponed').length > 0 && (
+                <span className="text-[10px] text-muted-foreground/50 bg-muted px-1.5 py-0.5 rounded-full shrink-0">
+                  {history.filter(h => h.action_type === 'postponed').length}
+                </span>
+              )}
+            </button>
+          )}
+          {note.created_at && (
+            <p className="flex items-center gap-2 text-xs text-muted-foreground/50">
+              <CalendarPlus className="h-3 w-3" />
+              {new Date(note.created_at).toLocaleString()}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Postpone history section */}
       {showPostponeHistory && history.filter(h => h.action_type === 'postponed').length > 0 && (

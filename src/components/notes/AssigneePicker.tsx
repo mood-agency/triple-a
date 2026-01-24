@@ -26,6 +26,7 @@ interface AssigneePickerProps {
   className?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  hideIcon?: boolean;
 }
 
 export function AssigneePicker({
@@ -38,6 +39,7 @@ export function AssigneePicker({
   className,
   open: controlledOpen,
   onOpenChange,
+  hideIcon = false,
 }: AssigneePickerProps) {
   const { t } = useTranslation();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -73,21 +75,18 @@ export function AssigneePicker({
               disabled={disabled}
               size={iconOnly ? 'sm' : 'default'}
               className={cn(
-                iconOnly ? 'h-6 px-2 gap-1 shadow-none' : 'justify-between',
+                iconOnly ? 'shadow-none' : 'justify-between',
                 !iconOnly && compact ? 'h-7 px-2 text-xs' : !iconOnly && 'h-9 px-3',
                 !iconOnly && !selectedContact && 'text-muted-foreground',
                 className
               )}
             >
               {iconOnly ? (
-                <>
-                  <Plus className="h-3 w-3" />
-                  <User className="h-3 w-3" />
-                </>
+                <Plus className="h-3.5 w-3.5" />
               ) : (
                 <>
                   <div className="flex items-center gap-2 min-w-0">
-                    <User className={cn('shrink-0', compact ? 'h-3 w-3' : 'h-4 w-4')} />
+                    {!hideIcon && <User className={cn('shrink-0', compact ? 'h-3 w-3' : 'h-4 w-4')} />}
                     <span className="truncate">
                       {displayName || t('assignee.placeholder')}
                     </span>

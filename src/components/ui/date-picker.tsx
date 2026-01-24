@@ -31,6 +31,7 @@ interface DatePickerProps {
   onOpenChange?: (open: boolean) => void
   iconOnly?: boolean
   showTime?: boolean
+  hideIcon?: boolean
 }
 
 export function DatePicker({
@@ -42,6 +43,7 @@ export function DatePicker({
   onOpenChange: externalOnOpenChange,
   iconOnly = false,
   showTime = false,
+  hideIcon = false,
 }: DatePickerProps) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language === "es" ? es : enUS
@@ -128,7 +130,7 @@ export function DatePicker({
             <CalendarIcon className="h-4 w-4" />
           ) : (
             <>
-              <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+              {!hideIcon && <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />}
               <span className="truncate">
                 {date
                   ? showTime
