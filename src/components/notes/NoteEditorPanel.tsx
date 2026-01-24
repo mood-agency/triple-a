@@ -1,7 +1,7 @@
 import { forwardRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2 } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
@@ -129,8 +129,9 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
         titleValue={titleValue}
       />
       {note.created_at && (
-        <p className="text-xs text-muted-foreground/60 mt-1">
-          {t('createdAt')}: {new Date(note.created_at).toLocaleString()}
+        <p className="flex items-center gap-1 text-xs text-muted-foreground/60 mt-1">
+          <CalendarPlus className="h-3 w-3" />
+          {new Date(note.created_at).toLocaleString()}
         </p>
       )}
       {/* Postpone reason row */}
@@ -149,7 +150,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           )}
         </button>
       )}
-      {/* Category and date row */}
+      {/* Category row */}
       <div className="flex flex-wrap gap-2 mt-1 mb-2 flex-shrink-0 items-center">
         {/* Category dropdown */}
         <Popover open={categoryDropdownOpen} onOpenChange={onCategoryDropdownOpenChange}>
@@ -237,8 +238,10 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
             </Command>
           </PopoverContent>
         </Popover>
+      </div>
 
-        {/* Deadline picker */}
+      {/* Deadline row */}
+      <div className="flex flex-wrap gap-2 mb-2 flex-shrink-0 items-center">
         <DatePicker
           date={note.deadline ? parseLocalDate(note.deadline) : undefined}
           onDateChange={onDeadlineChange}
@@ -246,8 +249,10 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           open={deadlinePickerOpen}
           onOpenChange={onDeadlinePickerOpenChange}
           className="h-7 text-xs"
+          showTime
         />
       </div>
+
       {/* Labels row */}
       <div className="flex flex-wrap gap-1.5 mb-2 flex-shrink-0 items-center">
         <Popover open={labelDropdownOpen} onOpenChange={onLabelDropdownOpenChange}>
