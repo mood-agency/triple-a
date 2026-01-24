@@ -11,6 +11,7 @@ import {
   CommandList,
   CommandSeparator,
 } from '@/components/ui/command';
+import { Kbd } from '@/components/ui/kbd';
 import type { Label, NoteCategory } from '@/types/note';
 
 interface FocusState {
@@ -158,7 +159,11 @@ export function CommandPalette({
               <List className="mr-2 h-4 w-4" />
             )}
             {viewMode === 'list' ? t('calendar.switchToCalendarView') : t('calendar.switchToListView')}
-            <span className="ml-auto text-xs text-muted-foreground">Ctrl+Shift+C</span>
+            <div className="ml-auto flex items-center gap-0.5">
+              <Kbd>Ctrl</Kbd>
+              <Kbd>Shift</Kbd>
+              <Kbd>C</Kbd>
+            </div>
           </CommandItem>
         </CommandGroup>
 
@@ -167,27 +172,47 @@ export function CommandPalette({
         <CommandGroup heading={t('filterByCategory')}>
           <CommandItem onSelect={() => handleSelectCategory('all')}>
             <Check className={`mr-2 h-4 w-4 ${categoryFilter === 'all' ? 'opacity-100' : 'opacity-0'}`} />
-            {t('allCategories')}
+            <span className="flex-1">{t('allCategories')}</span>
+            <div className="flex items-center gap-0.5">
+              <Kbd>Alt</Kbd>
+              <Kbd>C</Kbd>
+            </div>
           </CommandItem>
           <CommandItem onSelect={() => handleSelectCategory('todo')}>
             <Pickaxe className="mr-2 h-4 w-4" />
             <Check className={`mr-2 h-4 w-4 ${categoryFilter === 'todo' ? 'opacity-100' : 'opacity-0'}`} />
-            {t('categoryTodo')}
+            <span className="flex-1">{t('categoryTodo')}</span>
+            <div className="flex items-center gap-0.5">
+              <Kbd>Alt</Kbd>
+              <Kbd>Q</Kbd>
+            </div>
           </CommandItem>
           <CommandItem onSelect={() => handleSelectCategory('followup')}>
             <Forward className="mr-2 h-4 w-4" />
             <Check className={`mr-2 h-4 w-4 ${categoryFilter === 'followup' ? 'opacity-100' : 'opacity-0'}`} />
-            {t('categoryFollowUp')}
+            <span className="flex-1">{t('categoryFollowUp')}</span>
+            <div className="flex items-center gap-0.5">
+              <Kbd>Alt</Kbd>
+              <Kbd>W</Kbd>
+            </div>
           </CommandItem>
           <CommandItem onSelect={() => handleSelectCategory('notes')}>
             <StickyNote className="mr-2 h-4 w-4" />
             <Check className={`mr-2 h-4 w-4 ${categoryFilter === 'notes' ? 'opacity-100' : 'opacity-0'}`} />
-            {t('categoryNotes')}
+            <span className="flex-1">{t('categoryNotes')}</span>
+            <div className="flex items-center gap-0.5">
+              <Kbd>Alt</Kbd>
+              <Kbd>E</Kbd>
+            </div>
           </CommandItem>
           <CommandItem onSelect={() => handleSelectCategory('meeting')}>
             <Users className="mr-2 h-4 w-4" />
             <Check className={`mr-2 h-4 w-4 ${categoryFilter === 'meeting' ? 'opacity-100' : 'opacity-0'}`} />
-            {t('categoryMeeting')}
+            <span className="flex-1">{t('categoryMeeting')}</span>
+            <div className="flex items-center gap-0.5">
+              <Kbd>Alt</Kbd>
+              <Kbd>R</Kbd>
+            </div>
           </CommandItem>
         </CommandGroup>
 

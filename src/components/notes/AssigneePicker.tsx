@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, ChevronsUpDown, User, X } from 'lucide-react';
+import { Check, ChevronsUpDown, User, X, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -63,20 +63,23 @@ export function AssigneePicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          variant="outline"
+          variant="ghost"
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          size={iconOnly ? 'icon' : 'default'}
+          size={iconOnly ? 'sm' : 'default'}
           className={cn(
-            iconOnly ? 'h-8 w-8 shadow-none' : 'justify-between',
+            iconOnly ? 'h-6 px-2 gap-1 shadow-none' : 'justify-between',
             !iconOnly && compact ? 'h-7 px-2 text-xs' : !iconOnly && 'h-9 px-3',
-            !selectedContact && 'text-muted-foreground',
+            !iconOnly && !selectedContact && 'text-muted-foreground',
             className
           )}
         >
           {iconOnly ? (
-            <User className="h-4 w-4" />
+            <>
+              <Plus className="h-3 w-3" />
+              <User className="h-3 w-3" />
+            </>
           ) : (
             <>
               <div className="flex items-center gap-2 min-w-0">

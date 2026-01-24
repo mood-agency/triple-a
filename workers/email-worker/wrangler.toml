@@ -1,0 +1,23 @@
+name = "triple-a-email-worker"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Email routing - this enables the worker to receive emails
+# Configure the actual email routing in Cloudflare Dashboard:
+# 1. Go to your domain > Email > Email Routing
+# 2. Add a catch-all or specific address rule
+# 3. Select "Send to Worker" and choose this worker
+
+# Environment variables - set these in Cloudflare Dashboard > Workers > Settings > Variables
+# Or use wrangler secret put SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY
+[vars]
+# SUPABASE_URL = "https://your-project.supabase.co"
+# Don't put secrets in this file! Use: wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+
+# For local development
+[env.dev]
+name = "triple-a-email-worker-dev"
+
+# For production
+[env.production]
+name = "triple-a-email-worker"

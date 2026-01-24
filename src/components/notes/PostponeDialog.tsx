@@ -97,7 +97,7 @@ export const PostponeDialog = memo(function PostponeDialog({
               onChange={(e) => setReason(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={t('postponeReasonPlaceholder')}
-              className="mt-1 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className="mt-1 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground caret-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               rows={3}
             />
           </div>

@@ -3,7 +3,6 @@ import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { SyncStatus } from '@/components/sync/SyncStatus';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { SettingsMenu } from '@/components/SettingsMenu';
 
@@ -29,9 +28,6 @@ export function Header({
     <div className="flex justify-between items-center mb-6 flex-shrink-0">
       <div className="flex items-center gap-4">
         <h1 className="text-2xl font-bold">Triple A</h1>
-      </div>
-      <div className="flex items-center gap-2">
-        {children}
         {onCreateTask && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -46,6 +42,9 @@ export function Header({
             </TooltipContent>
           </Tooltip>
         )}
+      </div>
+      <div className="flex items-center gap-2">
+        {children}
         {onShowDeletedTasks && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -58,7 +57,6 @@ export function Header({
             </TooltipContent>
           </Tooltip>
         )}
-        <SyncStatus />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="secondary" size="sm" onClick={toggleLanguage}>

@@ -196,7 +196,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleInputKeyDown}
         onBlur={handleSave}
-        className="flex-1 bg-transparent text-sm leading-relaxed outline-none border-none focus:ring-0 p-0 m-0 w-full"
+        className="flex-1 bg-transparent text-sm leading-relaxed outline-none border-none focus:ring-0 p-0 m-0 w-full text-foreground caret-foreground"
         placeholder={t('writeNote')}
       />
     );

@@ -208,7 +208,7 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
           <Popover open={categoryDropdownOpen} onOpenChange={setCategoryDropdownOpen}>
             <PopoverTrigger asChild>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 className="h-7 px-2 text-xs gap-1.5"
               >
@@ -295,7 +295,7 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
           <Popover open={labelDropdownOpen} onOpenChange={setLabelDropdownOpen}>
             <PopoverTrigger asChild>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 className="h-7 px-2 text-xs gap-1.5"
               >

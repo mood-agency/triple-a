@@ -185,14 +185,14 @@ export function useNotesStore(date?: string) {
   const createNoteAfter = useCallback(
     (
       afterNoteId: string,
-      content: string,
       category: NoteCategory = 'todo',
-      description?: string | null
+      deadline?: string | null,
+      labelIds: string[] = []
     ): string | null => {
       if (!store) return null;
 
       const afterNote = store.getRow('notes', afterNoteId);
-      if (!afterNote) return createNote(content, category, description);
+      if (!afterNote) return createNote('', category, null, labelIds);
 
       const afterSortOrder = (afterNote.sort_order as number) || 0;
 
@@ -220,12 +220,12 @@ export function useNotesStore(date?: string) {
 
       store.setRow('notes', id, {
         date: effectiveDate,
-        content,
-        description: description || null,
+        content: '',
+        description: null,
         category,
         completed: false,
         completed_at: null,
-        deadline: null,
+        deadline: deadline || null,
         pinned: false,
         sort_order: newSortOrder,
         assignee_id: null,
@@ -237,12 +237,22 @@ export function useNotesStore(date?: string) {
         last_synced_at: null,
       });
 
+      // Add labels to the note if provided
+      for (const labelId of labelIds) {
+        const noteLabelId = generateId();
+        store.setRow('note_labels', noteLabelId, {
+          note_id: id,
+          label_id: labelId,
+          created_at: timestamp,
+        });
+      }
+
       // Save initial history entry
       const historyId = generateId();
       store.setRow('note_history', historyId, {
         note_id: id,
-        content,
-        description: description || null,
+        content: '',
+        description: null,
         category,
         completed: false,
         changed_at: timestamp,
@@ -425,27 +435,29 @@ export function useNotesStore(date?: string) {
   );
 
   /**
-   * Postpone a note to a new date
+   * Postpone a note to a new deadline
    */
   const postponeNote = useCallback(
-    (id: string, newDate: string, reason?: string): void => {
+    (id: string, newDeadline: string, reason?: string): void => {
       if (!store) return;
 
       const existingNote = store.getRow('notes', id);
       if (!existingNote) return;
 
       const timestamp = now();
-      const previousDate = existingNote.date as string;
+      const previousDeadline = existingNote.deadline as string | null;
+
+      console.log('[postponeNote] Called with:', { id, newDeadline, reason });
 
       store.setPartialRow('notes', id, {
-        date: newDate,
+        deadline: newDeadline,
         updated_at: timestamp,
         sync_status: 'pending',
       });
 
       // Save history entry with postpone info
       const historyId = generateId();
-      store.setRow('note_history', historyId, {
+      const historyEntry = {
         note_id: id,
         content: existingNote.content as string,
         description: existingNote.description as string | null,
@@ -454,8 +466,14 @@ export function useNotesStore(date?: string) {
         changed_at: timestamp,
         action_type: 'postponed',
         reason: reason || null,
-        previous_date: previousDate,
-      });
+        previous_date: previousDeadline,
+      };
+      console.log('[postponeNote] Saving history entry:', historyEntry);
+      store.setRow('note_history', historyId, historyEntry);
+
+      // Verify it was saved
+      const saved = store.getRow('note_history', historyId);
+      console.log('[postponeNote] Saved history entry:', saved);
     },
     [store]
   );

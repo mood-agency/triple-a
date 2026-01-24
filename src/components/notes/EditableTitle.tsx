@@ -1,0 +1,119 @@
+import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Trash2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Kbd } from '@/components/ui/kbd';
+
+interface EditableTitleProps {
+  noteId: string;
+  content: string;
+  completed: boolean;
+  onEdit: (id: string, content: string) => void;
+  onToggleComplete: (id: string) => void;
+  onDelete: () => void;
+  titleValue?: string;
+}
+
+export function EditableTitle({
+  noteId,
+  content,
+  completed,
+  onEdit,
+  onToggleComplete,
+  onDelete,
+  titleValue,
+}: EditableTitleProps) {
+  const { t } = useTranslation();
+  // Don't auto-start editing - let the NoteRow handle focus for new tasks
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(content);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Sync editedTitle when note changes
+  useEffect(() => {
+    setEditedTitle(content);
+    setIsEditing(false);
+  }, [noteId, content]);
+
+  // Focus input when user clicks to edit (not on mount)
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleSave = () => {
+    if (editedTitle.trim() && editedTitle !== content) {
+      onEdit(noteId, editedTitle.trim());
+    } else {
+      setEditedTitle(content);
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSave();
+    } else if (e.key === 'Escape') {
+      setEditedTitle(content);
+      setIsEditing(false);
+    }
+  };
+
+  return (
+    <div className="group flex items-start gap-3 flex-shrink-0">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="pt-1.5">
+            <Checkbox
+              checked={completed}
+              onCheckedChange={() => onToggleComplete(noteId)}
+              className="h-5 w-5"
+            />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent className="flex items-center gap-2">
+          <p>{completed ? t('markIncomplete') : t('markComplete')}</p>
+          <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>D</Kbd></span>
+        </TooltipContent>
+      </Tooltip>
+      <div className="flex items-start gap-1">
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={editedTitle}
+            onChange={(e) => setEditedTitle(e.target.value)}
+            onBlur={handleSave}
+            onKeyDown={handleKeyDown}
+            placeholder={t('newTaskPlaceholder')}
+            className={`text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-muted-foreground/50 ${completed ? 'line-through text-muted-foreground' : ''}`}
+          />
+        ) : (
+          <h1
+            onClick={() => setIsEditing(true)}
+            className={`text-2xl font-semibold cursor-text ${completed ? 'line-through text-muted-foreground' : ''} ${!(titleValue ?? content) ? 'text-muted-foreground/50' : ''}`}
+          >
+            {(titleValue ?? content) || t('newTaskPlaceholder')}
+          </h1>
+        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={onDelete}
+              className="p-1.5 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all shrink-0"
+            >
+              <Trash2 className="h-5 w-5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{t('deleteTask')}</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+    </div>
+  );
+}
