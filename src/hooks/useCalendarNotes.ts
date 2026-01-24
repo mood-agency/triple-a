@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { Note, NoteCategory } from '@/types/note'
-import { parseLocalDate, formatLocalDate } from '@/utils/dateUtils'
+import { parseLocalDate, formatLocalDate, getLocalDateKey } from '@/utils/dateUtils'
 
 export interface CalendarNotesResult {
   notesByDate: Map<string, Note[]>
@@ -43,7 +43,7 @@ export function useCalendarNotes(
     for (const note of calendarNotes) {
       if (!note.deadline) continue
 
-      const dateKey = note.deadline.split('T')[0]
+      const dateKey = getLocalDateKey(note.deadline)
       const existing = map.get(dateKey) || []
       map.set(dateKey, [...existing, note])
     }

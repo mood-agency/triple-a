@@ -45,7 +45,7 @@ import { cn } from '@/lib/utils';
 import { useNotes } from '@/hooks/useNotes';
 import { useLabels } from '@/hooks/useLabels';
 import { useContacts } from '@/hooks/useContacts';
-import { formatLocalDate } from '@/utils/dateUtils';
+import { formatLocalDate, getLocalDateKey } from '@/utils/dateUtils';
 import type { NoteCategory, Note, Label as LabelType } from '@/types/note';
 import type { Contact } from '@/types/contact';
 
@@ -216,7 +216,7 @@ export function MobileTaskCreate() {
     return notes.filter((note) => {
       // Must have a deadline matching the selected date
       if (!note.deadline) return false;
-      const noteDeadline = note.deadline.split('T')[0];
+      const noteDeadline = getLocalDateKey(note.deadline);
       if (noteDeadline !== dateKey) return false;
 
       // Only show todos, followups and meetings (not notes category)

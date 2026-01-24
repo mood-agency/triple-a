@@ -69,8 +69,22 @@
   "home": "Inicio",
   "about": "Acerca de",
   "language": "Idioma",
+  "nav": {
+    "home": "Inicio",
+    "contacts": "Contactos",
+    "analytics": "Analíticas",
+    "navigation": "Navegación",
+    "settings": "Configuración"
+  },
+  "app": {
+    "menu": "Menú"
+  },
   "toggleTheme": "Cambiar tema",
   "toggleLanguage": "Cambiar idioma",
+  "theme": {
+    "light": "Modo Claro",
+    "dark": "Modo Oscuro"
+  },
   "settings": "Configuración",
   "settingsMenu": {
     "autoSync": "Sincronización automática",
@@ -90,6 +104,8 @@
   "writeNote": "Escribe tu nota...",
   "writeDescription": "Descripción (opcional)...",
   "save": "Guardar",
+  "clear": "Limpiar",
+  "allDay": "Todo el día",
   "cancel": "Cancelar",
   "edit": "Editar",
   "delete": "Eliminar",
@@ -103,6 +119,7 @@
   "categoryTodo": "Por Hacer",
   "categoryFollowUp": "Seguimiento",
   "categoryNotes": "Notas",
+  "categoryNote": "Nota",
   "categoryMeeting": "Reunión",
   "changeCategory": "Cambiar categoría",
   "searchCategory": "Buscar categoría...",
@@ -298,7 +315,8 @@
     "addDeadlinesHint": "Agrega fechas límite a tareas, seguimientos y reuniones para verlos aquí",
     "noTasks": "Sin tareas",
     "tasksCount": "{{count}} tarea(s)",
-    "selectDateHint": "Selecciona una fecha para ver las tareas"
+    "selectDateHint": "Selecciona una fecha para ver las tareas",
+    "allDay": "Todo el día"
   },
   "assignee": {
     "placeholder": "Responsable",
