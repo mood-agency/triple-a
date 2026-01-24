@@ -95,7 +95,57 @@ export class SyncBulkService {
 
       const now = new Date().toISOString();
 
-      // Pull labels first
+      // Pull contacts first (before notes, since notes may reference contacts via assignee_id)
+      for (const remoteContact of remoteContacts || []) {
+        current++;
+        onProgress?.(current, total, `Contact: ${remoteContact.name}`);
+
+        const existingResult = this.db.exec(
+          `SELECT id FROM contacts WHERE remote_id = ?`,
+          [remoteContact.id as string]
+        );
+
+        if (existingResult.length === 0 || existingResult[0].values.length === 0) {
+          // Insert new contact
+          const localId = crypto.randomUUID();
+          this.db.run(
+            `INSERT INTO contacts (id, name, lastname, phone, email, user_id, created_at, updated_at, remote_id, sync_status, last_synced_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)`,
+            [
+              localId,
+              remoteContact.name,
+              remoteContact.lastname ?? null,
+              remoteContact.phone ?? null,
+              remoteContact.email ?? null,
+              this.userId,
+              remoteContact.created_at,
+              remoteContact.updated_at,
+              remoteContact.id,
+              now,
+            ]
+          );
+          pulled.contacts++;
+        } else {
+          // Update existing
+          const localId = existingResult[0].values[0][0] as string;
+          this.db.run(
+            `UPDATE contacts SET name = ?, lastname = ?, phone = ?, email = ?, updated_at = ?, sync_status = 'synced', last_synced_at = ?
+             WHERE id = ?`,
+            [
+              remoteContact.name,
+              remoteContact.lastname ?? null,
+              remoteContact.phone ?? null,
+              remoteContact.email ?? null,
+              remoteContact.updated_at,
+              now,
+              localId,
+            ]
+          );
+          pulled.contacts++;
+        }
+      }
+
+      // Pull labels
       for (const remoteLabel of remoteLabels || []) {
         current++;
         onProgress?.(current, total, `Label: ${remoteLabel.name}`);
@@ -170,18 +220,18 @@ export class SyncBulkService {
               localId,
               remoteNote.date,
               remoteNote.content,
-              remoteNote.description,
-              remoteNote.category,
+              remoteNote.description ?? null,
+              remoteNote.category ?? null,
               remoteNote.completed ? 1 : 0,
-              remoteNote.completed_at,
-              remoteNote.deadline,
+              remoteNote.completed_at ?? null,
+              remoteNote.deadline ?? null,
               remoteNote.pinned ? 1 : 0,
-              remoteNote.sort_order,
+              remoteNote.sort_order ?? 0,
               remoteNote.created_at,
               remoteNote.updated_at,
               remoteNote.id,
               now,
-              localAssigneeId,
+              localAssigneeId ?? null,
             ]
           );
           pulled.notes++;
@@ -194,16 +244,16 @@ export class SyncBulkService {
             [
               remoteNote.date,
               remoteNote.content,
-              remoteNote.description,
-              remoteNote.category,
+              remoteNote.description ?? null,
+              remoteNote.category ?? null,
               remoteNote.completed ? 1 : 0,
-              remoteNote.completed_at,
-              remoteNote.deadline,
+              remoteNote.completed_at ?? null,
+              remoteNote.deadline ?? null,
               remoteNote.pinned ? 1 : 0,
-              remoteNote.sort_order,
+              remoteNote.sort_order ?? 0,
               remoteNote.updated_at,
               now,
-              localAssigneeId,
+              localAssigneeId ?? null,
               localId,
             ]
           );
@@ -237,56 +287,6 @@ export class SyncBulkService {
             );
             pulled.noteLabels++;
           }
-        }
-      }
-
-      // Pull contacts
-      for (const remoteContact of remoteContacts || []) {
-        current++;
-        onProgress?.(current, total, `Contact: ${remoteContact.name}`);
-
-        const existingResult = this.db.exec(
-          `SELECT id FROM contacts WHERE remote_id = ?`,
-          [remoteContact.id as string]
-        );
-
-        if (existingResult.length === 0 || existingResult[0].values.length === 0) {
-          // Insert new contact
-          const localId = crypto.randomUUID();
-          this.db.run(
-            `INSERT INTO contacts (id, name, lastname, phone, email, user_id, created_at, updated_at, remote_id, sync_status, last_synced_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)`,
-            [
-              localId,
-              remoteContact.name,
-              remoteContact.lastname,
-              remoteContact.phone,
-              remoteContact.email,
-              this.userId,
-              remoteContact.created_at,
-              remoteContact.updated_at,
-              remoteContact.id,
-              now,
-            ]
-          );
-          pulled.contacts++;
-        } else {
-          // Update existing
-          const localId = existingResult[0].values[0][0] as string;
-          this.db.run(
-            `UPDATE contacts SET name = ?, lastname = ?, phone = ?, email = ?, updated_at = ?, sync_status = 'synced', last_synced_at = ?
-             WHERE id = ?`,
-            [
-              remoteContact.name,
-              remoteContact.lastname,
-              remoteContact.phone,
-              remoteContact.email,
-              remoteContact.updated_at,
-              now,
-              localId,
-            ]
-          );
-          pulled.contacts++;
         }
       }
 
