@@ -309,13 +309,13 @@ function NoteRow({
         }}
         style={style}
         onClick={() => onSelect(note.id)}
-        className={`group grid grid-cols-[auto_1fr_auto] items-center h-6 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' ? 'opacity-50' : ''} ${isSelected ? 'bg-gray-200/70 dark:bg-gray-600/30' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
+        className={`group grid grid-cols-[auto_1fr_auto] items-center h-6 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' ? 'opacity-50' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
       >
         {/* Category icon column - hidden in compact view */}
         {!compactView ? (
           note.category !== 'notes' ? (
             <div
-              className="relative w-4 h-4 shrink-0 cursor-pointer flex items-center justify-center ml-2"
+              className="relative w-4 h-4 shrink-0 cursor-pointer flex items-center justify-center"
               onClick={(e) => {
                 e.stopPropagation();
                 handleCheckedChange();
@@ -340,7 +340,7 @@ function NoteRow({
               </span>
             </div>
           ) : (
-            <div className="h-4 flex items-center ml-2">
+            <div className="h-4 flex items-center">
               <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground/70" />
             </div>
           )
@@ -546,7 +546,7 @@ function NoteRow({
               </>
             ) : (
               <span
-                className={`text-sm leading-4 truncate ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${note.completed ? 'line-through text-muted-foreground' : ''} ${isSelected ? 'cursor-text' : ''} ${!contentValue ? 'text-muted-foreground/50 italic' : ''}`}
+                className={`text-sm leading-4 truncate ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${note.completed ? 'line-through text-muted-foreground' : ''} ${isSelected ? 'cursor-text underline decoration-primary decoration-2 underline-offset-2' : ''} ${!contentValue ? 'text-muted-foreground/50 italic' : ''}`}
                 {...attributes}
                 {...listeners}
               >
