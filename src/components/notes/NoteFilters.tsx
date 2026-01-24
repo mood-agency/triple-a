@@ -27,6 +27,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import type { NoteCategory, Label } from '@/types/note';
+import type { Contact } from '@/types/contact';
 
 interface NoteFiltersProps {
   // Search
@@ -54,6 +55,11 @@ interface NoteFiltersProps {
   // Assignee options
   sortByAssignee: boolean;
   onSortByAssigneeChange: (value: boolean) => void;
+
+  // Assignee filter
+  contacts: Contact[];
+  assigneeFilter: string[];
+  onAssigneeFilterChange: (assignees: string[] | ((prev: string[]) => string[])) => void;
 }
 
 export function NoteFilters({
@@ -73,6 +79,9 @@ export function NoteFilters({
   onShowOverdueOnlyChange,
   sortByAssignee,
   onSortByAssigneeChange,
+  contacts,
+  assigneeFilter,
+  onAssigneeFilterChange,
 }: NoteFiltersProps) {
   const { t } = useTranslation();
 
@@ -104,13 +113,12 @@ export function NoteFilters({
           <TooltipTrigger asChild>
             <Button
               variant={categoryFilter === 'todo' ? 'default' : 'outline'}
-              size="sm"
-              className="shadow-none"
+              size="icon"
+              className="h-8 w-8 shadow-none"
               onClick={() => toggleCategory('todo')}
               aria-label={t('categoryTodo')}
             >
-              <Pickaxe className="h-3.5 w-3.5" />
-              <span>{t('categoryTodo')}</span>
+              <Pickaxe className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent className="flex items-center gap-2">
@@ -122,13 +130,12 @@ export function NoteFilters({
           <TooltipTrigger asChild>
             <Button
               variant={categoryFilter === 'followup' ? 'default' : 'outline'}
-              size="sm"
-              className="shadow-none"
+              size="icon"
+              className="h-8 w-8 shadow-none"
               onClick={() => toggleCategory('followup')}
               aria-label={t('categoryFollowUp')}
             >
-              <Forward className="h-3.5 w-3.5" />
-              <span>{t('categoryFollowUp')}</span>
+              <Forward className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent className="flex items-center gap-2">
@@ -140,13 +147,12 @@ export function NoteFilters({
           <TooltipTrigger asChild>
             <Button
               variant={categoryFilter === 'meeting' ? 'default' : 'outline'}
-              size="sm"
-              className="shadow-none"
+              size="icon"
+              className="h-8 w-8 shadow-none"
               onClick={() => toggleCategory('meeting')}
               aria-label={t('categoryMeeting')}
             >
-              <Users className="h-3.5 w-3.5" />
-              <span>{t('categoryMeeting')}</span>
+              <Users className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent className="flex items-center gap-2">
@@ -159,13 +165,12 @@ export function NoteFilters({
             <TooltipTrigger asChild>
               <Button
                 variant={categoryFilter === 'notes' ? 'default' : 'outline'}
-                size="sm"
-                className="shadow-none"
+                size="icon"
+                className="h-8 w-8 shadow-none"
                 onClick={() => toggleCategory('notes')}
                 aria-label={t('categoryNotes')}
               >
-                <StickyNote className="h-3.5 w-3.5" />
-                <span>{t('categoryNotes')}</span>
+                <StickyNote className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent className="flex items-center gap-2">
@@ -176,54 +181,100 @@ export function NoteFilters({
         )}
       </div>
 
-      {/* Label filters dropdown */}
-      {labels.length > 0 && (
+      {/* Label and Assignee filters dropdown */}
+      {(labels.length > 0 || contacts.length > 0) && (
         <div className="flex gap-1 items-center ml-2 pl-2 border-l border-muted-foreground/20">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="shadow-none" aria-label={t('labels')}>
-                <Tag className="h-3.5 w-3.5" />
-                <span>{t('labels')}</span>
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-52 p-0" align="start">
-              <Command>
-                <CommandInput placeholder={t('searchLabels')} className="h-9" />
-                <CommandList>
-                  <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
-                  <CommandGroup>
-                    {labels.map((label) => {
-                      const isSelected = labelFilter.includes(label.id);
-                      return (
-                        <CommandItem
-                          key={label.id}
-                          value={label.name}
-                          onSelect={() => {
-                            onLabelFilterChange((prev) =>
-                              prev.includes(label.id)
-                                ? prev.filter((id) => id !== label.id)
-                                : [...prev, label.id]
-                            );
-                          }}
-                          className="flex items-center justify-between"
-                        >
-                          <div className="flex items-center">
-                            <span
-                              className="w-3 h-3 rounded-full mr-2"
-                              style={{ backgroundColor: label.color }}
-                            />
-                            {label.name}
-                          </div>
-                          {isSelected && <Check className="h-4 w-4" />}
-                        </CommandItem>
-                      );
-                    })}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          {/* Labels dropdown */}
+          {labels.length > 0 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="shadow-none" aria-label={t('labels')}>
+                  <Tag className="h-3.5 w-3.5" />
+                  <span>{t('labels')}</span>
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-0" align="start">
+                <Command>
+                  <CommandInput placeholder={t('searchLabels')} className="h-9" />
+                  <CommandList>
+                    <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
+                    <CommandGroup>
+                      {labels.map((label) => {
+                        const isSelected = labelFilter.includes(label.id);
+                        return (
+                          <CommandItem
+                            key={label.id}
+                            value={label.name}
+                            onSelect={() => {
+                              onLabelFilterChange((prev) =>
+                                prev.includes(label.id)
+                                  ? prev.filter((id) => id !== label.id)
+                                  : [...prev, label.id]
+                              );
+                            }}
+                            className="flex items-center justify-between"
+                          >
+                            <div className="flex items-center">
+                              <span
+                                className="w-3 h-3 rounded-full mr-2"
+                                style={{ backgroundColor: label.color }}
+                              />
+                              {label.name}
+                            </div>
+                            {isSelected && <Check className="h-4 w-4" />}
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          )}
+          {/* Assignee dropdown */}
+          {contacts.length > 0 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="shadow-none" aria-label={t('filterByAssignee')}>
+                  <User className="h-3.5 w-3.5" />
+                  <span>{t('assignee.placeholder')}</span>
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-0" align="start">
+                <Command>
+                  <CommandInput placeholder={t('searchContacts')} className="h-9" />
+                  <CommandList>
+                    <CommandEmpty>{t('noContactsFound')}</CommandEmpty>
+                    <CommandGroup>
+                      {contacts.map((contact) => {
+                        const isSelected = assigneeFilter.includes(contact.id);
+                        const fullName = `${contact.name} ${contact.lastname}`.trim();
+                        return (
+                          <CommandItem
+                            key={contact.id}
+                            value={fullName}
+                            onSelect={() => {
+                              onAssigneeFilterChange((prev) =>
+                                prev.includes(contact.id)
+                                  ? prev.filter((id) => id !== contact.id)
+                                  : [...prev, contact.id]
+                              );
+                            }}
+                            className="flex items-center justify-between"
+                          >
+                            <span>{fullName}</span>
+                            {isSelected && <Check className="h-4 w-4" />}
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          )}
           {/* Selected label chips */}
           {labelFilter.length > 0 && (
             <div className="flex gap-1 items-center">
@@ -241,6 +292,33 @@ export function NoteFilters({
                       type="button"
                       onClick={() =>
                         onLabelFilterChange((prev) => prev.filter((id) => id !== label.id))
+                      }
+                      className="hover:bg-white/20 rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+          {/* Selected assignee chips */}
+          {assigneeFilter.length > 0 && (
+            <div className="flex gap-1 items-center">
+              {assigneeFilter.map((contactId) => {
+                const contact = contacts.find((c) => c.id === contactId);
+                if (!contact) return null;
+                const fullName = `${contact.name} ${contact.lastname}`.trim();
+                return (
+                  <span
+                    key={contact.id}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-primary text-primary-foreground"
+                  >
+                    {fullName}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onAssigneeFilterChange((prev) => prev.filter((id) => id !== contact.id))
                       }
                       className="hover:bg-white/20 rounded-full p-0.5"
                     >
@@ -292,13 +370,12 @@ export function NoteFilters({
           <TooltipTrigger asChild>
             <Button
               variant={showOverdueOnly ? 'destructive' : 'outline'}
-              size="sm"
-              className="shadow-none"
+              size="icon"
+              className="h-8 w-8 shadow-none"
               onClick={() => onShowOverdueOnlyChange(!showOverdueOnly)}
               aria-label={t('showOverdueOnly')}
             >
-              <AlertTriangle className="h-3 w-3" />
-              <span>{t('overdue')}</span>
+              <AlertTriangle className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>

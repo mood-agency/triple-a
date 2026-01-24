@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Loader2 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { NoteList, type NoteListHandle } from '@/components/notes/NoteList';
 import { CommandPalette } from '@/components/CommandPalette';
@@ -144,7 +145,7 @@ export function Home() {
   if (!isReady || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-xl">{t('loading')}</p>
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }

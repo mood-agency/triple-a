@@ -34,7 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Pencil, Trash2, Plus, MessageCircle } from 'lucide-react';
+import { Pencil, Trash2, Plus, MessageCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSettings } from '@/hooks/useSettings';
 import type { Contact, ContactInput } from '@/types/contact';
@@ -295,7 +295,7 @@ export function Contacts() {
   if (!isReady || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-xl">{t('loading')}</p>
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }

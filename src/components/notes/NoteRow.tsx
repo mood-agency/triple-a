@@ -401,7 +401,7 @@ function NoteRow({
                       }
                     }
                   }}
-                  className="flex-1 min-w-0 text-sm leading-normal bg-transparent border-none outline-none p-0 m-0"
+                  className="flex-1 min-w-0 text-sm leading-normal bg-transparent border-none outline-none p-0 m-0 text-foreground caret-foreground"
                 />
                 <Popover open={showLabelDropdown} onOpenChange={(open) => {
                   setShowLabelDropdown(open);

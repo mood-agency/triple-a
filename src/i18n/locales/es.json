@@ -178,6 +178,7 @@
   "activeFilters": "Filtros activos",
   "clearAllFilters": "Limpiar todos los filtros",
   "filterByCategory": "Filtrar por {{category}}",
+  "filterByAssignee": "Filtrar por responsable",
   "filterByLabel": "Filtrar por etiqueta",
   "allCategories": "Todas las categorías",
   "completedTasks": "Completadas",
@@ -317,7 +318,8 @@
   "assignee": {
     "placeholder": "Responsable",
     "search": "Buscar responsable...",
-    "noResults": "No hay contactos"
+    "noResults": "No hay contactos",
+    "setAssignee": "Asignar responsable"
   },
   "analytics": {
     "title": "Analíticas",

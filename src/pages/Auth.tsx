@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { AuthForm } from '@/components/auth/AuthForm'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
-import { WifiOff } from 'lucide-react'
+import { WifiOff, Loader2 } from 'lucide-react'
 import { useEffect } from 'react'
 
 export function Auth() {
@@ -26,7 +26,7 @@ export function Auth() {
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">{t('loading')}</div>
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     )
   }

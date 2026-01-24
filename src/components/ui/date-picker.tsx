@@ -20,6 +20,7 @@ interface DatePickerProps {
   className?: string
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  iconOnly?: boolean
 }
 
 export function DatePicker({
@@ -29,6 +30,7 @@ export function DatePicker({
   className,
   open: externalOpen,
   onOpenChange: externalOnOpenChange,
+  iconOnly = false,
 }: DatePickerProps) {
   const { i18n } = useTranslation()
   const locale = i18n.language === "es" ? es : enUS
@@ -42,22 +44,29 @@ export function DatePicker({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
+          size={iconOnly ? "icon" : "default"}
           className={cn(
-            "w-full justify-start text-left font-normal",
+            iconOnly ? "h-8 w-8 shadow-none" : "w-full justify-start text-left font-normal",
             !date && "text-muted-foreground",
             className
           )}
         >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "PPP", { locale }) : <span>{placeholder}</span>}
-          {date && (
-            <X
-              className="ml-auto h-4 w-4 opacity-50 hover:opacity-100"
-              onClick={(e) => {
-                e.stopPropagation()
-                onDateChange(undefined)
-              }}
-            />
+          {iconOnly ? (
+            <CalendarIcon className="h-4 w-4" />
+          ) : (
+            <>
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {date ? format(date, "PPP", { locale }) : <span>{placeholder}</span>}
+              {date && (
+                <X
+                  className="ml-auto h-4 w-4 opacity-50 hover:opacity-100"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDateChange(undefined)
+                  }}
+                />
+              )}
+            </>
           )}
         </Button>
       </PopoverTrigger>

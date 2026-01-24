@@ -210,14 +210,17 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [sortByDeadline, setSortByDeadline] = useState(false);
   const [sortByAssignee, setSortByAssignee] = useState(false);
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
+  const [assigneeFilter, setAssigneeFilter] = useState<string[]>([]);
   const [showPostponeHistory, setShowPostponeHistory] = useState(false);
   const [deadlinePickerOpen, setDeadlinePickerOpen] = useState(false);
+  const [assigneePickerOpen, setAssigneePickerOpen] = useState(false);
 
   // Fixed note editor state (for right column)
   const [fixedNoteLabels, setFixedNoteLabels] = useState<Label[]>([]);
   const [fixedNoteLabelDropdownOpen, setFixedNoteLabelDropdownOpen] = useState(false);
   const [fixedNoteCategoryDropdownOpen, setFixedNoteCategoryDropdownOpen] = useState(false);
   const [fixedNoteDeadlinePickerOpen, setFixedNoteDeadlinePickerOpen] = useState(false);
+  const [fixedNoteAssigneePickerOpen, setFixedNoteAssigneePickerOpen] = useState(false);
   const [fixedNoteDescriptionValue, setFixedNoteDescriptionValue] = useState('');
   const [fixedNoteShowPostponeHistory, setFixedNoteShowPostponeHistory] = useState(false);
   const fixedNoteDescriptionRef = useRef<EditableDescriptionHandle>(null);
@@ -287,6 +290,12 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       const hasMatchingLabel = labelFilter.some(labelId => noteLabelIds.includes(labelId));
       if (!hasMatchingLabel) return false;
     }
+    // Filter by assignee (OR logic - note must have one of the selected assignees)
+    if (assigneeFilter.length > 0) {
+      if (!note.assignee_id || !assigneeFilter.includes(note.assignee_id)) {
+        return false;
+      }
+    }
     // Filter by overdue status (only show tasks with deadlines that have passed)
     // Uses same logic as the red badge display: deadline < now
     if (showOverdueOnly) {
@@ -300,7 +309,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     const titleMatch = note.content.toLowerCase().includes(query);
     const descriptionMatch = note.description?.toLowerCase().includes(query) ?? false;
     return titleMatch || descriptionMatch;
-  }), [notes, categoryFilter, labelFilter, showOverdueOnly, searchQuery, noteLabelsCache]);
+  }), [notes, categoryFilter, labelFilter, assigneeFilter, showOverdueOnly, searchQuery, noteLabelsCache]);
 
   // Separate active and completed notes
   // Memoized to avoid recomputing sort on every render
@@ -752,9 +761,12 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     } else if (e.key === 'l' && e.ctrlKey && selectedNote) {
       e.preventDefault();
       setLabelDropdownOpen(true);
-    } else if (e.key === 'c' && e.altKey && selectedNote) {
+    } else if (e.key === 'c' && e.ctrlKey && selectedNote) {
       e.preventDefault();
       setCategoryDropdownOpen(true);
+    } else if (e.key === 'u' && e.ctrlKey && selectedNote) {
+      e.preventDefault();
+      setAssigneePickerOpen(true);
     } else if (e.key === 'Escape') {
       // Save changes before blurring
       if (selectedNote && descriptionValue !== (selectedNote.description || '')) {
@@ -835,9 +847,12 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     } else if (e.key === 'l' && e.ctrlKey && fixedNote) {
       e.preventDefault();
       setFixedNoteLabelDropdownOpen(true);
-    } else if (e.key === 'c' && e.altKey && fixedNote) {
+    } else if (e.key === 'c' && e.ctrlKey && fixedNote) {
       e.preventDefault();
       setFixedNoteCategoryDropdownOpen(true);
+    } else if (e.key === 'u' && e.ctrlKey && fixedNote) {
+      e.preventDefault();
+      setFixedNoteAssigneePickerOpen(true);
     } else if (e.key === 'Escape') {
       // Save changes before blurring
       if (fixedNote && fixedNoteDescriptionValue !== (fixedNote.description || '')) {
@@ -890,6 +905,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   useHotkeys('alt+c', () => {
     setCategoryFilter('all');
     setLabelFilter([]);
+    setAssigneeFilter([]);
     setSortByDeadline(false);
     setShowOverdueOnly(false);
     setCategoryJustChanged(true);
@@ -982,10 +998,18 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       : undefined;
 
     // Pass label filter so new task is visible with current filters
-    onCreateNoteAfter(noteId, afterNote.category, deadline, labelFilter).then((newNote) => {
-      onSelectNote(newNote);
-      setDesiredColumn(0);
-      setFocusTarget('title');
+    const result = onCreateNoteAfter(noteId, afterNote.category, deadline, labelFilter);
+    // Handle both Promise and synchronous returns (TinyBase returns string ID, legacy returns Promise<Note>)
+    Promise.resolve(result).then((newNoteOrId) => {
+      if (newNoteOrId) {
+        // If it's a string (ID from TinyBase), create minimal Note object; otherwise use as-is (Note from legacy)
+        const newNote: Note = typeof newNoteOrId === 'string'
+          ? { id: newNoteOrId } as unknown as Note
+          : newNoteOrId;
+        onSelectNote(newNote);
+        setDesiredColumn(0);
+        setFocusTarget('title');
+      }
     });
   }, [onCreateNoteAfter, onSelectNote, viewMode, calendarSelectedDate, labelFilter]);
 
@@ -1014,7 +1038,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     );
   }
 
-  const hasActiveFilters = searchQuery.trim() !== '' || categoryFilter !== 'all' || labelFilter.length > 0 || showOverdueOnly;
+  const hasActiveFilters = searchQuery.trim() !== '' || categoryFilter !== 'all' || labelFilter.length > 0 || assigneeFilter.length > 0 || showOverdueOnly;
 
   // Special case: show message when there are only completed tasks (no active tasks)
   const shouldShowOnlyCompletedMessage = hasActiveFilters && activeNotes.length === 0 && completedNotes.length > 0;
@@ -1120,6 +1144,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           onShowOverdueOnlyChange={setShowOverdueOnly}
           sortByAssignee={sortByAssignee}
           onSortByAssigneeChange={setSortByAssignee}
+          contacts={contacts}
+          assigneeFilter={assigneeFilter}
+          onAssigneeFilterChange={setAssigneeFilter}
         />
         {/* Sidebar button */}
         <div className="ml-auto">
@@ -1371,6 +1398,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               labelDropdownOpen={labelDropdownOpen}
               categoryDropdownOpen={categoryDropdownOpen}
               deadlinePickerOpen={deadlinePickerOpen}
+              assigneePickerOpen={assigneePickerOpen}
               editingHistoryEntry={editingHistoryEntry}
               contacts={contacts}
               onEdit={onEdit}
@@ -1388,6 +1416,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onLabelDropdownOpenChange={setLabelDropdownOpen}
               onCategoryDropdownOpenChange={setCategoryDropdownOpen}
               onDeadlinePickerOpenChange={setDeadlinePickerOpen}
+              onAssigneePickerOpenChange={setAssigneePickerOpen}
               onEditHistoryEntry={(entry) => setEditingHistoryEntry(entry)}
               onUpdateHistoryReason={updateHistoryReason}
               onDeleteHistoryEntry={(id) => setHistoryEntryToDelete(id)}
@@ -1415,6 +1444,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               labelDropdownOpen={fixedNoteLabelDropdownOpen}
               categoryDropdownOpen={fixedNoteCategoryDropdownOpen}
               deadlinePickerOpen={fixedNoteDeadlinePickerOpen}
+              assigneePickerOpen={fixedNoteAssigneePickerOpen}
               editingHistoryEntry={editingFixedNoteHistoryEntry}
               contacts={contacts}
               onEdit={onEdit}
@@ -1432,6 +1462,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onLabelDropdownOpenChange={setFixedNoteLabelDropdownOpen}
               onCategoryDropdownOpenChange={setFixedNoteCategoryDropdownOpen}
               onDeadlinePickerOpenChange={setFixedNoteDeadlinePickerOpen}
+              onAssigneePickerOpenChange={setFixedNoteAssigneePickerOpen}
               onEditHistoryEntry={(entry) => setEditingFixedNoteHistoryEntry(entry)}
               onUpdateHistoryReason={updateFixedNoteHistoryReason}
               onDeleteHistoryEntry={(id) => setFixedNoteHistoryEntryToDelete(id)}

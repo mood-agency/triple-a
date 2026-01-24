@@ -178,6 +178,7 @@
   "activeFilters": "Active Filters",
   "clearAllFilters": "Clear all filters",
   "filterByCategory": "Filter by {{category}}",
+  "filterByAssignee": "Filter by assignee",
   "filterByLabel": "Filter by label",
   "allCategories": "All categories",
   "completedTasks": "Completed",
@@ -317,7 +318,8 @@
   "assignee": {
     "placeholder": "Assignee",
     "search": "Search assignee...",
-    "noResults": "No contacts"
+    "noResults": "No contacts",
+    "setAssignee": "Set assignee"
   },
   "analytics": {
     "title": "Analytics",

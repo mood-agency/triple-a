@@ -1,12 +1,14 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react'
 import { useAuth } from './AuthContext'
-import { useDatabase } from './DatabaseContext'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useSettings } from '@/hooks/useSettings'
 import { SyncService } from '@/services/SyncService'
 import { supabase } from '@/lib/supabase'
 import type { SyncContextState, SyncConnectionStatus, SyncState, SyncTable, SyncOperation } from '@/types/sync'
-import { persistDatabase } from '@/db'
+import { persistDatabase, getDatabase } from '@/db'
+import { getFlag } from '@/config/featureFlags'
+import { useTinyBase } from './TinyBaseContext'
+import { SupabaseDataSync } from '@/store/persisters/supabaseSync'
 
 interface PushAllProgress {
   current: number
@@ -42,9 +44,12 @@ const SYNC_DEBOUNCE = 2000 // 2 seconds debounce
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
-  const { db, isReady } = useDatabase()
   const isOnline = useOnlineStatus()
   const { settings } = useSettings()
+  const { store: tinybaseStore } = useTinyBase()
+
+  // Check if TinyBase mode is enabled
+  const useTinyBaseEnabled = getFlag('useTinyBase')
 
   const [connectionStatus, setConnectionStatus] = useState<SyncConnectionStatus>('offline')
   const [syncState, setSyncState] = useState<SyncState>('idle')
@@ -54,25 +59,74 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   const [isPushingAll, setIsPushingAll] = useState(false)
   const [isPullingAll, setIsPullingAll] = useState(false)
+  const [isSyncServiceReady, setIsSyncServiceReady] = useState(false)
 
   const syncServiceRef = useRef<SyncService | null>(null)
-  const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const tinybaseSyncRef = useRef<SupabaseDataSync | null>(null)
   const syncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isSyncingRef = useRef(false)
   const initialSyncDoneRef = useRef(false)
 
-  // Initialize sync service when db and user are ready
+  // Unique client ID to identify this browser instance
+  const clientIdRef = useRef<string>(`client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
+  // Broadcast channel ref for sending sync notifications
+  const broadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  // Track when we're the source of a change to avoid self-triggering
+  const lastSyncTimeRef = useRef<number>(0)
+  const SELF_CHANGE_THRESHOLD = 3000 // 3 seconds
+
+  // Initialize sync service when user is ready
   useEffect(() => {
-    if (db && user && isReady) {
-      syncServiceRef.current = new SyncService(db, user.id)
-      setLastSyncedAt(syncServiceRef.current.getLastSyncedAt())
-      setPendingCount(syncServiceRef.current.getPendingCount())
-      initialSyncDoneRef.current = false
-    } else {
+    if (!user) {
       syncServiceRef.current = null
+      tinybaseSyncRef.current = null
       initialSyncDoneRef.current = false
+      setIsSyncServiceReady(false)
+      return
     }
-  }, [db, user, isReady])
+
+    if (useTinyBaseEnabled) {
+      // TinyBase mode - use SupabaseDataSync
+      if (tinybaseStore) {
+        tinybaseSyncRef.current = new SupabaseDataSync(tinybaseStore, {
+          userId: user.id,
+          onProgress: (progress) => {
+            console.log('[TinyBaseSync] Progress:', progress)
+          },
+          onError: (error, table) => {
+            console.error(`[TinyBaseSync] Error in ${table}:`, error)
+            setError(error.message)
+          },
+        })
+        initialSyncDoneRef.current = false
+        setIsSyncServiceReady(true)
+        console.log('[Sync] TinyBase sync service ready')
+      } else {
+        setIsSyncServiceReady(false)
+      }
+    } else {
+      // Legacy mode - use SyncService
+      try {
+        const db = getDatabase()
+        if (db) {
+          syncServiceRef.current = new SyncService(db, user.id)
+          setLastSyncedAt(syncServiceRef.current.getLastSyncedAt())
+          setPendingCount(syncServiceRef.current.getPendingCount())
+          initialSyncDoneRef.current = false
+          setIsSyncServiceReady(true)
+        } else {
+          syncServiceRef.current = null
+          initialSyncDoneRef.current = false
+          setIsSyncServiceReady(false)
+        }
+      } catch {
+        // Database not initialized yet (can happen during startup)
+        syncServiceRef.current = null
+        initialSyncDoneRef.current = false
+        setIsSyncServiceReady(false)
+      }
+    }
+  }, [user, useTinyBaseEnabled, tinybaseStore])
 
   // Update connection status
   useEffect(() => {
@@ -87,9 +141,55 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   // Sync function - stable reference using ref for state check
   const syncNow = useCallback(async () => {
+    if (!isOnline || isSyncingRef.current) {
+      console.log('[Sync] syncNow skipped - offline or already syncing')
+      return
+    }
+
+    // TinyBase mode
+    if (useTinyBaseEnabled) {
+      if (!tinybaseSyncRef.current) {
+        console.log('[Sync] TinyBase sync not ready')
+        return
+      }
+
+      isSyncingRef.current = true
+      setSyncState('syncing')
+      setError(null)
+
+      try {
+        console.log('[Sync] Starting TinyBase sync...')
+        lastSyncTimeRef.current = Date.now()
+        await tinybaseSyncRef.current.sync()
+        lastSyncTimeRef.current = Date.now()
+        const status = tinybaseSyncRef.current.getSyncStatus()
+        setLastSyncedAt(status.lastSyncedAt)
+        setSyncState('idle')
+        console.log('[Sync] TinyBase sync completed')
+
+        // Notify other clients via broadcast that we synced changes
+        if (broadcastChannelRef.current && supabase) {
+          console.log('[Sync] Broadcasting sync notification to other clients')
+          broadcastChannelRef.current.send({
+            type: 'broadcast',
+            event: 'sync-needed',
+            payload: { clientId: clientIdRef.current, timestamp: Date.now() },
+          })
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error')
+        setSyncState('error')
+        console.error('[Sync] TinyBase sync error:', err)
+      } finally {
+        isSyncingRef.current = false
+      }
+      return
+    }
+
+    // Legacy mode
     console.log('[Sync] syncNow called:', { hasSyncService: !!syncServiceRef.current, isOnline, isSyncing: isSyncingRef.current })
-    if (!syncServiceRef.current || !isOnline || isSyncingRef.current) {
-      console.log('[Sync] syncNow skipped')
+    if (!syncServiceRef.current) {
+      console.log('[Sync] syncNow skipped - no sync service')
       return
     }
 
@@ -120,7 +220,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     } finally {
       isSyncingRef.current = false
     }
-  }, [isOnline])
+  }, [isOnline, useTinyBaseEnabled])
 
   // Debounced sync to prevent rapid successive calls
   const debouncedSync = useCallback(() => {
@@ -136,7 +236,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const pushAllToSupabase = useCallback(async (
     onProgress?: (progress: PushAllProgress) => void
   ): Promise<PushAllResult> => {
-    if (!syncServiceRef.current || !isOnline) {
+    if (!isOnline) {
       return { success: false, error: 'Not connected', pushed: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0, contacts: 0 } }
     }
 
@@ -144,6 +244,26 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     setError(null)
 
     try {
+      if (useTinyBaseEnabled) {
+        // TinyBase mode
+        if (!tinybaseSyncRef.current) {
+          return { success: false, error: 'TinyBase sync not ready', pushed: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0, contacts: 0 } }
+        }
+
+        await tinybaseSyncRef.current.pushAll((progress) => {
+          onProgress?.({ current: progress.current, total: progress.total, item: progress.table })
+        })
+
+        const status = tinybaseSyncRef.current.getSyncStatus()
+        setLastSyncedAt(status.lastSyncedAt)
+        return { success: true, pushed: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0, contacts: 0 } }
+      }
+
+      // Legacy mode
+      if (!syncServiceRef.current) {
+        return { success: false, error: 'Sync service not ready', pushed: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0, contacts: 0 } }
+      }
+
       const result = await syncServiceRef.current.pushAllToSupabase((current, total, item) => {
         onProgress?.({ current, total, item })
       })
@@ -164,13 +284,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsPushingAll(false)
     }
-  }, [isOnline])
+  }, [isOnline, useTinyBaseEnabled])
 
   // Pull all data from Supabase (full sync from cloud)
   const pullAllFromSupabase = useCallback(async (
     onProgress?: (progress: PushAllProgress) => void
   ): Promise<PullAllResult> => {
-    if (!syncServiceRef.current || !isOnline) {
+    if (!isOnline) {
       return { success: false, error: 'Not connected', pulled: { notes: 0, labels: 0, noteLabels: 0, contacts: 0 } }
     }
 
@@ -178,6 +298,26 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     setError(null)
 
     try {
+      if (useTinyBaseEnabled) {
+        // TinyBase mode
+        if (!tinybaseSyncRef.current) {
+          return { success: false, error: 'TinyBase sync not ready', pulled: { notes: 0, labels: 0, noteLabels: 0, contacts: 0 } }
+        }
+
+        await tinybaseSyncRef.current.pullAll((progress) => {
+          onProgress?.({ current: progress.current, total: progress.total, item: progress.table })
+        })
+
+        const status = tinybaseSyncRef.current.getSyncStatus()
+        setLastSyncedAt(status.lastSyncedAt)
+        return { success: true, pulled: { notes: 0, labels: 0, noteLabels: 0, contacts: 0 } }
+      }
+
+      // Legacy mode
+      if (!syncServiceRef.current) {
+        return { success: false, error: 'Sync service not ready', pulled: { notes: 0, labels: 0, noteLabels: 0, contacts: 0 } }
+      }
+
       const result = await syncServiceRef.current.pullAllFromSupabase((current, total, item) => {
         onProgress?.({ current, total, item })
       })
@@ -197,7 +337,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsPullingAll(false)
     }
-  }, [isOnline])
+  }, [isOnline, useTinyBaseEnabled])
 
   // Queue operation for sync
   const queueOperation = useCallback(async (
@@ -206,6 +346,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     recordId: string,
     data?: Record<string, unknown>
   ) => {
+    // In TinyBase mode, sync is handled directly by the hooks
+    if (useTinyBaseEnabled) {
+      console.log('[Sync] TinyBase mode - queueOperation skipped, handled by hooks')
+      return
+    }
+
     console.log('[Sync] queueOperation called:', { tableName, operation, recordId, hasUser: !!user, hasSyncService: !!syncServiceRef.current })
     if (!syncServiceRef.current || !user) {
       console.log('[Sync] queueOperation skipped - no syncService or user')
@@ -223,11 +369,38 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       console.log('[Sync] Triggering debounced sync')
       debouncedSync()
     }
-  }, [user, isOnline, debouncedSync, settings.autoSync])
+  }, [user, isOnline, debouncedSync, settings.autoSync, useTinyBaseEnabled])
 
-  // Initial sync and periodic sync
+  // Initial sync and periodic sync for TinyBase mode
   useEffect(() => {
-    if (!user || !isOnline || !syncServiceRef.current || !settings.autoSync) {
+    if (!useTinyBaseEnabled || !user || !isOnline || !settings.autoSync || !isSyncServiceReady) {
+      return
+    }
+
+    // Initial sync only once per session
+    if (!initialSyncDoneRef.current) {
+      initialSyncDoneRef.current = true
+      console.log('[Sync] TinyBase initial sync starting...')
+      syncNow()
+    }
+
+    // Set up periodic sync
+    const intervalId = setInterval(() => {
+      if (!isSyncingRef.current) {
+        console.log('[Sync] TinyBase periodic sync...')
+        syncNow()
+      }
+    }, SYNC_INTERVAL)
+
+    return () => {
+      clearInterval(intervalId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, isOnline, settings.autoSync, useTinyBaseEnabled, isSyncServiceReady])
+
+  // Initial sync and periodic sync for legacy mode
+  useEffect(() => {
+    if (useTinyBaseEnabled || !user || !isOnline || !settings.autoSync || !isSyncServiceReady) {
       return
     }
 
@@ -238,30 +411,173 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
 
     // Set up periodic sync
-    syncIntervalRef.current = setInterval(() => {
+    const intervalId = setInterval(() => {
       if (!isSyncingRef.current) {
         syncNow()
       }
     }, SYNC_INTERVAL)
 
     return () => {
-      if (syncIntervalRef.current) {
-        clearInterval(syncIntervalRef.current)
-        syncIntervalRef.current = null
-      }
+      clearInterval(intervalId)
     }
-  }, [user, isOnline, syncNow, settings.autoSync])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, isOnline, settings.autoSync, useTinyBaseEnabled, isSyncServiceReady])
 
-  // Sync when coming back online with pending changes
+  // Sync when coming back online with pending changes (only for legacy mode)
   useEffect(() => {
+    if (useTinyBaseEnabled) return
     if (isOnline && pendingCount > 0 && !isSyncingRef.current && initialSyncDoneRef.current && settings.autoSync) {
       debouncedSync()
     }
-  }, [isOnline, pendingCount, debouncedSync, settings.autoSync])
+  }, [isOnline, pendingCount, debouncedSync, settings.autoSync, useTinyBaseEnabled])
 
-  // Set up realtime subscriptions - separate from sync logic
+  // Listen for local TinyBase changes and trigger sync
   useEffect(() => {
-    if (!supabase || !user || !db || !settings.autoSync) return
+    if (!useTinyBaseEnabled || !tinybaseStore || !settings.autoSync || !isSyncServiceReady) return
+
+    // Listen for changes to the notes table
+    const listenerId = tinybaseStore.addTableListener('notes', () => {
+      // Check if any rows have pending sync status
+      const notesTable = tinybaseStore.getTable('notes') || {}
+      const hasPending = Object.values(notesTable).some(
+        (row) => (row as Record<string, unknown>).sync_status === 'pending'
+      )
+      if (hasPending && !isSyncingRef.current) {
+        console.log('[Sync] TinyBase: Local changes detected, triggering sync...')
+        debouncedSync()
+      }
+    })
+
+    return () => {
+      tinybaseStore.delListener(listenerId)
+    }
+  }, [useTinyBaseEnabled, tinybaseStore, settings.autoSync, isSyncServiceReady, debouncedSync])
+
+  // Ref for syncNow to avoid stale closures in realtime callbacks
+  const syncNowRef = useRef(syncNow)
+  useEffect(() => {
+    syncNowRef.current = syncNow
+  }, [syncNow])
+
+  // Set up realtime subscriptions for TinyBase mode using broadcast for cross-client sync
+  useEffect(() => {
+    if (!useTinyBaseEnabled) return
+    if (!supabase || !user?.id || !settings.autoSync) return
+
+    console.log('[Sync] Setting up TinyBase realtime subscriptions for user:', user.id, 'client:', clientIdRef.current)
+
+    // Create a user-specific channel for broadcast messages
+    const broadcastChannel = supabase
+      .channel(`sync-broadcast-${user.id}`)
+      .on('broadcast', { event: 'sync-needed' }, (payload) => {
+        const { clientId, timestamp } = payload.payload as { clientId: string; timestamp: number }
+        console.log('[Sync] Received broadcast sync notification:', { clientId, timestamp, myClientId: clientIdRef.current })
+
+        // Only sync if the notification came from a different client
+        if (clientId !== clientIdRef.current) {
+          console.log('[Sync] TinyBase: Remote change notification received from another client, triggering sync')
+          syncNowRef.current()
+        } else {
+          console.log('[Sync] TinyBase: Ignoring own broadcast')
+        }
+      })
+      .subscribe((status, err) => {
+        console.log('[Sync] Broadcast channel subscription status:', status, err ? `Error: ${err.message}` : '')
+      })
+
+    broadcastChannelRef.current = broadcastChannel
+
+    // Also set up postgres_changes as a fallback (may not work depending on Supabase config)
+    const dbChannel = supabase
+      .channel('tinybase-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notes',
+        },
+        (payload) => {
+          console.log('[Sync] TinyBase: Received postgres_changes event for notes:', {
+            eventType: payload.eventType,
+            old: payload.old,
+            new: payload.new,
+          })
+          // Filter client-side to only handle our user's changes
+          const payloadUserId = (payload.new as Record<string, unknown>)?.user_id || (payload.old as Record<string, unknown>)?.user_id
+          if (payloadUserId === user.id) {
+            // Check if this is likely our own change echoing back
+            const timeSinceLastSync = Date.now() - lastSyncTimeRef.current
+            if (timeSinceLastSync < SELF_CHANGE_THRESHOLD && isSyncingRef.current) {
+              console.log('[Sync] TinyBase: Ignoring likely self-triggered event (syncing)')
+              return
+            }
+            console.log('[Sync] TinyBase: Remote notes change detected via postgres_changes, triggering sync')
+            syncNowRef.current()
+          } else {
+            console.log('[Sync] TinyBase: Ignoring change for different user:', payloadUserId)
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'labels',
+        },
+        (payload) => {
+          console.log('[Sync] TinyBase: Received postgres_changes event for labels')
+          const payloadUserId = (payload.new as Record<string, unknown>)?.user_id || (payload.old as Record<string, unknown>)?.user_id
+          if (payloadUserId === user.id) {
+            const timeSinceLastSync = Date.now() - lastSyncTimeRef.current
+            if (timeSinceLastSync < SELF_CHANGE_THRESHOLD && isSyncingRef.current) {
+              console.log('[Sync] TinyBase: Ignoring likely self-triggered event (syncing)')
+              return
+            }
+            console.log('[Sync] TinyBase: Remote labels change detected via postgres_changes, triggering sync')
+            syncNowRef.current()
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'contacts',
+        },
+        (payload) => {
+          console.log('[Sync] TinyBase: Received postgres_changes event for contacts')
+          const payloadUserId = (payload.new as Record<string, unknown>)?.user_id || (payload.old as Record<string, unknown>)?.user_id
+          if (payloadUserId === user.id) {
+            const timeSinceLastSync = Date.now() - lastSyncTimeRef.current
+            if (timeSinceLastSync < SELF_CHANGE_THRESHOLD && isSyncingRef.current) {
+              console.log('[Sync] TinyBase: Ignoring likely self-triggered event (syncing)')
+              return
+            }
+            console.log('[Sync] TinyBase: Remote contacts change detected via postgres_changes, triggering sync')
+            syncNowRef.current()
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        console.log('[Sync] TinyBase postgres_changes subscription status:', status, err ? `Error: ${err.message}` : '')
+      })
+
+    return () => {
+      console.log('[Sync] Removing TinyBase realtime channels')
+      supabase.removeChannel(broadcastChannel)
+      supabase.removeChannel(dbChannel)
+      broadcastChannelRef.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, settings.autoSync, useTinyBaseEnabled])
+
+  // Set up realtime subscriptions for legacy mode
+  useEffect(() => {
+    if (useTinyBaseEnabled) return
+    if (!supabase || !user?.id || !settings.autoSync) return
 
     const channel = supabase
       .channel('db-changes')
@@ -274,8 +590,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           filter: `user_id=eq.${user.id}`,
         },
         () => {
-          // Debounced sync when remote changes detected
-          debouncedSync()
+          syncNow()
         }
       )
       .on(
@@ -287,17 +602,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           filter: `user_id=eq.${user.id}`,
         },
         () => {
-          debouncedSync()
+          syncNow()
         }
       )
       .subscribe()
 
     return () => {
-      if (supabase) {
-        supabase.removeChannel(channel)
-      }
+      supabase.removeChannel(channel)
     }
-  }, [user, db, debouncedSync, settings.autoSync])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, settings.autoSync, useTinyBaseEnabled])
 
   // Cleanup debounce on unmount
   useEffect(() => {

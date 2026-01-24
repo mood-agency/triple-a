@@ -20,7 +20,10 @@ interface AssigneePickerProps {
   onChange: (contactId: string | null) => void;
   disabled?: boolean;
   compact?: boolean;
+  iconOnly?: boolean;
   className?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function AssigneePicker({
@@ -29,10 +32,17 @@ export function AssigneePicker({
   onChange,
   disabled = false,
   compact = false,
+  iconOnly = false,
   className,
+  open: controlledOpen,
+  onOpenChange,
 }: AssigneePickerProps) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+
+  // Use controlled state if provided, otherwise use internal state
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = onOpenChange ?? setInternalOpen;
 
   const selectedContact = contacts.find((c) => c.id === value);
   const displayName = selectedContact
@@ -57,33 +67,40 @@ export function AssigneePicker({
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
+          size={iconOnly ? 'icon' : 'default'}
           className={cn(
-            'justify-between',
-            compact ? 'h-7 px-2 text-xs' : 'h-9 px-3',
+            iconOnly ? 'h-8 w-8 shadow-none' : 'justify-between',
+            !iconOnly && compact ? 'h-7 px-2 text-xs' : !iconOnly && 'h-9 px-3',
             !selectedContact && 'text-muted-foreground',
             className
           )}
         >
-          <div className="flex items-center gap-2 min-w-0">
-            <User className={cn('shrink-0', compact ? 'h-3 w-3' : 'h-4 w-4')} />
-            <span className="truncate">
-              {displayName || t('assignee.placeholder')}
-            </span>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            {selectedContact && (
-              <X
-                className={cn(
-                  'shrink-0 opacity-50 hover:opacity-100',
-                  compact ? 'h-3 w-3' : 'h-4 w-4'
+          {iconOnly ? (
+            <User className="h-4 w-4" />
+          ) : (
+            <>
+              <div className="flex items-center gap-2 min-w-0">
+                <User className={cn('shrink-0', compact ? 'h-3 w-3' : 'h-4 w-4')} />
+                <span className="truncate">
+                  {displayName || t('assignee.placeholder')}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {selectedContact && (
+                  <X
+                    className={cn(
+                      'shrink-0 opacity-50 hover:opacity-100',
+                      compact ? 'h-3 w-3' : 'h-4 w-4'
+                    )}
+                    onClick={handleClear}
+                  />
                 )}
-                onClick={handleClear}
-              />
-            )}
-            <ChevronsUpDown
-              className={cn('shrink-0 opacity-50', compact ? 'h-3 w-3' : 'h-4 w-4')}
-            />
-          </div>
+                <ChevronsUpDown
+                  className={cn('shrink-0 opacity-50', compact ? 'h-3 w-3' : 'h-4 w-4')}
+                />
+              </div>
+            </>
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-56 p-0" align="start">

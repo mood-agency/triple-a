@@ -1,7 +1,10 @@
 import { forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Trash2, Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown } from 'lucide-react';
+import { Trash2, Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag } from 'lucide-react';
+import { format } from 'date-fns';
+import { es, enUS } from 'date-fns/locale';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
@@ -33,6 +36,7 @@ interface NoteEditorPanelProps {
   labelDropdownOpen: boolean;
   categoryDropdownOpen: boolean;
   deadlinePickerOpen: boolean;
+  assigneePickerOpen: boolean;
   editingHistoryEntry: { id: string; reason: string } | null;
   // Contacts for assignee picker
   contacts: Contact[];
@@ -51,6 +55,7 @@ interface NoteEditorPanelProps {
   onLabelDropdownOpenChange: (open: boolean) => void;
   onCategoryDropdownOpenChange: (open: boolean) => void;
   onDeadlinePickerOpenChange: (open: boolean) => void;
+  onAssigneePickerOpenChange: (open: boolean) => void;
   onEditHistoryEntry: (entry: { id: string; reason: string }) => void;
   onUpdateHistoryReason: (id: string, reason: string) => void;
   onDeleteHistoryEntry: (id: string) => void;
@@ -69,6 +74,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
   labelDropdownOpen,
   categoryDropdownOpen,
   deadlinePickerOpen,
+  assigneePickerOpen,
   editingHistoryEntry,
   contacts,
   onEdit,
@@ -86,6 +92,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
   onLabelDropdownOpenChange,
   onCategoryDropdownOpenChange,
   onDeadlinePickerOpenChange,
+  onAssigneePickerOpenChange,
   onEditHistoryEntry,
   onUpdateHistoryReason,
   onDeleteHistoryEntry,
@@ -151,27 +158,17 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           <Tooltip>
             <TooltipTrigger asChild>
               <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="flex items-center gap-1 px-2 py-1 rounded-md text-muted-foreground hover:bg-muted transition-colors"
-                >
+                <Button variant="outline" size="icon" className="h-8 w-8 shadow-none">
                   {note.category === 'todo' && <Pickaxe className="h-4 w-4" />}
                   {note.category === 'followup' && <Forward className="h-4 w-4" />}
                   {note.category === 'notes' && <StickyNote className="h-4 w-4" />}
                   {note.category === 'meeting' && <Users className="h-4 w-4" />}
-                  <span className="text-sm">
-                    {note.category === 'todo' && t('categoryTodo')}
-                    {note.category === 'followup' && t('categoryFollowUp')}
-                    {note.category === 'notes' && t('categoryNotes')}
-                    {note.category === 'meeting' && t('categoryMeeting')}
-                  </span>
-                  <ChevronDown className="h-3 w-3" />
-                </button>
+                </Button>
               </PopoverTrigger>
             </TooltipTrigger>
             <TooltipContent className="flex items-center gap-2">
               <p>{t('changeCategory')}</p>
-              <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>C</Kbd></span>
+              <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>C</Kbd></span>
             </TooltipContent>
           </Tooltip>
           <PopoverContent className="w-44 p-0" align="start">
@@ -234,36 +231,25 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           </PopoverContent>
         </Popover>
 
+        {/* Selected category chip */}
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-muted text-muted-foreground">
+          {note.category === 'todo' && t('categoryTodo')}
+          {note.category === 'followup' && t('categoryFollowUp')}
+          {note.category === 'notes' && t('categoryNotes')}
+          {note.category === 'meeting' && t('categoryMeeting')}
+        </span>
+
         {/* Separator between category and labels */}
         <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
 
-        {/* Labels */}
-        {noteLabels.map((label) => (
-          <span
-            key={label.id}
-            className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full text-white"
-            style={{ backgroundColor: label.color }}
-          >
-            {label.name}
-            <button
-              type="button"
-              onClick={() => onRemoveLabel(label.id)}
-              className="hover:bg-white/20 rounded-full p-0.5"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </span>
-        ))}
+        {/* Labels dropdown */}
         <Popover open={labelDropdownOpen} onOpenChange={onLabelDropdownOpenChange}>
           <Tooltip>
             <TooltipTrigger asChild>
               <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="p-1 text-muted-foreground hover:bg-muted rounded-md"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+                <Button variant="outline" size="icon" className="h-8 w-8 shadow-none">
+                  <Tag className="h-4 w-4" />
+                </Button>
               </PopoverTrigger>
             </TooltipTrigger>
             <TooltipContent className="flex items-center gap-2">
@@ -277,32 +263,41 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
               <CommandList>
                 <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
                 <CommandGroup>
-                  {allLabels.filter(l => !noteLabels.some(nl => nl.id === l.id)).map((label) => (
-                    <CommandItem
-                      key={label.id}
-                      value={label.name}
-                      onSelect={() => {
-                        onAddLabel(label.id);
-                        onLabelDropdownOpenChange(false);
-                      }}
-                      className="group flex items-center justify-between"
-                    >
-                      <div className="flex items-center">
-                        <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
-                        {label.name}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEditLabel(label);
+                  {allLabels.map((label) => {
+                    const isSelected = noteLabels.some(nl => nl.id === label.id);
+                    return (
+                      <CommandItem
+                        key={label.id}
+                        value={label.name}
+                        onSelect={() => {
+                          if (isSelected) {
+                            onRemoveLabel(label.id);
+                          } else {
+                            onAddLabel(label.id);
+                          }
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
+                        className="group flex items-center justify-between"
                       >
-                        <Pencil className="h-3 w-3 text-muted-foreground" />
-                      </button>
-                    </CommandItem>
-                  ))}
+                        <div className="flex items-center">
+                          <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
+                          {label.name}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditLabel(label);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
+                          >
+                            <Pencil className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                          {isSelected && <Check className="h-4 w-4" />}
+                        </div>
+                      </CommandItem>
+                    );
+                  })}
                 </CommandGroup>
                 <CommandSeparator />
                 <CommandGroup>
@@ -321,6 +316,28 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           </PopoverContent>
         </Popover>
 
+        {/* Selected label chips */}
+        {noteLabels.length > 0 && (
+          <div className="flex gap-1 items-center">
+            {noteLabels.map((label) => (
+              <span
+                key={label.id}
+                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full text-white"
+                style={{ backgroundColor: label.color }}
+              >
+                {label.name}
+                <button
+                  type="button"
+                  onClick={() => onRemoveLabel(label.id)}
+                  className="hover:bg-white/20 rounded-full p-0.5"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Separator between labels and deadline */}
         <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
 
@@ -332,9 +349,9 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
                 date={note.deadline ? parseLocalDate(note.deadline) : undefined}
                 onDateChange={onDeadlineChange}
                 placeholder={t('setDeadline')}
-                className="h-7 text-xs w-auto"
                 open={deadlinePickerOpen}
                 onOpenChange={onDeadlinePickerOpenChange}
+                iconOnly
               />
             </div>
           </TooltipTrigger>
@@ -344,17 +361,61 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           </TooltipContent>
         </Tooltip>
 
+        {/* Selected deadline chip */}
+        {note.deadline && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-muted text-muted-foreground">
+            {format(parseLocalDate(note.deadline), "d MMM", { locale: i18n.language === 'es' ? es : enUS })}
+            <button
+              type="button"
+              onClick={() => onDeadlineChange(undefined)}
+              className="hover:bg-foreground/10 rounded-full p-0.5"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        )}
+
         {/* Separator between deadline and assignee */}
         <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
 
         {/* Assignee picker */}
-        <AssigneePicker
-          contacts={contacts}
-          value={note.assignee_id}
-          onChange={(assigneeId) => onUpdateAssignee(note.id, assigneeId)}
-          compact
-          className="h-7 text-xs w-auto"
-        />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div>
+              <AssigneePicker
+                contacts={contacts}
+                value={note.assignee_id}
+                onChange={(assigneeId) => onUpdateAssignee(note.id, assigneeId)}
+                iconOnly
+                open={assigneePickerOpen}
+                onOpenChange={onAssigneePickerOpenChange}
+              />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="flex items-center gap-2">
+            <p>{t('assignee.setAssignee')}</p>
+            <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>U</Kbd></span>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Selected assignee chip */}
+        {note.assignee_id && (() => {
+          const assignee = contacts.find(c => c.id === note.assignee_id);
+          if (!assignee) return null;
+          const fullName = `${assignee.name} ${assignee.lastname}`.trim();
+          return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
+              {fullName}
+              <button
+                type="button"
+                onClick={() => onUpdateAssignee(note.id, null)}
+                className="hover:bg-white/20 rounded-full p-0.5"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          );
+        })()}
 
         {/* Separator between assignee and delete */}
         <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
