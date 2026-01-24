@@ -6,7 +6,6 @@ import { DatabaseProvider } from './contexts/DatabaseContext'
 import { TinyBaseProvider } from './contexts/TinyBaseContext'
 import { SyncProvider } from './contexts/SyncContext'
 import { ThemeProvider } from './contexts/ThemeContext'
-import { AIProvider } from './contexts/AIContext'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Toaster } from './components/ui/sonner'
 import { getFlag } from './config/featureFlags'
@@ -26,10 +25,8 @@ createRoot(document.getElementById('root')!).render(
             <DatabaseProvider skipInit={useTinyBase}>
               <TinyBaseProvider skipInit={!useTinyBase}>
                 <SyncProvider>
-                  <AIProvider>
-                    <App />
-                    <Toaster />
-                  </AIProvider>
+                  <App />
+                  <Toaster />
                 </SyncProvider>
               </TinyBaseProvider>
             </DatabaseProvider>

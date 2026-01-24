@@ -34,7 +34,6 @@ import { ColorPicker } from '@/components/ui/color-picker';
 import type { EditableDescriptionHandle } from '@/components/ui/EditableDescription';
 import { useNoteHistory } from '@/hooks/useNoteHistory';
 import { useLabels } from '@/hooks/useLabels';
-import { useAutoLabel } from '@/hooks/useAutoLabel';
 import { useSettings } from '@/hooks/useSettings';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import { PostponeDialog } from './PostponeDialog';
@@ -63,8 +62,10 @@ interface NoteListProps {
   // External filter control (from CommandPalette)
   externalLabelFilter?: string[];
   externalCategoryFilter?: NoteCategory | 'all';
+  externalAssigneeFilter?: string[];
   onLabelFilterChange?: (labels: string[]) => void;
   onCategoryFilterChange?: (category: NoteCategory | 'all') => void;
+  onAssigneeFilterChange?: (assignees: string[]) => void;
 }
 
 type FocusTarget = 'title' | 'description-start' | 'description-end' | null;
@@ -83,7 +84,7 @@ function getColumnPosition(text: string, cursorPos: number): number {
   return lastNewline === -1 ? cursorPos : cursorPos - lastNewline - 1;
 }
 
-export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onUpdateAssignee, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, externalLabelFilter, externalCategoryFilter, onLabelFilterChange, onCategoryFilterChange }, ref) {
+export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onUpdateAssignee, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange }, ref) {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { contacts } = useContacts();
@@ -126,6 +127,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   // Labels state
   const { labels: rawLabels, getLabelsForNote, addLabelToNote, removeLabelFromNote, createLabel, updateLabel, noteLabelVersion } = useLabels();
   const [internalLabelFilter, setInternalLabelFilter] = useState<string[]>([]);
+  const [internalAssigneeFilter, setInternalAssigneeFilter] = useState<string[]>([]);
 
   // PERFORMANCE: Stable empty array to avoid creating new references
   const EMPTY_LABELS: Label[] = useMemo(() => [], []);
@@ -167,12 +169,11 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteIdsKey, contacts]);
 
-  // Auto-labeling with AI
-  const { autoLabelNote } = useAutoLabel();
 
   // Use external filters if provided, otherwise use internal state
   const labelFilter = externalLabelFilter ?? internalLabelFilter;
   const categoryFilter = externalCategoryFilter ?? internalCategoryFilter;
+  const assigneeFilter = externalAssigneeFilter ?? internalAssigneeFilter;
 
   const setLabelFilter = (value: string[] | ((prev: string[]) => string[])) => {
     const newValue = typeof value === 'function' ? value(labelFilter) : value;
@@ -188,6 +189,15 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       onCategoryFilterChange(value);
     } else {
       setInternalCategoryFilter(value);
+    }
+  };
+
+  const setAssigneeFilter = (value: string[] | ((prev: string[]) => string[])) => {
+    const newValue = typeof value === 'function' ? value(assigneeFilter) : value;
+    if (onAssigneeFilterChange) {
+      onAssigneeFilterChange(newValue);
+    } else {
+      setInternalAssigneeFilter(newValue);
     }
   };
   const [noteLabels, setNoteLabels] = useState<Label[]>([]);
@@ -210,7 +220,6 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [sortByDeadline, setSortByDeadline] = useState(false);
   const [sortByAssignee, setSortByAssignee] = useState(false);
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
-  const [assigneeFilter, setAssigneeFilter] = useState<string[]>([]);
   const [showPostponeHistory, setShowPostponeHistory] = useState(false);
   const [deadlinePickerOpen, setDeadlinePickerOpen] = useState(false);
   const [assigneePickerOpen, setAssigneePickerOpen] = useState(false);
@@ -369,7 +378,6 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const filteredNotes = useMemo(() => [...activeNotes, ...completedNotes], [activeNotes, completedNotes]);
 
   // PERFORMANCE: Keep refs updated for use in stable callbacks
-  filteredNotesRef.current = filteredNotes;
   activeNotesRef.current = activeNotes;
 
   // Calendar view: filter notes by selected date (only open followups and meetings with deadlines)
@@ -396,6 +404,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         const noteLabelIds = (noteLabelsCache.get(note.id) ?? EMPTY_LABELS).map(l => l.id);
         if (!labelFilter.some(labelId => noteLabelIds.includes(labelId))) return false;
       }
+      // Apply assignee filter if set
+      if (assigneeFilter.length > 0) {
+        if (!note.assignee_id || !assigneeFilter.includes(note.assignee_id)) return false;
+      }
       // Apply search query filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -405,7 +417,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       }
       return true;
     });
-  }, [notes, calendarSelectedDate, categoryFilter, labelFilter, searchQuery, noteLabelsCache, EMPTY_LABELS]);
+  }, [notes, calendarSelectedDate, categoryFilter, labelFilter, assigneeFilter, searchQuery, noteLabelsCache, EMPTY_LABELS]);
 
   // Calendar view: completed tasks for selected date
   const calendarCompletedNotes = useMemo(() => {
@@ -431,6 +443,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         const noteLabelIds = (noteLabelsCache.get(note.id) ?? EMPTY_LABELS).map(l => l.id);
         if (!labelFilter.some(labelId => noteLabelIds.includes(labelId))) return false;
       }
+      // Apply assignee filter if set
+      if (assigneeFilter.length > 0) {
+        if (!note.assignee_id || !assigneeFilter.includes(note.assignee_id)) return false;
+      }
       // Apply search query filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -445,7 +461,13 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
       return bTime - aTime;
     });
-  }, [notes, calendarSelectedDate, categoryFilter, labelFilter, searchQuery, noteLabelsCache, EMPTY_LABELS]);
+  }, [notes, calendarSelectedDate, categoryFilter, labelFilter, assigneeFilter, searchQuery, noteLabelsCache, EMPTY_LABELS]);
+
+  // PERFORMANCE: Keep filteredNotesRef updated based on view mode for navigation callbacks
+  // In calendar mode, use calendar-specific arrays; in list mode, use regular filtered arrays
+  filteredNotesRef.current = viewMode === 'calendar'
+    ? [...calendarFilteredNotes, ...calendarCompletedNotes]
+    : filteredNotes;
 
   // Load labels when selected note changes
   useEffect(() => {
@@ -667,9 +689,6 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     await removeLabelFromNote(noteId, labelId);
   }, [removeLabelFromNote]);
 
-  const handleAutoLabelNote = useCallback(async (noteId: string, content: string, description?: string | null) => {
-    await autoLabelNote(noteId, content, description);
-  }, [autoLabelNote]);
 
   const handleCreateLabelClick = useCallback(() => {
     setShowCreateLabelDialog(true);
@@ -1214,8 +1233,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         onRemoveLabel={handleRemoveLabelFromNote}
                         onCreateLabel={handleCreateLabelClick}
                         onEditLabel={handleEditLabel}
-                        onAutoLabel={handleAutoLabelNote}
-                        isFixedInSidebar={fixedNoteId === note.id}
+                                                isFixedInSidebar={fixedNoteId === note.id}
                         onToggleFixInSidebar={handleToggleFixInSidebarById}
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                         assigneeName={assigneeNamesCache.get(note.id)}
@@ -1264,8 +1282,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         onRemoveLabel={handleRemoveLabelFromNote}
                         onCreateLabel={handleCreateLabelClick}
                         onEditLabel={handleEditLabel}
-                        onAutoLabel={handleAutoLabelNote}
-                        isFixedInSidebar={fixedNoteId === note.id}
+                                                isFixedInSidebar={fixedNoteId === note.id}
                         onToggleFixInSidebar={handleToggleFixInSidebarById}
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                         assigneeName={assigneeNamesCache.get(note.id)}
@@ -1327,8 +1344,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         onRemoveLabel={handleRemoveLabelFromNote}
                         onCreateLabel={handleCreateLabelClick}
                         onEditLabel={handleEditLabel}
-                        onAutoLabel={handleAutoLabelNote}
-                        isFixedInSidebar={fixedNoteId === note.id}
+                                                isFixedInSidebar={fixedNoteId === note.id}
                         onToggleFixInSidebar={handleToggleFixInSidebarById}
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                         assigneeName={assigneeNamesCache.get(note.id)}
@@ -1370,8 +1386,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         onRemoveLabel={handleRemoveLabelFromNote}
                         onCreateLabel={handleCreateLabelClick}
                         onEditLabel={handleEditLabel}
-                        onAutoLabel={handleAutoLabelNote}
-                        isFixedInSidebar={fixedNoteId === note.id}
+                                                isFixedInSidebar={fixedNoteId === note.id}
                         onToggleFixInSidebar={handleToggleFixInSidebarById}
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                         assigneeName={assigneeNamesCache.get(note.id)}
@@ -1491,7 +1506,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               value={newLabelName}
               onChange={(e) => setNewLabelName(e.target.value)}
               placeholder={t('newLabelName')}
-              className="w-full px-3 py-2 text-sm border border-muted-foreground/20 rounded-md bg-transparent focus:outline-none focus:border-muted-foreground/40"
+              className="w-full px-3 py-2 text-sm border border-muted-foreground/20 rounded-md bg-transparent focus:outline-none focus:border-muted-foreground/40 text-foreground caret-foreground"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && newLabelName.trim()) {
                   handleCreateLabel();
@@ -1531,7 +1546,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               value={editLabelName}
               onChange={(e) => setEditLabelName(e.target.value)}
               placeholder={t('newLabelName')}
-              className="w-full px-3 py-2 text-sm border border-muted-foreground/20 rounded-md bg-transparent focus:outline-none focus:border-muted-foreground/40"
+              className="w-full px-3 py-2 text-sm border border-muted-foreground/20 rounded-md bg-transparent focus:outline-none focus:border-muted-foreground/40 text-foreground caret-foreground"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && editLabelName.trim()) {
                   handleSaveEditLabel();

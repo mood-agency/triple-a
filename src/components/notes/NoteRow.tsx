@@ -64,7 +64,6 @@ export interface NoteRowProps {
   onCreateLabel?: () => void;
   onEditLabel?: (label: Label) => void;
   isCommandPaletteOpen?: boolean;
-  onAutoLabel?: (noteId: string, content: string, description?: string | null) => void;
   isFixedInSidebar?: boolean;
   onToggleFixInSidebar?: (noteId: string) => void;
   onContentChange?: (content: string) => void;
@@ -97,7 +96,6 @@ function NoteRow({
   onCreateLabel,
   onEditLabel,
   isCommandPaletteOpen,
-  onAutoLabel,
   isFixedInSidebar = false,
   onToggleFixInSidebar,
   onContentChange,
@@ -224,13 +222,8 @@ function NoteRow({
       const trimmedValue = contentValue.trim();
       setContentValue(trimmedValue);
       onEdit(note.id, trimmedValue, note.category, note.description);
-      // Trigger auto-labeling when content is saved
-      onAutoLabel?.(note.id, trimmedValue, note.description);
     } else if (!contentValue.trim()) {
       setContentValue(note.content);
-    } else if (contentValue.trim() && labels.length === 0) {
-      // Content unchanged but no labels - still try to auto-label
-      onAutoLabel?.(note.id, contentValue.trim(), note.description);
     }
     setIsEditingContent(false);
   };
