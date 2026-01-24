@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
 import { es, enUS } from 'date-fns/locale'
 import { CalendarX2, Calendar as CalendarIcon } from 'lucide-react'
-import { Calendar } from '@/components/ui/calendar'
+import { WeekStrip } from '@/components/ui/week-strip'
 import { useCalendarNotes } from '@/hooks/useCalendarNotes'
 import type { Note, NoteCategory } from '@/types/note'
 
@@ -60,20 +60,16 @@ export function CalendarView({
 
   return (
     <div className="flex flex-col">
-      {/* Calendar with dots */}
-      <Calendar
-        mode="single"
-        selected={selectedDate}
-        onSelect={onSelectDate}
-        locale={locale}
-        weekStartsOn={1}
-        showOutsideDays
-        className="rounded-md border"
+      {/* Week strip - compact 7-day view */}
+      <WeekStrip
+        selectedDate={selectedDate}
+        onSelectDate={(date) => onSelectDate(date)}
         modifiers={{
           hasTodo: todosDates,
           hasMeeting: meetingsDates,
           hasFollowup: followupsDates,
         }}
+        locale={locale}
       />
 
       {/* Legend */}
