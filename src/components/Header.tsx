@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Trash2, ClipboardList, Users } from 'lucide-react';
+import { Trash2, ClipboardList, Users, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -31,6 +31,7 @@ export function Header({
 
   const isNotesActive = location.pathname === '/';
   const isContactsActive = location.pathname === '/contacts';
+  const isAnalyticsActive = location.pathname === '/analytics';
 
   return (
     <div className="flex justify-between items-center mb-6 flex-shrink-0">
@@ -61,6 +62,19 @@ export function Header({
             >
               <Users className="h-4 w-4" />
               <span>{t('contacts.title')}</span>
+            </Button>
+          </Link>
+          <Link to="/analytics">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "gap-1.5 rounded-md",
+                isAnalyticsActive && "bg-background shadow-sm"
+              )}
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span>{t('analytics.title')}</span>
             </Button>
           </Link>
         </div>

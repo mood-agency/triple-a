@@ -162,6 +162,8 @@
   "create": "Crear",
   "searchLabels": "Buscar etiquetas...",
   "noLabelsFound": "No se encontraron etiquetas",
+  "searchContacts": "Buscar contactos...",
+  "noContactsFound": "No se encontraron contactos",
   "searchCategory": "Buscar categoría...",
   "noCategoriesFound": "No se encontraron categorías",
   "editLabel": "Editar etiqueta",
@@ -316,6 +318,60 @@
     "placeholder": "Responsable",
     "search": "Buscar responsable...",
     "noResults": "No hay contactos"
+  },
+  "analytics": {
+    "title": "Analíticas",
+    "dateRange": "Período",
+    "last7Days": "Últimos 7 días",
+    "last30Days": "Últimos 30 días",
+    "last90Days": "Últimos 90 días",
+    "kpi": {
+      "completionRate": "Tasa de Completado",
+      "completionRateInfo": "Porcentaje de tareas completadas del total creadas en el período seleccionado. Verde: ≥80%, Amarillo: 50-79%, Rojo: <50%.",
+      "onTimeRate": "A Tiempo",
+      "onTimeRateInfo": "Porcentaje de tareas que se completaron antes o en su fecha límite. Solo considera tareas que tenían deadline asignado.",
+      "overdueCount": "Vencidas",
+      "overdueCountInfo": "Número de tareas pendientes cuya fecha límite ya pasó. Estas tareas requieren atención inmediata.",
+      "avgPostponements": "Prom. Aplazamientos",
+      "avgPostponementsInfo": "Promedio de veces que se aplazaron las tareas. Un número bajo indica mejor planificación y menos procrastinación."
+    },
+    "chart": {
+      "title": "Tendencia de Tareas",
+      "info": "Muestra la cantidad de tareas creadas vs completadas por día. Idealmente, la línea de completadas debería igualar o superar a las creadas para mantener un flujo de trabajo saludable.",
+      "created": "Creadas",
+      "completed": "Completadas"
+    },
+    "problems": {
+      "title": "Problemas",
+      "mostPostponed": "Más Aplazadas",
+      "mostPostponedInfo": "Top 5 tareas pendientes que más veces se han aplazado. Estas tareas pueden indicar bloqueos, falta de claridad o baja prioridad real.",
+      "overdue": "Vencidas",
+      "overdueInfo": "Top 5 tareas pendientes ordenadas por días de retraso. Haz clic en cualquier tarea para ir directamente a ella.",
+      "noProblems": "Sin problemas pendientes",
+      "postponedTimes": "{{count}}x aplazada",
+      "daysOverdue": "{{count}} día(s) de retraso"
+    },
+    "tasksCompleted": "{{completed}} de {{total}} tareas",
+    "ofTasksWithDeadline": "de {{count}} con fecha límite",
+    "tasksPastDeadline": "tareas pasaron fecha límite",
+    "perPostponedTask": "de {{count}} tareas aplazadas"
+  },
+  "common": {
+    "loading": "Cargando..."
+  },
+  "mobile": {
+    "calendar": "Calendario",
+    "createTask": "Nueva Tarea",
+    "taskTitle": "Título",
+    "taskTitlePlaceholder": "¿Qué necesitas hacer?",
+    "taskDescription": "Descripción",
+    "taskDescriptionPlaceholder": "Agrega más detalles (opcional)",
+    "selectLabels": "Seleccionar etiquetas",
+    "selectAssignee": "Seleccionar responsable",
+    "createTaskButton": "Crear Tarea",
+    "noTasks": "Sin tareas",
+    "noTasksForDay": "No hay tareas para este día",
+    "tasksCount": "{{count}} tarea(s)"
   },
   "contacts": {
     "title": "Contactos",

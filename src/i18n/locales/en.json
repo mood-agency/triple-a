@@ -162,6 +162,8 @@
   "create": "Create",
   "searchLabels": "Search labels...",
   "noLabelsFound": "No labels found",
+  "searchContacts": "Search contacts...",
+  "noContactsFound": "No contacts found",
   "searchCategory": "Search category...",
   "noCategoriesFound": "No categories found",
   "editLabel": "Edit label",
@@ -316,6 +318,60 @@
     "placeholder": "Assignee",
     "search": "Search assignee...",
     "noResults": "No contacts"
+  },
+  "analytics": {
+    "title": "Analytics",
+    "dateRange": "Date Range",
+    "last7Days": "Last 7 days",
+    "last30Days": "Last 30 days",
+    "last90Days": "Last 90 days",
+    "kpi": {
+      "completionRate": "Completion Rate",
+      "completionRateInfo": "Percentage of completed tasks from total created in the selected period. Green: ≥80%, Yellow: 50-79%, Red: <50%.",
+      "onTimeRate": "On Time",
+      "onTimeRateInfo": "Percentage of tasks completed before or on their deadline. Only considers tasks that had a deadline assigned.",
+      "overdueCount": "Overdue",
+      "overdueCountInfo": "Number of pending tasks whose deadline has passed. These tasks require immediate attention.",
+      "avgPostponements": "Avg Postponements",
+      "avgPostponementsInfo": "Average number of times tasks were postponed. A low number indicates better planning and less procrastination."
+    },
+    "chart": {
+      "title": "Task Trend",
+      "info": "Shows the number of tasks created vs completed per day. Ideally, the completed line should match or exceed created tasks to maintain a healthy workflow.",
+      "created": "Created",
+      "completed": "Completed"
+    },
+    "problems": {
+      "title": "Problems",
+      "mostPostponed": "Most Postponed",
+      "mostPostponedInfo": "Top 5 pending tasks that have been postponed the most. These may indicate blockers, lack of clarity, or low actual priority.",
+      "overdue": "Overdue",
+      "overdueInfo": "Top 5 pending tasks sorted by days overdue. Click any task to navigate directly to it.",
+      "noProblems": "No pending problems",
+      "postponedTimes": "{{count}}x postponed",
+      "daysOverdue": "{{count}} day(s) overdue"
+    },
+    "tasksCompleted": "{{completed}} of {{total}} tasks",
+    "ofTasksWithDeadline": "of {{count}} with deadline",
+    "tasksPastDeadline": "tasks past deadline",
+    "perPostponedTask": "of {{count}} postponed tasks"
+  },
+  "common": {
+    "loading": "Loading..."
+  },
+  "mobile": {
+    "calendar": "Calendar",
+    "createTask": "New Task",
+    "taskTitle": "Title",
+    "taskTitlePlaceholder": "What do you need to do?",
+    "taskDescription": "Description",
+    "taskDescriptionPlaceholder": "Add more details (optional)",
+    "selectLabels": "Select labels",
+    "selectAssignee": "Select assignee",
+    "createTaskButton": "Create Task",
+    "noTasks": "No tasks",
+    "noTasksForDay": "No tasks for this day",
+    "tasksCount": "{{count}} task(s)"
   },
   "contacts": {
     "title": "Contacts",

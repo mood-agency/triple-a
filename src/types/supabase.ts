@@ -78,6 +78,7 @@ export type Database = {
           created_at: string
           updated_at: string
           deleted_at: string | null
+          assignee_id: string | null
         }
         Insert: {
           id?: string
@@ -92,6 +93,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          assignee_id?: string | null
         }
         Update: {
           id?: string
@@ -106,6 +108,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          assignee_id?: string | null
         }
       }
       note_history: {

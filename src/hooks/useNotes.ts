@@ -5,6 +5,7 @@ import { useNoteOperations } from './notes/useNoteOperations';
 import { useNoteState } from './notes/useNoteState';
 import { useNoteDeadline } from './notes/useNoteDeadline';
 import { useNoteReorder } from './notes/useNoteReorder';
+import { formatLocalDate } from '@/utils/dateUtils';
 
 /**
  * Main hook for managing notes
@@ -16,7 +17,7 @@ export function useNotes(date?: string) {
   const [loading, setLoading] = useState(true);
 
   // Default date for creating new notes (today)
-  const defaultDate = new Date().toISOString().split('T')[0];
+  const defaultDate = formatLocalDate(new Date());
   const effectiveDate = date || defaultDate;
 
   /**

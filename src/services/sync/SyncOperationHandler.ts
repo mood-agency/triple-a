@@ -56,10 +56,18 @@ export class SyncOperationHandler {
     const client = this.supabaseClient;
     if (!client) return;
 
+    // Helper to map local assignee_id to remote contact id
+    const getRemoteAssigneeId = (localAssigneeId: string | null | undefined): string | null => {
+      if (!localAssigneeId) return null;
+      const contactResult = this.db.exec(`SELECT remote_id FROM contacts WHERE id = ?`, [localAssigneeId]);
+      return contactResult[0]?.values[0]?.[0] as string | null;
+    };
+
     switch (operation) {
       case 'insert':
         if (data) {
           console.log('[SyncOperationHandler] Inserting note with user_id:', this.userId, 'data:', data);
+          const remoteAssigneeId = getRemoteAssigneeId(data.assignee_id);
           const { data: inserted, error } = await client
             .from('notes')
             .insert({
@@ -75,6 +83,7 @@ export class SyncOperationHandler {
               sort_order: data.sort_order ?? 0,
               created_at: data.created_at,
               updated_at: data.updated_at,
+              assignee_id: remoteAssigneeId,
             })
             .select('id')
             .single();
@@ -98,6 +107,7 @@ export class SyncOperationHandler {
           const remoteId = remoteIdResult[0]?.values[0]?.[0] as string | null;
 
           if (remoteId) {
+            const remoteAssigneeId = getRemoteAssigneeId(data.assignee_id);
             const { error } = await client
               .from('notes')
               .update({
@@ -111,6 +121,7 @@ export class SyncOperationHandler {
                 sort_order: data.sort_order,
                 updated_at: data.updated_at,
                 deleted_at: data.deleted_at,
+                assignee_id: remoteAssigneeId,
               })
               .eq('id', remoteId);
 

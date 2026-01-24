@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { Note, NoteCategory } from '@/types/note'
-import { parseLocalDate } from '@/utils/dateUtils'
+import { parseLocalDate, formatLocalDate } from '@/utils/dateUtils'
 
 export interface CalendarNotesResult {
   notesByDate: Map<string, Note[]>
@@ -53,11 +53,7 @@ export function useCalendarNotes(
 
   // Get notes for a specific date
   const getNotesForDate = (date: Date): Note[] => {
-    // Use local date format to avoid timezone issues (toISOString converts to UTC)
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    const dateKey = `${year}-${month}-${day}`
+    const dateKey = formatLocalDate(date)
     return notesByDate.get(dateKey) || []
   }
 
