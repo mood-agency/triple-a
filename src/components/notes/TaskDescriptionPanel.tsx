@@ -1,7 +1,8 @@
 import { forwardRef, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { X, Pickaxe, Forward, StickyNote, Users, CalendarClock, Plus, Pencil, Trash2 } from 'lucide-react';
+import { X, Pickaxe, Forward, StickyNote, Users, CalendarClock, Plus, Pencil, Trash2, Tag, ChevronDown, Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
@@ -82,6 +83,7 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
   ) {
     const { t, i18n } = useTranslation();
     const [descriptionValue, setDescriptionValue] = useState(note.description ?? '');
+    const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
     const [labelDropdownOpen, setLabelDropdownOpen] = useState(false);
     const [showPostponeHistory, setShowPostponeHistory] = useState(false);
     const [editingHistoryEntry, setEditingHistoryEntry] = useState<{ id: string; reason: string } | null>(null);
@@ -201,150 +203,164 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
         {!note.last_postpone_reason && <div className="mb-2" />}
 
         {/* Categories, Labels, Deadline */}
-        <div className="flex flex-wrap gap-1 mb-2 flex-shrink-0 items-center">
-          {/* Category buttons */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={() => onEdit(note.id, note.content, 'todo', note.description)}
-                className={`p-1.5 rounded-md transition-colors ${
-                  note.category === 'todo'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted'
-                }`}
+        <div className="flex flex-wrap gap-2 mb-2 flex-shrink-0 items-center">
+          {/* Category dropdown */}
+          <Popover open={categoryDropdownOpen} onOpenChange={setCategoryDropdownOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs gap-1.5"
               >
-                <Pickaxe className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              <p>{t('categoryTodo')}</p>
-              <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>C</Kbd></span>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={() => onEdit(note.id, note.content, 'followup', note.description)}
-                className={`p-1.5 rounded-md transition-colors ${
-                  note.category === 'followup'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                <Forward className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              <p>{t('categoryFollowUp')}</p>
-              <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>C</Kbd></span>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={() => onEdit(note.id, note.content, 'notes', note.description)}
-                className={`p-1.5 rounded-md transition-colors ${
-                  note.category === 'notes'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                <StickyNote className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              <p>{t('categoryNotes')}</p>
-              <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>C</Kbd></span>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={() => onEdit(note.id, note.content, 'meeting', note.description)}
-                className={`p-1.5 rounded-md transition-colors ${
-                  note.category === 'meeting'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                <Users className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              <p>{t('categoryMeeting')}</p>
-              <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>C</Kbd></span>
-            </TooltipContent>
-          </Tooltip>
+                {note.category === 'todo' && <Pickaxe className="h-3.5 w-3.5" />}
+                {note.category === 'followup' && <Forward className="h-3.5 w-3.5" />}
+                {note.category === 'notes' && <StickyNote className="h-3.5 w-3.5" />}
+                {note.category === 'meeting' && <Users className="h-3.5 w-3.5" />}
+                <span>
+                  {note.category === 'todo' && t('categoryTodo')}
+                  {note.category === 'followup' && t('categoryFollowUp')}
+                  {note.category === 'notes' && t('categoryNotes')}
+                  {note.category === 'meeting' && t('categoryMeeting')}
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-44 p-0" align="start">
+              <Command>
+                <CommandList>
+                  <CommandGroup>
+                    <CommandItem
+                      value="todo"
+                      onSelect={() => {
+                        onEdit(note.id, note.content, 'todo', note.description);
+                        setCategoryDropdownOpen(false);
+                      }}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex items-center">
+                        <Pickaxe className="h-4 w-4 mr-2" />
+                        {t('categoryTodo')}
+                      </div>
+                      {note.category === 'todo' && <Check className="h-4 w-4" />}
+                    </CommandItem>
+                    <CommandItem
+                      value="followup"
+                      onSelect={() => {
+                        onEdit(note.id, note.content, 'followup', note.description);
+                        setCategoryDropdownOpen(false);
+                      }}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex items-center">
+                        <Forward className="h-4 w-4 mr-2" />
+                        {t('categoryFollowUp')}
+                      </div>
+                      {note.category === 'followup' && <Check className="h-4 w-4" />}
+                    </CommandItem>
+                    <CommandItem
+                      value="notes"
+                      onSelect={() => {
+                        onEdit(note.id, note.content, 'notes', note.description);
+                        setCategoryDropdownOpen(false);
+                      }}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex items-center">
+                        <StickyNote className="h-4 w-4 mr-2" />
+                        {t('categoryNotes')}
+                      </div>
+                      {note.category === 'notes' && <Check className="h-4 w-4" />}
+                    </CommandItem>
+                    <CommandItem
+                      value="meeting"
+                      onSelect={() => {
+                        onEdit(note.id, note.content, 'meeting', note.description);
+                        setCategoryDropdownOpen(false);
+                      }}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex items-center">
+                        <Users className="h-4 w-4 mr-2" />
+                        {t('categoryMeeting')}
+                      </div>
+                      {note.category === 'meeting' && <Check className="h-4 w-4" />}
+                    </CommandItem>
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
 
-          {/* Separator between categories and labels */}
-          <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
-
-          {/* Labels */}
-          {noteLabels.map((label) => (
-            <span
-              key={label.id}
-              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full text-white"
-              style={{ backgroundColor: label.color }}
-            >
-              {label.name}
-              <button
-                type="button"
-                onClick={() => onRemoveLabel(label.id)}
-                className="hover:bg-white/20 rounded-full p-0.5"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
-
-          {/* Add label button */}
+          {/* Labels dropdown */}
           <Popover open={labelDropdownOpen} onOpenChange={setLabelDropdownOpen}>
             <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="p-1 text-muted-foreground hover:bg-muted rounded-md"
-                title={t('addLabel')}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs gap-1.5"
               >
-                <Plus className="h-4 w-4" />
-              </button>
+                <Tag className="h-3.5 w-3.5" />
+                <span>{t('labels')}</span>
+                <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+              </Button>
             </PopoverTrigger>
             <PopoverContent className="w-52 p-0" align="start">
               <Command>
                 <CommandInput placeholder={t('searchLabels')} className="h-9" />
                 <CommandList>
                   <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
-                  <CommandGroup>
-                    {labels.filter(l => !noteLabels.some(nl => nl.id === l.id)).map((label) => (
-                      <CommandItem
-                        key={label.id}
-                        value={label.name}
-                        onSelect={() => {
-                          onAddLabel(label.id);
-                          setLabelDropdownOpen(false);
-                        }}
-                        className="group flex items-center justify-between"
-                      >
-                        <div className="flex items-center">
-                          <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
-                          {label.name}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditLabel(label);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
+                  {/* Applied labels */}
+                  {noteLabels.length > 0 && (
+                    <CommandGroup heading={t('applied')}>
+                      {noteLabels.map((label) => (
+                        <CommandItem
+                          key={label.id}
+                          value={`applied-${label.name}`}
+                          onSelect={() => onRemoveLabel(label.id)}
+                          className="group flex items-center justify-between"
                         >
-                          <Pencil className="h-3 w-3 text-muted-foreground" />
-                        </button>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
+                          <div className="flex items-center">
+                            <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
+                            {label.name}
+                          </div>
+                          <X className="h-3 w-3 text-muted-foreground" />
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+                  {noteLabels.length > 0 && labels.filter(l => !noteLabels.some(nl => nl.id === l.id)).length > 0 && (
+                    <CommandSeparator />
+                  )}
+                  {/* Available labels */}
+                  {labels.filter(l => !noteLabels.some(nl => nl.id === l.id)).length > 0 && (
+                    <CommandGroup heading={t('available')}>
+                      {labels.filter(l => !noteLabels.some(nl => nl.id === l.id)).map((label) => (
+                        <CommandItem
+                          key={label.id}
+                          value={label.name}
+                          onSelect={() => {
+                            onAddLabel(label.id);
+                          }}
+                          className="group flex items-center justify-between"
+                        >
+                          <div className="flex items-center">
+                            <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
+                            {label.name}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditLabel(label);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
+                          >
+                            <Pencil className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
                   <CommandSeparator />
                   <CommandGroup>
                     <CommandItem
@@ -362,19 +378,13 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
             </PopoverContent>
           </Popover>
 
-          {/* Separator between labels and deadline */}
-          <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
-
           {/* Deadline picker */}
           <DatePicker
             date={note.deadline ? parseLocalDate(note.deadline) : undefined}
             onDateChange={handleDeadlineChange}
             placeholder={t('setDeadline')}
-            className="h-7 text-xs w-auto"
+            className="h-7 text-xs"
           />
-
-          {/* Separator between deadline and assignee */}
-          <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
 
           {/* Assignee picker */}
           <AssigneePicker
@@ -382,7 +392,7 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
             value={note.assignee_id}
             onChange={(assigneeId) => onUpdateAssignee(note.id, assigneeId)}
             compact
-            className="h-7 text-xs w-auto"
+            className="h-7 text-xs"
           />
         </div>
 

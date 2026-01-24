@@ -2,8 +2,6 @@ import { forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { Trash2, Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag } from 'lucide-react';
-import { format } from 'date-fns';
-import { es, enUS } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -152,30 +150,31 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
       )}
       {!note.last_postpone_reason && <div className="mb-2" />}
 
-      <div className="flex flex-wrap gap-1 mb-2 flex-shrink-0 items-center">
+      <div className="flex flex-wrap gap-2 mb-2 flex-shrink-0 items-center">
         {/* Category dropdown */}
         <Popover open={categoryDropdownOpen} onOpenChange={onCategoryDropdownOpenChange}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="icon" className="h-8 w-8 shadow-none">
-                  {note.category === 'todo' && <Pickaxe className="h-4 w-4" />}
-                  {note.category === 'followup' && <Forward className="h-4 w-4" />}
-                  {note.category === 'notes' && <StickyNote className="h-4 w-4" />}
-                  {note.category === 'meeting' && <Users className="h-4 w-4" />}
-                </Button>
-              </PopoverTrigger>
-            </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              <p>{t('changeCategory')}</p>
-              <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>C</Kbd></span>
-            </TooltipContent>
-          </Tooltip>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs gap-1.5"
+            >
+              {note.category === 'todo' && <Pickaxe className="h-3.5 w-3.5" />}
+              {note.category === 'followup' && <Forward className="h-3.5 w-3.5" />}
+              {note.category === 'notes' && <StickyNote className="h-3.5 w-3.5" />}
+              {note.category === 'meeting' && <Users className="h-3.5 w-3.5" />}
+              <span>
+                {note.category === 'todo' && t('categoryTodo')}
+                {note.category === 'followup' && t('categoryFollowUp')}
+                {note.category === 'notes' && t('categoryNotes')}
+                {note.category === 'meeting' && t('categoryMeeting')}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+            </Button>
+          </PopoverTrigger>
           <PopoverContent className="w-44 p-0" align="start">
             <Command>
-              <CommandInput placeholder={t('searchCategory')} className="h-9" />
               <CommandList>
-                <CommandEmpty>{t('noCategoriesFound')}</CommandEmpty>
                 <CommandGroup>
                   <CommandItem
                     value="todo"
@@ -183,11 +182,13 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
                       onEdit(note.id, note.content, 'todo', note.description);
                       onCategoryDropdownOpenChange(false);
                     }}
-                    className="flex items-center gap-2"
+                    className="flex items-center justify-between"
                   >
-                    <Pickaxe className="h-4 w-4" />
-                    {t('categoryTodo')}
-                    {note.category === 'todo' && <Check className="h-4 w-4 ml-auto" />}
+                    <div className="flex items-center">
+                      <Pickaxe className="h-4 w-4 mr-2" />
+                      {t('categoryTodo')}
+                    </div>
+                    {note.category === 'todo' && <Check className="h-4 w-4" />}
                   </CommandItem>
                   <CommandItem
                     value="followup"
@@ -195,11 +196,13 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
                       onEdit(note.id, note.content, 'followup', note.description);
                       onCategoryDropdownOpenChange(false);
                     }}
-                    className="flex items-center gap-2"
+                    className="flex items-center justify-between"
                   >
-                    <Forward className="h-4 w-4" />
-                    {t('categoryFollowUp')}
-                    {note.category === 'followup' && <Check className="h-4 w-4 ml-auto" />}
+                    <div className="flex items-center">
+                      <Forward className="h-4 w-4 mr-2" />
+                      {t('categoryFollowUp')}
+                    </div>
+                    {note.category === 'followup' && <Check className="h-4 w-4" />}
                   </CommandItem>
                   <CommandItem
                     value="notes"
@@ -207,11 +210,13 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
                       onEdit(note.id, note.content, 'notes', note.description);
                       onCategoryDropdownOpenChange(false);
                     }}
-                    className="flex items-center gap-2"
+                    className="flex items-center justify-between"
                   >
-                    <StickyNote className="h-4 w-4" />
-                    {t('categoryNotes')}
-                    {note.category === 'notes' && <Check className="h-4 w-4 ml-auto" />}
+                    <div className="flex items-center">
+                      <StickyNote className="h-4 w-4 mr-2" />
+                      {t('categoryNotes')}
+                    </div>
+                    {note.category === 'notes' && <Check className="h-4 w-4" />}
                   </CommandItem>
                   <CommandItem
                     value="meeting"
@@ -219,11 +224,13 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
                       onEdit(note.id, note.content, 'meeting', note.description);
                       onCategoryDropdownOpenChange(false);
                     }}
-                    className="flex items-center gap-2"
+                    className="flex items-center justify-between"
                   >
-                    <Users className="h-4 w-4" />
-                    {t('categoryMeeting')}
-                    {note.category === 'meeting' && <Check className="h-4 w-4 ml-auto" />}
+                    <div className="flex items-center">
+                      <Users className="h-4 w-4 mr-2" />
+                      {t('categoryMeeting')}
+                    </div>
+                    {note.category === 'meeting' && <Check className="h-4 w-4" />}
                   </CommandItem>
                 </CommandGroup>
               </CommandList>
@@ -231,24 +238,19 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           </PopoverContent>
         </Popover>
 
-        {/* Selected category chip */}
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-muted text-muted-foreground">
-          {note.category === 'todo' && t('categoryTodo')}
-          {note.category === 'followup' && t('categoryFollowUp')}
-          {note.category === 'notes' && t('categoryNotes')}
-          {note.category === 'meeting' && t('categoryMeeting')}
-        </span>
-
-        {/* Separator between category and labels */}
-        <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
-
         {/* Labels dropdown */}
         <Popover open={labelDropdownOpen} onOpenChange={onLabelDropdownOpenChange}>
           <Tooltip>
             <TooltipTrigger asChild>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="icon" className="h-8 w-8 shadow-none">
-                  <Tag className="h-4 w-4" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs gap-1.5"
+                >
+                  <Tag className="h-3.5 w-3.5" />
+                  <span>{t('labels')}</span>
+                  <ChevronDown className="h-3.5 w-3.5 opacity-50" />
                 </Button>
               </PopoverTrigger>
             </TooltipTrigger>
@@ -262,43 +264,56 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
               <CommandInput placeholder={t('searchLabels')} className="h-9" />
               <CommandList>
                 <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
-                <CommandGroup>
-                  {allLabels.map((label) => {
-                    const isSelected = noteLabels.some(nl => nl.id === label.id);
-                    return (
+                {/* Applied labels */}
+                {noteLabels.length > 0 && (
+                  <CommandGroup heading={t('applied')}>
+                    {noteLabels.map((label) => (
                       <CommandItem
                         key={label.id}
-                        value={label.name}
-                        onSelect={() => {
-                          if (isSelected) {
-                            onRemoveLabel(label.id);
-                          } else {
-                            onAddLabel(label.id);
-                          }
-                        }}
+                        value={`applied-${label.name}`}
+                        onSelect={() => onRemoveLabel(label.id)}
                         className="group flex items-center justify-between"
                       >
                         <div className="flex items-center">
                           <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
                           {label.name}
                         </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEditLabel(label);
-                            }}
-                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
-                          >
-                            <Pencil className="h-3 w-3 text-muted-foreground" />
-                          </button>
-                          {isSelected && <Check className="h-4 w-4" />}
-                        </div>
+                        <X className="h-3 w-3 text-muted-foreground" />
                       </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
+                    ))}
+                  </CommandGroup>
+                )}
+                {noteLabels.length > 0 && allLabels.filter(l => !noteLabels.some(nl => nl.id === l.id)).length > 0 && (
+                  <CommandSeparator />
+                )}
+                {/* Available labels */}
+                {allLabels.filter(l => !noteLabels.some(nl => nl.id === l.id)).length > 0 && (
+                  <CommandGroup heading={t('available')}>
+                    {allLabels.filter(l => !noteLabels.some(nl => nl.id === l.id)).map((label) => (
+                      <CommandItem
+                        key={label.id}
+                        value={label.name}
+                        onSelect={() => onAddLabel(label.id)}
+                        className="group flex items-center justify-between"
+                      >
+                        <div className="flex items-center">
+                          <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
+                          {label.name}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditLabel(label);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
+                        >
+                          <Pencil className="h-3 w-3 text-muted-foreground" />
+                        </button>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
                 <CommandSeparator />
                 <CommandGroup>
                   <CommandItem
@@ -316,109 +331,26 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           </PopoverContent>
         </Popover>
 
-        {/* Selected label chips */}
-        {noteLabels.length > 0 && (
-          <div className="flex gap-1 items-center">
-            {noteLabels.map((label) => (
-              <span
-                key={label.id}
-                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full text-white"
-                style={{ backgroundColor: label.color }}
-              >
-                {label.name}
-                <button
-                  type="button"
-                  onClick={() => onRemoveLabel(label.id)}
-                  className="hover:bg-white/20 rounded-full p-0.5"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Separator between labels and deadline */}
-        <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
-
         {/* Deadline picker */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div>
-              <DatePicker
-                date={note.deadline ? parseLocalDate(note.deadline) : undefined}
-                onDateChange={onDeadlineChange}
-                placeholder={t('setDeadline')}
-                open={deadlinePickerOpen}
-                onOpenChange={onDeadlinePickerOpenChange}
-                iconOnly
-              />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent className="flex items-center gap-2">
-            <p>{t('setDeadline')}</p>
-            <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>T</Kbd></span>
-          </TooltipContent>
-        </Tooltip>
-
-        {/* Selected deadline chip */}
-        {note.deadline && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-muted text-muted-foreground">
-            {format(parseLocalDate(note.deadline), "d MMM", { locale: i18n.language === 'es' ? es : enUS })}
-            <button
-              type="button"
-              onClick={() => onDeadlineChange(undefined)}
-              className="hover:bg-foreground/10 rounded-full p-0.5"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </span>
-        )}
-
-        {/* Separator between deadline and assignee */}
-        <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
+        <DatePicker
+          date={note.deadline ? parseLocalDate(note.deadline) : undefined}
+          onDateChange={onDeadlineChange}
+          placeholder={t('setDeadline')}
+          open={deadlinePickerOpen}
+          onOpenChange={onDeadlinePickerOpenChange}
+          className="h-7 text-xs"
+        />
 
         {/* Assignee picker */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div>
-              <AssigneePicker
-                contacts={contacts}
-                value={note.assignee_id}
-                onChange={(assigneeId) => onUpdateAssignee(note.id, assigneeId)}
-                iconOnly
-                open={assigneePickerOpen}
-                onOpenChange={onAssigneePickerOpenChange}
-              />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent className="flex items-center gap-2">
-            <p>{t('assignee.setAssignee')}</p>
-            <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>U</Kbd></span>
-          </TooltipContent>
-        </Tooltip>
-
-        {/* Selected assignee chip */}
-        {note.assignee_id && (() => {
-          const assignee = contacts.find(c => c.id === note.assignee_id);
-          if (!assignee) return null;
-          const fullName = `${assignee.name} ${assignee.lastname}`.trim();
-          return (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
-              {fullName}
-              <button
-                type="button"
-                onClick={() => onUpdateAssignee(note.id, null)}
-                className="hover:bg-white/20 rounded-full p-0.5"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          );
-        })()}
-
-        {/* Separator between assignee and delete */}
-        <div className="h-5 w-px bg-muted-foreground/20 mx-1" />
+        <AssigneePicker
+          contacts={contacts}
+          value={note.assignee_id}
+          onChange={(assigneeId) => onUpdateAssignee(note.id, assigneeId)}
+          compact
+          open={assigneePickerOpen}
+          onOpenChange={onAssigneePickerOpenChange}
+          className="h-7 text-xs"
+        />
 
         {/* Delete button */}
         <Tooltip>

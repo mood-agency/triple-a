@@ -154,6 +154,8 @@
     "importSuccess": "Imported {{notes}} notes and {{history}} history records"
   },
   "labels": "Labels",
+  "applied": "Applied",
+  "available": "Available",
   "createLabel": "Create label",
   "newLabelName": "Label name",
   "labelColor": "Color",

@@ -1,7 +1,7 @@
 import * as React from "react"
 import { format } from "date-fns"
 import { es, enUS } from "date-fns/locale"
-import { Calendar as CalendarIcon, X } from "lucide-react"
+import { Calendar as CalendarIcon, X, ChevronDown } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { cn } from "@/lib/utils"
@@ -44,9 +44,9 @@ export function DatePicker({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          size={iconOnly ? "icon" : "default"}
+          size={iconOnly ? "icon" : "sm"}
           className={cn(
-            iconOnly ? "h-8 w-8 shadow-none" : "w-full justify-start text-left font-normal",
+            iconOnly ? "h-8 w-8 shadow-none" : "justify-start text-left font-normal gap-1.5",
             !date && "text-muted-foreground",
             className
           )}
@@ -55,17 +55,18 @@ export function DatePicker({
             <CalendarIcon className="h-4 w-4" />
           ) : (
             <>
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {date ? format(date, "PPP", { locale }) : <span>{placeholder}</span>}
+              <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+              <span className="truncate">{date ? format(date, "PPP", { locale }) : placeholder}</span>
               {date && (
                 <X
-                  className="ml-auto h-4 w-4 opacity-50 hover:opacity-100"
+                  className="ml-auto h-4 w-4 shrink-0 opacity-50 hover:opacity-100"
                   onClick={(e) => {
                     e.stopPropagation()
                     onDateChange(undefined)
                   }}
                 />
               )}
+              <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
             </>
           )}
         </Button>
