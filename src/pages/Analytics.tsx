@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useTinyBase } from '@/contexts/TinyBaseContext';
 import { useAnalytics, type DateRange } from '@/hooks/useAnalytics';
 import { Header } from '@/components/Header';
 import { KPICard } from '@/components/analytics/KPICard';
@@ -42,7 +42,7 @@ function getPostponementVariant(avg: number): KPIVariant {
 
 export function Analytics() {
   const { t } = useTranslation();
-  const { isReady } = useDatabase();
+  const { isReady } = useTinyBase();
   const [dateRange, setDateRange] = useState<DateRange>('7d');
   const { kpis, trend, problems, loading } = useAnalytics(dateRange);
 

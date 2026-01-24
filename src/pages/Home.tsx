@@ -42,8 +42,14 @@ export function Home() {
     return 'all';
   }, [searchParams]);
 
+  const getInitialAssigneeFilter = useCallback(() => {
+    const assigneesParam = searchParams.get('assignees');
+    return assigneesParam ? assigneesParam.split(',').filter(Boolean) : [];
+  }, [searchParams]);
+
   const [labelFilter, setLabelFilter] = useState<string[]>(getInitialLabelFilter);
   const [categoryFilter, setCategoryFilter] = useState<NoteCategory | 'all'>(getInitialCategoryFilter);
+  const [assigneeFilter, setAssigneeFilter] = useState<string[]>(getInitialAssigneeFilter);
   const [showDeletedTasks, setShowDeletedTasks] = useState(false);
 
   // Load ALL notes without date filtering
@@ -113,12 +119,36 @@ export function Home() {
     }, { replace: true });
   }, [setSearchParams]);
 
+  // Update URL when assignee filter changes
+  const handleAssigneeFilterChange = useCallback((newAssignees: string[]) => {
+    setAssigneeFilter(newAssignees);
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      if (newAssignees.length > 0) {
+        newParams.set('assignees', newAssignees.join(','));
+      } else {
+        newParams.delete('assignees');
+      }
+      return newParams;
+    }, { replace: true });
+  }, [setSearchParams]);
+
   const handleCreateTask = useCallback(() => {
     // Use category filter if set, otherwise default to 'todo'
     const category = categoryFilter !== 'all' ? categoryFilter : 'todo';
     // Pass label filter so new task is visible with current filters
-    createNote('Mi tarea aquí', category, null, labelFilter);
-  }, [createNote, categoryFilter, labelFilter]);
+    const result = createNote('', category, null, labelFilter);
+    // Handle both Promise and synchronous returns (TinyBase returns string ID, legacy returns Promise<Note>)
+    Promise.resolve(result).then((newNoteOrId) => {
+      if (newNoteOrId) {
+        // If it's a string (ID from TinyBase), create minimal Note object; otherwise use as-is (Note from legacy)
+        const newNote: Note = typeof newNoteOrId === 'string'
+          ? { id: newNoteOrId } as unknown as Note
+          : newNoteOrId;
+        handleSelectNote(newNote);
+      }
+    });
+  }, [createNote, categoryFilter, labelFilter, handleSelectNote]);
 
   const handleDeleteNote = useCallback((id: string) => {
     if (selectedNoteId === id) {
@@ -176,8 +206,10 @@ export function Home() {
             onCreateNoteAfter={createNoteAfter}
             externalLabelFilter={labelFilter}
             externalCategoryFilter={categoryFilter}
+            externalAssigneeFilter={assigneeFilter}
             onLabelFilterChange={handleLabelFilterChange}
             onCategoryFilterChange={handleCategoryFilterChange}
+            onAssigneeFilterChange={handleAssigneeFilterChange}
           />
         </div>
       </div>

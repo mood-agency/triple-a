@@ -142,6 +142,7 @@ body {
 /* Tiptap editor styles */
 .tiptap {
   outline: none;
+  color: var(--color-foreground);
 }
 
 .tiptap p.is-editor-empty:first-child::before {

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useTinyBase } from '@/contexts/TinyBaseContext';
 
 export type DateRange = '7d' | '30d' | '90d';
 
@@ -45,11 +45,11 @@ export interface AnalyticsData {
   loading: boolean;
 }
 
-function getStartDate(range: DateRange): string {
+function getStartDate(range: DateRange): Date {
   const now = new Date();
   const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;
   now.setDate(now.getDate() - days);
-  return now.toISOString();
+  return now;
 }
 
 function formatDateForDisplay(dateStr: string): string {
@@ -57,8 +57,16 @@ function formatDateForDisplay(dateStr: string): string {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
+function getDateOnly(isoString: string): string {
+  return isoString.split('T')[0];
+}
+
+function getTodayString(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
 export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
-  const { db, isReady } = useDatabase();
+  const { store, isReady } = useTinyBase();
   const [loading, setLoading] = useState(true);
   const [kpis, setKpis] = useState<KPIs>({
     completionRate: 0,
@@ -79,81 +87,92 @@ export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
   const startDate = useMemo(() => getStartDate(dateRange), [dateRange]);
 
   const loadAnalytics = useCallback(() => {
-    if (!db || !isReady) return;
+    if (!store || !isReady) return;
 
     setLoading(true);
 
     try {
-      // 1. Completion rate - tasks created in date range
-      const completionResult = db.exec(
-        `SELECT
-          COUNT(CASE WHEN completed = 1 THEN 1 END) as completed,
-          COUNT(*) as total
-        FROM notes
-        WHERE deleted_at IS NULL AND created_at >= ?`,
-        [startDate]
-      );
+      const notesTable = store.getTable('notes') || {};
+      const historyTable = store.getTable('note_history') || {};
+      const today = getTodayString();
 
-      let totalCompleted = 0;
-      let totalTasks = 0;
-      if (completionResult.length > 0 && completionResult[0].values.length > 0) {
-        totalCompleted = (completionResult[0].values[0][0] as number) || 0;
-        totalTasks = (completionResult[0].values[0][1] as number) || 0;
-      }
+      // Filter notes - exclude deleted, include only those created after startDate
+      const notes = Object.entries(notesTable)
+        .filter(([_, note]) => {
+          const n = note as Record<string, unknown>;
+          if (n.deleted_at) return false;
+          const createdDate = new Date(n.created_at as string);
+          return createdDate >= startDate;
+        })
+        .map(([id, note]) => {
+          const n = note as Record<string, unknown>;
+          return {
+            id,
+            content: n.content as string,
+            completed: Boolean(n.completed),
+            completed_at: n.completed_at as string | null,
+            deadline: n.deadline as string | null,
+            deleted_at: n.deleted_at as string | null,
+            created_at: n.created_at as string,
+          };
+        });
+
+      // 1. Completion rate
+      const totalTasks = notes.length;
+      const totalCompleted = notes.filter((n) => n.completed).length;
       const completionRate = totalTasks > 0 ? (totalCompleted / totalTasks) * 100 : 0;
 
       // 2. On-time rate - completed tasks with deadlines
-      const onTimeResult = db.exec(
-        `SELECT
-          COUNT(CASE WHEN datetime(completed_at) <= datetime(deadline) THEN 1 END) as on_time,
-          COUNT(*) as with_deadline
-        FROM notes
-        WHERE deleted_at IS NULL
-          AND completed = 1
-          AND deadline IS NOT NULL
-          AND completed_at >= ?`,
-        [startDate]
+      const completedWithDeadlineNotes = notes.filter(
+        (n) => n.completed && n.deadline && n.completed_at
       );
+      const onTimeNotes = completedWithDeadlineNotes.filter((n) => {
+        const completedDate = new Date(n.completed_at!);
+        const deadlineDate = new Date(n.deadline!);
+        return completedDate <= deadlineDate;
+      });
+      const completedWithDeadline = completedWithDeadlineNotes.length;
+      const onTimeRate = completedWithDeadline > 0 ? (onTimeNotes.length / completedWithDeadline) * 100 : 0;
 
-      let onTimeCount = 0;
-      let completedWithDeadline = 0;
-      if (onTimeResult.length > 0 && onTimeResult[0].values.length > 0) {
-        onTimeCount = (onTimeResult[0].values[0][0] as number) || 0;
-        completedWithDeadline = (onTimeResult[0].values[0][1] as number) || 0;
-      }
-      const onTimeRate = completedWithDeadline > 0 ? (onTimeCount / completedWithDeadline) * 100 : 0;
+      // 3. Overdue count - uncompleted tasks past deadline (all tasks, not just in date range)
+      const allNotes = Object.entries(notesTable)
+        .filter(([_, note]) => !(note as Record<string, unknown>).deleted_at)
+        .map(([id, note]) => {
+          const n = note as Record<string, unknown>;
+          return {
+            id,
+            content: n.content as string,
+            completed: Boolean(n.completed),
+            deadline: n.deadline as string | null,
+          };
+        });
 
-      // 3. Overdue count - uncompleted tasks past deadline
-      const overdueResult = db.exec(
-        `SELECT COUNT(*) as overdue_count
-        FROM notes
-        WHERE deleted_at IS NULL
-          AND completed = 0
-          AND deadline IS NOT NULL
-          AND date(deadline) < date('now')`
-      );
-
-      let overdueCount = 0;
-      if (overdueResult.length > 0 && overdueResult[0].values.length > 0) {
-        overdueCount = (overdueResult[0].values[0][0] as number) || 0;
-      }
+      const overdueNotes = allNotes.filter((n) => {
+        if (n.completed || !n.deadline) return false;
+        const deadlineDate = getDateOnly(n.deadline);
+        return deadlineDate < today;
+      });
+      const overdueCount = overdueNotes.length;
 
       // 4. Average postponements per postponed task
-      const postponeResult = db.exec(
-        `SELECT
-          COUNT(*) as total_postpones,
-          COUNT(DISTINCT note_id) as postponed_tasks
-        FROM note_history
-        WHERE action_type = 'postponed' AND changed_at >= ?`,
-        [startDate]
-      );
+      const historyEntries = Object.entries(historyTable)
+        .filter(([_, h]) => {
+          const history = h as Record<string, unknown>;
+          if (history.action_type !== 'postponed') return false;
+          const changedDate = new Date(history.changed_at as string);
+          return changedDate >= startDate;
+        })
+        .map(([id, h]) => {
+          const history = h as Record<string, unknown>;
+          return {
+            id,
+            note_id: history.note_id as string,
+          };
+        });
 
-      let totalPostpones = 0;
-      let postponedTasksCount = 0;
-      if (postponeResult.length > 0 && postponeResult[0].values.length > 0) {
-        totalPostpones = (postponeResult[0].values[0][0] as number) || 0;
-        postponedTasksCount = (postponeResult[0].values[0][1] as number) || 0;
-      }
+      const postponedNoteIds = new Set(historyEntries.map((h) => h.note_id));
+      const postponedTasksCount = postponedNoteIds.size;
+      const totalPostpones = historyEntries.length;
       const avgPostponements = postponedTasksCount > 0 ? totalPostpones / postponedTasksCount : 0;
 
       setKpis({
@@ -168,42 +187,20 @@ export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
       });
 
       // 5. Trend data - created per day
-      const createdTrendResult = db.exec(
-        `SELECT date(created_at) as day, COUNT(*) as count
-        FROM notes
-        WHERE deleted_at IS NULL AND created_at >= ?
-        GROUP BY date(created_at)
-        ORDER BY day ASC`,
-        [startDate]
-      );
-
       const createdByDay: Record<string, number> = {};
-      if (createdTrendResult.length > 0) {
-        createdTrendResult[0].values.forEach((row) => {
-          const day = row[0] as string;
-          const count = row[1] as number;
-          createdByDay[day] = count;
-        });
-      }
+      notes.forEach((n) => {
+        const day = getDateOnly(n.created_at);
+        createdByDay[day] = (createdByDay[day] || 0) + 1;
+      });
 
       // 6. Trend data - completed per day
-      const completedTrendResult = db.exec(
-        `SELECT date(completed_at) as day, COUNT(*) as count
-        FROM notes
-        WHERE deleted_at IS NULL AND completed = 1 AND completed_at >= ?
-        GROUP BY date(completed_at)
-        ORDER BY day ASC`,
-        [startDate]
-      );
-
       const completedByDay: Record<string, number> = {};
-      if (completedTrendResult.length > 0) {
-        completedTrendResult[0].values.forEach((row) => {
-          const day = row[0] as string;
-          const count = row[1] as number;
-          completedByDay[day] = count;
+      notes
+        .filter((n) => n.completed && n.completed_at)
+        .forEach((n) => {
+          const day = getDateOnly(n.completed_at!);
+          completedByDay[day] = (completedByDay[day] || 0) + 1;
         });
-      }
 
       // Merge trend data
       const allDays = new Set([...Object.keys(createdByDay), ...Object.keys(completedByDay)]);
@@ -217,59 +214,50 @@ export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
 
       setTrend(trendData);
 
-      // 7. Most postponed tasks (top 5)
-      const mostPostponedResult = db.exec(
-        `SELECT
-          n.id,
-          n.content,
-          COUNT(h.id) as postpone_count
-        FROM notes n
-        LEFT JOIN note_history h ON n.id = h.note_id AND h.action_type = 'postponed'
-        WHERE n.deleted_at IS NULL AND n.completed = 0
-        GROUP BY n.id
-        HAVING postpone_count > 0
-        ORDER BY postpone_count DESC
-        LIMIT 5`
-      );
-
-      const mostPostponed: PostponedTask[] = [];
-      if (mostPostponedResult.length > 0) {
-        mostPostponedResult[0].values.forEach((row) => {
-          mostPostponed.push({
-            id: row[0] as string,
-            content: row[1] as string,
-            postponeCount: row[2] as number,
-          });
+      // 7. Most postponed tasks (top 5) - active tasks with postpone history
+      const allHistory = Object.entries(historyTable)
+        .filter(([_, h]) => (h as Record<string, unknown>).action_type === 'postponed')
+        .map(([id, h]) => {
+          const history = h as Record<string, unknown>;
+          return {
+            id,
+            note_id: history.note_id as string,
+          };
         });
-      }
+
+      const postponeCountByNote: Record<string, number> = {};
+      allHistory.forEach((h) => {
+        postponeCountByNote[h.note_id] = (postponeCountByNote[h.note_id] || 0) + 1;
+      });
+
+      const mostPostponed: PostponedTask[] = Object.entries(postponeCountByNote)
+        .filter(([noteId]) => {
+          const note = notesTable[noteId] as Record<string, unknown> | undefined;
+          return note && !note.deleted_at && !note.completed;
+        })
+        .map(([noteId, count]) => ({
+          id: noteId,
+          content: (notesTable[noteId] as Record<string, unknown>).content as string,
+          postponeCount: count,
+        }))
+        .sort((a, b) => b.postponeCount - a.postponeCount)
+        .slice(0, 5);
 
       // 8. Overdue tasks (top 5)
-      const overdueTasksResult = db.exec(
-        `SELECT
-          id,
-          content,
-          deadline,
-          CAST(julianday('now') - julianday(deadline) AS INTEGER) as days_overdue
-        FROM notes
-        WHERE deleted_at IS NULL
-          AND completed = 0
-          AND deadline IS NOT NULL
-          AND date(deadline) < date('now')
-        ORDER BY days_overdue DESC
-        LIMIT 5`
-      );
-
-      const overdueTasks: OverdueTask[] = [];
-      if (overdueTasksResult.length > 0) {
-        overdueTasksResult[0].values.forEach((row) => {
-          overdueTasks.push({
-            id: row[0] as string,
-            content: row[1] as string,
-            deadline: row[2] as string,
-            daysOverdue: row[3] as number,
-          });
-        });
-      }
+      const overdueTasks: OverdueTask[] = overdueNotes
+        .map((n) => {
+          const deadlineDate = new Date(n.deadline!);
+          const todayDate = new Date(today);
+          const daysOverdue = Math.floor((todayDate.getTime() - deadlineDate.getTime()) / (1000 * 60 * 60 * 24));
+          return {
+            id: n.id,
+            content: n.content,
+            deadline: n.deadline!,
+            daysOverdue,
+          };
+        })
+        .sort((a, b) => b.daysOverdue - a.daysOverdue)
+        .slice(0, 5);
 
       setProblems({
         mostPostponed,
@@ -278,11 +266,29 @@ export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
     } finally {
       setLoading(false);
     }
-  }, [db, isReady, startDate]);
+  }, [store, isReady, startDate]);
 
   useEffect(() => {
     loadAnalytics();
   }, [loadAnalytics]);
+
+  // Listen to store changes to refresh analytics
+  useEffect(() => {
+    if (!store) return;
+
+    const notesListenerId = store.addTableListener('notes', () => {
+      loadAnalytics();
+    });
+
+    const historyListenerId = store.addTableListener('note_history', () => {
+      loadAnalytics();
+    });
+
+    return () => {
+      store.delListener(notesListenerId);
+      store.delListener(historyListenerId);
+    };
+  }, [store, loadAnalytics]);
 
   return {
     kpis,

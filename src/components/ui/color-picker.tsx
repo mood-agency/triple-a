@@ -70,7 +70,7 @@ export function ColorPicker({
                   onChange(value || '#');
                 }
               }}
-              className="flex-1 px-2 py-1 text-xs border border-muted-foreground/20 rounded-md bg-transparent focus:outline-none focus:border-muted-foreground/40 uppercase"
+              className="flex-1 px-2 py-1 text-xs border border-muted-foreground/20 rounded-md bg-transparent focus:outline-none focus:border-muted-foreground/40 uppercase text-foreground caret-foreground"
               placeholder="#000000"
             />
           </div>

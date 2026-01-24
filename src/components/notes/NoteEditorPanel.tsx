@@ -1,9 +1,8 @@
-import { forwardRef } from 'react';
+import { forwardRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Trash2, Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -19,6 +18,7 @@ import {
 import { DatePicker } from '@/components/ui/date-picker';
 import { EditableDescription, type EditableDescriptionHandle } from '@/components/ui/EditableDescription';
 import { AssigneePicker } from '@/components/notes/AssigneePicker';
+import { EditableTitle } from '@/components/notes/EditableTitle';
 import type { Note, NoteCategory, Label, NoteHistory } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { parseLocalDate } from '@/utils/dateUtils';
@@ -99,6 +99,13 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
 }, ref) {
   const { t, i18n } = useTranslation();
 
+  // Get assignee name
+  const assigneeName = useMemo(() => {
+    if (!note.assignee_id) return null;
+    const contact = contacts.find(c => c.id === note.assignee_id);
+    return contact ? `${contact.name} ${contact.lastname}`.trim() : null;
+  }, [note.assignee_id, contacts]);
+
   // Ctrl+D to toggle task completion (only for non-notes categories)
   useHotkeys('ctrl+d, meta+d', () => {
     if (note.category !== 'notes') {
@@ -106,38 +113,32 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
     }
   }, { preventDefault: true, enableOnFormTags: true }, [note.id, note.category, onToggleComplete]);
 
+  const handleTitleEdit = (id: string, content: string) => {
+    onEdit(id, content, note.category, note.description);
+  };
+
   return (
     <>
-      <div className="flex items-start gap-3 flex-shrink-0">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="pt-1.5">
-              <Checkbox
-                checked={note.completed}
-                onCheckedChange={() => onToggleComplete(note.id)}
-                className="h-5 w-5"
-              />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent className="flex items-center gap-2">
-            <p>{note.completed ? t('markIncomplete') : t('markComplete')}</p>
-            <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>D</Kbd></span>
-          </TooltipContent>
-        </Tooltip>
-        <h1 className={`text-2xl font-semibold ${note.completed ? 'line-through text-muted-foreground' : ''}`}>
-          {titleValue ?? note.content}
-        </h1>
-      </div>
+      <EditableTitle
+        noteId={note.id}
+        content={note.content}
+        completed={note.completed}
+        onEdit={handleTitleEdit}
+        onToggleComplete={onToggleComplete}
+        onDelete={onDelete}
+        titleValue={titleValue}
+      />
       {note.created_at && (
-        <p className="text-xs text-muted-foreground/60 mt-1 mb-2">
+        <p className="text-xs text-muted-foreground/60 mt-1">
           {t('createdAt')}: {new Date(note.created_at).toLocaleString()}
         </p>
       )}
+      {/* Postpone reason row */}
       {note.last_postpone_reason && (
         <button
           type="button"
           onClick={onTogglePostponeHistory}
-          className="flex items-center gap-2 text-sm text-muted-foreground/80 italic mb-2 hover:text-muted-foreground transition-colors text-left w-full"
+          className="flex items-center gap-2 text-sm text-muted-foreground/80 italic mt-1 hover:text-muted-foreground transition-colors text-left w-full"
         >
           <CalendarClock className="h-4 w-4 shrink-0" />
           <span className="flex-1 truncate">{note.last_postpone_reason}</span>
@@ -148,14 +149,13 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           )}
         </button>
       )}
-      {!note.last_postpone_reason && <div className="mb-2" />}
-
-      <div className="flex flex-wrap gap-2 mb-2 flex-shrink-0 items-center">
+      {/* Category and date row */}
+      <div className="flex flex-wrap gap-2 mt-1 mb-2 flex-shrink-0 items-center">
         {/* Category dropdown */}
         <Popover open={categoryDropdownOpen} onOpenChange={onCategoryDropdownOpenChange}>
           <PopoverTrigger asChild>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               className="h-7 px-2 text-xs gap-1.5"
             >
@@ -238,19 +238,29 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           </PopoverContent>
         </Popover>
 
-        {/* Labels dropdown */}
+        {/* Deadline picker */}
+        <DatePicker
+          date={note.deadline ? parseLocalDate(note.deadline) : undefined}
+          onDateChange={onDeadlineChange}
+          placeholder={t('setDeadline')}
+          open={deadlinePickerOpen}
+          onOpenChange={onDeadlinePickerOpenChange}
+          className="h-7 text-xs"
+        />
+      </div>
+      {/* Labels row */}
+      <div className="flex flex-wrap gap-1.5 mb-2 flex-shrink-0 items-center">
         <Popover open={labelDropdownOpen} onOpenChange={onLabelDropdownOpenChange}>
           <Tooltip>
             <TooltipTrigger asChild>
               <PopoverTrigger asChild>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  className="h-7 px-2 text-xs gap-1.5"
+                  className="h-6 px-2 text-xs gap-1"
                 >
-                  <Tag className="h-3.5 w-3.5" />
-                  <span>{t('labels')}</span>
-                  <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+                  <Plus className="h-3 w-3" />
+                  <Tag className="h-3 w-3" />
                 </Button>
               </PopoverTrigger>
             </TooltipTrigger>
@@ -264,28 +274,6 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
               <CommandInput placeholder={t('searchLabels')} className="h-9" />
               <CommandList>
                 <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
-                {/* Applied labels */}
-                {noteLabels.length > 0 && (
-                  <CommandGroup heading={t('applied')}>
-                    {noteLabels.map((label) => (
-                      <CommandItem
-                        key={label.id}
-                        value={`applied-${label.name}`}
-                        onSelect={() => onRemoveLabel(label.id)}
-                        className="group flex items-center justify-between"
-                      >
-                        <div className="flex items-center">
-                          <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
-                          {label.name}
-                        </div>
-                        <X className="h-3 w-3 text-muted-foreground" />
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                )}
-                {noteLabels.length > 0 && allLabels.filter(l => !noteLabels.some(nl => nl.id === l.id)).length > 0 && (
-                  <CommandSeparator />
-                )}
                 {/* Available labels */}
                 {allLabels.filter(l => !noteLabels.some(nl => nl.id === l.id)).length > 0 && (
                   <CommandGroup heading={t('available')}>
@@ -330,44 +318,53 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
             </Command>
           </PopoverContent>
         </Popover>
+        {noteLabels.map((label) => (
+          <span
+            key={label.id}
+            className="px-2 py-0.5 text-xs rounded-full text-white leading-none flex items-center gap-1"
+            style={{ backgroundColor: label.color }}
+          >
+            {label.name}
+            <button
+              type="button"
+              onClick={() => onRemoveLabel(label.id)}
+              className="hover:bg-white/20 rounded-full p-0.5"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+      </div>
 
-        {/* Deadline picker */}
-        <DatePicker
-          date={note.deadline ? parseLocalDate(note.deadline) : undefined}
-          onDateChange={onDeadlineChange}
-          placeholder={t('setDeadline')}
-          open={deadlinePickerOpen}
-          onOpenChange={onDeadlinePickerOpenChange}
-          className="h-7 text-xs"
-        />
-
-        {/* Assignee picker */}
+      {/* Assignee row */}
+      <div className="flex flex-wrap gap-1.5 mb-2 flex-shrink-0 items-center">
         <AssigneePicker
           contacts={contacts}
           value={note.assignee_id}
           onChange={(assigneeId) => onUpdateAssignee(note.id, assigneeId)}
           compact
+          iconOnly
           open={assigneePickerOpen}
           onOpenChange={onAssigneePickerOpenChange}
-          className="h-7 text-xs"
+          className="h-6"
         />
-
-        {/* Delete button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
+        {assigneeName && (
+          <span className="px-2 py-0.5 text-xs rounded-full bg-purple-500/80 text-white leading-none flex items-center gap-1">
+            <User className="h-3 w-3" />
+            {assigneeName}
             <button
               type="button"
-              onClick={onDelete}
-              className="p-1.5 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+              onClick={() => onUpdateAssignee(note.id, null)}
+              className="hover:bg-white/20 rounded-full p-0.5"
             >
-              <Trash2 className="h-4 w-4" />
+              <X className="h-3 w-3" />
             </button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{t('deleteTask')}</p>
-          </TooltipContent>
-        </Tooltip>
+          </span>
+        )}
       </div>
+
+      {/* Separator */}
+      <div className="border-t border-muted-foreground/20 my-2" />
 
       <EditableDescription
         ref={ref}
