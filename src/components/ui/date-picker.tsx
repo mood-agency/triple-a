@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import {
   Popover,
@@ -21,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { parseNaturalDate } from "@/utils/naturalDateParser"
+import { hasTimeComponent } from "@/utils/dateUtils"
 
 interface DatePickerProps {
   date: Date | undefined
@@ -32,6 +34,8 @@ interface DatePickerProps {
   iconOnly?: boolean
   showTime?: boolean
   hideIcon?: boolean
+  /** Called when user clicks Save button (only with showTime). If provided, postpone logic should use this instead of onDateChange */
+  onSave?: (date: Date) => void
 }
 
 export function DatePicker({
@@ -44,6 +48,7 @@ export function DatePicker({
   iconOnly = false,
   showTime = false,
   hideIcon = false,
+  onSave,
 }: DatePickerProps) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language === "es" ? es : enUS
@@ -51,9 +56,21 @@ export function DatePicker({
   const [inputValue, setInputValue] = React.useState("")
   const [parsedDate, setParsedDate] = React.useState<Date | null>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
+  // All day checkbox - default to true if date has no time component (or no date)
+  const [isAllDay, setIsAllDay] = React.useState(() => {
+    if (!date) return false
+    return !hasTimeComponent(date.toISOString())
+  })
 
   const open = externalOpen !== undefined ? externalOpen : internalOpen
   const setOpen = externalOnOpenChange || setInternalOpen
+
+  // Update isAllDay when date changes externally
+  React.useEffect(() => {
+    if (date) {
+      setIsAllDay(!hasTimeComponent(date.toISOString()))
+    }
+  }, [date])
 
   // Get current hours and minutes from date
   const hours = date ? date.getHours() : 12
@@ -134,20 +151,11 @@ export function DatePicker({
               <span className="truncate">
                 {date
                   ? showTime
-                    ? format(date, "PPP p", { locale })
-                    : format(date, "PPP", { locale })
+                    ? format(date, "dd/MM/yyyy HH:mm", { locale })
+                    : format(date, "dd/MM/yyyy", { locale })
                   : placeholder}
               </span>
-              {date && (
-                <X
-                  className="ml-auto h-4 w-4 shrink-0 opacity-50 hover:opacity-100"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onDateChange(undefined)
-                  }}
-                />
-              )}
-              <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
             </>
           )}
         </Button>
@@ -190,47 +198,101 @@ export function DatePicker({
           locale={locale}
           weekStartsOn={1}
         />
-        {showTime && date && (
-          <div className="flex items-center gap-2 p-3 border-t">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <Select
-              value={hours.toString().padStart(2, '0')}
-              onValueChange={(value) => handleTimeChange('hours', value)}
-            >
-              <SelectTrigger className="w-[70px] h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: 24 }, (_, i) => (
-                  <SelectItem key={i} value={i.toString().padStart(2, '0')}>
-                    {i.toString().padStart(2, '0')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <span className="text-muted-foreground">:</span>
-            <Select
-              value={minutes.toString().padStart(2, '0')}
-              onValueChange={(value) => handleTimeChange('minutes', value)}
-            >
-              <SelectTrigger className="w-[70px] h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: 60 }, (_, i) => (
-                  <SelectItem key={i} value={i.toString().padStart(2, '0')}>
-                    {i.toString().padStart(2, '0')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              size="sm"
-              className="ml-auto"
-              onClick={() => setOpen(false)}
-            >
-              {t('save', 'OK')}
-            </Button>
+        {showTime && (
+          <div className="p-3 border-t space-y-3">
+            {date ? (
+              <>
+                {/* All day checkbox */}
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="allDay"
+                    checked={isAllDay}
+                    onCheckedChange={(checked) => {
+                      setIsAllDay(checked === true)
+                      if (checked && date) {
+                        // Set time to midnight for all-day
+                        const newDate = new Date(date)
+                        newDate.setHours(0, 0, 0, 0)
+                        onDateChange(newDate)
+                      }
+                    }}
+                  />
+                  <label
+                    htmlFor="allDay"
+                    className="text-sm text-muted-foreground cursor-pointer select-none"
+                  >
+                    {t('allDay', 'All day')}
+                  </label>
+                </div>
+                {/* Time selectors - only show if not all day */}
+                {!isAllDay && (
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <Select
+                      value={hours.toString().padStart(2, '0')}
+                      onValueChange={(value) => handleTimeChange('hours', value)}
+                    >
+                      <SelectTrigger className="w-[70px] h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <SelectItem key={i} value={i.toString().padStart(2, '0')}>
+                            {i.toString().padStart(2, '0')}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-muted-foreground">:</span>
+                    <Select
+                      value={minutes.toString().padStart(2, '0')}
+                      onValueChange={(value) => handleTimeChange('minutes', value)}
+                    >
+                      <SelectTrigger className="w-[70px] h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 60 }, (_, i) => (
+                          <SelectItem key={i} value={i.toString().padStart(2, '0')}>
+                            {i.toString().padStart(2, '0')}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {/* Action buttons */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground"
+                    onClick={() => {
+                      onDateChange(undefined)
+                      setOpen(false)
+                    }}
+                  >
+                    {t('clear', 'Clear')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="ml-auto"
+                    onClick={() => {
+                      if (onSave && date && !isAllDay) {
+                        onSave(date)
+                      }
+                      setOpen(false)
+                    }}
+                  >
+                    {t('save', 'OK')}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <span className="text-sm text-muted-foreground">
+                {t('selectDateFirst', 'Select a date first')}
+              </span>
+            )}
           </div>
         )}
       </PopoverContent>

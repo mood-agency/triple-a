@@ -1,7 +1,7 @@
 import { forwardRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus, Calendar } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus, Calendar, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
@@ -48,6 +48,7 @@ interface NoteEditorPanelProps {
   onEditLabel: (label: Label) => void;
   onCreateLabel: () => void;
   onDeadlineChange: (date: Date | undefined) => void;
+  onDeadlineSave?: (date: Date) => void;
   onUpdateAssignee: (id: string, assigneeId: string | null) => void;
   onDelete: () => void;
   onLabelDropdownOpenChange: (open: boolean) => void;
@@ -85,6 +86,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
   onEditLabel,
   onCreateLabel,
   onDeadlineChange,
+  onDeadlineSave,
   onUpdateAssignee,
   onDelete,
   onLabelDropdownOpenChange,
@@ -131,10 +133,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
       {/* Category row */}
       <div className="flex gap-2 mt-1 mb-1 flex-shrink-0 items-center">
         <div className="w-5 flex justify-center shrink-0">
-          {note.category === 'todo' && <Pickaxe className="h-4 w-4 text-muted-foreground" />}
-          {note.category === 'followup' && <Forward className="h-4 w-4 text-muted-foreground" />}
-          {note.category === 'notes' && <StickyNote className="h-4 w-4 text-muted-foreground" />}
-          {note.category === 'meeting' && <Users className="h-4 w-4 text-muted-foreground" />}
+          <Layers className="h-4 w-4 text-muted-foreground" />
         </div>
         {/* Category dropdown */}
         <Popover open={categoryDropdownOpen} onOpenChange={onCategoryDropdownOpenChange}>
@@ -142,12 +141,12 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-2 text-xs gap-1.5"
+              className="h-7 px-2 text-xs font-normal gap-1.5"
             >
               <span>
                 {note.category === 'todo' && t('categoryTodo')}
                 {note.category === 'followup' && t('categoryFollowUp')}
-                {note.category === 'notes' && t('categoryNotes')}
+                {note.category === 'notes' && t('categoryNote')}
                 {note.category === 'meeting' && t('categoryMeeting')}
               </span>
               <ChevronDown className="h-3.5 w-3.5 opacity-50" />
@@ -155,7 +154,9 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           </PopoverTrigger>
           <PopoverContent className="w-44 p-0" align="start">
             <Command>
+              <CommandInput placeholder={t('searchCategory')} className="h-9" />
               <CommandList>
+                <CommandEmpty>{t('noCategoriesFound')}</CommandEmpty>
                 <CommandGroup>
                   <CommandItem
                     value="todo"
@@ -228,6 +229,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
         <DatePicker
           date={note.deadline ? parseLocalDate(note.deadline) : undefined}
           onDateChange={onDeadlineChange}
+          onSave={onDeadlineSave}
           placeholder={t('setDeadline')}
           open={deadlinePickerOpen}
           onOpenChange={onDeadlinePickerOpenChange}
@@ -312,7 +314,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
         {noteLabels.map((label) => (
           <span
             key={label.id}
-            className="px-2 py-0.5 text-xs rounded-full text-white leading-none flex items-center gap-1"
+            className="px-2 py-0.5 text-xs font-normal rounded-full text-white leading-none flex items-center gap-1"
             style={{ backgroundColor: label.color }}
           >
             {label.name}
@@ -344,7 +346,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           hideIcon
         />
         {assigneeName && (
-          <span className="px-2 py-0.5 text-xs rounded-full bg-purple-500/80 text-white leading-none flex items-center gap-1">
+          <span className="px-2 py-0.5 text-xs font-normal rounded-full bg-purple-500/80 text-white leading-none flex items-center gap-1">
             {assigneeName}
             <button
               type="button"
@@ -377,7 +379,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
             <button
               type="button"
               onClick={onTogglePostponeHistory}
-              className="flex items-center gap-2 text-xs text-muted-foreground/70 italic hover:text-muted-foreground transition-colors text-left w-full"
+              className="flex items-center gap-2 text-xs font-normal text-muted-foreground/70 italic hover:text-muted-foreground transition-colors text-left w-full"
             >
               <CalendarClock className="h-3 w-3 shrink-0" />
               <span className="flex-1 truncate">{note.last_postpone_reason}</span>
@@ -389,7 +391,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
             </button>
           )}
           {note.created_at && (
-            <p className="flex items-center gap-2 text-xs text-muted-foreground/50">
+            <p className="flex items-center gap-2 text-xs font-normal text-muted-foreground/50">
               <CalendarPlus className="h-3 w-3" />
               {new Date(note.created_at).toLocaleString()}
             </p>

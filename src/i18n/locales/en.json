@@ -69,8 +69,22 @@
   "home": "Home",
   "about": "About",
   "language": "Language",
+  "nav": {
+    "home": "Home",
+    "contacts": "Contacts",
+    "analytics": "Analytics",
+    "navigation": "Navigation",
+    "settings": "Settings"
+  },
+  "app": {
+    "menu": "Menu"
+  },
   "toggleTheme": "Toggle theme",
   "toggleLanguage": "Toggle language",
+  "theme": {
+    "light": "Light Mode",
+    "dark": "Dark Mode"
+  },
   "settings": "Settings",
   "settingsMenu": {
     "autoSync": "Automatic sync",
@@ -90,6 +104,8 @@
   "writeNote": "Write your note...",
   "writeDescription": "Description (optional)...",
   "save": "Save",
+  "clear": "Clear",
+  "allDay": "All day",
   "cancel": "Cancel",
   "edit": "Edit",
   "delete": "Delete",
@@ -103,6 +119,7 @@
   "categoryTodo": "To Do",
   "categoryFollowUp": "Follow Up",
   "categoryNotes": "Notes",
+  "categoryNote": "Note",
   "categoryMeeting": "Meeting",
   "changeCategory": "Change category",
   "searchCategory": "Search category...",
@@ -298,7 +315,8 @@
     "addDeadlinesHint": "Add deadlines to todos, followups and meetings to see them here",
     "noTasks": "No tasks",
     "tasksCount": "{{count}} task(s)",
-    "selectDateHint": "Select a date to see tasks"
+    "selectDateHint": "Select a date to see tasks",
+    "allDay": "All day"
   },
   "assignee": {
     "placeholder": "Assignee",

@@ -60,3 +60,39 @@ export function endOfDay(date: Date): Date {
   result.setHours(23, 59, 59, 999);
   return result;
 }
+
+/**
+ * Extract the local date key (YYYY-MM-DD) from a deadline string
+ * Properly handles UTC timestamps by converting to local time first
+ * This fixes the timezone bug where a deadline like "2026-01-26T18:00" in UTC-6
+ * would be stored as "2026-01-27T00:00:00Z" and incorrectly show on Jan 27
+ */
+export function getLocalDateKey(deadlineStr: string): string {
+  const date = parseLocalDate(deadlineStr);
+  return formatLocalDate(date);
+}
+
+/**
+ * Check if a deadline string has a meaningful time component (not midnight)
+ * Returns false for dates without time or dates at exactly 00:00:00
+ */
+export function hasTimeComponent(deadlineStr: string): boolean {
+  const date = parseLocalDate(deadlineStr);
+  return date.getHours() !== 0 || date.getMinutes() !== 0;
+}
+
+/**
+ * Extract the hour (0-23) from a deadline string in local time
+ */
+export function getHourFromDeadline(deadlineStr: string): number {
+  const date = parseLocalDate(deadlineStr);
+  return date.getHours();
+}
+
+/**
+ * Extract the minutes (0-59) from a deadline string in local time
+ */
+export function getMinutesFromDeadline(deadlineStr: string): number {
+  const date = parseLocalDate(deadlineStr);
+  return date.getMinutes();
+}

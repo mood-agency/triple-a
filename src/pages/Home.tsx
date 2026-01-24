@@ -2,10 +2,11 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
-import { Header } from '@/components/Header';
 import { NoteList, type NoteListHandle } from '@/components/notes/NoteList';
 import { CommandPalette } from '@/components/CommandPalette';
 import { HotkeysHelper } from '@/components/HotkeysHelper';
+import { AppSidebar } from '@/components/AppSidebar';
+import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { useNotes } from '@/hooks/useNotes';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useLabels } from '@/hooks/useLabels';
@@ -13,7 +14,7 @@ import { useSettings } from '@/hooks/useSettings';
 import type { Note, NoteCategory } from '@/types/note';
 
 export function Home() {
-  const { t } = useTranslation();
+  useTranslation();
   const { isReady } = useDatabase();
   const [searchParams, setSearchParams] = useSearchParams();
   // Optimized: Store only the ID to avoid unnecessary re-renders when note object changes
@@ -179,11 +180,10 @@ export function Home() {
   }
 
   return (
-    <div className="h-screen flex flex-col py-8 px-4">
-      <div className="w-full px-4 flex flex-col flex-1 min-h-0">
-        <Header />
-
-        <div className="flex-1 min-h-0">
+    <SidebarProvider defaultOpen={false}>
+      <AppSidebar />
+      <SidebarInset className="h-screen flex flex-col py-8 px-4">
+        <div className="w-full px-4 flex flex-col flex-1 min-h-0">
           <NoteList
             ref={noteListRef}
             notes={notes}
@@ -206,28 +206,29 @@ export function Home() {
             onLabelFilterChange={handleLabelFilterChange}
             onCategoryFilterChange={handleCategoryFilterChange}
             onAssigneeFilterChange={handleAssigneeFilterChange}
+            sidebarTrigger={<SidebarTrigger className="h-8 w-8 shadow-none" />}
           />
         </div>
-      </div>
 
-      <CommandPalette
-        labels={labels}
-        selectedLabels={labelFilter}
-        onSelectLabel={(labelId) => {
-          handleLabelFilterChange(
-            labelFilter.includes(labelId)
-              ? labelFilter.filter((id) => id !== labelId)
-              : [...labelFilter, labelId]
-          );
-        }}
-        onClearLabels={() => handleLabelFilterChange([])}
-        categoryFilter={categoryFilter}
-        onSelectCategory={handleCategoryFilterChange}
-        viewMode={viewMode}
-        onToggleViewMode={toggleViewMode}
-      />
+        <CommandPalette
+          labels={labels}
+          selectedLabels={labelFilter}
+          onSelectLabel={(labelId) => {
+            handleLabelFilterChange(
+              labelFilter.includes(labelId)
+                ? labelFilter.filter((id) => id !== labelId)
+                : [...labelFilter, labelId]
+            );
+          }}
+          onClearLabels={() => handleLabelFilterChange([])}
+          categoryFilter={categoryFilter}
+          onSelectCategory={handleCategoryFilterChange}
+          viewMode={viewMode}
+          onToggleViewMode={toggleViewMode}
+        />
 
-      <HotkeysHelper />
-    </div>
+        <HotkeysHelper />
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
