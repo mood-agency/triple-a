@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
-import { Calendar, PanelRightClose, PanelRightOpen, List, Pickaxe, Forward, StickyNote, Users as UsersIcon, User, Tag, AlertCircle } from 'lucide-react';
+import { Calendar, PanelRightClose, PanelRightOpen, List, Pickaxe, Forward, StickyNote, Users as UsersIcon, User, Tag, AlertCircle, AlignJustify } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -108,6 +108,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [desiredColumn, setDesiredColumn] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [internalCategoryFilter, setInternalCategoryFilter] = useState<NoteCategory | 'all'>('all');
+  const [taskStatusFilter, setTaskStatusFilter] = useState<'active' | 'completed' | 'deleted'>('active');
 
   // Use fixedNoteId from settings for persistence
   const fixedNoteId = settings.fixedNoteId;
@@ -219,6 +220,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const setShowSidebar = (value: boolean) => updateSettings({ showSidebar: value });
   const viewMode = settings.viewMode;
   const setViewMode = (value: 'list' | 'calendar') => updateSettings({ viewMode: value });
+  const compactTaskView = settings.compactTaskView;
+  const setCompactTaskView = (value: boolean) => updateSettings({ compactTaskView: value });
   const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | undefined>(new Date());
   const [sortByDeadline, setSortByDeadline] = useState(false);
   const [sortByAssignee, setSortByAssignee] = useState(false);
@@ -465,6 +468,43 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       return bTime - aTime;
     });
   }, [notes, calendarSelectedDate, categoryFilter, labelFilter, assigneeFilter, searchQuery, noteLabelsCache, EMPTY_LABELS]);
+
+  // Calendar view: deleted tasks for selected date
+  const calendarDeletedNotes = useMemo(() => {
+    if (!calendarSelectedDate) return [];
+    // Use local date format to avoid timezone issues (toISOString converts to UTC)
+    const year = calendarSelectedDate.getFullYear();
+    const month = String(calendarSelectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(calendarSelectedDate.getDate()).padStart(2, '0');
+    const dateKey = `${year}-${month}-${day}`;
+    return deletedNotes.filter((note) => {
+      // Must have a deadline matching the selected date
+      if (!note.deadline) return false;
+      const noteDeadline = note.deadline.split('T')[0];
+      if (noteDeadline !== dateKey) return false;
+      // Only show todos, followups and meetings (not notes)
+      if (note.category !== 'todo' && note.category !== 'followup' && note.category !== 'meeting') return false;
+      // Apply category filter if set
+      if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
+      // Apply label filter if set
+      if (labelFilter.length > 0) {
+        const noteLabelIds = (noteLabelsCache.get(note.id) ?? EMPTY_LABELS).map(l => l.id);
+        if (!labelFilter.some(labelId => noteLabelIds.includes(labelId))) return false;
+      }
+      // Apply assignee filter if set
+      if (assigneeFilter.length > 0) {
+        if (!note.assignee_id || !assigneeFilter.includes(note.assignee_id)) return false;
+      }
+      // Apply search query filter
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const titleMatch = note.content.toLowerCase().includes(query);
+        const descriptionMatch = note.description?.toLowerCase().includes(query) ?? false;
+        if (!titleMatch && !descriptionMatch) return false;
+      }
+      return true;
+    });
+  }, [deletedNotes, calendarSelectedDate, categoryFilter, labelFilter, assigneeFilter, searchQuery, noteLabelsCache, EMPTY_LABELS]);
 
   // PERFORMANCE: Keep filteredNotesRef updated based on view mode for navigation callbacks
   // In calendar mode, use calendar-specific arrays; in list mode, use regular filtered arrays
@@ -1221,6 +1261,21 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
             </TooltipContent>
           </Tooltip>
         </ToggleGroup>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setCompactTaskView(!compactTaskView)}
+              className={`p-1.5 rounded-md transition-colors ${compactTaskView ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+              aria-label={t('compactView')}
+            >
+              <AlignJustify className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{t('compactViewTooltip')}</p>
+          </TooltipContent>
+        </Tooltip>
         <NoteFilters
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
@@ -1251,30 +1306,36 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           contacts={contacts}
           assigneeFilter={assigneeFilter}
           onAssigneeFilterChange={setAssigneeFilter}
+          taskStatusFilter={taskStatusFilter}
+          onTaskStatusFilterChange={setTaskStatusFilter}
+          hasCompletedTasks={completedNotes.length > 0}
+          hasDeletedTasks={deletedNotes.length > 0}
         />
-        {/* Sidebar button */}
-        <div className="ml-auto">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={() => {
-                  if (showSidebar) {
-                    // When closing sidebar, also clear the fixed note
-                    setFixedNoteId(null);
-                  }
-                  setShowSidebar(!showSidebar);
-                }}
-                className="p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors"
-              >
-                {showSidebar ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{showSidebar ? t('hideSidebar') : t('showSidebar')}</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
+        {/* Sidebar button - only show when a note is fixed to sidebar */}
+        {fixedNoteId && (
+          <div className="ml-auto">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (showSidebar) {
+                      // When closing sidebar, also clear the fixed note
+                      setFixedNoteId(null);
+                    }
+                    setShowSidebar(!showSidebar);
+                  }}
+                  className="p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  {showSidebar ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{showSidebar ? t('hideSidebar') : t('showSidebar')}</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
       </div>
       <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
         {/* NOTE LIST COLUMN WIDTH - adjust w-[30%] to change the note list width */}
@@ -1291,99 +1352,159 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 />
               </div>
               {/* Task list for selected date - below calendar */}
-              <div className="flex-[3] overflow-y-auto pr-2 mt-2">
+              <div className="flex-1 overflow-y-auto pr-2 mt-2">
                 {calendarSelectedDate ? (
-                  calendarFilteredNotes.length > 0 ? (
-                    calendarFilteredNotes.map((note) => (
-                      <MemoizedNoteRow
-                        key={note.id}
-                        note={note}
-                        onDeleteWithToast={handleDeleteWithToast}
-                        onToggleCompleted={handleToggleCompletedWithNavigation}
-                        onTogglePinned={onTogglePinned}
-                        isSelected={selectedNote?.id === note.id}
-                        onSelect={handleSelectNoteById}
-                        onEdit={onEdit}
-                        onNavigateDown={handleNavigateDownById}
-                        onNavigateUp={handleNavigateUpById}
-                        onNavigateToDescription={handleNavigateToDescription}
-                        shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
-                        desiredColumn={desiredColumn}
-                        onTitleFocused={handleTitleFocused}
-                        onCreateNoteAfter={handleCreateNoteAfterById}
-                        isDragging={false}
-                        labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
-                        allLabels={labels}
-                        onAddLabel={handleAddLabelToNote}
-                        onRemoveLabel={handleRemoveLabelFromNote}
-                        onCreateLabel={handleCreateLabelClick}
-                        onEditLabel={handleEditLabel}
-                                                isFixedInSidebar={fixedNoteId === note.id}
-                        onToggleFixInSidebar={handleToggleFixInSidebarById}
-                        onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
-                        assigneeName={assigneeNamesCache.get(note.id)}
-                      />
-                    ))
-                  ) : hasActiveFilters ? (
-                    <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
-                      {renderNoResultsMessage(calendarCompletedNotes.length)}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
-                      {t('calendar.noTasks')}
-                    </p>
-                  )
+                  <>
+                    {/* Active tasks */}
+                    {taskStatusFilter === 'active' && (
+                      calendarFilteredNotes.length > 0 ? (
+                        calendarFilteredNotes.map((note) => (
+                          <MemoizedNoteRow
+                            key={note.id}
+                            note={note}
+                            onDeleteWithToast={handleDeleteWithToast}
+                            onToggleCompleted={handleToggleCompletedWithNavigation}
+                            onTogglePinned={onTogglePinned}
+                            isSelected={selectedNote?.id === note.id}
+                            onSelect={handleSelectNoteById}
+                            onEdit={onEdit}
+                            onNavigateDown={handleNavigateDownById}
+                            onNavigateUp={handleNavigateUpById}
+                            onNavigateToDescription={handleNavigateToDescription}
+                            shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
+                            desiredColumn={desiredColumn}
+                            onTitleFocused={handleTitleFocused}
+                            onCreateNoteAfter={handleCreateNoteAfterById}
+                            isDragging={false}
+                            labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
+                            allLabels={labels}
+                            onAddLabel={handleAddLabelToNote}
+                            onRemoveLabel={handleRemoveLabelFromNote}
+                            onCreateLabel={handleCreateLabelClick}
+                            onEditLabel={handleEditLabel}
+                            isFixedInSidebar={fixedNoteId === note.id}
+                            onToggleFixInSidebar={handleToggleFixInSidebarById}
+                            onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
+                            assigneeName={assigneeNamesCache.get(note.id)}
+                            compactView={compactTaskView}
+                          />
+                        ))
+                      ) : hasActiveFilters ? (
+                        <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
+                          {renderNoResultsMessage(calendarCompletedNotes.length)}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
+                          {t('calendar.noTasks')}
+                        </p>
+                      )
+                    )}
+
+                    {/* Completed tasks */}
+                    {taskStatusFilter === 'completed' && (
+                      calendarCompletedNotes.length > 0 ? (
+                        <>
+                          <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
+                            {t('completedTasks')} ({calendarCompletedNotes.length})
+                          </div>
+                          {calendarCompletedNotes.map((note) => (
+                            <MemoizedNoteRow
+                              key={note.id}
+                              note={note}
+                              onDeleteWithToast={handleDeleteWithToast}
+                              onToggleCompleted={handleToggleCompletedWithNavigation}
+                              onTogglePinned={onTogglePinned}
+                              isSelected={selectedNote?.id === note.id}
+                              onSelect={handleSelectNoteById}
+                              onEdit={onEdit}
+                              onNavigateDown={handleNavigateDownById}
+                              onNavigateUp={handleNavigateUpById}
+                              onNavigateToDescription={handleNavigateToDescription}
+                              shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
+                              desiredColumn={desiredColumn}
+                              onTitleFocused={handleTitleFocused}
+                              onCreateNoteAfter={handleCreateNoteAfterById}
+                              isDragging={false}
+                              labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
+                              allLabels={labels}
+                              onAddLabel={handleAddLabelToNote}
+                              onRemoveLabel={handleRemoveLabelFromNote}
+                              onCreateLabel={handleCreateLabelClick}
+                              onEditLabel={handleEditLabel}
+                              isFixedInSidebar={fixedNoteId === note.id}
+                              onToggleFixInSidebar={handleToggleFixInSidebarById}
+                              onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
+                              assigneeName={assigneeNamesCache.get(note.id)}
+                              compactView={compactTaskView}
+                            />
+                          ))}
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
+                          {t('calendar.noTasks')}
+                        </p>
+                      )
+                    )}
+
+                    {/* Deleted tasks */}
+                    {taskStatusFilter === 'deleted' && (
+                      calendarDeletedNotes.length > 0 ? (
+                        <>
+                          <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
+                            {t('trash.title')} ({calendarDeletedNotes.length})
+                          </div>
+                          {calendarDeletedNotes.map((note) => (
+                            <MemoizedNoteRow
+                              key={note.id}
+                              note={note}
+                              onDeleteWithToast={handleDeleteWithToast}
+                              onToggleCompleted={handleToggleCompletedWithNavigation}
+                              onTogglePinned={onTogglePinned}
+                              isSelected={selectedNote?.id === note.id}
+                              onSelect={handleSelectNoteById}
+                              onEdit={onEdit}
+                              onNavigateDown={handleNavigateDownById}
+                              onNavigateUp={handleNavigateUpById}
+                              onNavigateToDescription={handleNavigateToDescription}
+                              shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
+                              desiredColumn={desiredColumn}
+                              onTitleFocused={handleTitleFocused}
+                              onCreateNoteAfter={handleCreateNoteAfterById}
+                              isDragging={false}
+                              labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
+                              allLabels={labels}
+                              onAddLabel={handleAddLabelToNote}
+                              onRemoveLabel={handleRemoveLabelFromNote}
+                              onCreateLabel={handleCreateLabelClick}
+                              onEditLabel={handleEditLabel}
+                              isFixedInSidebar={fixedNoteId === note.id}
+                              onToggleFixInSidebar={handleToggleFixInSidebarById}
+                              onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
+                              assigneeName={assigneeNamesCache.get(note.id)}
+                              isDeleted={true}
+                              onRestore={() => onRestore(note)}
+                              compactView={compactTaskView}
+                            />
+                          ))}
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
+                          {t('calendar.noTasks')}
+                        </p>
+                      )
+                    )}
+                  </>
                 ) : (
                   <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
                     {t('calendar.selectDateHint')}
                   </p>
                 )}
               </div>
-
-              {/* Completed tasks section for calendar view */}
-              {calendarSelectedDate && calendarCompletedNotes.length > 0 && (
-                <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">
-                  <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
-                    {t('completedTasks')} ({calendarCompletedNotes.length})
-                  </div>
-                  <div className="overflow-y-auto pr-2 flex-1">
-                    {calendarCompletedNotes.map((note) => (
-                      <MemoizedNoteRow
-                        key={note.id}
-                        note={note}
-                        onDeleteWithToast={handleDeleteWithToast}
-                        onToggleCompleted={handleToggleCompletedWithNavigation}
-                        onTogglePinned={onTogglePinned}
-                        isSelected={selectedNote?.id === note.id}
-                        onSelect={handleSelectNoteById}
-                        onEdit={onEdit}
-                        onNavigateDown={handleNavigateDownById}
-                        onNavigateUp={handleNavigateUpById}
-                        onNavigateToDescription={handleNavigateToDescription}
-                        shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
-                        desiredColumn={desiredColumn}
-                        onTitleFocused={handleTitleFocused}
-                        onCreateNoteAfter={handleCreateNoteAfterById}
-                        isDragging={false}
-                        labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
-                        allLabels={labels}
-                        onAddLabel={handleAddLabelToNote}
-                        onRemoveLabel={handleRemoveLabelFromNote}
-                        onCreateLabel={handleCreateLabelClick}
-                        onEditLabel={handleEditLabel}
-                                                isFixedInSidebar={fixedNoteId === note.id}
-                        onToggleFixInSidebar={handleToggleFixInSidebarById}
-                        onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
-                        assigneeName={assigneeNamesCache.get(note.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           ) : (
             <>
-              {/* Active tasks section - 75% */}
+              {/* Active tasks section */}
+              {taskStatusFilter === 'active' && (
               <div className="overflow-y-auto pr-2 flex-[3]">
                 {/* Show message when no active tasks but have filters */}
                 {shouldShowOnlyCompletedMessage ? (
@@ -1437,15 +1558,17 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         onToggleFixInSidebar={handleToggleFixInSidebarById}
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                         assigneeName={assigneeNamesCache.get(note.id)}
+                        compactView={compactTaskView}
                       />
                       ))}
                     </SortableContext>
                   </DndContext>
                 )}
               </div>
+              )}
 
-              {/* Completed tasks section - 25% */}
-              {completedNotes.length > 0 && (
+              {/* Completed tasks section */}
+              {completedNotes.length > 0 && taskStatusFilter === 'completed' && (
                 <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">
                   <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
                     {t('completedTasks')} ({completedNotes.length})
@@ -1479,6 +1602,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         onToggleFixInSidebar={handleToggleFixInSidebarById}
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                         assigneeName={assigneeNamesCache.get(note.id)}
+                        compactView={compactTaskView}
                       />
                     ))}
                   </div>
@@ -1486,7 +1610,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               )}
 
               {/* Deleted tasks section */}
-              {deletedNotes.length > 0 && (
+              {deletedNotes.length > 0 && taskStatusFilter === 'deleted' && (
                 <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">
                   <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
                     {t('trash.title')} ({deletedNotes.length})
@@ -1522,6 +1646,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         assigneeName={assigneeNamesCache.get(note.id)}
                         isDeleted={true}
                         onRestore={() => onRestore(note)}
+                        compactView={compactTaskView}
                       />
                     ))}
                   </div>
@@ -1531,8 +1656,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           )}
         </div>
 
+        {selectedNote && (
         <div className="flex-1 min-w-0 border-l border-dashed border-muted-foreground/20 pl-4 overflow-hidden flex flex-col">
-          {selectedNote ? (
             <NoteEditorPanel
               ref={descriptionRef}
               note={selectedNote}
@@ -1570,12 +1695,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onSetEditingHistoryEntry={setEditingHistoryEntry}
               onToggleComplete={(id) => handleToggleCompletedWithNavigation(id, !selectedNote.completed)}
             />
-        ) : (
-          <p className="text-sm text-muted-foreground/50 italic">
-            {t('selectNoteToEdit')}
-          </p>
-        )}
       </div>
+        )}
 
       {showSidebar && (
       <div className="flex-1 min-w-0 border-l border-dashed border-muted-foreground/20 pl-4 overflow-hidden flex flex-col">

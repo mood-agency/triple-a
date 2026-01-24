@@ -246,7 +246,7 @@ export function SettingsMenu() {
         <Tooltip>
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm">
+              <Button variant="outline" size="icon">
                 <MoreVertical className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
@@ -272,7 +272,7 @@ export function SettingsMenu() {
         <Tooltip>
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm">
+              <Button variant="outline" size="icon">
                 <Settings className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>

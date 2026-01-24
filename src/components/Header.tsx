@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next';
-import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -8,13 +7,11 @@ import { SettingsMenu } from '@/components/SettingsMenu';
 
 interface HeaderProps {
   onCreateTask?: () => void;
-  onShowDeletedTasks?: () => void;
   children?: React.ReactNode;
 }
 
 export function Header({
   onCreateTask,
-  onShowDeletedTasks,
   children,
 }: HeaderProps) {
   const { t, i18n } = useTranslation();
@@ -45,21 +42,9 @@ export function Header({
       </div>
       <div className="flex items-center gap-2">
         {children}
-        {onShowDeletedTasks && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button onClick={onShowDeletedTasks} size="icon" variant="outline">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('trash.title')}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="secondary" size="sm" onClick={toggleLanguage}>
+            <Button variant="outline" size="icon" onClick={toggleLanguage}>
               {i18n.language.toUpperCase()}
             </Button>
           </TooltipTrigger>
