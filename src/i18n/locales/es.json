@@ -154,6 +154,8 @@
     "importSuccess": "Se importaron {{notes}} notas y {{history}} registros de historial"
   },
   "labels": "Etiquetas",
+  "applied": "Aplicadas",
+  "available": "Disponibles",
   "createLabel": "Crear etiqueta",
   "newLabelName": "Nombre de etiqueta",
   "labelColor": "Color",
