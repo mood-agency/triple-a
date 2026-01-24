@@ -171,11 +171,22 @@ function NoteRow({
   }, [isEditingContent]);
 
   // Focus externo desde el padre (navegación con flechas)
+  // IMPORTANT: Set isEditingContent synchronously to avoid flash of underline style
+  // We use a ref to track if we need to focus after render
+  const needsFocusRef = useRef(false);
+
+  if (shouldFocusTitle && isSelected && !isEditingContent) {
+    // Mark that focus is from navigation to prevent duplicate focus in isEditingContent effect
+    focusFromNavigationRef.current = true;
+    needsFocusRef.current = true;
+    setIsEditingContent(true);
+    // Call onTitleFocused synchronously to clear the flag immediately
+    onTitleFocused();
+  }
+
   useEffect(() => {
-    if (shouldFocusTitle && isSelected) {
-      // Mark that focus is from navigation to prevent duplicate focus in isEditingContent effect
-      focusFromNavigationRef.current = true;
-      setIsEditingContent(true);
+    if (needsFocusRef.current && isEditingContent) {
+      needsFocusRef.current = false;
       // Use setTimeout to ensure the input is rendered before focusing
       setTimeout(() => {
         if (contentInputRef.current) {
@@ -187,9 +198,8 @@ function NoteRow({
           contentInputRef.current.setSelectionRange(safePosition, safePosition);
         }
       }, 0);
-      onTitleFocused();
     }
-  }, [shouldFocusTitle, isSelected, desiredColumn, onTitleFocused]);
+  }, [isEditingContent, desiredColumn]);
 
   const handleCheckedChange = () => {
     onToggleCompleted(note.id, !note.completed);
@@ -344,12 +354,10 @@ function NoteRow({
               <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground/70" />
             </div>
           )
-        ) : (
-          <div className="w-2" />
-        )}
+        ) : <div />}
 
         {/* Content column */}
-        <div className={`px-1.5 select-none flex items-center gap-1.5 ${isEditingContent ? '' : 'overflow-hidden'}`} onClick={handleContentClick}>
+        <div className={`pr-1.5 select-none flex items-center gap-1.5 ${!compactView ? 'pl-1.5' : ''} ${isEditingContent ? '' : 'overflow-hidden'}`} onClick={handleContentClick}>
           {isEditingContent ? (
               <>
                 <input
