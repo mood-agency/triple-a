@@ -67,7 +67,8 @@ export function useUserPreferences(
     };
 
     loadPreferences();
-  }, [user, settings.showSidebar, settings.autoSync, updateSettings]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]); // Only run when user changes, not when settings change
 
   // Reset loaded flag when user logs out
   useEffect(() => {
