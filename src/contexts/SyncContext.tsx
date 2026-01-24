@@ -17,13 +17,13 @@ interface PushAllProgress {
 interface PushAllResult {
   success: boolean
   error?: string
-  pushed: { notes: number; labels: number; noteLabels: number; noteHistory: number }
+  pushed: { notes: number; labels: number; noteLabels: number; noteHistory: number; contacts: number }
 }
 
 interface PullAllResult {
   success: boolean
   error?: string
-  pulled: { notes: number; labels: number; noteLabels: number }
+  pulled: { notes: number; labels: number; noteLabels: number; contacts: number }
 }
 
 interface SyncContextType extends SyncContextState {
@@ -137,7 +137,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     onProgress?: (progress: PushAllProgress) => void
   ): Promise<PushAllResult> => {
     if (!syncServiceRef.current || !isOnline) {
-      return { success: false, error: 'Not connected', pushed: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0 } }
+      return { success: false, error: 'Not connected', pushed: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0, contacts: 0 } }
     }
 
     setIsPushingAll(true)
@@ -160,7 +160,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error'
       setError(errorMsg)
-      return { success: false, error: errorMsg, pushed: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0 } }
+      return { success: false, error: errorMsg, pushed: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0, contacts: 0 } }
     } finally {
       setIsPushingAll(false)
     }
@@ -171,7 +171,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     onProgress?: (progress: PushAllProgress) => void
   ): Promise<PullAllResult> => {
     if (!syncServiceRef.current || !isOnline) {
-      return { success: false, error: 'Not connected', pulled: { notes: 0, labels: 0, noteLabels: 0 } }
+      return { success: false, error: 'Not connected', pulled: { notes: 0, labels: 0, noteLabels: 0, contacts: 0 } }
     }
 
     setIsPullingAll(true)
@@ -193,7 +193,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error'
       setError(errorMsg)
-      return { success: false, error: errorMsg, pulled: { notes: 0, labels: 0, noteLabels: 0 } }
+      return { success: false, error: errorMsg, pulled: { notes: 0, labels: 0, noteLabels: 0, contacts: 0 } }
     } finally {
       setIsPullingAll(false)
     }

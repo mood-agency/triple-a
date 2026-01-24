@@ -53,7 +53,11 @@ export function useCalendarNotes(
 
   // Get notes for a specific date
   const getNotesForDate = (date: Date): Note[] => {
-    const dateKey = date.toISOString().split('T')[0]
+    // Use local date format to avoid timezone issues (toISOString converts to UTC)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const dateKey = `${year}-${month}-${day}`
     return notesByDate.get(dateKey) || []
   }
 

@@ -32,18 +32,18 @@ export class SyncBulkService {
    */
   async pullAllFromSupabase(
     onProgress?: (current: number, total: number, item: string) => void
-  ): Promise<{ success: boolean; error?: string; pulled: { notes: number; labels: number; noteLabels: number } }> {
+  ): Promise<{ success: boolean; error?: string; pulled: { notes: number; labels: number; noteLabels: number; contacts: number } }> {
     const client = this.supabaseClient;
     if (!client) {
-      return { success: false, error: 'Supabase not configured', pulled: { notes: 0, labels: 0, noteLabels: 0 } };
+      return { success: false, error: 'Supabase not configured', pulled: { notes: 0, labels: 0, noteLabels: 0, contacts: 0 } };
     }
 
     if (this.isSyncing) {
-      return { success: false, error: 'Sync already in progress', pulled: { notes: 0, labels: 0, noteLabels: 0 } };
+      return { success: false, error: 'Sync already in progress', pulled: { notes: 0, labels: 0, noteLabels: 0, contacts: 0 } };
     }
 
     this.isSyncing = true;
-    const pulled = { notes: 0, labels: 0, noteLabels: 0 };
+    const pulled = { notes: 0, labels: 0, noteLabels: 0, contacts: 0 };
 
     try {
       console.log('[SyncBulkService] pullAllFromSupabase - Starting full pull');
@@ -74,13 +74,23 @@ export class SyncBulkService {
 
       if (noteLabelsError) throw noteLabelsError;
 
-      const total = (remoteLabels?.length || 0) + (remoteNotes?.length || 0) + (remoteNoteLabels?.length || 0);
+      // Get all remote contacts
+      const { data: remoteContacts, error: contactsError } = await client
+        .from('contacts')
+        .select('*')
+        .eq('user_id', this.userId)
+        .is('deleted_at', null);
+
+      if (contactsError) throw contactsError;
+
+      const total = (remoteLabels?.length || 0) + (remoteNotes?.length || 0) + (remoteNoteLabels?.length || 0) + (remoteContacts?.length || 0);
       let current = 0;
 
       console.log('[SyncBulkService] Items to pull:', {
         labels: remoteLabels?.length || 0,
         notes: remoteNotes?.length || 0,
-        noteLabels: remoteNoteLabels?.length || 0
+        noteLabels: remoteNoteLabels?.length || 0,
+        contacts: remoteContacts?.length || 0
       });
 
       const now = new Date().toISOString();
@@ -218,6 +228,56 @@ export class SyncBulkService {
         }
       }
 
+      // Pull contacts
+      for (const remoteContact of remoteContacts || []) {
+        current++;
+        onProgress?.(current, total, `Contact: ${remoteContact.name}`);
+
+        const existingResult = this.db.exec(
+          `SELECT id FROM contacts WHERE remote_id = ?`,
+          [remoteContact.id as string]
+        );
+
+        if (existingResult.length === 0 || existingResult[0].values.length === 0) {
+          // Insert new contact
+          const localId = crypto.randomUUID();
+          this.db.run(
+            `INSERT INTO contacts (id, name, lastname, phone, email, user_id, created_at, updated_at, remote_id, sync_status, last_synced_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)`,
+            [
+              localId,
+              remoteContact.name,
+              remoteContact.lastname,
+              remoteContact.phone,
+              remoteContact.email,
+              this.userId,
+              remoteContact.created_at,
+              remoteContact.updated_at,
+              remoteContact.id,
+              now,
+            ]
+          );
+          pulled.contacts++;
+        } else {
+          // Update existing
+          const localId = existingResult[0].values[0][0] as string;
+          this.db.run(
+            `UPDATE contacts SET name = ?, lastname = ?, phone = ?, email = ?, updated_at = ?, sync_status = 'synced', last_synced_at = ?
+             WHERE id = ?`,
+            [
+              remoteContact.name,
+              remoteContact.lastname,
+              remoteContact.phone,
+              remoteContact.email,
+              remoteContact.updated_at,
+              now,
+              localId,
+            ]
+          );
+          pulled.contacts++;
+        }
+      }
+
       // Update last sync time
       this.db.run(
         `INSERT OR REPLACE INTO sync_state (key, value) VALUES ('last_synced_at', ?)`,
@@ -240,18 +300,18 @@ export class SyncBulkService {
    */
   async pushAllToSupabase(
     onProgress?: (current: number, total: number, item: string) => void
-  ): Promise<{ success: boolean; error?: string; pushed: { notes: number; labels: number; noteLabels: number; noteHistory: number } }> {
+  ): Promise<{ success: boolean; error?: string; pushed: { notes: number; labels: number; noteLabels: number; noteHistory: number; contacts: number } }> {
     const client = this.supabaseClient;
     if (!client) {
-      return { success: false, error: 'Supabase not configured', pushed: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0 } };
+      return { success: false, error: 'Supabase not configured', pushed: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0, contacts: 0 } };
     }
 
     if (this.isSyncing) {
-      return { success: false, error: 'Sync already in progress', pushed: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0 } };
+      return { success: false, error: 'Sync already in progress', pushed: { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0, contacts: 0 } };
     }
 
     this.isSyncing = true;
-    const pushed = { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0 };
+    const pushed = { notes: 0, labels: 0, noteLabels: 0, noteHistory: 0, contacts: 0 };
 
     try {
       // Get all local data
@@ -259,17 +319,19 @@ export class SyncBulkService {
       const labelsResult = this.db.exec(`SELECT id, name, color, created_at, updated_at, remote_id FROM labels`);
       const noteLabelsResult = this.db.exec(`SELECT note_id, label_id, created_at FROM note_labels`);
       const noteHistoryResult = this.db.exec(`SELECT id, note_id, content, description, category, completed, changed_at, action_type, reason, previous_date FROM note_history`);
+      const contactsResult = this.db.exec(`SELECT id, name, lastname, phone, email, created_at, updated_at, remote_id FROM contacts WHERE deleted_at IS NULL`);
 
       const notes = notesResult[0]?.values || [];
       const labels = labelsResult[0]?.values || [];
       const noteLabels = noteLabelsResult[0]?.values || [];
       const noteHistory = noteHistoryResult[0]?.values || [];
+      const contacts = contactsResult[0]?.values || [];
 
-      const total = notes.length + labels.length + noteLabels.length + noteHistory.length;
+      const total = notes.length + labels.length + noteLabels.length + noteHistory.length + contacts.length;
       let current = 0;
 
       console.log('[SyncBulkService] pushAllToSupabase - Starting one-way sync');
-      console.log('[SyncBulkService] Items to push:', { notes: notes.length, labels: labels.length, noteLabels: noteLabels.length, noteHistory: noteHistory.length });
+      console.log('[SyncBulkService] Items to push:', { notes: notes.length, labels: labels.length, noteLabels: noteLabels.length, noteHistory: noteHistory.length, contacts: contacts.length });
 
       // Push all labels first (they need to exist before note_labels)
       for (const row of labels) {
@@ -459,6 +521,60 @@ export class SyncBulkService {
           }
         } catch (error) {
           console.error('[SyncBulkService] Failed to push note_history:', id, error);
+        }
+      }
+
+      // Push all contacts
+      for (const row of contacts) {
+        const [id, name, lastname, phone, email, created_at, updated_at, remote_id] = row as [string, string, string | null, string | null, string | null, string, string, string | null];
+        current++;
+        onProgress?.(current, total, `Contact: ${name}`);
+
+        try {
+          if (remote_id) {
+            // Update existing
+            const { error } = await client
+              .from('contacts')
+              .upsert({
+                id: remote_id,
+                user_id: this.userId,
+                name,
+                lastname,
+                phone,
+                email,
+                created_at,
+                updated_at,
+              });
+
+            if (error) throw error;
+          } else {
+            // Insert new
+            const { data: inserted, error } = await client
+              .from('contacts')
+              .insert({
+                user_id: this.userId,
+                name,
+                lastname,
+                phone,
+                email,
+                created_at,
+                updated_at,
+              })
+              .select('id')
+              .single();
+
+            if (error) throw error;
+
+            if (inserted) {
+              this.db.run(
+                `UPDATE contacts SET remote_id = ?, sync_status = 'synced', last_synced_at = ? WHERE id = ?`,
+                [inserted.id, new Date().toISOString(), id]
+              );
+            }
+          }
+          pushed.contacts++;
+        } catch (error) {
+          console.error('[SyncBulkService] Failed to push contact:', id, error);
         }
       }
 

@@ -1,5 +1,6 @@
 import type { Database } from 'sql.js';
 import type { Note, Label, NoteHistory, NoteLabel } from '@/types/note';
+import type { Contact } from '@/types/contact';
 import type { PendingSyncOperation, SyncOperation } from '@/types/sync';
 
 // Type helper for bypassing strict type inference issues with Supabase generics
@@ -41,6 +42,9 @@ export class SyncOperationHandler {
         break;
       case 'note_history':
         await this.syncNoteHistory(op.operation, op.record_id, data);
+        break;
+      case 'contacts':
+        await this.syncContact(op.operation, op.record_id, data);
         break;
     }
   }
@@ -283,5 +287,88 @@ export class SyncOperationHandler {
       });
 
     if (error) throw error;
+  }
+
+  /**
+   * Sync a contact operation (insert, update, delete) to Supabase
+   */
+  private async syncContact(operation: SyncOperation, recordId: string, data: Partial<Contact> | null): Promise<void> {
+    const client = this.supabaseClient;
+    if (!client) return;
+
+    switch (operation) {
+      case 'insert':
+        if (data) {
+          console.log('[SyncOperationHandler] Inserting contact with user_id:', this.userId, 'data:', data);
+          const { data: inserted, error } = await client
+            .from('contacts')
+            .insert({
+              user_id: this.userId,
+              name: data.name!,
+              lastname: data.lastname,
+              phone: data.phone,
+              email: data.email,
+              created_at: data.created_at,
+              updated_at: data.updated_at,
+            })
+            .select('id')
+            .single();
+
+          console.log('[SyncOperationHandler] Insert contact result:', { inserted, error });
+          if (error) throw error;
+
+          // Update local record with remote_id
+          if (inserted) {
+            this.db.run(
+              `UPDATE contacts SET remote_id = ?, sync_status = 'synced', last_synced_at = ? WHERE id = ?`,
+              [inserted.id, new Date().toISOString(), recordId]
+            );
+          }
+        }
+        break;
+
+      case 'update':
+        if (data) {
+          const remoteIdResult = this.db.exec(`SELECT remote_id FROM contacts WHERE id = ?`, [recordId]);
+          const remoteId = remoteIdResult[0]?.values[0]?.[0] as string | null;
+
+          if (remoteId) {
+            const { error } = await client
+              .from('contacts')
+              .update({
+                name: data.name,
+                lastname: data.lastname,
+                phone: data.phone,
+                email: data.email,
+                updated_at: data.updated_at,
+                deleted_at: data.deleted_at,
+              })
+              .eq('id', remoteId);
+
+            if (error) throw error;
+
+            this.db.run(
+              `UPDATE contacts SET sync_status = 'synced', last_synced_at = ? WHERE id = ?`,
+              [new Date().toISOString(), recordId]
+            );
+          }
+        }
+        break;
+
+      case 'delete': {
+        const remoteIdResult = this.db.exec(`SELECT remote_id FROM contacts WHERE id = ?`, [recordId]);
+        const remoteId = remoteIdResult[0]?.values[0]?.[0] as string | null;
+
+        if (remoteId) {
+          const { error } = await client
+            .from('contacts')
+            .update({ deleted_at: new Date().toISOString() })
+            .eq('id', remoteId);
+
+          if (error) throw error;
+        }
+        break;
+      }
+    }
   }
 }
