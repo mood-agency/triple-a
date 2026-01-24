@@ -240,11 +240,6 @@ export class SupabaseDataSync {
 
       const { data, error } = await query;
 
-      console.log(`[SupabaseSync] Pulled ${tableName}:`, {
-        lastSyncedAt,
-        rowsFound: data?.length || 0,
-      });
-
       if (error) throw error;
 
       for (const remoteRow of data || []) {
@@ -286,28 +281,14 @@ export class SupabaseDataSync {
       const remoteUpdatedAt = new Date((remoteRow.updated_at as string) || 0);
       const localSyncStatus = localRow?.sync_status as SyncStatus;
 
-      console.log(`[SupabaseSync] Merging ${tableName} row:`, {
-        existingLocalId,
-        remoteId,
-        localUpdatedAt: localUpdatedAt.toISOString(),
-        remoteUpdatedAt: remoteUpdatedAt.toISOString(),
-        localSyncStatus,
-        willUpdate: remoteUpdatedAt > localUpdatedAt && localSyncStatus !== 'pending',
-        localContent: (localRow?.content as string)?.substring(0, 30),
-        remoteContent: (localData.content as string)?.substring(0, 30),
-      });
-
       // Only update if remote is newer AND local doesn't have pending changes
       if (remoteUpdatedAt > localUpdatedAt && localSyncStatus !== 'pending') {
-        console.log(`[SupabaseSync] Updating local row with remote data`);
         this.store.setRow(tableName, existingLocalId, {
           ...localData,
           remote_id: remoteId,
           sync_status: 'synced',
           last_synced_at: now(),
         });
-      } else {
-        console.log(`[SupabaseSync] Skipping update - local is newer or has pending changes`);
       }
     } else {
       // Insert new row from remote
