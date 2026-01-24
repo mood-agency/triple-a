@@ -71,6 +71,7 @@ export interface NoteRowProps {
   assigneeName?: string | null;
   isDeleted?: boolean;
   onRestore?: () => void;
+  compactView?: boolean;
 }
 
 /**
@@ -105,6 +106,7 @@ function NoteRow({
   assigneeName,
   isDeleted = false,
   onRestore,
+  compactView = false,
 }: NoteRowProps) {
   const { t } = useTranslation();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -265,8 +267,10 @@ function NoteRow({
         onEdit(note.id, contentValue.trim(), note.category, note.description);
       }
       setIsEditingContent(false);
-      // Create new note after this one
-      onCreateNoteAfter?.(note.id);
+      // Create new note after this one (but not for completed or deleted tasks)
+      if (!note.completed && !isDeleted) {
+        onCreateNoteAfter?.(note.id);
+      }
     } else if (e.key === 'Backspace' && contentValue === '') {
       e.preventDefault();
       setIsEditingContent(false);
@@ -312,44 +316,46 @@ function NoteRow({
           {/* Title row */}
           <div className="flex items-center gap-1.5">
             <div
-              className="flex items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none shrink-0 h-5"
+              className="flex items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none shrink-0 h-5 opacity-0 group-hover:opacity-100 transition-opacity"
               {...attributes}
               {...listeners}
               onClick={(e) => e.stopPropagation()}
             >
-              <GripVertical className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground/70 transition-colors" />
+              <GripVertical className="h-4 w-4 text-muted-foreground/70" />
             </div>
-            {/* Category icon that changes to checkbox on hover (for non-notes) */}
-            {note.category !== 'notes' ? (
-              <div
-                className="relative w-4 h-5 shrink-0 cursor-pointer flex items-center justify-center"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleCheckedChange();
-                }}
-              >
-                {/* Category icon - hidden on hover when not completed */}
-                <span className={`flex items-center justify-center ${note.completed ? 'hidden' : 'group-hover:hidden'}`}>
-                  {note.category === 'todo' ? (
-                    <Pickaxe className="h-4 w-4 text-muted-foreground/70" />
-                  ) : note.category === 'followup' ? (
-                    <Forward className="h-4 w-4 text-muted-foreground/70" />
-                  ) : (
-                    <Users className="h-4 w-4 text-muted-foreground/70" />
-                  )}
-                </span>
-                {/* Checkbox - shown on hover or when completed */}
-                <span className={`absolute flex items-center justify-center ${note.completed ? 'flex' : 'hidden group-hover:flex'}`}>
-                  <Checkbox
-                    checked={note.completed}
-                    onCheckedChange={handleCheckedChange}
-                  />
-                </span>
-              </div>
-            ) : (
-              <div className="h-5 flex items-center">
-                <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground/70" />
-              </div>
+            {/* Category icon that changes to checkbox on hover (for non-notes) - hidden in compact view */}
+            {!compactView && (
+              note.category !== 'notes' ? (
+                <div
+                  className="relative w-4 h-5 shrink-0 cursor-pointer flex items-center justify-center"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCheckedChange();
+                  }}
+                >
+                  {/* Category icon - hidden on hover when not completed */}
+                  <span className={`flex items-center justify-center ${note.completed ? 'hidden' : 'group-hover:hidden'}`}>
+                    {note.category === 'todo' ? (
+                      <Pickaxe className="h-4 w-4 text-muted-foreground/70" />
+                    ) : note.category === 'followup' ? (
+                      <Forward className="h-4 w-4 text-muted-foreground/70" />
+                    ) : (
+                      <Users className="h-4 w-4 text-muted-foreground/70" />
+                    )}
+                  </span>
+                  {/* Checkbox - shown on hover or when completed */}
+                  <span className={`absolute flex items-center justify-center ${note.completed ? 'flex' : 'hidden group-hover:flex'}`}>
+                    <Checkbox
+                      checked={note.completed}
+                      onCheckedChange={handleCheckedChange}
+                    />
+                  </span>
+                </div>
+              ) : (
+                <div className="h-5 flex items-center">
+                  <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+                </div>
+              )
             )}
             {isEditingContent ? (
               <>
@@ -550,7 +556,7 @@ function NoteRow({
                 {contentValue || t('newTaskPlaceholder')}
               </span>
             )}
-            {!isSelected && labels.length > 0 && (
+            {!compactView && !isSelected && labels.length > 0 && (
               <div className="flex gap-1 shrink-0">
                 {labels.map((label) => (
                   <span
@@ -563,7 +569,7 @@ function NoteRow({
                 ))}
               </div>
             )}
-            {!isSelected && note.deadline && (
+            {!compactView && !isSelected && note.deadline && (
               <div className={`flex items-center gap-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded ${
                 parseLocalDate(note.deadline) < new Date() && !note.completed
                   ? 'text-destructive bg-destructive/10'
@@ -573,7 +579,7 @@ function NoteRow({
                 <span>{parseLocalDate(note.deadline).toLocaleDateString()}</span>
               </div>
             )}
-            {!isSelected && assigneeName && (
+            {!compactView && !isSelected && assigneeName && (
               <div className="flex items-center gap-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded text-muted-foreground bg-muted">
                 <User className="h-3 w-3" />
                 <span>{assigneeName}</span>
@@ -583,41 +589,46 @@ function NoteRow({
         </div>
 
         <div className="flex items-center justify-center gap-0.5 select-none">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className={`transition-opacity p-1.5 cursor-pointer ${note.pinned ? 'text-primary opacity-100' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-primary'}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onTogglePinned(note.id, !note.pinned);
-                }}
-              >
-                <Pin className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{note.pinned ? t('unpin') : t('pin')}</p>
-            </TooltipContent>
-          </Tooltip>
-          {onToggleFixInSidebar && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className={`transition-opacity p-1.5 cursor-pointer ${isFixedInSidebar ? 'text-blue-500 opacity-100' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-blue-500'}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleFixInSidebar?.(note.id);
-                  }}
-                >
-                  <PanelRightOpen className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{isFixedInSidebar ? t('unfixFromSidebar') : t('fixToSidebar')}</p>
-              </TooltipContent>
-            </Tooltip>
+          {/* Hide pin and sidebar buttons for completed and deleted tasks */}
+          {!note.completed && !isDeleted && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className={`transition-opacity p-1.5 cursor-pointer ${note.pinned ? 'text-primary opacity-100' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-primary'}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTogglePinned(note.id, !note.pinned);
+                    }}
+                  >
+                    <Pin className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{note.pinned ? t('unpin') : t('pin')}</p>
+                </TooltipContent>
+              </Tooltip>
+              {onToggleFixInSidebar && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className={`transition-opacity p-1.5 cursor-pointer ${isFixedInSidebar ? 'text-blue-500 opacity-100' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-blue-500'}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleFixInSidebar?.(note.id);
+                      }}
+                    >
+                      <PanelRightOpen className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{isFixedInSidebar ? t('unfixFromSidebar') : t('fixToSidebar')}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </>
           )}
           {isDeleted && onRestore ? (
             <Tooltip>
@@ -707,6 +718,7 @@ export const MemoizedNoteRow = memo(
 
     if (prevProps.isDragging !== nextProps.isDragging) return false;
     if (prevProps.isFixedInSidebar !== nextProps.isFixedInSidebar) return false;
+    if (prevProps.compactView !== nextProps.compactView) return false;
 
     // Labels comparison - use reference equality first (fast path)
     if (prevProps.labels !== nextProps.labels) {

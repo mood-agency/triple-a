@@ -6,7 +6,6 @@ import { Header } from '@/components/Header';
 import { NoteList, type NoteListHandle } from '@/components/notes/NoteList';
 import { CommandPalette } from '@/components/CommandPalette';
 import { HotkeysHelper } from '@/components/HotkeysHelper';
-import { DeletedTasksDialog } from '@/components/notes/DeletedTasksDialog';
 import { useNotes } from '@/hooks/useNotes';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useLabels } from '@/hooks/useLabels';
@@ -50,7 +49,6 @@ export function Home() {
   const [labelFilter, setLabelFilter] = useState<string[]>(getInitialLabelFilter);
   const [categoryFilter, setCategoryFilter] = useState<NoteCategory | 'all'>(getInitialCategoryFilter);
   const [assigneeFilter, setAssigneeFilter] = useState<string[]>(getInitialAssigneeFilter);
-  const [showDeletedTasks, setShowDeletedTasks] = useState(false);
 
   // Load ALL notes without date filtering
   const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, updateAssignee, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote } = useNotes();
@@ -183,10 +181,7 @@ export function Home() {
   return (
     <div className="h-screen flex flex-col py-8 px-4">
       <div className="w-full px-4 flex flex-col flex-1 min-h-0">
-        <Header
-          onCreateTask={handleCreateTask}
-          onShowDeletedTasks={() => setShowDeletedTasks(true)}
-        />
+        <Header onCreateTask={handleCreateTask} />
 
         <div className="flex-1 min-h-0">
           <NoteList
@@ -232,15 +227,6 @@ export function Home() {
       />
 
       <HotkeysHelper />
-
-      {/* PERFORMANCE: Only render DeletedTasksDialog when open to avoid unnecessary re-renders and SQL queries */}
-      {showDeletedTasks && (
-        <DeletedTasksDialog
-          open={showDeletedTasks}
-          onOpenChange={setShowDeletedTasks}
-          onRestore={restoreNote}
-        />
-      )}
     </div>
   );
 }
