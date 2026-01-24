@@ -241,7 +241,7 @@ export function TimelineView({
     <div className="flex flex-col h-full overflow-hidden">
       {/* All day section */}
       {allDayNotes.length > 0 && (
-        <div className="flex-shrink-0 border-b pb-2 mb-2 px-1">
+        <div className="flex-shrink-0 pb-2 mb-2 px-1">
           <div className="text-xs text-muted-foreground/60 mb-1">
             {t('calendar.allDay')}
           </div>
@@ -278,7 +278,7 @@ export function TimelineView({
 
                   {/* Time slot */}
                   <div
-                    className={`relative ${
+                    className={`relative border-t border-border/30 ${
                       !hasNotes ? 'hover:bg-accent/20 cursor-pointer group' : ''
                     }`}
                     style={{ minHeight: `${HOUR_HEIGHT}px` }}
