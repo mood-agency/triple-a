@@ -41,7 +41,7 @@ import { MemoizedNoteRow } from './NoteRow';
 import { NoteEditorPanel } from './NoteEditorPanel';
 import { CalendarView } from './CalendarView';
 import { NoteFilters } from './NoteFilters';
-import { parseLocalDate } from '@/utils/dateUtils';
+import { parseLocalDate, startOfDay, endOfDay } from '@/utils/dateUtils';
 import { useContacts } from '@/hooks/useContacts';
 import { useDeletedNotes } from '@/hooks/useDeletedNotes';
 
@@ -93,6 +93,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const { deletedNotes } = useDeletedNotes();
   const containerRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<EditableDescriptionHandle>(null);
+  const descriptionCaretPositionRef = useRef<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // PERFORMANCE: Use refs to access latest values without creating callback dependencies
@@ -104,6 +105,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [descriptionValue, setDescriptionValue] = useState('');
   const [titleValue, setTitleValue] = useState('');
   const [focusTarget, setFocusTarget] = useState<FocusTarget>(null);
+  const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
   focusTargetRef.current = focusTarget; // Keep ref in sync
   const [desiredColumn, setDesiredColumn] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -226,6 +228,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [sortByDeadline, setSortByDeadline] = useState(false);
   const [sortByAssignee, setSortByAssignee] = useState(false);
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
+  const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [showPostponeHistory, setShowPostponeHistory] = useState(false);
   const [deadlinePickerOpen, setDeadlinePickerOpen] = useState(false);
   const [assigneePickerOpen, setAssigneePickerOpen] = useState(false);
@@ -239,7 +242,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [fixedNoteDescriptionValue, setFixedNoteDescriptionValue] = useState('');
   const [fixedNoteShowPostponeHistory, setFixedNoteShowPostponeHistory] = useState(false);
   const fixedNoteDescriptionRef = useRef<EditableDescriptionHandle>(null);
-  const { history: fixedNoteHistory, updateHistoryReason: updateFixedNoteHistoryReason } = useNoteHistory(fixedNote?.id ?? null);
+  const { history: fixedNoteHistory, deleteHistoryEntry: deleteFixedNoteHistoryEntry, updateHistoryReason: updateFixedNoteHistoryReason } = useNoteHistory(fixedNote?.id ?? null);
   const [fixedNoteHistoryEntryToDelete, setFixedNoteHistoryEntryToDelete] = useState<string | null>(null);
   const [editingFixedNoteHistoryEntry, setEditingFixedNoteHistoryEntry] = useState<{ id: string; reason: string } | null>(null);
 
@@ -318,13 +321,20 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       const isOverdue = parseLocalDate(note.deadline) < new Date() && !note.completed;
       if (!isOverdue) return false;
     }
+    // Filter by date range (filter tasks by their deadline within the range)
+    if (dateRangeFilter.from || dateRangeFilter.to) {
+      if (!note.deadline) return false;
+      const noteDeadline = parseLocalDate(note.deadline);
+      if (dateRangeFilter.from && noteDeadline < startOfDay(dateRangeFilter.from)) return false;
+      if (dateRangeFilter.to && noteDeadline > endOfDay(dateRangeFilter.to)) return false;
+    }
     // Filter by search query
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     const titleMatch = note.content.toLowerCase().includes(query);
     const descriptionMatch = note.description?.toLowerCase().includes(query) ?? false;
     return titleMatch || descriptionMatch;
-  }), [notes, categoryFilter, labelFilter, assigneeFilter, showOverdueOnly, searchQuery, noteLabelsCache]);
+  }), [notes, categoryFilter, labelFilter, assigneeFilter, showOverdueOnly, dateRangeFilter, searchQuery, noteLabelsCache]);
 
   // Separate active and completed notes
   // Memoized to avoid recomputing sort on every render
@@ -805,8 +815,14 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     setFocusTarget('description-start');
   }, []);
 
+  // Track description focus state
+  const handleDescriptionFocus = () => {
+    setIsDescriptionFocused(true);
+  };
+
   // Save description when it changes and user stops typing
   const handleDescriptionBlur = () => {
+    setIsDescriptionFocused(false);
     if (selectedNote && descriptionValue !== (selectedNote.description || '')) {
       onEdit(selectedNote.id, selectedNote.content, selectedNote.category, descriptionValue || null);
     }
@@ -822,12 +838,27 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       handleToggleCompletedWithNavigation(selectedNote.id, !selectedNote.completed);
     } else if (e.key === 'l' && e.altKey && selectedNote) {
       e.preventDefault();
+      // Save caret position before opening dropdown
+      const selectionInfo = descriptionRef.current?.getSelectionInfo();
+      if (selectionInfo) {
+        descriptionCaretPositionRef.current = selectionInfo.cursorPosition;
+      }
       setLabelDropdownOpen(true);
     } else if (e.key === 'c' && e.altKey && selectedNote) {
       e.preventDefault();
+      // Save caret position before opening dropdown
+      const selectionInfo = descriptionRef.current?.getSelectionInfo();
+      if (selectionInfo) {
+        descriptionCaretPositionRef.current = selectionInfo.cursorPosition;
+      }
       setCategoryDropdownOpen(true);
-    } else if (e.key === 'u' && e.ctrlKey && selectedNote) {
+    } else if (e.key === 'p' && e.altKey && selectedNote) {
       e.preventDefault();
+      // Save caret position before opening dropdown
+      const selectionInfo = descriptionRef.current?.getSelectionInfo();
+      if (selectionInfo) {
+        descriptionCaretPositionRef.current = selectionInfo.cursorPosition;
+      }
       setAssigneePickerOpen(true);
     } else if (e.key === 'Escape') {
       // Save changes before blurring
@@ -912,7 +943,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     } else if (e.key === 'c' && e.altKey && fixedNote) {
       e.preventDefault();
       setFixedNoteCategoryDropdownOpen(true);
-    } else if (e.key === 'u' && e.ctrlKey && fixedNote) {
+    } else if (e.key === 'p' && e.altKey && fixedNote) {
       e.preventDefault();
       setFixedNoteAssigneePickerOpen(true);
     } else if (e.key === 'Escape') {
@@ -929,6 +960,41 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       }
     }
   };
+
+  // Handler to restore caret position when dropdown closes
+  const restoreDescriptionCaret = useCallback(() => {
+    if (descriptionCaretPositionRef.current !== null) {
+      const position = descriptionCaretPositionRef.current;
+      descriptionCaretPositionRef.current = null;
+      // Use setTimeout to ensure the dropdown is fully closed before restoring focus
+      setTimeout(() => {
+        descriptionRef.current?.focus();
+        descriptionRef.current?.setCursorPosition(position);
+      }, 0);
+    }
+  }, []);
+
+  // Wrapper handlers for dropdown open changes that restore caret on close
+  const handleLabelDropdownOpenChange = useCallback((open: boolean) => {
+    setLabelDropdownOpen(open);
+    if (!open) {
+      restoreDescriptionCaret();
+    }
+  }, [restoreDescriptionCaret]);
+
+  const handleCategoryDropdownOpenChange = useCallback((open: boolean) => {
+    setCategoryDropdownOpen(open);
+    if (!open) {
+      restoreDescriptionCaret();
+    }
+  }, [restoreDescriptionCaret]);
+
+  const handleAssigneePickerOpenChange = useCallback((open: boolean) => {
+    setAssigneePickerOpen(open);
+    if (!open) {
+      restoreDescriptionCaret();
+    }
+  }, [restoreDescriptionCaret]);
 
   // Hotkey options for category filters (work from anywhere, including search bar)
   const hotkeyOptions = { preventDefault: true, enableOnFormTags: true };
@@ -1321,6 +1387,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           onSortByDeadlineChange={setSortByDeadline}
           showOverdueOnly={showOverdueOnly}
           onShowOverdueOnlyChange={setShowOverdueOnly}
+          dateRangeFilter={dateRangeFilter}
+          onDateRangeFilterChange={setDateRangeFilter}
           sortByAssignee={sortByAssignee}
           onSortByAssigneeChange={setSortByAssignee}
           contacts={contacts}
@@ -1407,7 +1475,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                             onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                             assigneeName={assigneeNamesCache.get(note.id)}
                             compactView={compactTaskView}
-                            isDescriptionFocused={(focusTarget === 'description-start' || focusTarget === 'description-end') && selectedNote?.id === note.id}
+                            isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
+                            contacts={contacts}
+                            onUpdateAssignee={onUpdateAssignee}
                           />
                         ))
                       ) : hasActiveFilters ? (
@@ -1457,7 +1527,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                               onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                               assigneeName={assigneeNamesCache.get(note.id)}
                               compactView={compactTaskView}
-                            isDescriptionFocused={(focusTarget === 'description-start' || focusTarget === 'description-end') && selectedNote?.id === note.id}
+                            isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
+                            contacts={contacts}
+                            onUpdateAssignee={onUpdateAssignee}
                             />
                           ))}
                         </>
@@ -1506,7 +1578,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                               isDeleted={true}
                               onRestore={() => onRestore(note)}
                               compactView={compactTaskView}
-                            isDescriptionFocused={(focusTarget === 'description-start' || focusTarget === 'description-end') && selectedNote?.id === note.id}
+                            isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
+                            contacts={contacts}
+                            onUpdateAssignee={onUpdateAssignee}
                             />
                           ))}
                         </>
@@ -1582,7 +1656,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                         assigneeName={assigneeNamesCache.get(note.id)}
                         compactView={compactTaskView}
-                            isDescriptionFocused={(focusTarget === 'description-start' || focusTarget === 'description-end') && selectedNote?.id === note.id}
+                            isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
+                            contacts={contacts}
+                            onUpdateAssignee={onUpdateAssignee}
                       />
                       ))}
                     </SortableContext>
@@ -1627,7 +1703,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                         assigneeName={assigneeNamesCache.get(note.id)}
                         compactView={compactTaskView}
-                            isDescriptionFocused={(focusTarget === 'description-start' || focusTarget === 'description-end') && selectedNote?.id === note.id}
+                            isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
+                            contacts={contacts}
+                            onUpdateAssignee={onUpdateAssignee}
                       />
                     ))}
                   </div>
@@ -1672,7 +1750,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         isDeleted={true}
                         onRestore={() => onRestore(note)}
                         compactView={compactTaskView}
-                            isDescriptionFocused={(focusTarget === 'description-start' || focusTarget === 'description-end') && selectedNote?.id === note.id}
+                            isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
+                            contacts={contacts}
+                            onUpdateAssignee={onUpdateAssignee}
                       />
                     ))}
                   </div>
@@ -1711,10 +1791,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onDeadlineChange={handleDeadlineChange}
               onUpdateAssignee={onUpdateAssignee}
               onDelete={() => handleDeleteWithToast(selectedNote)}
-              onLabelDropdownOpenChange={setLabelDropdownOpen}
-              onCategoryDropdownOpenChange={setCategoryDropdownOpen}
+              onLabelDropdownOpenChange={handleLabelDropdownOpenChange}
+              onCategoryDropdownOpenChange={handleCategoryDropdownOpenChange}
               onDeadlinePickerOpenChange={setDeadlinePickerOpen}
-              onAssigneePickerOpenChange={setAssigneePickerOpen}
+              onAssigneePickerOpenChange={handleAssigneePickerOpenChange}
               onEditHistoryEntry={(entry) => setEditingHistoryEntry(entry)}
               onUpdateHistoryReason={updateHistoryReason}
               onDeleteHistoryEntry={(id) => setHistoryEntryToDelete(id)}
@@ -1905,7 +1985,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               variant="destructive"
               onClick={() => {
                 if (fixedNoteHistoryEntryToDelete) {
-                  deleteHistoryEntry(fixedNoteHistoryEntryToDelete);
+                  deleteFixedNoteHistoryEntry(fixedNoteHistoryEntryToDelete);
                   setFixedNoteHistoryEntryToDelete(null);
                 }
               }}
