@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, memo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { format } from 'date-fns';
 import {
   Trash2,
   Calendar,
@@ -75,6 +76,7 @@ export interface NoteRowProps {
   isDescriptionFocused?: boolean;
   contacts?: Contact[];
   onUpdateAssignee?: (noteId: string, assigneeId: string | null) => void;
+  hideDeadline?: boolean;
 }
 
 /**
@@ -113,6 +115,7 @@ function NoteRow({
   isDescriptionFocused = false,
   contacts = [],
   onUpdateAssignee,
+  hideDeadline = false,
 }: NoteRowProps) {
   const { t } = useTranslation();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -244,7 +247,7 @@ function NoteRow({
 
   const handleContentKeyDown = (e: React.KeyboardEvent) => {
     // Handle Ctrl+D first to prevent browser default behavior (which can delete selected text)
-    if (e.key === 'd' && e.ctrlKey && note.category !== 'notes') {
+    if (e.key === 'd' && e.ctrlKey && note.category !== 'notes' && note.category !== 'meeting') {
       e.preventDefault();
       e.stopPropagation();
       // Save current content first before toggling
@@ -320,11 +323,19 @@ function NoteRow({
         }}
         style={style}
         onClick={() => onSelect(note.id)}
-        className={`group grid grid-cols-[auto_1fr_auto] items-center h-6 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' ? 'opacity-50' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
+        className={`group grid grid-cols-[auto_1fr_auto] items-center h-6 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' && note.category !== 'meeting' ? 'opacity-50' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
       >
         {/* Category icon column - hidden in compact view */}
         {!compactView ? (
-          note.category !== 'notes' ? (
+          note.category === 'notes' || note.category === 'meeting' ? (
+            <div className="h-4 flex items-center">
+              {note.category === 'notes' ? (
+                <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+              ) : (
+                <Users className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+              )}
+            </div>
+          ) : (
             <div
               className="relative w-4 h-4 shrink-0 cursor-pointer flex items-center justify-center"
               onClick={(e) => {
@@ -336,10 +347,8 @@ function NoteRow({
               <span className={`flex items-center justify-center ${note.completed ? 'hidden' : 'group-hover:hidden'}`}>
                 {note.category === 'todo' ? (
                   <Pickaxe className="h-4 w-4 text-muted-foreground/70" />
-                ) : note.category === 'followup' ? (
-                  <Forward className="h-4 w-4 text-muted-foreground/70" />
                 ) : (
-                  <Users className="h-4 w-4 text-muted-foreground/70" />
+                  <Forward className="h-4 w-4 text-muted-foreground/70" />
                 )}
               </span>
               {/* Checkbox - shown on hover or when completed */}
@@ -349,10 +358,6 @@ function NoteRow({
                   onCheckedChange={handleCheckedChange}
                 />
               </span>
-            </div>
-          ) : (
-            <div className="h-4 flex items-center">
-              <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground/70" />
             </div>
           )
         ) : <div />}
@@ -601,7 +606,7 @@ function NoteRow({
                 {contentValue || t('newTaskPlaceholder')}
               </span>
             )}
-            {!compactView && !isSelected && labels.length > 0 && (
+            {!compactView && labels.length > 0 && (
               <div className="flex gap-1 shrink-0">
                 {labels.map((label) => (
                   <span
@@ -614,17 +619,17 @@ function NoteRow({
                 ))}
               </div>
             )}
-            {!compactView && !isSelected && note.deadline && (
+            {!compactView && note.deadline && !hideDeadline && (
               <div className={`flex items-center gap-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded ${
                 parseLocalDate(note.deadline) < new Date() && !note.completed
                   ? 'text-destructive bg-destructive/10'
                   : 'text-muted-foreground bg-muted'
               }`}>
                 <Calendar className="h-3 w-3" />
-                <span>{parseLocalDate(note.deadline).toLocaleDateString()}</span>
+                <span>{format(parseLocalDate(note.deadline), 'dd/MM/yyyy HH:mm')}</span>
               </div>
             )}
-            {!compactView && !isSelected && assigneeName && (
+            {!compactView && assigneeName && (
               <div className="flex items-center gap-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded text-muted-foreground bg-muted">
                 <User className="h-3 w-3" />
                 <span>{assigneeName}</span>
