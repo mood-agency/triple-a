@@ -5,7 +5,6 @@ import {
   Calendar,
   Pickaxe,
   Forward,
-  GripVertical,
   StickyNote,
   Plus,
   Pencil,
@@ -310,54 +309,48 @@ function NoteRow({
         }}
         style={style}
         onClick={() => onSelect(note.id)}
-        className={`group grid grid-cols-[1fr_84px] py-0.5 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' ? 'opacity-50' : ''} ${isSelected ? 'bg-gray-200/70 dark:bg-gray-600/30' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
+        className={`group grid grid-cols-[auto_1fr_auto] items-center h-6 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' ? 'opacity-50' : ''} ${isSelected ? 'bg-gray-200/70 dark:bg-gray-600/30' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
       >
-        <div className={`px-2 select-none py-0.5 flex flex-col gap-0.5 ${isEditingContent ? '' : 'overflow-hidden'}`} onClick={handleContentClick}>
-          {/* Title row */}
-          <div className="flex items-center gap-1.5">
+        {/* Category icon column - hidden in compact view */}
+        {!compactView ? (
+          note.category !== 'notes' ? (
             <div
-              className="flex items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none shrink-0 h-5 opacity-0 group-hover:opacity-100 transition-opacity"
-              {...attributes}
-              {...listeners}
-              onClick={(e) => e.stopPropagation()}
+              className="relative w-4 h-4 shrink-0 cursor-pointer flex items-center justify-center ml-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCheckedChange();
+              }}
             >
-              <GripVertical className="h-4 w-4 text-muted-foreground/70" />
+              {/* Category icon - hidden on hover when not completed */}
+              <span className={`flex items-center justify-center ${note.completed ? 'hidden' : 'group-hover:hidden'}`}>
+                {note.category === 'todo' ? (
+                  <Pickaxe className="h-4 w-4 text-muted-foreground/70" />
+                ) : note.category === 'followup' ? (
+                  <Forward className="h-4 w-4 text-muted-foreground/70" />
+                ) : (
+                  <Users className="h-4 w-4 text-muted-foreground/70" />
+                )}
+              </span>
+              {/* Checkbox - shown on hover or when completed */}
+              <span className={`absolute flex items-center justify-center ${note.completed ? 'flex' : 'hidden group-hover:flex'}`}>
+                <Checkbox
+                  checked={note.completed}
+                  onCheckedChange={handleCheckedChange}
+                />
+              </span>
             </div>
-            {/* Category icon that changes to checkbox on hover (for non-notes) - hidden in compact view */}
-            {!compactView && (
-              note.category !== 'notes' ? (
-                <div
-                  className="relative w-4 h-5 shrink-0 cursor-pointer flex items-center justify-center"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCheckedChange();
-                  }}
-                >
-                  {/* Category icon - hidden on hover when not completed */}
-                  <span className={`flex items-center justify-center ${note.completed ? 'hidden' : 'group-hover:hidden'}`}>
-                    {note.category === 'todo' ? (
-                      <Pickaxe className="h-4 w-4 text-muted-foreground/70" />
-                    ) : note.category === 'followup' ? (
-                      <Forward className="h-4 w-4 text-muted-foreground/70" />
-                    ) : (
-                      <Users className="h-4 w-4 text-muted-foreground/70" />
-                    )}
-                  </span>
-                  {/* Checkbox - shown on hover or when completed */}
-                  <span className={`absolute flex items-center justify-center ${note.completed ? 'flex' : 'hidden group-hover:flex'}`}>
-                    <Checkbox
-                      checked={note.completed}
-                      onCheckedChange={handleCheckedChange}
-                    />
-                  </span>
-                </div>
-              ) : (
-                <div className="h-5 flex items-center">
-                  <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground/70" />
-                </div>
-              )
-            )}
-            {isEditingContent ? (
+          ) : (
+            <div className="h-4 flex items-center ml-2">
+              <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+            </div>
+          )
+        ) : (
+          <div className="w-2" />
+        )}
+
+        {/* Content column */}
+        <div className={`px-1.5 select-none flex items-center gap-1.5 ${isEditingContent ? '' : 'overflow-hidden'}`} onClick={handleContentClick}>
+          {isEditingContent ? (
               <>
                 <input
                   ref={contentInputRef}
@@ -408,7 +401,7 @@ function NoteRow({
                     }
                   }}
                   placeholder={t('newTaskPlaceholder')}
-                  className="flex-1 min-w-0 text-sm leading-5 bg-transparent border-none outline-none p-0 m-0 text-foreground caret-foreground placeholder:text-muted-foreground/50"
+                  className="flex-1 min-w-0 text-sm leading-4 bg-transparent border-none outline-none p-0 m-0 text-foreground caret-foreground placeholder:text-muted-foreground/50"
                 />
                 <Popover open={showLabelDropdown} onOpenChange={(open) => {
                   setShowLabelDropdown(open);
@@ -552,7 +545,11 @@ function NoteRow({
                 </Popover>
               </>
             ) : (
-              <span className={`text-sm leading-5 truncate ${note.completed ? 'line-through text-muted-foreground' : ''} ${isSelected ? 'cursor-text' : ''} ${!contentValue ? 'text-muted-foreground/50 italic' : ''}`}>
+              <span
+                className={`text-sm leading-4 truncate ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${note.completed ? 'line-through text-muted-foreground' : ''} ${isSelected ? 'cursor-text' : ''} ${!contentValue ? 'text-muted-foreground/50 italic' : ''}`}
+                {...attributes}
+                {...listeners}
+              >
                 {contentValue || t('newTaskPlaceholder')}
               </span>
             )}
@@ -585,10 +582,10 @@ function NoteRow({
                 <span>{assigneeName}</span>
               </div>
             )}
-          </div>
         </div>
 
-        <div className="flex items-center justify-center gap-0.5 select-none">
+        {/* Actions column */}
+        <div className="flex items-center justify-center gap-0.5 select-none mr-1">
           {/* Hide pin and sidebar buttons for completed and deleted tasks */}
           {!note.completed && !isDeleted && (
             <>
