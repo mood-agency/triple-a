@@ -411,13 +411,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!useTinyBaseEnabled || !tinybaseStore || !settings.autoSync || !isSyncServiceReady) return
 
-    // Listen for changes to the notes table
-    const listenerId = tinybaseStore.addTableListener('notes', () => {
-      // Check if any rows have pending sync status
-      const notesTable = tinybaseStore.getTable('notes') || {}
-      const hasPending = Object.values(notesTable).some(
-        (row) => (row as Record<string, unknown>).sync_status === 'pending'
-      )
+    // Helper to check for pending changes and trigger sync
+    const checkAndSync = () => {
+      const tables = ['notes', 'labels', 'contacts', 'note_labels', 'note_history'] as const
+      const hasPending = tables.some((tableName) => {
+        const table = tinybaseStore.getTable(tableName) || {}
+        return Object.values(table).some(
+          (row) => (row as Record<string, unknown>).sync_status === 'pending'
+        )
+      })
+
       if (hasPending && !isSyncingRef.current) {
         // Debounced sync that also broadcasts to other clients after completion
         if (syncDebounceRef.current) {
@@ -436,10 +439,19 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           }
         }, SYNC_DEBOUNCE)
       }
-    })
+    }
+
+    // Listen for changes to all sync-relevant tables
+    const listenerIds = [
+      tinybaseStore.addTableListener('notes', checkAndSync),
+      tinybaseStore.addTableListener('labels', checkAndSync),
+      tinybaseStore.addTableListener('contacts', checkAndSync),
+      tinybaseStore.addTableListener('note_labels', checkAndSync),
+      tinybaseStore.addTableListener('note_history', checkAndSync),
+    ]
 
     return () => {
-      tinybaseStore.delListener(listenerId)
+      listenerIds.forEach((id) => tinybaseStore.delListener(id))
     }
   }, [useTinyBaseEnabled, tinybaseStore, settings.autoSync, isSyncServiceReady])
 
