@@ -112,6 +112,7 @@
   "deleteNote": "Delete note",
   "noNotes": "No notes for this day",
   "noNotesWithFilters": "No tasks found with",
+  "filterTextPrefix": "text",
   "filterCategoryPrefix": "Category:",
   "onlyCompletedTasks": "Found {{count}} tasks already completed",
   "onlyCompletedTasksSingular": "Found 1 task already completed",

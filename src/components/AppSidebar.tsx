@@ -37,7 +37,6 @@ import {
   readFileAsJson,
   validateImportData,
 } from '@/utils/dataExport';
-import { useLabels } from '@/hooks/useLabels';
 
 export function AppSidebar() {
   const { t, i18n } = useTranslation();
@@ -46,7 +45,6 @@ export function AppSidebar() {
   const { user, signOut } = useAuth();
   const { connectionStatus, syncState, lastSyncedAt, pendingCount, error: syncError, syncNow, pushAllToSupabase, pullAllFromSupabase, isPushingAll, isPullingAll } = useSync();
   const { db } = useDatabase();
-  const { labels } = useLabels();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Dialog states
@@ -236,6 +234,11 @@ export function AppSidebar() {
       url: '/analytics',
       icon: BarChart3,
     },
+    {
+      title: t('manageLabels'),
+      url: '/labels',
+      icon: Tag,
+    },
   ];
 
   return (
@@ -324,22 +327,6 @@ export function AppSidebar() {
                 <SidebarMenuButton onClick={handleImportClick}>
                   <Upload className="h-4 w-4" />
                   <span>{t('importExport.import')}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>{t('labels')}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location.pathname === '/labels'}>
-                  <Link to="/labels">
-                    <Tag className="h-4 w-4" />
-                    <span>{t('manageLabels')}</span>
-                    <span className="ml-auto text-xs text-muted-foreground">{labels.length}</span>
-                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

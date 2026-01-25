@@ -114,7 +114,7 @@ export class DataMigrationService {
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const rowData: Record<string, unknown> = {};
+      const rowData: Record<string, string | number | boolean | null> = {};
 
       columns.forEach((col, idx) => {
         let value = row[idx];
@@ -122,7 +122,7 @@ export class DataMigrationService {
         if (col === 'completed' || col === 'pinned') {
           value = Boolean(value);
         }
-        rowData[col] = value;
+        rowData[col] = value as string | number | boolean | null;
       });
 
       // For note_labels, use composite key
@@ -134,7 +134,7 @@ export class DataMigrationService {
         delete rowData.id; // TinyBase uses row ID separately
       }
 
-      this.tinybaseStore.setRow(tableName, rowId, rowData);
+      this.tinybaseStore.setRow(tableName, rowId, rowData as Record<string, string | number | boolean>);
       this.onProgress?.({ table: tableName, current: i + 1, total, phase: 'migrate' });
     }
 
@@ -223,7 +223,9 @@ export class DataMigrationService {
  * Create a backup of the sql.js database to a downloadable file
  */
 export function downloadBackup(data: Uint8Array, filename?: string): void {
-  const blob = new Blob([data], { type: 'application/octet-stream' });
+  // Create a copy to avoid SharedArrayBuffer type issues
+  const buffer = new Uint8Array(data).buffer;
+  const blob = new Blob([buffer], { type: 'application/octet-stream' });
   const url = URL.createObjectURL(blob);
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');

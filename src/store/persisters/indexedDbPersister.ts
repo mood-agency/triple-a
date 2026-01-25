@@ -1,4 +1,4 @@
-import { createCustomPersister, type Persister } from 'tinybase/persisters';
+import { createCustomPersister } from 'tinybase/persisters';
 import type { MergeableStore } from 'tinybase';
 
 const DB_NAME = 'triple-a-tinybase';
@@ -6,7 +6,7 @@ const DB_VERSION = 1;
 const STORE_NAME = 'tinybase-store';
 const STORE_KEY = 'content';
 
-export interface AppPersister extends Persister {
+export interface AppPersister {
   load: () => Promise<void>;
   save: () => Promise<void>;
   startAutoSave: () => Promise<void>;
@@ -112,10 +112,11 @@ export function createIndexedDbPersister(store: MergeableStore): AppPersister {
   };
 
   // Create the base persister using TinyBase's createCustomPersister
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const basePersister = createCustomPersister(
     store,
-    getPersisted,
-    setPersisted,
+    getPersisted as any,
+    setPersisted as any,
     // addPersisterListener - not used, we rely on store listeners
     (_listener) => {
       // Return a handle that can be used to remove the listener
@@ -148,10 +149,12 @@ export function createIndexedDbPersister(store: MergeableStore): AppPersister {
       if (content) {
         const [tables, values] = content;
         if (tables && typeof tables === 'object') {
-          store.setTables(tables as Record<string, Record<string, Record<string, unknown>>>);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          store.setTables(tables as any);
         }
         if (values && typeof values === 'object') {
-          store.setValues(values as Record<string, unknown>);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          store.setValues(values as any);
         }
       }
     },

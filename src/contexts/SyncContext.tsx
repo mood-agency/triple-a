@@ -4,6 +4,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useSettings } from '@/hooks/useSettings'
 import { SyncService } from '@/services/SyncService'
 import { supabase } from '@/lib/supabase'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { SyncContextState, SyncConnectionStatus, SyncState, SyncTable, SyncOperation } from '@/types/sync'
 import { persistDatabase, getDatabase } from '@/db'
 import { getFlag } from '@/config/featureFlags'
@@ -70,10 +71,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   // Unique client ID to identify this browser instance
   const clientIdRef = useRef<string>(`client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
   // Broadcast channel ref for sending sync notifications
-  const broadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const broadcastChannelRef = useRef<RealtimeChannel | null>(null)
   // Track when we're the source of a change to avoid self-triggering
   const lastSyncTimeRef = useRef<number>(0)
-  const SELF_CHANGE_THRESHOLD = 3000 // 3 seconds
 
   // Initialize sync service when user is ready
   useEffect(() => {
@@ -481,7 +481,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     broadcastChannelRef.current = broadcastChannel
 
     return () => {
-      supabase.removeChannel(broadcastChannel)
+      supabase?.removeChannel(broadcastChannel)
       broadcastChannelRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -521,7 +521,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       .subscribe()
 
     return () => {
-      supabase.removeChannel(channel)
+      supabase?.removeChannel(channel)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, settings.autoSync, useTinyBaseEnabled])

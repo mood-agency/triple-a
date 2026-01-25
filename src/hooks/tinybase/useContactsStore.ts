@@ -119,7 +119,7 @@ export function useContactsStore() {
       }
 
       const timestamp = now();
-      const updates: Record<string, unknown> = {
+      const updates: Record<string, string | number | boolean> = {
         updated_at: timestamp,
         sync_status: 'pending',
       };

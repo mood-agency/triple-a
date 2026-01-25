@@ -112,6 +112,7 @@ export class SupabaseDataSync {
     row: Record<string, unknown>
   ): Promise<void> {
     if (!supabase) return;
+    const client = supabase;
 
     const remoteId = row.remote_id as string | null;
     const deletedAt = row.deleted_at as string | null;
@@ -122,8 +123,8 @@ export class SupabaseDataSync {
     if (deletedAt) {
       // Soft delete - update with deleted_at timestamp
       if (remoteId) {
-        const { error } = await supabase
-          .from(tableName)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (client.from(tableName) as any)
           .update({ deleted_at: deletedAt, updated_at: now() })
           .eq('id', remoteId);
 
@@ -132,14 +133,15 @@ export class SupabaseDataSync {
       }
     } else if (remoteId) {
       // Update existing record
-      const { error } = await supabase.from(tableName).update(supabaseData).eq('id', remoteId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (client.from(tableName) as any).update(supabaseData).eq('id', remoteId);
 
       if (error) throw error;
       this.markSynced(tableName, localId);
     } else {
       // Insert new record
-      const { data, error } = await supabase
-        .from(tableName)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (client.from(tableName) as any)
         .insert({ ...supabaseData, user_id: this.userId })
         .select('id')
         .single();

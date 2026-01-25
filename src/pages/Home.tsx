@@ -53,21 +53,6 @@ export function Home() {
 
   const [selectedDate, setSelectedDateState] = useState<Date>(getInitialSelectedDate);
 
-  // Update URL when view mode changes
-  const setViewMode = useCallback((newViewMode: 'list' | 'calendar') => {
-    setViewModeState(newViewMode);
-    updateSettings({ viewMode: newViewMode });
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
-      if (newViewMode !== 'list') {
-        newParams.set('view', newViewMode);
-      } else {
-        newParams.delete('view');
-      }
-      return newParams;
-    }, { replace: true });
-  }, [setSearchParams, updateSettings]);
-
   // Update URL when selected date changes
   const setSelectedDate = useCallback((newDate: Date | undefined) => {
     const dateToSet = newDate ?? new Date();
@@ -85,10 +70,6 @@ export function Home() {
       return newParams;
     }, { replace: true });
   }, [setSearchParams]);
-
-  const toggleViewMode = useCallback(() => {
-    setViewMode(viewMode === 'list' ? 'calendar' : 'list');
-  }, [viewMode, setViewMode]);
 
   // Initialize filters from URL params
   const getInitialLabelFilter = useCallback(() => {
@@ -112,6 +93,36 @@ export function Home() {
   const [labelFilter, setLabelFilter] = useState<string[]>(getInitialLabelFilter);
   const [categoryFilter, setCategoryFilter] = useState<NoteCategory | 'all'>(getInitialCategoryFilter);
   const [assigneeFilter, setAssigneeFilter] = useState<string[]>(getInitialAssigneeFilter);
+
+  // Update URL when view mode changes
+  const setViewMode = useCallback((newViewMode: 'list' | 'calendar') => {
+    setViewModeState(newViewMode);
+    updateSettings({ viewMode: newViewMode });
+
+    // Reset category filter if switching to calendar view with 'notes' filter active
+    // (notes don't have deadlines, so they don't make sense in calendar view)
+    if (newViewMode === 'calendar' && categoryFilter === 'notes') {
+      setCategoryFilter('all');
+    }
+
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      if (newViewMode !== 'list') {
+        newParams.set('view', newViewMode);
+      } else {
+        newParams.delete('view');
+      }
+      // Also clear category param if switching to calendar with notes filter
+      if (newViewMode === 'calendar' && categoryFilter === 'notes') {
+        newParams.delete('category');
+      }
+      return newParams;
+    }, { replace: true });
+  }, [setSearchParams, updateSettings, categoryFilter]);
+
+  const toggleViewMode = useCallback(() => {
+    setViewMode(viewMode === 'list' ? 'calendar' : 'list');
+  }, [viewMode, setViewMode]);
 
   // Load ALL notes without date filtering
   const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, updateAssignee, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote } = useNotes();

@@ -20,7 +20,7 @@ interface TimelineViewProps {
   onNavigateDown: (noteId: string, column: number) => boolean;
   onNavigateUp: (noteId: string, column: number) => boolean;
   onNavigateToDescription: () => void;
-  focusTarget: 'title' | 'description' | null;
+  focusTarget: 'title' | 'description' | 'description-start' | 'description-end' | null;
   desiredColumn: number;
   onTitleFocused: () => void;
   onCreateNoteAfter: (noteId: string) => void;
@@ -42,7 +42,7 @@ interface TimelineViewProps {
   taskStatusFilter: 'active' | 'completed' | 'deleted';
   onRestoreNote?: (noteId: string) => void;
   hasActiveFilters: boolean;
-  renderNoResultsMessage: (completedCount: number) => string;
+  renderNoResultsMessage: (completedCount: number) => React.ReactNode;
   hideEmptyHours?: boolean;
   sortByCategory?: boolean;
 }

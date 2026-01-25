@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useTinyBase } from '@/contexts/TinyBaseContext';
 import type { Note, NoteCategory } from '@/types/note';
 import { generateId, now } from '@/store/schema';
@@ -109,13 +109,13 @@ export function useNotesStore(date?: string) {
    * Create a new note
    */
   const createNote = useCallback(
-    (
+    async (
       content: string,
       category: NoteCategory = 'todo',
       description?: string | null,
       labelIds?: string[]
-    ): string | null => {
-      if (!store) return null;
+    ): Promise<Note> => {
+      if (!store) throw new Error('Store not ready');
 
       const id = generateId();
       const timestamp = now();
@@ -129,6 +129,8 @@ export function useNotesStore(date?: string) {
         return Math.max(max, sortOrder || 0);
       }, -1);
 
+      const sortOrder = maxSortOrder + 1;
+
       store.setRow('notes', id, {
         date: effectiveDate,
         content,
@@ -138,7 +140,7 @@ export function useNotesStore(date?: string) {
         completed_at: null,
         deadline: null,
         pinned: false,
-        sort_order: maxSortOrder + 1,
+        sort_order: sortOrder,
         assignee_id: null,
         created_at: timestamp,
         updated_at: timestamp,
@@ -174,7 +176,23 @@ export function useNotesStore(date?: string) {
         }
       }
 
-      return id;
+      // Return the created note
+      return {
+        id,
+        date: effectiveDate,
+        content,
+        description: description || null,
+        category,
+        completed: false,
+        completed_at: null,
+        deadline: null,
+        pinned: false,
+        sort_order: sortOrder,
+        assignee_id: null,
+        created_at: timestamp,
+        updated_at: timestamp,
+        deleted_at: null,
+      };
     },
     [store, effectiveDate]
   );
@@ -183,18 +201,16 @@ export function useNotesStore(date?: string) {
    * Create a note after a specific note (for keyboard navigation)
    */
   const createNoteAfter = useCallback(
-    (
+    async (
       afterNoteId: string,
       category: NoteCategory = 'todo',
       deadline?: string | null,
       labelIds: string[] = []
-    ): string | null => {
-      if (!store) return null;
+    ): Promise<Note> => {
+      if (!store) throw new Error('Store not ready');
 
       const afterNote = store.getRow('notes', afterNoteId);
-      if (!afterNote) return createNote('', category, null, labelIds);
-
-      const afterSortOrder = (afterNote.sort_order as number) || 0;
+      const afterSortOrder = afterNote ? (afterNote.sort_order as number) || 0 : 0;
 
       // Find the next note's sort order
       const notesTable = store.getTable('notes') || {};
@@ -206,7 +222,7 @@ export function useNotesStore(date?: string) {
       const afterIndex = sameDateNotes.findIndex((n) => n.id === afterNoteId);
       let newSortOrder: number;
 
-      if (afterIndex < sameDateNotes.length - 1) {
+      if (afterIndex >= 0 && afterIndex < sameDateNotes.length - 1) {
         // Insert between two notes
         const nextSortOrder = sameDateNotes[afterIndex + 1].sort_order;
         newSortOrder = (afterSortOrder + nextSortOrder) / 2;
@@ -261,9 +277,25 @@ export function useNotesStore(date?: string) {
         previous_date: null,
       });
 
-      return id;
+      // Return the created note
+      return {
+        id,
+        date: effectiveDate,
+        content: '',
+        description: null,
+        category,
+        completed: false,
+        completed_at: null,
+        deadline: deadline || null,
+        pinned: false,
+        sort_order: newSortOrder,
+        assignee_id: null,
+        created_at: timestamp,
+        updated_at: timestamp,
+        deleted_at: null,
+      };
     },
-    [store, effectiveDate, createNote]
+    [store, effectiveDate]
   );
 
   /**
@@ -282,7 +314,7 @@ export function useNotesStore(date?: string) {
       if (!existingNote) return;
 
       const timestamp = now();
-      const updates: Record<string, unknown> = {
+      const updates: Record<string, string | number | boolean | null> = {
         content,
         updated_at: timestamp,
         sync_status: 'pending',
@@ -295,7 +327,7 @@ export function useNotesStore(date?: string) {
         updates.description = description;
       }
 
-      store.setPartialRow('notes', id, updates);
+      store.setPartialRow('notes', id, updates as Record<string, string | number | boolean>);
 
       // Save history entry
       const historyId = generateId();
@@ -482,13 +514,13 @@ export function useNotesStore(date?: string) {
    * Reorder notes
    */
   const reorderNotes = useCallback(
-    (reorderedNotes: Note[]): void => {
+    (orderedIds: string[]): void => {
       if (!store) return;
 
       const timestamp = now();
 
-      reorderedNotes.forEach((note, index) => {
-        store.setPartialRow('notes', note.id, {
+      orderedIds.forEach((noteId, index) => {
+        store.setPartialRow('notes', noteId, {
           sort_order: index,
           updated_at: timestamp,
           sync_status: 'pending',

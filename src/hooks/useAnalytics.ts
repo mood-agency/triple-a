@@ -135,6 +135,7 @@ export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
       const onTimeRate = completedWithDeadline > 0 ? (onTimeNotes.length / completedWithDeadline) * 100 : 0;
 
       // 3. Overdue count - uncompleted tasks past deadline (all tasks, not just in date range)
+      // Meetings are excluded since they are scheduled events, not tasks with deadlines
       const allNotes = Object.entries(notesTable)
         .filter(([_, note]) => !(note as Record<string, unknown>).deleted_at)
         .map(([id, note]) => {
@@ -144,11 +145,12 @@ export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
             content: n.content as string,
             completed: Boolean(n.completed),
             deadline: n.deadline as string | null,
+            category: n.category as string | null,
           };
         });
 
       const overdueNotes = allNotes.filter((n) => {
-        if (n.completed || !n.deadline) return false;
+        if (n.completed || !n.deadline || n.category === 'meeting') return false;
         const deadlineDate = getDateOnly(n.deadline);
         return deadlineDate < today;
       });

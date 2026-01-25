@@ -720,7 +720,7 @@ function NoteRow({
                 : (hasTime ? 'dd/MM/yyyy HH:mm' : 'dd/MM/yyyy');
               return (
                 <div className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${
-                  deadlineDate < new Date() && !note.completed
+                  deadlineDate < new Date() && !note.completed && note.category !== 'meeting'
                     ? 'text-destructive bg-destructive/10'
                     : 'text-muted-foreground bg-muted'
                 }`}>

@@ -112,6 +112,7 @@
   "deleteNote": "Eliminar nota",
   "noNotes": "No hay notas para este día",
   "noNotesWithFilters": "No se encontraron tareas con",
+  "filterTextPrefix": "texto",
   "filterCategoryPrefix": "Categoría:",
   "onlyCompletedTasks": "Se encontraron {{count}} tareas ya completadas",
   "onlyCompletedTasksSingular": "Se encontró 1 tarea ya completada",
