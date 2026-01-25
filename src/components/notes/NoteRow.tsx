@@ -399,7 +399,7 @@ function NoteRow({
         }}
         style={style}
         onClick={() => onSelect(note.id)}
-        className={`group grid ${compactView ? 'grid-cols-[auto_1fr_auto]' : 'grid-cols-[auto_minmax(0,1fr)_auto_auto_auto_auto]'} items-center h-6 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' && note.category !== 'meeting' ? 'opacity-50' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
+        className={`group grid ${compactView ? 'grid-cols-[auto_1fr_auto]' : 'grid-cols-[auto_minmax(0,1fr)_auto_auto_auto_auto]'} items-center h-6 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' && note.category !== 'meeting' ? 'opacity-50' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
       >
         {/* Category icon column - hidden in compact view */}
         {!compactView ? (

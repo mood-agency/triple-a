@@ -46,6 +46,7 @@ import { parseLocalDate, startOfDay, endOfDay, getLocalDateKey } from '@/utils/d
 import { useContacts } from '@/hooks/useContacts';
 import { useDeletedNotes } from '@/hooks/useDeletedNotes';
 import { getInitials } from '@/lib/utils';
+import { sortNotes, sortCompletedNotes, type NoteSortConfig } from '@/utils/noteUtils';
 
 interface NoteListProps {
   notes: Note[];
@@ -382,79 +383,17 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     return titleMatch || descriptionMatch;
   }), [notes, categoryFilter, labelFilter, assigneeFilter, showOverdueOnly, dateRangeFilter, searchQuery, noteLabelsCache]);
 
-  // Category order for sorting
-  const categoryOrder: Record<string, number> = {
-    todo: 0,
-    followup: 1,
-    meeting: 2,
-    notes: 3,
-  };
-
   // Separate active and completed notes
   // Memoized to avoid recomputing sort on every render
   const activeNotes = useMemo(() => {
-    let active = baseFilteredNotes.filter((note) => !note.completed);
-
-    // Sort active notes
-    active = [...active].sort((a, b) => {
-      // Pinned notes always come first
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-
-      // Sort by category if enabled
-      if (sortConfig.category) {
-        const aOrder = categoryOrder[a.category] ?? 99;
-        const bOrder = categoryOrder[b.category] ?? 99;
-        if (aOrder !== bOrder) {
-          const result = aOrder - bOrder;
-          return sortConfig.category === 'desc' ? -result : result;
-        }
-      }
-
-      // Sort by assignee if enabled
-      if (sortConfig.assignee) {
-        const aName = assigneeNamesCache.get(a.id) ?? '';
-        const bName = assigneeNamesCache.get(b.id) ?? '';
-        // Tasks with assignee come first, then sort alphabetically
-        if (aName && !bName) return -1;
-        if (!aName && bName) return 1;
-        if (aName && bName) {
-          const nameCompare = aName.localeCompare(bName);
-          if (nameCompare !== 0) {
-            return sortConfig.assignee === 'desc' ? -nameCompare : nameCompare;
-          }
-        }
-      }
-
-      // Sort by deadline if enabled
-      if (sortConfig.deadline) {
-        // Notes without deadline go to the end
-        if (!a.deadline && !b.deadline) return 0;
-        if (!a.deadline) return 1;
-        if (!b.deadline) return -1;
-        // Sort by deadline
-        const result = parseLocalDate(a.deadline).getTime() - parseLocalDate(b.deadline).getTime();
-        return sortConfig.deadline === 'desc' ? -result : result;
-      }
-
-      return 0; // Maintain original order
-    });
-
-    return active;
+    const active = baseFilteredNotes.filter((note) => !note.completed);
+    return sortNotes(active, sortConfig as NoteSortConfig, assigneeNamesCache);
   }, [baseFilteredNotes, sortConfig, assigneeNamesCache]);
 
-  const completedNotes = useMemo(() => baseFilteredNotes
-    .filter((note) => note.completed)
-    .sort((a, b) => {
-      // Pinned notes always come first, even in completed section
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-
-      // Sort by completed_at descending (most recent first)
-      const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
-      const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
-      return bTime - aTime;
-    }), [baseFilteredNotes]);
+  const completedNotes = useMemo(() => {
+    const completed = baseFilteredNotes.filter((note) => note.completed);
+    return sortCompletedNotes(completed);
+  }, [baseFilteredNotes]);
 
   // Combined for navigation purposes (active first, then completed)
   // Memoized to avoid recreating array on every render
