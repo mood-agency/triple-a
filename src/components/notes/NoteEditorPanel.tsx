@@ -346,12 +346,12 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           hideIcon
         />
         {assigneeName && (
-          <span className="px-2 py-0.5 text-xs font-normal rounded-full bg-purple-500/80 text-white leading-none flex items-center gap-1">
+          <span className="px-2 py-0.5 text-xs font-normal rounded-full border border-input bg-background text-foreground leading-none flex items-center gap-1">
             {assigneeName}
             <button
               type="button"
               onClick={() => onUpdateAssignee(note.id, null)}
-              className="hover:bg-white/20 rounded-full p-0.5"
+              className="hover:bg-muted rounded-full p-0.5"
             >
               <X className="h-3 w-3" />
             </button>

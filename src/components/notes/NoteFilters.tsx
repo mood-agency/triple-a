@@ -11,12 +11,15 @@ import {
   Check,
   X,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   AlertTriangle,
   CircleDot,
   CheckCircle2,
   Trash2,
   CalendarRange,
   Layers,
+  Calendar as CalendarIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es, enUS } from 'date-fns/locale';
@@ -34,12 +37,28 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import type { NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 
 interface DateRange {
   from: Date | undefined;
   to: Date | undefined;
+}
+
+export type SortDirection = 'asc' | 'desc';
+
+export interface SortConfig {
+  deadline: SortDirection | null;
+  assignee: SortDirection | null;
+  category: SortDirection | null;
 }
 
 interface NoteFiltersProps {
@@ -59,7 +78,11 @@ interface NoteFiltersProps {
   labelFilter: string[];
   onLabelFilterChange: (labels: string[] | ((prev: string[]) => string[])) => void;
 
-  // Deadline options
+  // Sort configuration
+  sortConfig: SortConfig;
+  onSortConfigChange: (config: SortConfig) => void;
+
+  // Legacy props for backwards compatibility
   sortByDeadline: boolean;
   onSortByDeadlineChange: (value: boolean) => void;
   showOverdueOnly: boolean;
@@ -100,6 +123,8 @@ export function NoteFilters({
   labels,
   labelFilter,
   onLabelFilterChange,
+  sortConfig,
+  onSortConfigChange,
   sortByDeadline,
   onSortByDeadlineChange,
   showOverdueOnly,
@@ -121,6 +146,36 @@ export function NoteFilters({
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'es' ? es : enUS;
 
+  // Suppress unused variable warnings for legacy props (kept for interface compatibility)
+  void sortByDeadline;
+  void sortByAssignee;
+  void sortByCategory;
+
+  // Helper to check if any sort is active
+  const hasActiveSort = sortConfig.deadline !== null || sortConfig.assignee !== null || sortConfig.category !== null;
+
+  // Helper to set specific sort direction
+  const setSort = (field: keyof SortConfig, direction: SortDirection | null) => {
+    onSortConfigChange({ ...sortConfig, [field]: direction });
+
+    // Also update legacy props for backwards compatibility
+    if (field === 'deadline') {
+      onSortByDeadlineChange(direction !== null);
+    } else if (field === 'assignee') {
+      onSortByAssigneeChange(direction !== null);
+    } else if (field === 'category') {
+      onSortByCategoryChange(direction !== null);
+    }
+  };
+
+  // Get sort icon for a field
+  const getSortIcon = (field: keyof SortConfig) => {
+    const direction = sortConfig[field];
+    if (direction === 'asc') return <ArrowUp className="h-3 w-3" />;
+    if (direction === 'desc') return <ArrowDown className="h-3 w-3" />;
+    return null;
+  };
+
   return (
     <>
       {/* Search input */}
@@ -139,7 +194,7 @@ export function NoteFilters({
         </Button>
       </div>
 
-      {/* Category filters */}
+      {/* Category filters - only action types (To Do, Follow Up, Meeting) */}
       <div className="flex">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -180,7 +235,7 @@ export function NoteFilters({
             <Button
               variant="outline"
               size="icon"
-              className={`h-8 w-8 shadow-none ${viewMode !== 'calendar' ? 'rounded-none border-r-0' : 'rounded-l-none'} ${categoryFilter === 'meeting' ? 'bg-accent text-accent-foreground' : ''}`}
+              className={`h-8 w-8 rounded-l-none shadow-none ${categoryFilter === 'meeting' ? 'bg-accent text-accent-foreground' : ''}`}
               onClick={() => onCategoryFilterChange(categoryFilter === 'meeting' ? 'all' : 'meeting')}
               aria-label={t('categoryMeeting')}
             >
@@ -192,26 +247,28 @@ export function NoteFilters({
             <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>R</Kbd></span>
           </TooltipContent>
         </Tooltip>
-        {viewMode !== 'calendar' && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className={`h-8 w-8 rounded-l-none shadow-none ${categoryFilter === 'notes' ? 'bg-accent text-accent-foreground' : ''}`}
-                onClick={() => onCategoryFilterChange(categoryFilter === 'notes' ? 'all' : 'notes')}
-                aria-label={t('categoryNotes')}
-              >
-                <StickyNote className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              <p>{t('filterByCategory', { category: t('categoryNotes') })}</p>
-              <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>E</Kbd></span>
-            </TooltipContent>
-          </Tooltip>
-        )}
       </div>
+
+      {/* Notes toggle button - separate from action types */}
+      {viewMode !== 'calendar' && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className={`h-8 w-8 shadow-none ${categoryFilter === 'notes' ? 'bg-accent text-accent-foreground' : ''}`}
+              onClick={() => onCategoryFilterChange(categoryFilter === 'notes' ? 'all' : 'notes')}
+              aria-label={t('categoryNotes')}
+            >
+              <StickyNote className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="flex items-center gap-2">
+            <p>{t('filterByCategory', { category: t('categoryNotes') })}</p>
+            <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>E</Kbd></span>
+          </TooltipContent>
+        </Tooltip>
+      )}
 
       {/* Label and Assignee filters dropdown */}
       {(labels.length > 0 || contacts.length > 0) && (
@@ -344,7 +401,7 @@ export function NoteFilters({
                 return (
                   <span
                     key={contact.id}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-primary text-primary-foreground"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full border border-input bg-background text-foreground"
                   >
                     {fullName}
                     <button
@@ -352,7 +409,7 @@ export function NoteFilters({
                       onClick={() =>
                         onAssigneeFilterChange((prev) => prev.filter((id) => id !== contact.id))
                       }
-                      className="hover:bg-white/20 rounded-full p-0.5"
+                      className="hover:bg-muted rounded-full p-0.5"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -364,72 +421,194 @@ export function NoteFilters({
         </div>
       )}
 
-      {/* Deadline and sort options */}
+      {/* Sort menu and other options */}
       <div className="flex gap-1 items-center ml-2 pl-2 border-l border-muted-foreground/20">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className={`h-8 w-8 shadow-none ${sortByDeadline ? 'bg-accent text-accent-foreground' : ''}`}
-              onClick={() => onSortByDeadlineChange(!sortByDeadline)}
-              aria-label={t('sortByDeadline')}
+        {/* Sort dropdown menu */}
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`h-8 shadow-none gap-1 ${hasActiveSort ? 'bg-accent text-accent-foreground' : ''}`}
+                  aria-label={t('sort.title')}
+                >
+                  <ArrowUpDown className="h-4 w-4" />
+                  {hasActiveSort && (
+                    <span className="text-xs">
+                      {sortConfig.deadline && (
+                        <span className="flex items-center gap-0.5">
+                          <CalendarIcon className="h-3 w-3" />
+                          {getSortIcon('deadline')}
+                        </span>
+                      )}
+                      {sortConfig.assignee && (
+                        <span className="flex items-center gap-0.5">
+                          <User className="h-3 w-3" />
+                          {getSortIcon('assignee')}
+                        </span>
+                      )}
+                      {sortConfig.category && (
+                        <span className="flex items-center gap-0.5">
+                          <Layers className="h-3 w-3" />
+                          {getSortIcon('category')}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('sort.title')}</p>
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuLabel>{t('sort.title')}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+
+            {/* Deadline sort options */}
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground flex items-center gap-2">
+              <CalendarIcon className="h-3.5 w-3.5" />
+              {t('sort.deadline')}
+            </DropdownMenuLabel>
+            <DropdownMenuItem
+              onClick={() => setSort('deadline', 'asc')}
+              className="pl-6"
             >
-              <ArrowUpDown className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{t('sortByDeadline')}</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className={`h-8 w-8 shadow-none ${sortByAssignee ? 'bg-accent text-accent-foreground' : ''}`}
-              onClick={() => onSortByAssigneeChange(!sortByAssignee)}
-              aria-label={t('sortByAssignee')}
+              <ArrowUp className="h-4 w-4 mr-2" />
+              {t('sort.deadlineAsc')}
+              {sortConfig.deadline === 'asc' && <Check className="h-4 w-4 ml-auto" />}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setSort('deadline', 'desc')}
+              className="pl-6"
             >
-              <User className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{t('sortByAssignee')}</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className={`h-8 w-8 shadow-none ${sortByCategory ? 'bg-accent text-accent-foreground' : ''}`}
-              onClick={() => onSortByCategoryChange(!sortByCategory)}
-              aria-label={t('sortByCategory')}
+              <ArrowDown className="h-4 w-4 mr-2" />
+              {t('sort.deadlineDesc')}
+              {sortConfig.deadline === 'desc' && <Check className="h-4 w-4 ml-auto" />}
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            {/* Assignee sort options */}
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground flex items-center gap-2">
+              <User className="h-3.5 w-3.5" />
+              {t('sort.assignee')}
+            </DropdownMenuLabel>
+            <DropdownMenuItem
+              onClick={() => setSort('assignee', 'asc')}
+              className="pl-6"
             >
-              <Layers className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{t('sortByCategory')}</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={showOverdueOnly ? 'destructive' : 'outline'}
-              size="icon"
-              className="h-8 w-8 shadow-none"
-              onClick={() => onShowOverdueOnlyChange(!showOverdueOnly)}
-              aria-label={t('showOverdueOnly')}
+              <ArrowUp className="h-4 w-4 mr-2" />
+              {t('sort.assigneeAsc')}
+              {sortConfig.assignee === 'asc' && <Check className="h-4 w-4 ml-auto" />}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setSort('assignee', 'desc')}
+              className="pl-6"
             >
-              <AlertTriangle className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{t('showOverdueOnly')}</p>
-          </TooltipContent>
-        </Tooltip>
+              <ArrowDown className="h-4 w-4 mr-2" />
+              {t('sort.assigneeDesc')}
+              {sortConfig.assignee === 'desc' && <Check className="h-4 w-4 ml-auto" />}
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            {/* Category sort options */}
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground flex items-center gap-2">
+              <Layers className="h-3.5 w-3.5" />
+              {t('sort.category')}
+            </DropdownMenuLabel>
+            <DropdownMenuItem
+              onClick={() => setSort('category', 'asc')}
+              className="pl-6"
+            >
+              <ArrowUp className="h-4 w-4 mr-2" />
+              {t('sort.categoryAsc')}
+              {sortConfig.category === 'asc' && <Check className="h-4 w-4 ml-auto" />}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setSort('category', 'desc')}
+              className="pl-6"
+            >
+              <ArrowDown className="h-4 w-4 mr-2" />
+              {t('sort.categoryDesc')}
+              {sortConfig.category === 'desc' && <Check className="h-4 w-4 ml-auto" />}
+            </DropdownMenuItem>
+
+            {/* Clear all sorts */}
+            {hasActiveSort && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => onSortConfigChange({ deadline: null, assignee: null, category: null })}
+                  className="text-muted-foreground"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  {t('sort.none')}
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Task status filter dropdown */}
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`h-8 shadow-none gap-1 ${showOverdueOnly ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}`}
+                  aria-label={t('taskStatus.title')}
+                >
+                  {taskStatusFilter === 'active' && <CircleDot className="h-4 w-4" />}
+                  {taskStatusFilter === 'completed' && <CheckCircle2 className="h-4 w-4" />}
+                  {taskStatusFilter === 'deleted' && <Trash2 className="h-4 w-4" />}
+                  {showOverdueOnly && <AlertTriangle className="h-3 w-3" />}
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('taskStatus.title')}</p>
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="start" className="w-48">
+            <DropdownMenuLabel>{t('taskStatus.title')}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onTaskStatusFilterChange('active')}>
+              <CircleDot className="h-4 w-4 mr-2" />
+              {t('taskStatus.active')}
+              {taskStatusFilter === 'active' && <Check className="h-4 w-4 ml-auto" />}
+            </DropdownMenuItem>
+            {hasCompletedTasks && (
+              <DropdownMenuItem onClick={() => onTaskStatusFilterChange('completed')}>
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                {t('taskStatus.completed')}
+                {taskStatusFilter === 'completed' && <Check className="h-4 w-4 ml-auto" />}
+              </DropdownMenuItem>
+            )}
+            {hasDeletedTasks && (
+              <DropdownMenuItem onClick={() => onTaskStatusFilterChange('deleted')}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                {t('taskStatus.deleted')}
+                {taskStatusFilter === 'deleted' && <Check className="h-4 w-4 ml-auto" />}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onShowOverdueOnlyChange(!showOverdueOnly)}>
+              <AlertTriangle className="h-4 w-4 mr-2" />
+              {t('taskStatus.overdue')}
+              {showOverdueOnly && <Check className="h-4 w-4 ml-auto" />}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {/* Date range filter */}
         <Popover>
           <PopoverTrigger asChild>
@@ -486,64 +665,6 @@ export function NoteFilters({
             )}
           </PopoverContent>
         </Popover>
-      </div>
-
-      {/* Task status filter */}
-      <div className="flex items-center ml-2 pl-2 border-l border-muted-foreground/20">
-        <div className="flex">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className={`h-8 w-8 shadow-none ${!hasCompletedTasks && !hasDeletedTasks ? 'rounded-md' : 'rounded-r-none border-r-0'} ${taskStatusFilter === 'active' ? 'bg-accent text-accent-foreground' : ''}`}
-                onClick={() => onTaskStatusFilterChange('active')}
-                aria-label={t('activeTasks')}
-              >
-                <CircleDot className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('activeTasks')}</p>
-            </TooltipContent>
-          </Tooltip>
-          {hasCompletedTasks && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className={`h-8 w-8 shadow-none ${!hasDeletedTasks ? 'rounded-l-none' : 'rounded-none border-r-0'} ${taskStatusFilter === 'completed' ? 'bg-accent text-accent-foreground' : ''}`}
-                  onClick={() => onTaskStatusFilterChange('completed')}
-                  aria-label={t('completedTasks')}
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{t('completedTasks')}</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {hasDeletedTasks && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className={`h-8 w-8 rounded-l-none shadow-none ${taskStatusFilter === 'deleted' ? 'bg-accent text-accent-foreground' : ''}`}
-                  onClick={() => onTaskStatusFilterChange('deleted')}
-                  aria-label={t('trash.title')}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{t('trash.title')}</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-        </div>
       </div>
     </>
   );

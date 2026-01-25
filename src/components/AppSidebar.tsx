@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Home, Users, BarChart3, Settings, Moon, Sun, Languages, LogOut, User, Cloud, CloudOff, RefreshCw, AlertCircle, Check, CloudUpload, CloudDownload, Download, Upload, Loader2, Plus, Pencil, Trash2, Tag, Search } from 'lucide-react';
+import { Home, Users, BarChart3, Settings, Moon, Sun, Languages, LogOut, User, Cloud, CloudOff, RefreshCw, AlertCircle, Check, CloudUpload, CloudDownload, Download, Upload, Loader2, Tag } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -38,8 +38,6 @@ import {
   validateImportData,
 } from '@/utils/dataExport';
 import { useLabels } from '@/hooks/useLabels';
-import { ColorPicker } from '@/components/ui/color-picker';
-import type { Label } from '@/types/note';
 
 export function AppSidebar() {
   const { t, i18n } = useTranslation();
@@ -48,27 +46,13 @@ export function AppSidebar() {
   const { user, signOut } = useAuth();
   const { connectionStatus, syncState, lastSyncedAt, pendingCount, error: syncError, syncNow, pushAllToSupabase, pullAllFromSupabase, isPushingAll, isPullingAll } = useSync();
   const { db } = useDatabase();
-  const { labels, createLabel, updateLabel, deleteLabel } = useLabels();
+  const { labels } = useLabels();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Dialog states
   const [showPushConfirmDialog, setShowPushConfirmDialog] = useState(false);
   const [showPullConfirmDialog, setShowPullConfirmDialog] = useState(false);
   const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; item: string } | null>(null);
-
-  // Label manager states
-  const [showLabelsManager, setShowLabelsManager] = useState(false);
-  const [labelSearchQuery, setLabelSearchQuery] = useState('');
-  const [labelManagerView, setLabelManagerView] = useState<'list' | 'create' | 'edit'>('list');
-  const [editingLabel, setEditingLabel] = useState<Label | null>(null);
-  const [labelFormName, setLabelFormName] = useState('');
-  const [labelFormColor, setLabelFormColor] = useState('#6b7280');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  // Filtered labels based on search
-  const filteredLabels = labels.filter((label) =>
-    label.name.toLowerCase().includes(labelSearchQuery.toLowerCase())
-  );
 
   const canPush = user && connectionStatus === 'online' && !isPushingAll && !isPullingAll;
   const canPull = user && connectionStatus === 'online' && !isPushingAll && !isPullingAll;
@@ -176,60 +160,6 @@ export function AppSidebar() {
         fileInputRef.current.value = '';
       }
     }
-  };
-
-  // Label handlers
-  const resetLabelForm = () => {
-    setLabelFormName('');
-    setLabelFormColor('#6b7280');
-    setEditingLabel(null);
-    setShowDeleteConfirm(false);
-  };
-
-  const handleOpenCreateLabel = () => {
-    resetLabelForm();
-    setLabelManagerView('create');
-  };
-
-  const handleOpenEditLabel = (label: Label) => {
-    setEditingLabel(label);
-    setLabelFormName(label.name);
-    setLabelFormColor(label.color);
-    setShowDeleteConfirm(false);
-    setLabelManagerView('edit');
-  };
-
-  const handleBackToList = () => {
-    resetLabelForm();
-    setLabelManagerView('list');
-  };
-
-  const handleCreateLabel = async () => {
-    if (!labelFormName.trim()) return;
-    await createLabel(labelFormName.trim(), labelFormColor);
-    resetLabelForm();
-    setLabelManagerView('list');
-  };
-
-  const handleSaveEditLabel = async () => {
-    if (!editingLabel || !labelFormName.trim()) return;
-    await updateLabel(editingLabel.id, labelFormName.trim(), labelFormColor);
-    resetLabelForm();
-    setLabelManagerView('list');
-  };
-
-  const handleDeleteLabel = async () => {
-    if (!editingLabel) return;
-    await deleteLabel(editingLabel.id);
-    resetLabelForm();
-    setLabelManagerView('list');
-  };
-
-  const handleCloseLabelsManager = () => {
-    setShowLabelsManager(false);
-    setLabelSearchQuery('');
-    resetLabelForm();
-    setLabelManagerView('list');
   };
 
   const toggleLanguage = () => {
@@ -404,10 +334,12 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => setShowLabelsManager(true)}>
-                  <Tag className="h-4 w-4" />
-                  <span>{t('manageLabels')}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">{labels.length}</span>
+                <SidebarMenuButton asChild isActive={location.pathname === '/labels'}>
+                  <Link to="/labels">
+                    <Tag className="h-4 w-4" />
+                    <span>{t('manageLabels')}</span>
+                    <span className="ml-auto text-xs text-muted-foreground">{labels.length}</span>
+                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -539,182 +471,6 @@ export function AppSidebar() {
         </DialogContent>
       </Dialog>
 
-      {/* Labels Manager Modal - Unified Panel */}
-      <Dialog open={showLabelsManager} onOpenChange={(open) => {
-        if (!open) handleCloseLabelsManager();
-        else setShowLabelsManager(true);
-      }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {labelManagerView !== 'list' && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 -ml-1"
-                  onClick={handleBackToList}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-                </Button>
-              )}
-              {labelManagerView === 'list' && t('manageLabels')}
-              {labelManagerView === 'create' && t('createLabel')}
-              {labelManagerView === 'edit' && t('editLabel')}
-            </DialogTitle>
-          </DialogHeader>
-
-          {/* List View */}
-          {labelManagerView === 'list' && (
-            <div className="space-y-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={labelSearchQuery}
-                  onChange={(e) => setLabelSearchQuery(e.target.value)}
-                  placeholder={t('searchLabels')}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-muted-foreground/20 rounded-md bg-transparent focus:outline-none focus:border-muted-foreground/40 text-foreground caret-foreground"
-                  autoFocus
-                />
-              </div>
-              <div className="max-h-[300px] overflow-y-auto space-y-1">
-                {filteredLabels.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    {labelSearchQuery ? t('noLabelsFound') : t('noLabels')}
-                  </p>
-                ) : (
-                  filteredLabels.map((label) => (
-                    <button
-                      key={label.id}
-                      type="button"
-                      onClick={() => handleOpenEditLabel(label)}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted transition-colors group"
-                    >
-                      <span
-                        className="w-4 h-4 rounded-full shrink-0"
-                        style={{ backgroundColor: label.color }}
-                      />
-                      <span className="flex-1 text-left text-sm">{label.name}</span>
-                      <Pencil className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
-                    </button>
-                  ))
-                )}
-              </div>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={handleOpenCreateLabel}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                {t('createLabel')}
-              </Button>
-            </div>
-          )}
-
-          {/* Create View */}
-          {labelManagerView === 'create' && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">{t('newLabelName')}</label>
-                <input
-                  type="text"
-                  value={labelFormName}
-                  onChange={(e) => setLabelFormName(e.target.value)}
-                  placeholder={t('newLabelName')}
-                  className="w-full px-3 py-2 text-sm border border-muted-foreground/20 rounded-md bg-transparent focus:outline-none focus:border-muted-foreground/40 text-foreground caret-foreground"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && labelFormName.trim()) {
-                      handleCreateLabel();
-                    }
-                  }}
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">{t('labelColor')}</label>
-                <ColorPicker color={labelFormColor} onChange={setLabelFormColor} />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={handleBackToList}>
-                  {t('cancel')}
-                </Button>
-                <Button onClick={handleCreateLabel} disabled={!labelFormName.trim()}>
-                  {t('create')}
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Edit View */}
-          {labelManagerView === 'edit' && (
-            <div className="space-y-4">
-              {!showDeleteConfirm ? (
-                <>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">{t('newLabelName')}</label>
-                    <input
-                      type="text"
-                      value={labelFormName}
-                      onChange={(e) => setLabelFormName(e.target.value)}
-                      placeholder={t('newLabelName')}
-                      className="w-full px-3 py-2 text-sm border border-muted-foreground/20 rounded-md bg-transparent focus:outline-none focus:border-muted-foreground/40 text-foreground caret-foreground"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && labelFormName.trim()) {
-                          handleSaveEditLabel();
-                        }
-                      }}
-                      autoFocus
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">{t('labelColor')}</label>
-                    <ColorPicker color={labelFormColor} onChange={setLabelFormColor} />
-                  </div>
-                  <div className="flex justify-between pt-2">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setShowDeleteConfirm(true)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      {t('delete')}
-                    </Button>
-                    <div className="flex gap-2">
-                      <Button variant="outline" onClick={handleBackToList}>
-                        {t('cancel')}
-                      </Button>
-                      <Button onClick={handleSaveEditLabel} disabled={!labelFormName.trim()}>
-                        {t('save')}
-                      </Button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 p-3 bg-destructive/10 rounded-md">
-                    <span
-                      className="w-4 h-4 rounded-full shrink-0"
-                      style={{ backgroundColor: editingLabel?.color }}
-                    />
-                    <span className="text-sm font-medium">{editingLabel?.name}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {t('confirmDeleteLabel')}
-                  </p>
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
-                      {t('cancel')}
-                    </Button>
-                    <Button variant="destructive" onClick={handleDeleteLabel}>
-                      {t('delete')}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </Sidebar>
   );
 }
