@@ -528,19 +528,21 @@ function NoteRow({
                                 <div className="flex items-center">
                                   <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
                                   {label.name}
-                                  {isAssigned && <span className="ml-2 text-xs text-muted-foreground">✓</span>}
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onEditLabel?.(label);
-                                    setShowLabelDropdown(false);
-                                  }}
-                                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
-                                >
-                                  <Pencil className="h-3 w-3 text-muted-foreground" />
-                                </button>
+                                <div className="flex items-center gap-1">
+                                  {isAssigned && <Check className="h-4 w-4" />}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onEditLabel?.(label);
+                                      setShowLabelDropdown(false);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
+                                  >
+                                    <Pencil className="h-3 w-3 text-muted-foreground" />
+                                  </button>
+                                </div>
                               </CommandItem>
                             );
                           })}
@@ -583,11 +585,13 @@ function NoteRow({
                               setShowCategoryDropdown(false);
                               contentInputRef.current?.focus();
                             }}
-                            className="flex items-center gap-2"
+                            className="flex items-center justify-between"
                           >
-                            <Pickaxe className="h-4 w-4" />
-                            {t('categoryTodo')}
-                            {note.category === 'todo' && <Check className="h-4 w-4 ml-auto" />}
+                            <div className="flex items-center">
+                              <Pickaxe className="h-4 w-4 mr-2" />
+                              {t('categoryTodo')}
+                            </div>
+                            {note.category === 'todo' && <Check className="h-4 w-4" />}
                           </CommandItem>
                           <CommandItem
                             value="followup"
@@ -596,11 +600,13 @@ function NoteRow({
                               setShowCategoryDropdown(false);
                               contentInputRef.current?.focus();
                             }}
-                            className="flex items-center gap-2"
+                            className="flex items-center justify-between"
                           >
-                            <Forward className="h-4 w-4" />
-                            {t('categoryFollowUp')}
-                            {note.category === 'followup' && <Check className="h-4 w-4 ml-auto" />}
+                            <div className="flex items-center">
+                              <Forward className="h-4 w-4 mr-2" />
+                              {t('categoryFollowUp')}
+                            </div>
+                            {note.category === 'followup' && <Check className="h-4 w-4" />}
                           </CommandItem>
                           <CommandItem
                             value="notes"
@@ -609,11 +615,13 @@ function NoteRow({
                               setShowCategoryDropdown(false);
                               contentInputRef.current?.focus();
                             }}
-                            className="flex items-center gap-2"
+                            className="flex items-center justify-between"
                           >
-                            <StickyNote className="h-4 w-4" />
-                            {t('categoryNotes')}
-                            {note.category === 'notes' && <Check className="h-4 w-4 ml-auto" />}
+                            <div className="flex items-center">
+                              <StickyNote className="h-4 w-4 mr-2" />
+                              {t('categoryNotes')}
+                            </div>
+                            {note.category === 'notes' && <Check className="h-4 w-4" />}
                           </CommandItem>
                           <CommandItem
                             value="meeting"
@@ -622,11 +630,13 @@ function NoteRow({
                               setShowCategoryDropdown(false);
                               contentInputRef.current?.focus();
                             }}
-                            className="flex items-center gap-2"
+                            className="flex items-center justify-between"
                           >
-                            <Users className="h-4 w-4" />
-                            {t('categoryMeeting')}
-                            {note.category === 'meeting' && <Check className="h-4 w-4 ml-auto" />}
+                            <div className="flex items-center">
+                              <Users className="h-4 w-4 mr-2" />
+                              {t('categoryMeeting')}
+                            </div>
+                            {note.category === 'meeting' && <Check className="h-4 w-4" />}
                           </CommandItem>
                         </CommandGroup>
                       </CommandList>
@@ -659,11 +669,10 @@ function NoteRow({
                                   setShowAssigneeDropdown(false);
                                   contentInputRef.current?.focus();
                                 }}
-                                className="flex items-center gap-2"
+                                className="flex items-center justify-between"
                               >
-                                <Check className={`h-4 w-4 ${note.assignee_id === contact.id ? 'opacity-100' : 'opacity-0'}`} />
-                                <User className="h-4 w-4 text-muted-foreground" />
                                 <span className="truncate">{fullName}</span>
+                                {note.assignee_id === contact.id && <Check className="h-4 w-4" />}
                               </CommandItem>
                             );
                           })}

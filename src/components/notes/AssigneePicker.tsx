@@ -132,14 +132,10 @@ export function AssigneePicker({
                     key={contact.id}
                     value={fullName}
                     onSelect={() => handleSelect(contact.id)}
+                    className="flex items-center justify-between"
                   >
-                    <Check
-                      className={cn(
-                        'mr-2 h-4 w-4',
-                        value === contact.id ? 'opacity-100' : 'opacity-0'
-                      )}
-                    />
                     <span className="truncate">{fullName}</span>
+                    {value === contact.id && <Check className="h-4 w-4" />}
                   </CommandItem>
                 );
               })}
