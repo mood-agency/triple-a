@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Settings, Download, Upload, AlertCircle, CheckCircle, MessageCircle, Users, BarChart3, Cloud, CloudOff, RefreshCw, Check, CloudUpload, CloudDownload, Loader2, MoreVertical } from 'lucide-react';
+import { Settings, Download, Upload, AlertCircle, CheckCircle, MessageCircle, Users, BarChart3, Cloud, CloudOff, RefreshCw, Check, CloudUpload, CloudDownload, Loader2, MoreVertical, Calendar } from 'lucide-react';
 import { useSync } from '@/contexts/SyncContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTinyBase } from '@/contexts/TinyBaseContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -24,10 +25,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useDatabase } from '@/contexts/DatabaseContext';
 import { useSettings } from '@/hooks/useSettings';
 import { toast } from 'sonner';
-import { persistDatabase } from '@/db';
 import {
   exportAllData,
   downloadExportFile,
@@ -40,7 +39,7 @@ import type { ImportResult } from '@/types/note';
 export function SettingsMenu() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { db } = useDatabase();
+  const { store } = useTinyBase();
   const { settings, updateSettings } = useSettings();
   const { user } = useAuth();
   const { connectionStatus, syncState, lastSyncedAt, pendingCount, error: syncError, syncNow, pushAllToSupabase, pullAllFromSupabase, isPushingAll, isPullingAll } = useSync();
@@ -60,10 +59,10 @@ export function SettingsMenu() {
   const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; item: string } | null>(null);
 
   const handleExport = () => {
-    if (!db) return;
+    if (!store) return;
 
     try {
-      const data = exportAllData(db);
+      const data = exportAllData(store);
       downloadExportFile(data);
     } catch (err) {
       console.error('Export error:', err);
@@ -76,7 +75,7 @@ export function SettingsMenu() {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !db) return;
+    if (!file || !store) return;
 
     setImporting(true);
     setError(null);
@@ -92,7 +91,7 @@ export function SettingsMenu() {
         return;
       }
 
-      const result = await importData(db, json, persistDatabase, { useCurrentDate: true });
+      const result = await importData(store, json, { useCurrentDate: true });
       setImportResult(result);
 
       if (!result.success && result.errors.length > 0) {
@@ -349,6 +348,10 @@ export function SettingsMenu() {
           <DropdownMenuItem onClick={handleBeeperDialogOpen}>
             <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
             {t('settingsMenu.beeperConfig')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate('/settings/calendar')}>
+            <Calendar className="h-4 w-4 mr-2 text-blue-600" />
+            {t('gcal.title')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

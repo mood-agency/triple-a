@@ -2,12 +2,13 @@ import { createMergeableStore, type MergeableStore } from 'tinybase';
 
 /**
  * TinyBase Store Schema
- * Maps the existing sql.js tables to TinyBase structure
+ * Defines the data structure for the TinyBase MergeableStore
  */
 
 export type NoteCategory = 'todo' | 'followup' | 'notes' | 'meeting';
 export type SyncStatus = 'local' | 'pending' | 'synced' | 'conflict';
 export type ChangelogActionType = 'created' | 'edit' | 'postponed' | 'completed' | 'uncompleted';
+export type ProjectStatus = 'active' | 'archived' | 'completed';
 
 // Table schemas for type safety
 export interface NoteRow {
@@ -21,12 +22,15 @@ export interface NoteRow {
   pinned: boolean;
   sort_order: number;
   assignee_id: string | null;
+  project_id: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
   remote_id: string | null;
   sync_status: SyncStatus;
   last_synced_at: string | null;
+  // Google Calendar sync field
+  gcal_event_id: string | null;
 }
 
 export interface LabelRow {
@@ -85,6 +89,21 @@ export interface SyncStateRow {
   value: string;
 }
 
+export interface ProjectRow {
+  name: string;
+  description: string | null;
+  color: string;
+  icon: string | null;
+  status: ProjectStatus;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  remote_id: string | null;
+  sync_status: SyncStatus;
+  last_synced_at: string | null;
+}
+
 // Store type with all tables
 export interface AppTables {
   notes: Record<string, NoteRow>;
@@ -92,6 +111,7 @@ export interface AppTables {
   note_labels: Record<string, NoteLabelRow>;
   note_history: Record<string, NoteHistoryRow>;
   contacts: Record<string, ContactRow>;
+  projects: Record<string, ProjectRow>;
   pending_sync: Record<string, PendingSyncRow>;
   sync_state: Record<string, SyncStateRow>;
 }

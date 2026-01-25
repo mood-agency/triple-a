@@ -6,6 +6,7 @@
  * - Text summarization with AI
  */
 
+import 'dotenv/config'
 import express from 'express'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -30,6 +31,11 @@ const corsHeaders = {
 // Apply CORS to all /api routes
 app.options('/api/*', (req, res) => {
   res.set(corsHeaders).status(200).send('ok')
+})
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.set(corsHeaders).json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
 // ============================================
@@ -348,6 +354,402 @@ function parseJsonResponse(content) {
     }
   }
 }
+
+// ============================================
+// Google Calendar API Endpoints
+// ============================================
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET
+const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
+const GOOGLE_CALENDAR_API = 'https://www.googleapis.com/calendar/v3'
+
+/**
+ * Get Supabase client for Google Calendar operations
+ */
+function getSupabaseClient() {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return null
+  }
+
+  return createClient(supabaseUrl, supabaseServiceKey)
+}
+
+/**
+ * Verify user from Authorization header
+ */
+async function verifyUser(req, supabase) {
+  const authHeader = req.headers.authorization
+  if (!authHeader) return null
+
+  const token = authHeader.replace('Bearer ', '')
+  const { data: { user }, error } = await supabase.auth.getUser(token)
+
+  if (error || !user) return null
+  return user
+}
+
+/**
+ * Refresh Google access token if expired
+ */
+async function refreshGoogleToken(refreshToken, supabase, userId) {
+  try {
+    const response = await fetch(GOOGLE_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+      }),
+    })
+
+    if (!response.ok) {
+      return { success: false }
+    }
+
+    const tokens = await response.json()
+    const expiryDate = new Date(Date.now() + tokens.expires_in * 1000)
+
+    await supabase
+      .from('google_calendar_tokens')
+      .update({
+        access_token: tokens.access_token,
+        token_expiry: expiryDate.toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+
+    return { success: true, accessToken: tokens.access_token }
+  } catch {
+    return { success: false }
+  }
+}
+
+/**
+ * Get valid Google access token for user
+ */
+async function getGoogleAccessToken(supabase, userId) {
+  const { data: tokenData, error } = await supabase
+    .from('google_calendar_tokens')
+    .select('access_token, token_expiry, refresh_token')
+    .eq('user_id', userId)
+    .single()
+
+  if (error || !tokenData) {
+    return { error: 'Google Calendar not connected' }
+  }
+
+  // Check if token is expired
+  if (new Date(tokenData.token_expiry) < new Date()) {
+    const refreshResult = await refreshGoogleToken(tokenData.refresh_token, supabase, userId)
+    if (!refreshResult.success) {
+      return { error: 'Failed to refresh token' }
+    }
+    return { accessToken: refreshResult.accessToken }
+  }
+
+  return { accessToken: tokenData.access_token }
+}
+
+/**
+ * Google Calendar Auth endpoint
+ * POST /api/gcal-auth
+ * Body: { action: 'exchange' | 'status' | 'disconnect', code?, redirectUri? }
+ */
+app.post('/api/gcal-auth', async (req, res) => {
+  res.set(corsHeaders)
+
+  try {
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      return res.status(500).json({ error: 'Server not configured' })
+    }
+
+    const user = await verifyUser(req, supabase)
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+
+    const { action, code, redirectUri } = req.body
+
+    switch (action) {
+      case 'exchange': {
+        if (!code || !redirectUri) {
+          return res.status(400).json({ error: 'Missing code or redirectUri' })
+        }
+
+        if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+          return res.status(500).json({ error: 'Google Calendar not configured on server' })
+        }
+
+        const tokenResponse = await fetch(GOOGLE_TOKEN_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            code,
+            client_id: GOOGLE_CLIENT_ID,
+            client_secret: GOOGLE_CLIENT_SECRET,
+            redirect_uri: redirectUri,
+            grant_type: 'authorization_code',
+          }),
+        })
+
+        if (!tokenResponse.ok) {
+          const errorData = await tokenResponse.json()
+          console.error('Token exchange failed:', errorData)
+          return res.status(400).json({ error: 'Failed to exchange code for tokens' })
+        }
+
+        const tokens = await tokenResponse.json()
+        const expiryDate = new Date(Date.now() + tokens.expires_in * 1000)
+
+        // Store tokens
+        const { error: upsertError } = await supabase
+          .from('google_calendar_tokens')
+          .upsert({
+            user_id: user.id,
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token || '',
+            token_expiry: expiryDate.toISOString(),
+            scope: tokens.scope,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' })
+
+        if (upsertError) {
+          console.error('Failed to store tokens:', upsertError)
+          return res.status(500).json({ error: 'Failed to store tokens' })
+        }
+
+        // Create default config
+        await supabase
+          .from('google_calendar_config')
+          .upsert({
+            user_id: user.id,
+            enabled: true,
+            calendars_to_sync: [],
+            default_category: 'meeting',
+            sync_interval_minutes: 15,
+          }, { onConflict: 'user_id' })
+
+        return res.status(200).json({ success: true })
+      }
+
+      case 'status': {
+        const { data: tokenData } = await supabase
+          .from('google_calendar_tokens')
+          .select('token_expiry')
+          .eq('user_id', user.id)
+          .single()
+
+        const isConnected = !!tokenData
+        const isExpired = tokenData ? new Date(tokenData.token_expiry) < new Date() : false
+
+        return res.status(200).json({ isConnected, isExpired })
+      }
+
+      case 'disconnect': {
+        await supabase.from('google_calendar_tokens').delete().eq('user_id', user.id)
+        await supabase.from('google_calendar_config').delete().eq('user_id', user.id)
+        await supabase.from('google_calendar_events').delete().eq('user_id', user.id)
+
+        return res.status(200).json({ success: true })
+      }
+
+      default:
+        return res.status(400).json({ error: 'Invalid action' })
+    }
+  } catch (error) {
+    console.error('Error in gcal-auth:', error)
+    return res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+/**
+ * Google Calendar Calendars endpoint
+ * POST /api/gcal-calendars
+ */
+app.post('/api/gcal-calendars', async (req, res) => {
+  res.set(corsHeaders)
+
+  try {
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      return res.status(500).json({ error: 'Server not configured' })
+    }
+
+    const user = await verifyUser(req, supabase)
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+
+    const { accessToken, error: tokenError } = await getGoogleAccessToken(supabase, user.id)
+    if (tokenError) {
+      return res.status(400).json({ error: tokenError })
+    }
+
+    // Fetch calendars from Google
+    const calendars = []
+    let pageToken
+
+    do {
+      const params = new URLSearchParams({
+        minAccessRole: 'reader',
+        showDeleted: 'false',
+        showHidden: 'false',
+      })
+      if (pageToken) params.set('pageToken', pageToken)
+
+      const response = await fetch(
+        `${GOOGLE_CALENDAR_API}/users/me/calendarList?${params}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      )
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('Google Calendar API error:', errorData)
+        return res.status(response.status).json({ error: 'Failed to fetch calendars' })
+      }
+
+      const data = await response.json()
+      calendars.push(...data.items)
+      pageToken = data.nextPageToken
+    } while (pageToken)
+
+    // Get selected calendars from config
+    const { data: configData } = await supabase
+      .from('google_calendar_config')
+      .select('calendars_to_sync')
+      .eq('user_id', user.id)
+      .single()
+
+    const selectedIds = configData?.calendars_to_sync || []
+
+    // Format response
+    const formattedCalendars = calendars.map(cal => ({
+      id: cal.id,
+      summary: cal.summary,
+      description: cal.description,
+      primary: cal.primary || false,
+      backgroundColor: cal.backgroundColor,
+      foregroundColor: cal.foregroundColor,
+      accessRole: cal.accessRole,
+      selected: selectedIds.includes(cal.id),
+    }))
+
+    // Sort: primary first, then by name
+    formattedCalendars.sort((a, b) => {
+      if (a.primary && !b.primary) return -1
+      if (!a.primary && b.primary) return 1
+      return a.summary.localeCompare(b.summary)
+    })
+
+    return res.status(200).json({ calendars: formattedCalendars })
+  } catch (error) {
+    console.error('Error in gcal-calendars:', error)
+    return res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+/**
+ * Google Calendar Events endpoint
+ * POST /api/gcal-events
+ * Body: { calendarIds: string[], timeMin?: string, timeMax?: string }
+ */
+app.post('/api/gcal-events', async (req, res) => {
+  res.set(corsHeaders)
+
+  try {
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      return res.status(500).json({ error: 'Server not configured' })
+    }
+
+    const user = await verifyUser(req, supabase)
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+
+    const { accessToken, error: tokenError } = await getGoogleAccessToken(supabase, user.id)
+    if (tokenError) {
+      return res.status(400).json({ error: tokenError })
+    }
+
+    const { calendarIds, timeMin, timeMax, maxResults = 100 } = req.body
+
+    if (!calendarIds || !Array.isArray(calendarIds) || calendarIds.length === 0) {
+      return res.status(400).json({ error: 'calendarIds is required' })
+    }
+
+    // Default time range: 7 days ago to 30 days ahead
+    const defaultTimeMin = new Date()
+    defaultTimeMin.setDate(defaultTimeMin.getDate() - 7)
+
+    const defaultTimeMax = new Date()
+    defaultTimeMax.setDate(defaultTimeMax.getDate() + 30)
+
+    const allEvents = []
+
+    for (const calendarId of calendarIds) {
+      try {
+        const events = []
+        let pageToken
+
+        do {
+          const params = new URLSearchParams({
+            singleEvents: 'true',
+            orderBy: 'startTime',
+            maxResults: String(Math.min(maxResults, 250)),
+            timeMin: timeMin || defaultTimeMin.toISOString(),
+            timeMax: timeMax || defaultTimeMax.toISOString(),
+          })
+          if (pageToken) params.set('pageToken', pageToken)
+
+          const response = await fetch(
+            `${GOOGLE_CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events?${params}`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          )
+
+          if (!response.ok) {
+            console.error(`Error fetching events from ${calendarId}`)
+            break
+          }
+
+          const data = await response.json()
+          events.push(...(data.items || []))
+          pageToken = data.nextPageToken
+
+          if (events.length >= maxResults) break
+        } while (pageToken)
+
+        allEvents.push(...events)
+      } catch (error) {
+        console.error(`Error fetching events from calendar ${calendarId}:`, error)
+      }
+    }
+
+    // Sort by start time
+    allEvents.sort((a, b) => {
+      const aStart = a.start?.dateTime || a.start?.date || ''
+      const bStart = b.start?.dateTime || b.start?.date || ''
+      return aStart.localeCompare(bStart)
+    })
+
+    // Filter out cancelled events and events without a summary
+    const filteredEvents = allEvents.filter(
+      event => event.status !== 'cancelled' && event.summary
+    )
+
+    return res.status(200).json({ events: filteredEvents })
+  } catch (error) {
+    console.error('Error in gcal-events:', error)
+    return res.status(500).json({ error: 'Internal server error' })
+  }
+})
 
 // ============================================
 // Email Webhook Endpoint

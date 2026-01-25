@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import type { SyncStatus } from '@/store/schema';
 import { generateId, now } from '@/store/schema';
 
-export type SyncTable = 'notes' | 'labels' | 'contacts' | 'note_history' | 'note_labels';
+export type SyncTable = 'notes' | 'labels' | 'contacts' | 'note_history' | 'note_labels' | 'projects';
 
 interface SyncProgress {
   table: string;
@@ -70,7 +70,7 @@ export class SupabaseDataSync {
   async pushChanges(): Promise<void> {
     if (!supabase) return;
 
-    const tables: SyncTable[] = ['contacts', 'labels', 'notes', 'note_labels', 'note_history'];
+    const tables: SyncTable[] = ['contacts', 'labels', 'projects', 'notes', 'note_labels', 'note_history'];
 
     for (const tableName of tables) {
       try {
@@ -175,12 +175,22 @@ export class SupabaseDataSync {
     delete data.last_synced_at;
 
     // Map foreign keys
-    if (tableName === 'notes' && data.assignee_id) {
-      const contact = this.store.getRow('contacts', data.assignee_id as string);
-      if (contact?.remote_id) {
-        data.assignee_id = contact.remote_id;
-      } else {
-        data.assignee_id = null; // Can't map, clear it
+    if (tableName === 'notes') {
+      if (data.assignee_id) {
+        const contact = this.store.getRow('contacts', data.assignee_id as string);
+        if (contact?.remote_id) {
+          data.assignee_id = contact.remote_id;
+        } else {
+          data.assignee_id = null; // Can't map, clear it
+        }
+      }
+      if (data.project_id) {
+        const project = this.store.getRow('projects', data.project_id as string);
+        if (project?.remote_id) {
+          data.project_id = project.remote_id;
+        } else {
+          data.project_id = null; // Can't map, clear it
+        }
       }
     }
 
@@ -220,6 +230,7 @@ export class SupabaseDataSync {
     // Pull in order to satisfy foreign key dependencies
     await this.pullTable('contacts', lastSyncedAt);
     await this.pullTable('labels', lastSyncedAt);
+    await this.pullTable('projects', lastSyncedAt);
     await this.pullTable('notes', lastSyncedAt);
     await this.pullTable('note_labels', lastSyncedAt);
     await this.pullTable('note_history', lastSyncedAt);
@@ -318,9 +329,15 @@ export class SupabaseDataSync {
     delete data.user_id;
 
     // Map foreign keys from remote to local IDs
-    if (tableName === 'notes' && data.assignee_id) {
-      const localContactId = this.findLocalIdByRemoteId('contacts', data.assignee_id as string);
-      data.assignee_id = localContactId || null;
+    if (tableName === 'notes') {
+      if (data.assignee_id) {
+        const localContactId = this.findLocalIdByRemoteId('contacts', data.assignee_id as string);
+        data.assignee_id = localContactId || null;
+      }
+      if (data.project_id) {
+        const localProjectId = this.findLocalIdByRemoteId('projects', data.project_id as string);
+        data.project_id = localProjectId || null;
+      }
     }
 
     if (tableName === 'note_labels') {
@@ -359,7 +376,7 @@ export class SupabaseDataSync {
 
     this.isSyncing = true;
     try {
-      const tables: SyncTable[] = ['contacts', 'labels', 'notes', 'note_labels', 'note_history'];
+      const tables: SyncTable[] = ['contacts', 'labels', 'projects', 'notes', 'note_labels', 'note_history'];
 
       for (const tableName of tables) {
         const { data, error } = await supabase
@@ -397,7 +414,7 @@ export class SupabaseDataSync {
 
     this.isSyncing = true;
     try {
-      const tables: SyncTable[] = ['contacts', 'labels', 'notes', 'note_labels', 'note_history'];
+      const tables: SyncTable[] = ['contacts', 'labels', 'projects', 'notes', 'note_labels', 'note_history'];
 
       for (const tableName of tables) {
         const table = this.store.getTable(tableName) || {};

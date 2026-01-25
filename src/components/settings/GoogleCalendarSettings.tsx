@@ -1,0 +1,271 @@
+import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Calendar, RefreshCw, Loader2, CheckCircle2, AlertCircle, Unlink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CalendarSelector } from './CalendarSelector';
+import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
+import type { NoteCategory } from '@/types/note';
+
+export function GoogleCalendarSettings() {
+  const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  const {
+    isConnected,
+    isLoading,
+    error,
+    calendars,
+    loadingCalendars,
+    config,
+    syncStatus,
+    lastSyncResult,
+    connect,
+    disconnect,
+    refreshCalendars,
+    updateConfig,
+    syncNow,
+    handleOAuthCallback,
+  } = useGoogleCalendar();
+
+  // Ref to prevent double execution of OAuth callback (React Strict Mode)
+  const oauthHandledRef = useRef(false);
+
+  // Handle OAuth callback
+  useEffect(() => {
+    const code = searchParams.get('code');
+    if (code && !oauthHandledRef.current) {
+      oauthHandledRef.current = true;
+      handleOAuthCallback(code).then(() => {
+        // Remove code from URL
+        navigate('/settings/calendar', { replace: true });
+      });
+    }
+  }, [searchParams, handleOAuthCallback, navigate]);
+
+  const handleToggleEnabled = async (enabled: boolean) => {
+    await updateConfig({ enabled });
+  };
+
+  const handleCalendarsChange = async (calendarIds: string[]) => {
+    await updateConfig({ calendars_to_sync: calendarIds });
+  };
+
+  const handleCategoryChange = async (category: string) => {
+    await updateConfig({ default_category: category as NoteCategory });
+  };
+
+  const handleSyncIntervalChange = async (interval: string) => {
+    await updateConfig({ sync_interval_minutes: parseInt(interval, 10) });
+  };
+
+  const formatLastSync = (timestamp: string | null) => {
+    if (!timestamp) return t('gcal.neverSynced');
+    const date = new Date(timestamp);
+    return date.toLocaleString();
+  };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            {t('gcal.title')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Not connected state
+  if (!isConnected) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            {t('gcal.title')}
+          </CardTitle>
+          <CardDescription>{t('gcal.connectDescription')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          <Button onClick={connect} className="w-full sm:w-auto">
+            <Calendar className="h-4 w-4 mr-2" />
+            {t('gcal.connect')}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Connected state
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-green-600" />
+              {t('gcal.title')}
+              <Badge variant="outline" className="text-green-600 border-green-600">
+                {t('gcal.connected')}
+              </Badge>
+            </CardTitle>
+            <CardDescription className="mt-1">
+              {t('gcal.lastSync')}: {formatLastSync(config?.last_sync_at ?? null)}
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Sync status message */}
+        {lastSyncResult && (
+          <Alert variant={lastSyncResult.success ? 'default' : 'destructive'}>
+            {lastSyncResult.success ? (
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+            ) : (
+              <AlertCircle className="h-4 w-4" />
+            )}
+            <AlertDescription>
+              {lastSyncResult.success
+                ? t('gcal.syncSuccess', {
+                    imported: lastSyncResult.eventsImported,
+                    updated: lastSyncResult.eventsUpdated,
+                    deleted: lastSyncResult.eventsDeleted,
+                  })
+                : lastSyncResult.errors.join(', ')}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Enable/Disable sync */}
+        <div className="flex items-center justify-between">
+          <div>
+            <Label htmlFor="gcal-enabled">{t('gcal.enableSync')}</Label>
+            <p className="text-sm text-muted-foreground">{t('gcal.enableSyncDescription')}</p>
+          </div>
+          <Switch
+            id="gcal-enabled"
+            checked={config?.enabled ?? false}
+            onCheckedChange={handleToggleEnabled}
+          />
+        </div>
+
+        <Separator />
+
+        {/* Calendars to sync */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label>{t('gcal.selectCalendars')}</Label>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refreshCalendars}
+              disabled={loadingCalendars}
+            >
+              <RefreshCw className={`h-4 w-4 ${loadingCalendars ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+          <CalendarSelector
+            calendars={calendars}
+            selectedIds={config?.calendars_to_sync ?? []}
+            onChange={handleCalendarsChange}
+            loading={loadingCalendars}
+          />
+        </div>
+
+        <Separator />
+
+        {/* Default category */}
+        <div className="space-y-2">
+          <Label htmlFor="default-category">{t('gcal.defaultCategory')}</Label>
+          <p className="text-sm text-muted-foreground">{t('gcal.defaultCategoryDescription')}</p>
+          <Select
+            value={config?.default_category ?? 'meeting'}
+            onValueChange={handleCategoryChange}
+          >
+            <SelectTrigger id="default-category" className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="meeting">{t('categoryMeeting')}</SelectItem>
+              <SelectItem value="todo">{t('categoryTodo')}</SelectItem>
+              <SelectItem value="followup">{t('categoryFollowup')}</SelectItem>
+              <SelectItem value="notes">{t('categoryNotes')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Separator />
+
+        {/* Sync interval */}
+        <div className="space-y-2">
+          <Label htmlFor="sync-interval">{t('gcal.syncInterval')}</Label>
+          <Select
+            value={String(config?.sync_interval_minutes ?? 15)}
+            onValueChange={handleSyncIntervalChange}
+          >
+            <SelectTrigger id="sync-interval" className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="0">{t('gcal.manualOnly')}</SelectItem>
+              <SelectItem value="5">5 {t('gcal.minutes')}</SelectItem>
+              <SelectItem value="15">15 {t('gcal.minutes')}</SelectItem>
+              <SelectItem value="30">30 {t('gcal.minutes')}</SelectItem>
+              <SelectItem value="60">1 {t('gcal.hour')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Separator />
+
+        {/* Actions */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button
+            onClick={syncNow}
+            disabled={syncStatus === 'syncing' || !config?.enabled || (config?.calendars_to_sync?.length ?? 0) === 0}
+            className="flex-1"
+          >
+            {syncStatus === 'syncing' ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            {t('gcal.syncNow')}
+          </Button>
+          <Button variant="outline" onClick={disconnect} className="flex-1">
+            <Unlink className="h-4 w-4 mr-2" />
+            {t('gcal.disconnect')}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

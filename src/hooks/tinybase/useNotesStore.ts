@@ -4,14 +4,23 @@ import type { Note, NoteCategory } from '@/types/note';
 import { generateId, now } from '@/store/schema';
 import { formatLocalDate } from '@/utils/dateUtils';
 
+interface UseNotesStoreOptions {
+  date?: string;
+  projectId?: string | null;
+}
+
 /**
  * TinyBase-based notes hook
  * Provides the same API as the original useNotes hook
+ * @param options.date - Optional date filter
+ * @param options.projectId - Required project ID to filter notes by
  */
-export function useNotesStore(date?: string) {
+export function useNotesStore(options: UseNotesStoreOptions = {}) {
+  const { date, projectId } = options;
   const { store, isReady } = useTinyBase();
   const [notes, setNotes] = useState<Note[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Start as false since we load synchronously when store is ready
+  const [loading, setLoading] = useState(!isReady);
 
   // Default date for creating new notes (today)
   const defaultDate = formatLocalDate(new Date());
@@ -34,6 +43,8 @@ export function useNotesStore(date?: string) {
         if (row.deleted_at) return false;
         // Filter by date if provided
         if (date && row.date !== date) return false;
+        // Filter by project if provided
+        if (projectId !== undefined && row.project_id !== projectId) return false;
         return true;
       })
       .map(([id, noteRow]) => {
@@ -71,6 +82,7 @@ export function useNotesStore(date?: string) {
           updated_at: row.updated_at as string,
           deleted_at: (row.deleted_at as string) || null,
           assignee_id: (row.assignee_id as string) || null,
+          project_id: (row.project_id as string) || null,
           last_postpone_reason: lastPostponeReason,
           remote_id: (row.remote_id as string) || null,
           sync_status: (row.sync_status as Note['sync_status']) || 'local',
@@ -85,7 +97,7 @@ export function useNotesStore(date?: string) {
 
     setNotes(notesList);
     setLoading(false);
-  }, [store, isReady, date]);
+  }, [store, isReady, date, projectId]);
 
   // Load notes when store is ready or date changes
   useEffect(() => {
@@ -142,6 +154,7 @@ export function useNotesStore(date?: string) {
         pinned: false,
         sort_order: sortOrder,
         assignee_id: null,
+        project_id: projectId || null,
         created_at: timestamp,
         updated_at: timestamp,
         deleted_at: null,
@@ -189,12 +202,13 @@ export function useNotesStore(date?: string) {
         pinned: false,
         sort_order: sortOrder,
         assignee_id: null,
+        project_id: projectId || null,
         created_at: timestamp,
         updated_at: timestamp,
         deleted_at: null,
       };
     },
-    [store, effectiveDate]
+    [store, effectiveDate, projectId]
   );
 
   /**
@@ -245,6 +259,7 @@ export function useNotesStore(date?: string) {
         pinned: false,
         sort_order: newSortOrder,
         assignee_id: null,
+        project_id: projectId || null,
         created_at: timestamp,
         updated_at: timestamp,
         deleted_at: null,
@@ -290,12 +305,13 @@ export function useNotesStore(date?: string) {
         pinned: false,
         sort_order: newSortOrder,
         assignee_id: null,
+        project_id: projectId || null,
         created_at: timestamp,
         updated_at: timestamp,
         deleted_at: null,
       };
     },
-    [store, effectiveDate]
+    [store, effectiveDate, projectId]
   );
 
   /**
@@ -467,6 +483,23 @@ export function useNotesStore(date?: string) {
   );
 
   /**
+   * Update note project
+   */
+  const updateProject = useCallback(
+    (id: string, projectId: string | null): void => {
+      if (!store) return;
+
+      const timestamp = now();
+      store.setPartialRow('notes', id, {
+        project_id: projectId,
+        updated_at: timestamp,
+        sync_status: 'pending',
+      });
+    },
+    [store]
+  );
+
+  /**
    * Postpone a note to a new deadline
    */
   const postponeNote = useCallback(
@@ -538,6 +571,7 @@ export function useNotesStore(date?: string) {
     updateNote,
     updateDeadline,
     updateAssignee,
+    updateProject,
     toggleCompleted,
     togglePinned,
     deleteNote,
