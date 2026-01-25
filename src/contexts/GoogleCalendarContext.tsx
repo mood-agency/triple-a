@@ -10,7 +10,7 @@ import type {
   GCalSyncStatus,
   GCalSyncResult,
 } from '@/types/googleCalendar';
-import type { NoteCategory } from '@/types/note';
+
 
 const OAUTH_REDIRECT_PATH = '/settings/calendar/callback';
 
@@ -185,7 +185,7 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
           if (existingMapping) {
             // Check if event was updated
             if (existingMapping.etag !== event.etag) {
-              await updateNoteFromEvent(store, existingMapping.local_note_id, event, config.default_category);
+              await updateNoteFromEvent(store, existingMapping.local_note_id, event);
               await googleCalendarService.saveEventMapping({
                 user_id: existingMapping.user_id,
                 gcal_event_id: event.id,
@@ -196,10 +196,17 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
                 last_synced_at: new Date().toISOString(),
               });
               result.eventsUpdated++;
+            } else {
+              // Check if category needs to be fixed (legacy synced events might be 'notes')
+              const note = store.getRow('notes', existingMapping.local_note_id);
+              if (note && note.category !== 'meeting') {
+                await updateNoteFromEvent(store, existingMapping.local_note_id, event);
+                result.eventsUpdated++;
+              }
             }
           } else {
             // Create new note from event
-            const noteId = await createNoteFromEvent(store, event, config.default_category);
+            const noteId = await createNoteFromEvent(store, event);
             await googleCalendarService.saveEventMapping({
               user_id: user!.id,
               gcal_event_id: event.id,
@@ -443,8 +450,7 @@ export function useGoogleCalendarContext() {
 
 async function createNoteFromEvent(
   store: ReturnType<typeof useTinyBase>['store'],
-  event: GCalEvent,
-  defaultCategory: NoteCategory
+  event: GCalEvent
 ): Promise<string> {
   if (!store) throw new Error('Store not ready');
 
@@ -462,7 +468,7 @@ async function createNoteFromEvent(
     date,
     content: event.summary || 'Untitled Event',
     description: event.description || null,
-    category: defaultCategory,
+    category: 'meeting',
     completed: false,
     completed_at: null,
     deadline,
@@ -485,7 +491,7 @@ async function createNoteFromEvent(
     note_id: id,
     content: event.summary || 'Untitled Event',
     description: event.description || null,
-    category: defaultCategory,
+    category: 'meeting',
     completed: false,
     changed_at: timestamp,
     action_type: 'created',
@@ -500,7 +506,6 @@ async function updateNoteFromEvent(
   store: ReturnType<typeof useTinyBase>['store'],
   noteId: string,
   event: GCalEvent,
-  defaultCategory: NoteCategory
 ): Promise<void> {
   if (!store) return;
 
@@ -518,6 +523,7 @@ async function updateNoteFromEvent(
     content: event.summary || 'Untitled Event',
     description: event.description || null,
     deadline,
+    category: 'meeting',
     updated_at: timestamp,
     sync_status: 'pending',
     gcal_event_id: event.id,
@@ -529,7 +535,7 @@ async function updateNoteFromEvent(
     note_id: noteId,
     content: event.summary || 'Untitled Event',
     description: event.description || null,
-    category: (existingNote.category as NoteCategory) || defaultCategory,
+    category: 'meeting',
     completed: existingNote.completed as boolean,
     changed_at: timestamp,
     action_type: 'edit',
