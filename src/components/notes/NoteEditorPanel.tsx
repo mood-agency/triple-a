@@ -22,7 +22,6 @@ import { EditableTitle } from '@/components/notes/EditableTitle';
 import type { Note, NoteCategory, Label, NoteHistory } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { parseLocalDate } from '@/utils/dateUtils';
-import { getInitials } from '@/lib/utils';
 
 interface NoteEditorPanelProps {
   note: Note;
@@ -42,6 +41,7 @@ interface NoteEditorPanelProps {
   onEdit: (id: string, content: string, category?: NoteCategory, description?: string | null) => void;
   onDescriptionChange: (value: string) => void;
   onDescriptionBlur: () => void;
+  onDescriptionFocus?: () => void;
   onDescriptionKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   onTogglePostponeHistory: () => void;
   onAddLabel: (labelId: string) => void;
@@ -80,6 +80,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
   onEdit,
   onDescriptionChange,
   onDescriptionBlur,
+  onDescriptionFocus,
   onDescriptionKeyDown,
   onTogglePostponeHistory,
   onAddLabel,
@@ -102,15 +103,12 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
 }, ref) {
   const { t, i18n } = useTranslation();
 
-  // Get assignee initials and full name (e.g., "LF" for "Liliana Ferro")
-  const { assigneeName, assigneeFullName } = useMemo(() => {
-    if (!note.assignee_id) return { assigneeName: null, assigneeFullName: null };
+  // Get assignee full name (e.g., "Liliana Ferro")
+  const assigneeFullName = useMemo(() => {
+    if (!note.assignee_id) return null;
     const contact = contacts.find(c => c.id === note.assignee_id);
-    if (!contact) return { assigneeName: null, assigneeFullName: null };
-    return {
-      assigneeName: getInitials(contact.name, contact.lastname),
-      assigneeFullName: `${contact.name} ${contact.lastname}`.trim()
-    };
+    if (!contact) return null;
+    return `${contact.name} ${contact.lastname}`.trim();
   }, [note.assignee_id, contacts]);
 
   // Ctrl+D to toggle task completion (only for non-notes categories)
@@ -136,9 +134,9 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
         titleValue={titleValue}
       />
       {/* Category row */}
-      <div className="flex gap-2 mt-1 mb-1 flex-shrink-0 items-center">
-        <div className="w-5 flex justify-center shrink-0">
-          <Layers className="h-4 w-4 text-muted-foreground" />
+      <div className="flex gap-1.5 flex-shrink-0 items-center">
+        <div className="w-4 flex justify-center shrink-0">
+          <Layers className="h-3.5 w-3.5 text-muted-foreground" />
         </div>
         {/* Category dropdown */}
         <Popover open={categoryDropdownOpen} onOpenChange={onCategoryDropdownOpenChange}>
@@ -146,7 +144,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-2 text-xs font-normal gap-1.5"
+              className="h-6 px-1.5 text-xs font-normal gap-1"
             >
               <span>
                 {note.category === 'todo' && t('categoryTodo')}
@@ -154,7 +152,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
                 {note.category === 'notes' && t('categoryNote')}
                 {note.category === 'meeting' && t('categoryMeeting')}
               </span>
-              <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+              <ChevronDown className="h-3 w-3 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-44 p-0" align="start">
@@ -227,9 +225,9 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
       </div>
 
       {/* Deadline row */}
-      <div className="flex gap-2 mb-1 flex-shrink-0 items-center">
-        <div className="w-5 flex justify-center shrink-0">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
+      <div className="flex gap-1.5 flex-shrink-0 items-center">
+        <div className="w-4 flex justify-center shrink-0">
+          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
         </div>
         <DatePicker
           date={note.deadline ? parseLocalDate(note.deadline) : undefined}
@@ -238,16 +236,16 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           placeholder={t('setDeadline')}
           open={deadlinePickerOpen}
           onOpenChange={onDeadlinePickerOpenChange}
-          className="h-7 text-xs"
+          className="h-6 text-xs"
           showTime
           hideIcon
         />
       </div>
 
       {/* Labels row */}
-      <div className="flex gap-2 mb-1 flex-shrink-0 items-center">
-        <div className="w-5 flex justify-center shrink-0">
-          <Tag className="h-4 w-4 text-muted-foreground" />
+      <div className="flex gap-1.5 flex-shrink-0 items-center">
+        <div className="w-4 flex justify-center shrink-0">
+          <Tag className="h-3.5 w-3.5 text-muted-foreground" />
         </div>
         <Popover open={labelDropdownOpen} onOpenChange={onLabelDropdownOpenChange}>
           <Tooltip>
@@ -256,9 +254,9 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-6 w-6"
                 >
-                  <Plus className="h-3.5 w-3.5" />
+                  <Plus className="h-3 w-3" />
                 </Button>
               </PopoverTrigger>
             </TooltipTrigger>
@@ -335,9 +333,9 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
       </div>
 
       {/* Assignee row */}
-      <div className="flex gap-2 mb-1 flex-shrink-0 items-center">
-        <div className="w-5 flex justify-center shrink-0">
-          <User className="h-4 w-4 text-muted-foreground" />
+      <div className="flex gap-1.5 flex-shrink-0 items-center">
+        <div className="w-4 flex justify-center shrink-0">
+          <User className="h-3.5 w-3.5 text-muted-foreground" />
         </div>
         <AssigneePicker
           contacts={contacts}
@@ -347,7 +345,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           iconOnly
           open={assigneePickerOpen}
           onOpenChange={onAssigneePickerOpenChange}
-          className="h-7 w-7"
+          className="h-6 w-6"
           hideIcon
         />
         {assigneeFullName && (
@@ -372,6 +370,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
         value={descriptionValue}
         onChange={onDescriptionChange}
         onBlur={onDescriptionBlur}
+        onFocus={onDescriptionFocus}
         onKeyDown={onDescriptionKeyDown}
         placeholder={t('writeDescription')}
         className="flex-1 min-h-0 w-full text-base bg-transparent text-muted-foreground overflow-y-auto"
