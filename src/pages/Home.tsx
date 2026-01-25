@@ -6,7 +6,7 @@ import { NoteList, type NoteListHandle } from '@/components/notes/NoteList';
 import { CommandPalette } from '@/components/CommandPalette';
 import { HotkeysHelper } from '@/components/HotkeysHelper';
 import { useNotes } from '@/hooks/useNotes';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useTinyBase } from '@/contexts/TinyBaseContext';
 import { useLabels } from '@/hooks/useLabels';
 import { useSettings } from '@/hooks/useSettings';
 import type { Note, NoteCategory } from '@/types/note';
@@ -19,7 +19,7 @@ interface OutletContext {
 export function Home() {
   useTranslation();
   const { sidebarTrigger } = useOutletContext<OutletContext>();
-  const { isReady } = useDatabase();
+  const { isReady } = useTinyBase();
   const [searchParams, setSearchParams] = useSearchParams();
   // Optimized: Store only the ID to avoid unnecessary re-renders when note object changes
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(() => searchParams.get('note'));

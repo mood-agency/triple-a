@@ -2,7 +2,7 @@ import { NodeViewWrapper } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
 import { useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Copy, Expand, Trash2, X } from 'lucide-react';
+import { Copy, Download, Expand, Trash2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -28,14 +28,32 @@ export function TiptapImageView({ node, deleteNode }: NodeViewProps) {
     e.stopPropagation();
 
     try {
-      // Convert data URL to blob
-      const response = await fetch(src);
-      const blob = await response.blob();
+      // Create a canvas to convert the image to PNG blob
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = src;
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Failed to get canvas context');
+      ctx.drawImage(img, 0, 0);
+
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((b) => {
+          if (b) resolve(b);
+          else reject(new Error('Failed to create blob'));
+        }, 'image/png');
+      });
 
       await navigator.clipboard.write([
-        new ClipboardItem({
-          [blob.type]: blob
-        })
+        new ClipboardItem({ 'image/png': blob })
       ]);
 
       toast.success(t('toast.imageCopied'));
@@ -43,6 +61,18 @@ export function TiptapImageView({ node, deleteNode }: NodeViewProps) {
       toast.error(t('toast.imageCopyFailed'));
     }
   }, [src, t]);
+
+  const handleDownload = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const link = document.createElement('a');
+    link.href = src;
+    link.download = `image-${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, [src]);
 
   const handleCloseLightbox = useCallback(() => {
     setShowLightbox(false);
@@ -67,8 +97,7 @@ export function TiptapImageView({ node, deleteNode }: NodeViewProps) {
       <img
         src={src}
         alt=""
-        onClick={handleViewFullSize}
-        draggable={false}
+        onDoubleClick={handleViewFullSize}
       />
       <div className="tiptap-image-controls" contentEditable={false}>
         <button
@@ -84,6 +113,13 @@ export function TiptapImageView({ node, deleteNode }: NodeViewProps) {
           title={t('toast.imageCopy')}
         >
           <Copy size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={handleDownload}
+          title={t('toast.imageDownload')}
+        >
+          <Download size={14} />
         </button>
         <button
           type="button"

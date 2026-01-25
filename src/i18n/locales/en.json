@@ -172,7 +172,8 @@
     "imageCopy": "Copy image",
     "imageCopied": "Image copied to clipboard",
     "imageCopyFailed": "Failed to copy image",
-    "imageDelete": "Delete image"
+    "imageDelete": "Delete image",
+    "imageDownload": "Download image"
   },
   "importExport": {
     "title": "Import / Export",

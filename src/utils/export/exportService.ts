@@ -1,87 +1,82 @@
-import type { Database } from 'sql.js';
+import type { MergeableStore } from 'tinybase';
 import type { Note, NoteHistory, Label, NoteLabel, ExportData } from '@/types/note';
+import type { NoteRow, LabelRow, NoteLabelRow, NoteHistoryRow } from '@/store/schema';
 
 const EXPORT_VERSION = '1.0';
 
 /**
- * Export all data from the database
+ * Export all data from the TinyBase store
  * Retrieves notes, history, labels, and note-label relationships
  */
-export function exportAllData(db: Database): ExportData {
-  const notesResult = db.exec(`
-    SELECT id, date, content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, updated_at, deleted_at, assignee_id
-    FROM notes
-    ORDER BY date DESC, sort_order ASC
-  `);
-
-  const historyResult = db.exec(`
-    SELECT id, note_id, content, description, category, completed, changed_at, action_type, reason, previous_date
-    FROM note_history
-    ORDER BY changed_at DESC
-  `);
-
-  const notes: Note[] = notesResult.length > 0
-    ? notesResult[0].values.map((row) => ({
-        id: row[0] as string,
-        date: row[1] as string,
-        content: row[2] as string,
-        description: row[3] as string | null,
-        category: row[4] as Note['category'],
-        completed: Boolean(row[5]),
-        completed_at: row[6] as string | null,
-        deadline: row[7] as string | null,
-        pinned: Boolean(row[8]),
-        sort_order: (row[9] as number) || 0,
-        created_at: row[10] as string,
-        updated_at: row[11] as string,
-        deleted_at: row[12] as string | null,
-        assignee_id: row[13] as string | null,
-      }))
+export function exportAllData(store: MergeableStore): ExportData {
+  // Get notes table
+  const notesTable = store.getTable('notes') as Record<string, NoteRow> | undefined;
+  const notes: Note[] = notesTable
+    ? Object.entries(notesTable)
+        .filter(([, row]) => !row.deleted_at)
+        .map(([id, row]) => ({
+          id,
+          date: row.date,
+          content: row.content,
+          description: row.description,
+          category: row.category,
+          completed: row.completed,
+          completed_at: row.completed_at,
+          deadline: row.deadline,
+          pinned: row.pinned,
+          sort_order: row.sort_order,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          deleted_at: row.deleted_at,
+          assignee_id: row.assignee_id,
+        }))
+        .sort((a, b) => {
+          if (a.date !== b.date) return b.date.localeCompare(a.date);
+          return a.sort_order - b.sort_order;
+        })
     : [];
 
-  const noteHistory: NoteHistory[] = historyResult.length > 0
-    ? historyResult[0].values.map((row) => ({
-        id: row[0] as string,
-        note_id: row[1] as string,
-        content: row[2] as string,
-        description: row[3] as string | null,
-        category: row[4] as NoteHistory['category'],
-        completed: Boolean(row[5]),
-        changed_at: row[6] as string,
-        action_type: (row[7] as NoteHistory['action_type']) || 'edit',
-        reason: row[8] as string | null,
-        previous_date: row[9] as string | null,
-      }))
+  // Get note history table
+  const historyTable = store.getTable('note_history') as Record<string, NoteHistoryRow> | undefined;
+  const noteHistory: NoteHistory[] = historyTable
+    ? Object.entries(historyTable)
+        .map(([id, row]) => ({
+          id,
+          note_id: row.note_id,
+          content: row.content,
+          description: row.description,
+          category: row.category,
+          completed: row.completed,
+          changed_at: row.changed_at,
+          action_type: row.action_type,
+          reason: row.reason,
+          previous_date: row.previous_date,
+        }))
+        .sort((a, b) => b.changed_at.localeCompare(a.changed_at))
     : [];
 
-  // Export labels
-  const labelsResult = db.exec(`
-    SELECT id, name, color, created_at, updated_at
-    FROM labels
-    ORDER BY name ASC
-  `);
-
-  const labels: Label[] = labelsResult.length > 0
-    ? labelsResult[0].values.map((row) => ({
-        id: row[0] as string,
-        name: row[1] as string,
-        color: row[2] as string,
-        created_at: row[3] as string,
-        updated_at: row[4] as string,
-      }))
+  // Get labels table
+  const labelsTable = store.getTable('labels') as Record<string, LabelRow> | undefined;
+  const labels: Label[] = labelsTable
+    ? Object.entries(labelsTable)
+        .filter(([, row]) => !row.deleted_at)
+        .map(([id, row]) => ({
+          id,
+          name: row.name,
+          color: row.color,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name))
     : [];
 
-  // Export note-label relationships
-  const noteLabelsResult = db.exec(`
-    SELECT note_id, label_id, created_at
-    FROM note_labels
-  `);
-
-  const noteLabels: NoteLabel[] = noteLabelsResult.length > 0
-    ? noteLabelsResult[0].values.map((row) => ({
-        note_id: row[0] as string,
-        label_id: row[1] as string,
-        created_at: row[2] as string,
+  // Get note-label relationships
+  const noteLabelsTable = store.getTable('note_labels') as Record<string, NoteLabelRow> | undefined;
+  const noteLabels: NoteLabel[] = noteLabelsTable
+    ? Object.entries(noteLabelsTable).map(([, row]) => ({
+        note_id: row.note_id,
+        label_id: row.label_id,
+        created_at: row.created_at,
       }))
     : [];
 

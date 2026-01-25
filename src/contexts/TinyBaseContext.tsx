@@ -14,17 +14,15 @@ const TinyBaseContext = createContext<TinyBaseContextType | null>(null);
 
 interface TinyBaseProviderProps {
   children: ReactNode;
-  skipInit?: boolean;
 }
 
-export function TinyBaseProvider({ children, skipInit = false }: TinyBaseProviderProps) {
+export function TinyBaseProvider({ children }: TinyBaseProviderProps) {
   const [store, setStore] = useState<MergeableStore | null>(null);
   const [persister, setPersister] = useState<AppPersister | null>(null);
-  const [isReady, setIsReady] = useState(skipInit);
+  const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (skipInit) return;
 
     let mounted = true;
     let appPersister: AppPersister | null = null;
@@ -66,7 +64,7 @@ export function TinyBaseProvider({ children, skipInit = false }: TinyBaseProvide
         appPersister.destroy();
       }
     };
-  }, [skipInit]);
+  }, []);
 
   return (
     <TinyBaseContext.Provider value={{ store, persister, isReady, error }}>
