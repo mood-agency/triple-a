@@ -69,6 +69,11 @@ interface NoteListProps {
   onLabelFilterChange?: (labels: string[]) => void;
   onCategoryFilterChange?: (category: NoteCategory | 'all') => void;
   onAssigneeFilterChange?: (assignees: string[]) => void;
+  // External view mode and date control (from URL)
+  externalViewMode?: 'list' | 'calendar';
+  onViewModeChange?: (viewMode: 'list' | 'calendar') => void;
+  externalSelectedDate?: Date;
+  onSelectedDateChange?: (date: Date | undefined) => void;
   // Sidebar trigger element
   sidebarTrigger?: React.ReactNode;
 }
@@ -89,7 +94,7 @@ function getColumnPosition(text: string, cursorPos: number): number {
   return lastNewline === -1 ? cursorPos : cursorPos - lastNewline - 1;
 }
 
-export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onUpdateAssignee, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, sidebarTrigger }, ref) {
+export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onUpdateAssignee, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, sidebarTrigger }, ref) {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { contacts } = useContacts();
@@ -225,13 +230,33 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [pendingPostponeDate, setPendingPostponeDate] = useState<Date | null>(null);
   const showSidebar = settings.showSidebar;
   const setShowSidebar = (value: boolean) => updateSettings({ showSidebar: value });
-  const viewMode = settings.viewMode;
-  const setViewMode = (value: 'list' | 'calendar') => updateSettings({ viewMode: value });
+
+  // Use external view mode if provided, otherwise use settings
+  const viewMode = externalViewMode ?? settings.viewMode;
+  const setViewMode = (value: 'list' | 'calendar') => {
+    if (onViewModeChange) {
+      onViewModeChange(value);
+    } else {
+      updateSettings({ viewMode: value });
+    }
+  };
+
   const compactTaskView = settings.compactTaskView;
   const setCompactTaskView = (value: boolean) => updateSettings({ compactTaskView: value });
-  const [calendarSelectedDate, setCalendarSelectedDate] = useState<Date | undefined>(new Date());
+
+  // Use external selected date if provided, otherwise use internal state
+  const [internalCalendarSelectedDate, setInternalCalendarSelectedDate] = useState<Date | undefined>(new Date());
+  const calendarSelectedDate = externalSelectedDate ?? internalCalendarSelectedDate;
+  const setCalendarSelectedDate = (date: Date | undefined) => {
+    if (onSelectedDateChange) {
+      onSelectedDateChange(date);
+    } else {
+      setInternalCalendarSelectedDate(date);
+    }
+  };
   const [sortByDeadline, setSortByDeadline] = useState(false);
   const [sortByAssignee, setSortByAssignee] = useState(false);
+  const [sortByCategory, setSortByCategory] = useState(false);
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
   const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [showPostponeHistory, setShowPostponeHistory] = useState(false);
@@ -341,6 +366,14 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     return titleMatch || descriptionMatch;
   }), [notes, categoryFilter, labelFilter, assigneeFilter, showOverdueOnly, dateRangeFilter, searchQuery, noteLabelsCache]);
 
+  // Category order for sorting
+  const categoryOrder: Record<string, number> = {
+    todo: 0,
+    followup: 1,
+    meeting: 2,
+    notes: 3,
+  };
+
   // Separate active and completed notes
   // Memoized to avoid recomputing sort on every render
   const activeNotes = useMemo(() => {
@@ -351,6 +384,13 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       // Pinned notes always come first
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
+
+      // Sort by category if enabled
+      if (sortByCategory) {
+        const aOrder = categoryOrder[a.category] ?? 99;
+        const bOrder = categoryOrder[b.category] ?? 99;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+      }
 
       // Sort by assignee if enabled
       if (sortByAssignee) {
@@ -379,7 +419,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     });
 
     return active;
-  }, [baseFilteredNotes, sortByDeadline, sortByAssignee, assigneeNamesCache]);
+  }, [baseFilteredNotes, sortByDeadline, sortByAssignee, sortByCategory, assigneeNamesCache]);
 
   const completedNotes = useMemo(() => baseFilteredNotes
     .filter((note) => note.completed)
@@ -1419,6 +1459,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           onDateRangeFilterChange={setDateRangeFilter}
           sortByAssignee={sortByAssignee}
           onSortByAssigneeChange={setSortByAssignee}
+          sortByCategory={sortByCategory}
+          onSortByCategoryChange={setSortByCategory}
           contacts={contacts}
           assigneeFilter={assigneeFilter}
           onAssigneeFilterChange={setAssigneeFilter}
@@ -1508,6 +1550,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                   }}
                   hasActiveFilters={hasActiveFilters}
                   renderNoResultsMessage={(completedCount) => renderNoResultsMessage(completedCount)}
+                  sortByCategory={sortByCategory}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground/50 italic p-4 text-center">

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useOutletContext } from 'react-router-dom';
 import { useContacts } from '@/hooks/useContacts';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Header } from '@/components/Header';
+
+interface OutletContext {
+  sidebarTrigger: React.ReactNode;
+}
 import {
   Dialog,
   DialogContent,
@@ -67,6 +72,7 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
 
 export function Contacts() {
   const { t } = useTranslation();
+  const { sidebarTrigger } = useOutletContext<OutletContext>();
   const { isReady } = useDatabase();
   const { contacts, loading, createContact, updateContact, deleteContact } = useContacts();
   const { settings } = useSettings();
@@ -301,21 +307,21 @@ export function Contacts() {
   }
 
   return (
-    <div className="h-screen flex flex-col py-8 px-4">
-      <div className="w-full px-4 flex flex-col flex-1 min-h-0">
-        <Header>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button onClick={() => handleOpenDialog()}>
-                <Plus className="mr-2 h-4 w-4" />
-                {t('contacts.addContact')}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('contacts.addContact')}</p>
-            </TooltipContent>
-          </Tooltip>
-        </Header>
+    <>
+      <Header>
+        {sidebarTrigger}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button onClick={() => handleOpenDialog()}>
+              <Plus className="mr-2 h-4 w-4" />
+              {t('contacts.addContact')}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{t('contacts.addContact')}</p>
+          </TooltipContent>
+        </Tooltip>
+      </Header>
 
         <div className="rounded-md border">
         <Table>
@@ -500,7 +506,6 @@ export function Contacts() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      </div>
-    </div>
+    </>
   );
 }

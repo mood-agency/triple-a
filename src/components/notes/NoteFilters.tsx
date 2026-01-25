@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   Trash2,
   CalendarRange,
+  Layers,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es, enUS } from 'date-fns/locale';
@@ -72,6 +73,10 @@ interface NoteFiltersProps {
   sortByAssignee: boolean;
   onSortByAssigneeChange: (value: boolean) => void;
 
+  // Category options
+  sortByCategory: boolean;
+  onSortByCategoryChange: (value: boolean) => void;
+
   // Assignee filter
   contacts: Contact[];
   assigneeFilter: string[];
@@ -103,6 +108,8 @@ export function NoteFilters({
   onDateRangeFilterChange,
   sortByAssignee,
   onSortByAssigneeChange,
+  sortByCategory,
+  onSortByCategoryChange,
   contacts,
   assigneeFilter,
   onAssigneeFilterChange,
@@ -389,6 +396,22 @@ export function NoteFilters({
           </TooltipTrigger>
           <TooltipContent>
             <p>{t('sortByAssignee')}</p>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className={`h-8 w-8 shadow-none ${sortByCategory ? 'bg-accent text-accent-foreground' : ''}`}
+              onClick={() => onSortByCategoryChange(!sortByCategory)}
+              aria-label={t('sortByCategory')}
+            >
+              <Layers className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{t('sortByCategory')}</p>
           </TooltipContent>
         </Tooltip>
         <Tooltip>

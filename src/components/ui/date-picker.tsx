@@ -58,7 +58,7 @@ export function DatePicker({
   const inputRef = React.useRef<HTMLInputElement>(null)
   // All day checkbox - default to true if date has no time component (or no date)
   const [isAllDay, setIsAllDay] = React.useState(() => {
-    if (!date) return false
+    if (!date) return true
     return !hasTimeComponent(date.toISOString())
   })
 

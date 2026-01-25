@@ -1,20 +1,24 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useOutletContext } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { NoteList, type NoteListHandle } from '@/components/notes/NoteList';
 import { CommandPalette } from '@/components/CommandPalette';
 import { HotkeysHelper } from '@/components/HotkeysHelper';
-import { AppSidebar } from '@/components/AppSidebar';
-import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { useNotes } from '@/hooks/useNotes';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useLabels } from '@/hooks/useLabels';
 import { useSettings } from '@/hooks/useSettings';
 import type { Note, NoteCategory } from '@/types/note';
+import { parseLocalDate, formatLocalDate } from '@/utils/dateUtils';
+
+interface OutletContext {
+  sidebarTrigger: React.ReactNode;
+}
 
 export function Home() {
   useTranslation();
+  const { sidebarTrigger } = useOutletContext<OutletContext>();
   const { isReady } = useDatabase();
   const [searchParams, setSearchParams] = useSearchParams();
   // Optimized: Store only the ID to avoid unnecessary re-renders when note object changes
@@ -23,10 +27,68 @@ export function Home() {
   const { labels } = useLabels();
   const { settings, updateSettings } = useSettings();
 
-  const viewMode = settings.viewMode;
+  // View mode from URL (fallback to settings)
+  const getInitialViewMode = useCallback((): 'list' | 'calendar' => {
+    const viewParam = searchParams.get('view');
+    if (viewParam === 'list' || viewParam === 'calendar') {
+      return viewParam;
+    }
+    return settings.viewMode;
+  }, [searchParams, settings.viewMode]);
+
+  const [viewMode, setViewModeState] = useState<'list' | 'calendar'>(getInitialViewMode);
+
+  // Selected date from URL (for calendar view)
+  const getInitialSelectedDate = useCallback((): Date => {
+    const dateParam = searchParams.get('date');
+    if (dateParam) {
+      // Use parseLocalDate to avoid timezone issues (e.g., 2026-01-26 showing as Jan 25)
+      const parsed = parseLocalDate(dateParam);
+      if (!isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+    return new Date();
+  }, [searchParams]);
+
+  const [selectedDate, setSelectedDateState] = useState<Date>(getInitialSelectedDate);
+
+  // Update URL when view mode changes
+  const setViewMode = useCallback((newViewMode: 'list' | 'calendar') => {
+    setViewModeState(newViewMode);
+    updateSettings({ viewMode: newViewMode });
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      if (newViewMode !== 'list') {
+        newParams.set('view', newViewMode);
+      } else {
+        newParams.delete('view');
+      }
+      return newParams;
+    }, { replace: true });
+  }, [setSearchParams, updateSettings]);
+
+  // Update URL when selected date changes
+  const setSelectedDate = useCallback((newDate: Date | undefined) => {
+    const dateToSet = newDate ?? new Date();
+    setSelectedDateState(dateToSet);
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      // Use formatLocalDate to avoid timezone issues
+      const dateStr = formatLocalDate(dateToSet);
+      const today = formatLocalDate(new Date());
+      if (dateStr !== today) {
+        newParams.set('date', dateStr);
+      } else {
+        newParams.delete('date');
+      }
+      return newParams;
+    }, { replace: true });
+  }, [setSearchParams]);
+
   const toggleViewMode = useCallback(() => {
-    updateSettings({ viewMode: viewMode === 'list' ? 'calendar' : 'list' });
-  }, [viewMode, updateSettings]);
+    setViewMode(viewMode === 'list' ? 'calendar' : 'list');
+  }, [viewMode, setViewMode]);
 
   // Initialize filters from URL params
   const getInitialLabelFilter = useCallback(() => {
@@ -180,55 +242,54 @@ export function Home() {
   }
 
   return (
-    <SidebarProvider defaultOpen={false}>
-      <AppSidebar />
-      <SidebarInset className="h-screen flex flex-col py-8 px-4">
-        <div className="w-full px-4 flex flex-col flex-1 min-h-0">
-          <NoteList
-            ref={noteListRef}
-            notes={notes}
-            onEdit={handleUpdateNote}
-            onDelete={handleDeleteNote}
-            onRestore={restoreNote}
-            onToggleCompleted={toggleCompleted}
-            onTogglePinned={togglePinned}
-            onUpdateDeadline={handleUpdateDeadline}
-            onUpdateAssignee={updateAssignee}
-            onReorderNotes={reorderNotes}
-            onPostponeNote={handlePostponeNote}
-            selectedNote={selectedNote}
-            onSelectNote={handleSelectNote}
-            onCreateNoteAfter={createNoteAfter}
-            onCreateTask={handleCreateTask}
-            externalLabelFilter={labelFilter}
-            externalCategoryFilter={categoryFilter}
-            externalAssigneeFilter={assigneeFilter}
-            onLabelFilterChange={handleLabelFilterChange}
-            onCategoryFilterChange={handleCategoryFilterChange}
-            onAssigneeFilterChange={handleAssigneeFilterChange}
-            sidebarTrigger={<SidebarTrigger className="h-8 w-8 shadow-none" />}
-          />
-        </div>
+    <>
+      <NoteList
+        ref={noteListRef}
+        notes={notes}
+        onEdit={handleUpdateNote}
+        onDelete={handleDeleteNote}
+        onRestore={restoreNote}
+        onToggleCompleted={toggleCompleted}
+        onTogglePinned={togglePinned}
+        onUpdateDeadline={handleUpdateDeadline}
+        onUpdateAssignee={updateAssignee}
+        onReorderNotes={reorderNotes}
+        onPostponeNote={handlePostponeNote}
+        selectedNote={selectedNote}
+        onSelectNote={handleSelectNote}
+        onCreateNoteAfter={createNoteAfter}
+        onCreateTask={handleCreateTask}
+        externalLabelFilter={labelFilter}
+        externalCategoryFilter={categoryFilter}
+        externalAssigneeFilter={assigneeFilter}
+        onLabelFilterChange={handleLabelFilterChange}
+        onCategoryFilterChange={handleCategoryFilterChange}
+        onAssigneeFilterChange={handleAssigneeFilterChange}
+        externalViewMode={viewMode}
+        onViewModeChange={setViewMode}
+        externalSelectedDate={selectedDate}
+        onSelectedDateChange={setSelectedDate}
+        sidebarTrigger={sidebarTrigger}
+      />
 
-        <CommandPalette
-          labels={labels}
-          selectedLabels={labelFilter}
-          onSelectLabel={(labelId) => {
-            handleLabelFilterChange(
-              labelFilter.includes(labelId)
-                ? labelFilter.filter((id) => id !== labelId)
-                : [...labelFilter, labelId]
-            );
-          }}
-          onClearLabels={() => handleLabelFilterChange([])}
-          categoryFilter={categoryFilter}
-          onSelectCategory={handleCategoryFilterChange}
-          viewMode={viewMode}
-          onToggleViewMode={toggleViewMode}
-        />
+      <CommandPalette
+        labels={labels}
+        selectedLabels={labelFilter}
+        onSelectLabel={(labelId) => {
+          handleLabelFilterChange(
+            labelFilter.includes(labelId)
+              ? labelFilter.filter((id) => id !== labelId)
+              : [...labelFilter, labelId]
+          );
+        }}
+        onClearLabels={() => handleLabelFilterChange([])}
+        categoryFilter={categoryFilter}
+        onSelectCategory={handleCategoryFilterChange}
+        viewMode={viewMode}
+        onToggleViewMode={toggleViewMode}
+      />
 
-        <HotkeysHelper />
-      </SidebarInset>
-    </SidebarProvider>
+      <HotkeysHelper />
+    </>
   );
 }
