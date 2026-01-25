@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CalendarSelector } from './CalendarSelector';
 import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
-import type { NoteCategory } from '@/types/note';
+import { toast } from 'sonner';
 
 export function GoogleCalendarSettings() {
   const { t } = useTranslation();
@@ -59,12 +59,26 @@ export function GoogleCalendarSettings() {
     await updateConfig({ calendars_to_sync: calendarIds });
   };
 
-  const handleCategoryChange = async (category: string) => {
-    await updateConfig({ default_category: category as NoteCategory });
-  };
+
 
   const handleSyncIntervalChange = async (interval: string) => {
     await updateConfig({ sync_interval_minutes: parseInt(interval, 10) });
+  };
+
+  const handleSyncNow = async () => {
+    const result = await syncNow();
+
+    if (result.success) {
+      toast.success(t('gcal.syncSuccess', {
+        imported: result.eventsImported,
+        updated: result.eventsUpdated,
+        deleted: result.eventsDeleted,
+      }));
+    } else {
+      toast.error(t('gcal.syncError'), {
+        description: result.errors.join(', '),
+      });
+    }
   };
 
   const formatLastSync = (timestamp: string | null) => {
@@ -155,10 +169,10 @@ export function GoogleCalendarSettings() {
             <AlertDescription>
               {lastSyncResult.success
                 ? t('gcal.syncSuccess', {
-                    imported: lastSyncResult.eventsImported,
-                    updated: lastSyncResult.eventsUpdated,
-                    deleted: lastSyncResult.eventsDeleted,
-                  })
+                  imported: lastSyncResult.eventsImported,
+                  updated: lastSyncResult.eventsUpdated,
+                  deleted: lastSyncResult.eventsDeleted,
+                })
                 : lastSyncResult.errors.join(', ')}
             </AlertDescription>
           </Alert>
@@ -200,27 +214,7 @@ export function GoogleCalendarSettings() {
           />
         </div>
 
-        <Separator />
 
-        {/* Default category */}
-        <div className="space-y-2">
-          <Label htmlFor="default-category">{t('gcal.defaultCategory')}</Label>
-          <p className="text-sm text-muted-foreground">{t('gcal.defaultCategoryDescription')}</p>
-          <Select
-            value={config?.default_category ?? 'meeting'}
-            onValueChange={handleCategoryChange}
-          >
-            <SelectTrigger id="default-category" className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="meeting">{t('categoryMeeting')}</SelectItem>
-              <SelectItem value="todo">{t('categoryTodo')}</SelectItem>
-              <SelectItem value="followup">{t('categoryFollowup')}</SelectItem>
-              <SelectItem value="notes">{t('categoryNotes')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
 
         <Separator />
 
@@ -249,7 +243,7 @@ export function GoogleCalendarSettings() {
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3">
           <Button
-            onClick={syncNow}
+            onClick={handleSyncNow}
             disabled={syncStatus === 'syncing' || !config?.enabled || (config?.calendars_to_sync?.length ?? 0) === 0}
             className="flex-1"
           >

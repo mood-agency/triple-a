@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
+import { getCursorPosition, getFontString } from '@/utils/cursorUtils';
 
 interface EditableTitleProps {
   noteId: string;
@@ -38,58 +39,63 @@ export function EditableTitle({
     setIsEditing(false);
   }, [noteId, content, titleValue]);
 
-  // Focus input when user clicks to edit (not on mount)
+  // Focus input and set cursor position when user clicks to edit
   useEffect(() => {
     if (isEditing && inputRef.current) {
-      inputRef.current.focus();
+      const input = inputRef.current;
+      const pos = clickXRef.current;
+      clickXRef.current = null;
+
+      // Focus first
+      input.focus();
+
+      // Set cursor position with multiple attempts to ensure it sticks
+      if (pos !== null) {
+        // Immediate attempt
+        input.setSelectionRange(pos, pos);
+
+        // Backup attempts with setTimeout
+        setTimeout(() => {
+          input.setSelectionRange(pos, pos);
+        }, 0);
+
+        setTimeout(() => {
+          input.setSelectionRange(pos, pos);
+        }, 10);
+      }
     }
   }, [isEditing]);
 
+
+
+  // ...
+
   const handleTitleClick = (e: React.MouseEvent<HTMLHeadingElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    clickXRef.current = e.clientX - rect.left;
+    const h1 = e.currentTarget;
+    const rect = h1.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const text = titleValue ?? content;
+
+    const style = window.getComputedStyle(h1);
+    const fontString = getFontString(style);
+
+    // Use shared utility
+    const calculatedPos = getCursorPosition(text, fontString, clickX);
+
+    clickXRef.current = calculatedPos;
     setIsEditing(true);
   };
 
-  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    if (clickXRef.current !== null) {
-      const clickX = clickXRef.current;
-      clickXRef.current = null;
-      const input = e.target as HTMLInputElement;
-      const text = input.value;
-
-      if (text.length === 0 || clickX <= 0) {
-        input.setSelectionRange(0, 0);
-        return;
-      }
-
-      // Create canvas with input's font to measure text
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        const style = window.getComputedStyle(input);
-        ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-
-        // Find the position where click occurred
-        let pos = text.length;
-        for (let i = 1; i <= text.length; i++) {
-          const width = ctx.measureText(text.substring(0, i)).width;
-          if (width >= clickX) {
-            const prevWidth = ctx.measureText(text.substring(0, i - 1)).width;
-            pos = (clickX - prevWidth) <= (width - clickX) ? i - 1 : i;
-            break;
-          }
-        }
-        input.setSelectionRange(pos, pos);
-      }
-    }
+  const handleInputFocus = () => {
+    // Position is now handled in useEffect after isEditing changes
   };
 
   const handleSave = () => {
-    if (editedTitle.trim() && editedTitle !== content) {
+    const originalValue = titleValue ?? content;
+    if (editedTitle.trim() && editedTitle !== originalValue) {
       onEdit(noteId, editedTitle.trim());
     } else {
-      setEditedTitle(content);
+      setEditedTitle(originalValue);
     }
     setIsEditing(false);
   };

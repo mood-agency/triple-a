@@ -22,6 +22,7 @@ import { EditableTitle } from '@/components/notes/EditableTitle';
 import type { Note, NoteCategory, Label, NoteHistory } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { parseLocalDate } from '@/utils/dateUtils';
+import { NoteMetaRow } from './editor/NoteMetaRow';
 
 interface NoteEditorPanelProps {
   note: Note;
@@ -133,12 +134,9 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
         onDelete={onDelete}
         titleValue={titleValue}
       />
+
       {/* Category row */}
-      <div className="flex gap-1.5 flex-shrink-0 items-center">
-        <div className="w-4 flex justify-center shrink-0">
-          <Layers className="h-3.5 w-3.5 text-muted-foreground" />
-        </div>
-        {/* Category dropdown */}
+      <NoteMetaRow icon={Layers}>
         <Popover open={categoryDropdownOpen} onOpenChange={onCategoryDropdownOpenChange}>
           <PopoverTrigger asChild>
             <Button
@@ -161,60 +159,20 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
               <CommandList>
                 <CommandEmpty>{t('noCategoriesFound')}</CommandEmpty>
                 <CommandGroup>
-                  <CommandItem
-                    value="todo"
-                    onSelect={() => {
-                      onEdit(note.id, note.content, 'todo', note.description);
-                      onCategoryDropdownOpenChange(false);
-                    }}
-                    className="flex items-center justify-between"
-                  >
-                    <div className="flex items-center">
-                      <Pickaxe className="h-4 w-4 mr-2" />
-                      {t('categoryTodo')}
-                    </div>
+                  <CommandItem value="todo" onSelect={() => { onEdit(note.id, note.content, 'todo', note.description); onCategoryDropdownOpenChange(false); }} className="flex items-center justify-between">
+                    <div className="flex items-center"><Pickaxe className="h-4 w-4 mr-2" />{t('categoryTodo')}</div>
                     {note.category === 'todo' && <Check className="h-4 w-4" />}
                   </CommandItem>
-                  <CommandItem
-                    value="followup"
-                    onSelect={() => {
-                      onEdit(note.id, note.content, 'followup', note.description);
-                      onCategoryDropdownOpenChange(false);
-                    }}
-                    className="flex items-center justify-between"
-                  >
-                    <div className="flex items-center">
-                      <Forward className="h-4 w-4 mr-2" />
-                      {t('categoryFollowUp')}
-                    </div>
+                  <CommandItem value="followup" onSelect={() => { onEdit(note.id, note.content, 'followup', note.description); onCategoryDropdownOpenChange(false); }} className="flex items-center justify-between">
+                    <div className="flex items-center"><Forward className="h-4 w-4 mr-2" />{t('categoryFollowUp')}</div>
                     {note.category === 'followup' && <Check className="h-4 w-4" />}
                   </CommandItem>
-                  <CommandItem
-                    value="notes"
-                    onSelect={() => {
-                      onEdit(note.id, note.content, 'notes', note.description);
-                      onCategoryDropdownOpenChange(false);
-                    }}
-                    className="flex items-center justify-between"
-                  >
-                    <div className="flex items-center">
-                      <StickyNote className="h-4 w-4 mr-2" />
-                      {t('categoryNotes')}
-                    </div>
+                  <CommandItem value="notes" onSelect={() => { onEdit(note.id, note.content, 'notes', note.description); onCategoryDropdownOpenChange(false); }} className="flex items-center justify-between">
+                    <div className="flex items-center"><StickyNote className="h-4 w-4 mr-2" />{t('categoryNotes')}</div>
                     {note.category === 'notes' && <Check className="h-4 w-4" />}
                   </CommandItem>
-                  <CommandItem
-                    value="meeting"
-                    onSelect={() => {
-                      onEdit(note.id, note.content, 'meeting', note.description);
-                      onCategoryDropdownOpenChange(false);
-                    }}
-                    className="flex items-center justify-between"
-                  >
-                    <div className="flex items-center">
-                      <Users className="h-4 w-4 mr-2" />
-                      {t('categoryMeeting')}
-                    </div>
+                  <CommandItem value="meeting" onSelect={() => { onEdit(note.id, note.content, 'meeting', note.description); onCategoryDropdownOpenChange(false); }} className="flex items-center justify-between">
+                    <div className="flex items-center"><Users className="h-4 w-4 mr-2" />{t('categoryMeeting')}</div>
                     {note.category === 'meeting' && <Check className="h-4 w-4" />}
                   </CommandItem>
                 </CommandGroup>
@@ -222,13 +180,10 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
             </Command>
           </PopoverContent>
         </Popover>
-      </div>
+      </NoteMetaRow>
 
       {/* Deadline row */}
-      <div className="flex gap-1.5 flex-shrink-0 items-center">
-        <div className="w-4 flex justify-center shrink-0">
-          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-        </div>
+      <NoteMetaRow icon={Calendar}>
         <DatePicker
           date={note.deadline ? parseLocalDate(note.deadline) : undefined}
           onDateChange={onDeadlineChange}
@@ -240,22 +195,15 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           showTime
           hideIcon
         />
-      </div>
+      </NoteMetaRow>
 
       {/* Labels row */}
-      <div className="flex gap-1.5 flex-shrink-0 items-center">
-        <div className="w-4 flex justify-center shrink-0">
-          <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-        </div>
+      <NoteMetaRow icon={Tag}>
         <Popover open={labelDropdownOpen} onOpenChange={onLabelDropdownOpenChange}>
           <Tooltip>
             <TooltipTrigger asChild>
               <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                >
+                <Button variant="ghost" size="icon" className="h-6 w-6">
                   <Plus className="h-3 w-3" />
                 </Button>
               </PopoverTrigger>
@@ -270,28 +218,15 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
               <CommandInput placeholder={t('searchLabels')} className="h-9" />
               <CommandList>
                 <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
-                {/* Available labels */}
                 {allLabels.filter(l => !noteLabels.some(nl => nl.id === l.id)).length > 0 && (
                   <CommandGroup heading={t('available')}>
                     {allLabels.filter(l => !noteLabels.some(nl => nl.id === l.id)).map((label) => (
-                      <CommandItem
-                        key={label.id}
-                        value={label.name}
-                        onSelect={() => onAddLabel(label.id)}
-                        className="group flex items-center justify-between"
-                      >
+                      <CommandItem key={label.id} value={label.name} onSelect={() => onAddLabel(label.id)} className="group flex items-center justify-between">
                         <div className="flex items-center">
                           <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
                           {label.name}
                         </div>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditLabel(label);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
-                        >
+                        <button type="button" onClick={(e) => { e.stopPropagation(); onEditLabel(label); }} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity">
                           <Pencil className="h-3 w-3 text-muted-foreground" />
                         </button>
                       </CommandItem>
@@ -300,12 +235,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
                 )}
                 <CommandSeparator />
                 <CommandGroup>
-                  <CommandItem
-                    onSelect={() => {
-                      onCreateLabel();
-                      onLabelDropdownOpenChange(false);
-                    }}
-                  >
+                  <CommandItem onSelect={() => { onCreateLabel(); onLabelDropdownOpenChange(false); }}>
                     <Plus className="h-3 w-3 mr-2" />
                     {t('createLabel')}
                   </CommandItem>
@@ -315,28 +245,17 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           </PopoverContent>
         </Popover>
         {noteLabels.map((label) => (
-          <span
-            key={label.id}
-            className="px-2 py-0.5 text-xs font-normal rounded-full text-white leading-none flex items-center gap-1"
-            style={{ backgroundColor: label.color }}
-          >
+          <span key={label.id} className="px-2 py-0.5 text-xs font-normal rounded-full text-white leading-none flex items-center gap-1" style={{ backgroundColor: label.color }}>
             {label.name}
-            <button
-              type="button"
-              onClick={() => onRemoveLabel(label.id)}
-              className="hover:bg-white/20 rounded-full p-0.5"
-            >
+            <button type="button" onClick={() => onRemoveLabel(label.id)} className="hover:bg-white/20 rounded-full p-0.5">
               <X className="h-3 w-3" />
             </button>
           </span>
         ))}
-      </div>
+      </NoteMetaRow>
 
       {/* Assignee row */}
-      <div className="flex gap-1.5 flex-shrink-0 items-center">
-        <div className="w-4 flex justify-center shrink-0">
-          <User className="h-3.5 w-3.5 text-muted-foreground" />
-        </div>
+      <NoteMetaRow icon={User}>
         <AssigneePicker
           contacts={contacts}
           value={note.assignee_id}
@@ -351,16 +270,12 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
         {assigneeFullName && (
           <span className="px-2 py-0.5 text-xs font-normal rounded-full border border-input bg-background text-foreground leading-none flex items-center gap-1">
             {assigneeFullName}
-            <button
-              type="button"
-              onClick={() => onUpdateAssignee(note.id, null)}
-              className="hover:bg-muted rounded-full p-0.5"
-            >
+            <button type="button" onClick={() => onUpdateAssignee(note.id, null)} className="hover:bg-muted rounded-full p-0.5">
               <X className="h-3 w-3" />
             </button>
           </span>
         )}
-      </div>
+      </NoteMetaRow>
 
       {/* Separator */}
       <div className="border-t border-muted-foreground/20 my-1.5" />

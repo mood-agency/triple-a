@@ -477,6 +477,10 @@
     "noCalendarsSelected": "Select at least one calendar to sync",
     "syncedWithGCal": "Imported from Google Calendar"
   },
+  "date": {
+    "today": "Today",
+    "tomorrow": "Tomorrow"
+  },
   "contacts": {
     "title": "Contacts",
     "addContact": "Add Contact",
