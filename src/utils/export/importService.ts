@@ -1,15 +1,15 @@
-import type { Database } from 'sql.js';
+import type { MergeableStore } from 'tinybase';
 import type { ExportData, ImportResult } from '@/types/note';
+import { now } from '@/store/schema';
 
 /**
- * Import data into the database
+ * Import data into the TinyBase store
  * Handles notes, history, labels, and note-label relationships
  * Supports old format migration
  */
 export async function importData(
-  db: Database,
+  store: MergeableStore,
   data: ExportData,
-  persistDatabase: () => Promise<void>,
   options?: { useCurrentDate?: boolean }
 ): Promise<ImportResult> {
   const result: ImportResult = {
@@ -21,6 +21,7 @@ export async function importData(
 
   // Get today's date if useCurrentDate option is set
   const todayDate = options?.useCurrentDate ? new Date().toISOString().split('T')[0] : null;
+  const timestamp = now();
 
   try {
     // Import notes
@@ -30,50 +31,48 @@ export async function importData(
         const noteDate = todayDate || note.date;
 
         // Check if note already exists
-        const existing = db.exec(`SELECT id FROM notes WHERE id = ?`, [note.id]);
+        const existing = store.getRow('notes', note.id);
 
-        if (existing.length > 0 && existing[0].values.length > 0) {
+        if (existing && Object.keys(existing).length > 0) {
           // Update existing note
-          db.run(
-            `UPDATE notes SET
-              date = ?, content = ?, description = ?, category = ?,
-              completed = ?, completed_at = ?, deadline = ?, pinned = ?, sort_order = ?, created_at = ?, updated_at = ?
-            WHERE id = ?`,
-            [
-              noteDate,
-              note.content,
-              note.description,
-              note.category,
-              note.completed ? 1 : 0,
-              note.completed_at ?? null,
-              note.deadline ?? null,
-              note.pinned ? 1 : 0,
-              note.sort_order ?? 0,
-              note.created_at,
-              note.updated_at,
-              note.id,
-            ]
-          );
+          store.setRow('notes', note.id, {
+            date: noteDate,
+            content: note.content,
+            description: note.description ?? null,
+            category: note.category,
+            completed: note.completed,
+            completed_at: note.completed_at ?? null,
+            deadline: note.deadline ?? null,
+            pinned: note.pinned,
+            sort_order: note.sort_order ?? 0,
+            assignee_id: note.assignee_id ?? null,
+            created_at: note.created_at,
+            updated_at: timestamp,
+            deleted_at: note.deleted_at ?? null,
+            remote_id: null,
+            sync_status: 'pending',
+            last_synced_at: null,
+          });
         } else {
           // Insert new note
-          db.run(
-            `INSERT INTO notes (id, date, content, description, category, completed, completed_at, deadline, pinned, sort_order, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              note.id,
-              noteDate,
-              note.content,
-              note.description,
-              note.category,
-              note.completed ? 1 : 0,
-              note.completed_at ?? null,
-              note.deadline ?? null,
-              note.pinned ? 1 : 0,
-              note.sort_order ?? 0,
-              note.created_at,
-              note.updated_at,
-            ]
-          );
+          store.setRow('notes', note.id, {
+            date: noteDate,
+            content: note.content,
+            description: note.description ?? null,
+            category: note.category,
+            completed: note.completed,
+            completed_at: note.completed_at ?? null,
+            deadline: note.deadline ?? null,
+            pinned: note.pinned,
+            sort_order: note.sort_order ?? 0,
+            assignee_id: note.assignee_id ?? null,
+            created_at: note.created_at,
+            updated_at: note.updated_at,
+            deleted_at: note.deleted_at ?? null,
+            remote_id: null,
+            sync_status: 'pending',
+            last_synced_at: null,
+          });
         }
         result.notesImported++;
       } catch (error) {
@@ -84,20 +83,18 @@ export async function importData(
     // Import note history
     for (const history of data.noteHistory) {
       try {
-        const existing = db.exec(`SELECT id FROM note_history WHERE id = ?`, [history.id]);
+        const existing = store.getRow('note_history', history.id);
 
-        if (existing.length === 0 || existing[0].values.length === 0) {
+        if (!existing || Object.keys(existing).length === 0) {
           // Handle old format migration where description contains category and category contains completed
           let description: string | null = history.description;
           let category: string = history.category;
           let completed: boolean = history.completed;
 
           // Detect old format: if category is 0/1/'0'/'1', it's actually the completed field
-          const validCategories = ['todo', 'followup', 'notes'];
+          const validCategories = ['todo', 'followup', 'notes', 'meeting'];
           if (!validCategories.includes(category)) {
             // Old format detected - shift fields
-            // description actually contains category
-            // category actually contains completed (as 0/1 or '0'/'1')
             category = description || 'todo';
             const oldCategory = history.category as unknown;
             completed = oldCategory === 1 || oldCategory === '1' || oldCategory === true;
@@ -105,22 +102,17 @@ export async function importData(
             console.log(`[Import] Migrated old format history ${history.id}: category=${category}, completed=${completed}`);
           }
 
-          db.run(
-            `INSERT INTO note_history (id, note_id, content, description, category, completed, changed_at, action_type, reason, previous_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              history.id,
-              history.note_id,
-              history.content,
-              description,
-              category,
-              completed ? 1 : 0,
-              history.changed_at,
-              history.action_type || 'edit',
-              history.reason || null,
-              history.previous_date || null,
-            ]
-          );
+          store.setRow('note_history', history.id, {
+            note_id: history.note_id,
+            content: history.content,
+            description: description,
+            category: category as 'todo' | 'followup' | 'notes' | 'meeting',
+            completed: completed,
+            changed_at: history.changed_at,
+            action_type: history.action_type || 'edit',
+            reason: history.reason ?? null,
+            previous_date: history.previous_date ?? null,
+          });
           result.historyImported++;
         }
       } catch (error) {
@@ -132,19 +124,30 @@ export async function importData(
     if (data.labels && data.labels.length > 0) {
       for (const label of data.labels) {
         try {
-          const existing = db.exec(`SELECT id FROM labels WHERE id = ?`, [label.id]);
+          const existing = store.getRow('labels', label.id);
 
-          if (existing.length > 0 && existing[0].values.length > 0) {
-            db.run(
-              `UPDATE labels SET name = ?, color = ?, updated_at = ? WHERE id = ?`,
-              [label.name, label.color, label.updated_at, label.id]
-            );
+          if (existing && Object.keys(existing).length > 0) {
+            store.setRow('labels', label.id, {
+              name: label.name,
+              color: label.color,
+              created_at: label.created_at,
+              updated_at: timestamp,
+              deleted_at: null,
+              remote_id: null,
+              sync_status: 'pending',
+              last_synced_at: null,
+            });
           } else {
-            db.run(
-              `INSERT INTO labels (id, name, color, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?)`,
-              [label.id, label.name, label.color, label.created_at, label.updated_at]
-            );
+            store.setRow('labels', label.id, {
+              name: label.name,
+              color: label.color,
+              created_at: label.created_at,
+              updated_at: label.updated_at,
+              deleted_at: null,
+              remote_id: null,
+              sync_status: 'pending',
+              last_synced_at: null,
+            });
           }
         } catch (error) {
           result.errors.push(`Error importing label ${label.id}: ${error}`);
@@ -156,17 +159,16 @@ export async function importData(
     if (data.noteLabels && data.noteLabels.length > 0) {
       for (const noteLabel of data.noteLabels) {
         try {
-          const existing = db.exec(
-            `SELECT note_id FROM note_labels WHERE note_id = ? AND label_id = ?`,
-            [noteLabel.note_id, noteLabel.label_id]
-          );
+          // Use a composite key for note_labels
+          const id = `${noteLabel.note_id}_${noteLabel.label_id}`;
+          const existing = store.getRow('note_labels', id);
 
-          if (existing.length === 0 || existing[0].values.length === 0) {
-            db.run(
-              `INSERT INTO note_labels (note_id, label_id, created_at)
-              VALUES (?, ?, ?)`,
-              [noteLabel.note_id, noteLabel.label_id, noteLabel.created_at]
-            );
+          if (!existing || Object.keys(existing).length === 0) {
+            store.setRow('note_labels', id, {
+              note_id: noteLabel.note_id,
+              label_id: noteLabel.label_id,
+              created_at: noteLabel.created_at,
+            });
           }
         } catch (error) {
           result.errors.push(`Error importing note-label ${noteLabel.note_id}-${noteLabel.label_id}: ${error}`);
@@ -174,7 +176,6 @@ export async function importData(
       }
     }
 
-    await persistDatabase();
     result.success = result.errors.length === 0;
   } catch (error) {
     result.errors.push(`General import error: ${error}`);

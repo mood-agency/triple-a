@@ -119,8 +119,10 @@ const CustomBulletList = BulletList.extend({
   },
 });
 
-// Custom Image extension with React NodeView for controls
+// Custom Image extension with React NodeView for controls and drag support
 const CustomImage = Image.extend({
+  draggable: true,
+
   addNodeView() {
     return ReactNodeViewRenderer(TiptapImageView);
   },
@@ -262,7 +264,7 @@ export const EditableDescription = forwardRef<EditableDescriptionHandle, Editabl
           if (!items) return false;
 
           // Security limits
-          const MAX_IMAGE_SIZE_MB = 5;
+          const MAX_IMAGE_SIZE_MB = Number(import.meta.env.VITE_MAX_IMAGE_SIZE_MB) || 5;
           const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
           const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 
@@ -313,6 +315,81 @@ export const EditableDescription = forwardRef<EditableDescriptionHandle, Editabl
                 };
                 reader.readAsDataURL(file);
               }
+              return true;
+            }
+          }
+          return false;
+        },
+        handleDrop: (view, event, _slice, moved) => {
+          // Don't handle if it's an internal move (reordering within editor)
+          if (moved) return false;
+
+          const files = event.dataTransfer?.files;
+          if (!files || files.length === 0) return false;
+
+          // Security limits
+          const MAX_IMAGE_SIZE_MB = Number(import.meta.env.VITE_MAX_IMAGE_SIZE_MB) || 5;
+          const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
+          const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+
+          for (const file of files) {
+            if (file.type.startsWith('image/')) {
+              event.preventDefault();
+
+              // Validate MIME type
+              if (!ALLOWED_TYPES.includes(file.type)) {
+                const format = file.type.split('/')[1]?.toUpperCase() || 'unknown';
+                toast.error(i18n.t('toast.imageUnsupportedFormat'), {
+                  description: i18n.t('toast.imageUnsupportedFormatDescription', { format }),
+                });
+                return true;
+              }
+
+              // Validate file size
+              if (file.size > MAX_IMAGE_SIZE_BYTES) {
+                const fileSize = (file.size / 1024 / 1024).toFixed(1);
+                toast.error(i18n.t('toast.imageTooLarge'), {
+                  description: i18n.t('toast.imageTooLargeDescription', {
+                    maxSize: MAX_IMAGE_SIZE_MB,
+                    fileSize
+                  }),
+                });
+                return true;
+              }
+
+              const reader = new FileReader();
+              reader.onload = (readerEvent) => {
+                const src = readerEvent.target?.result as string;
+
+                // Validate data URL format
+                if (!src.startsWith('data:image/')) {
+                  toast.error(i18n.t('toast.imageInvalid'), {
+                    description: i18n.t('toast.imageInvalidDescription'),
+                  });
+                  return;
+                }
+
+                // Get the drop position
+                const coordinates = view.posAtCoords({
+                  left: event.clientX,
+                  top: event.clientY,
+                });
+
+                if (coordinates) {
+                  const { tr } = view.state;
+                  const imageNode = view.state.schema.nodes.image.create({ src });
+                  tr.insert(coordinates.pos, imageNode);
+                  view.dispatch(tr);
+                } else {
+                  // Fallback: insert at cursor position
+                  view.dispatch(
+                    view.state.tr.replaceSelectionWith(
+                      view.state.schema.nodes.image.create({ src })
+                    )
+                  );
+                }
+              };
+              reader.readAsDataURL(file);
               return true;
             }
           }

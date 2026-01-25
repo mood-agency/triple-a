@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useOutletContext } from 'react-router-dom';
 import { useContacts } from '@/hooks/useContacts';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useTinyBase } from '@/contexts/TinyBaseContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,8 +44,8 @@ import { toast } from 'sonner';
 import { useSettings } from '@/hooks/useSettings';
 import type { Contact, ContactInput } from '@/types/contact';
 
-const BEEPER_API_URL = 'http://localhost:23373';
-const BEEPER_TIMEOUT_MS = 10000; // 10 seconds timeout
+const BEEPER_API_URL = import.meta.env.VITE_BEEPER_API_URL || 'http://localhost:23373';
+const BEEPER_TIMEOUT_MS = Number(import.meta.env.VITE_BEEPER_TIMEOUT_MS) || 10000;
 
 // Validates international phone format: +[country code][number]
 function isValidInternationalPhone(phone: string): boolean {
@@ -73,7 +73,7 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
 export function Contacts() {
   const { t } = useTranslation();
   const { sidebarTrigger } = useOutletContext<OutletContext>();
-  const { isReady } = useDatabase();
+  const { isReady } = useTinyBase();
   const { contacts, loading, createContact, updateContact, deleteContact } = useContacts();
   const { settings } = useSettings();
 

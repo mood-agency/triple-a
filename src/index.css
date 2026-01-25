@@ -464,6 +464,11 @@ body {
   display: inline-block;
   max-width: 100%;
   margin: 0.5rem 0;
+  cursor: grab;
+}
+
+.tiptap-image-wrapper:active {
+  cursor: grabbing;
 }
 
 .tiptap-image-wrapper img {
@@ -471,7 +476,7 @@ body {
   height: auto;
   border-radius: 0.375rem;
   display: block;
-  cursor: pointer;
+  pointer-events: none;
 }
 
 .tiptap-image-wrapper:hover img {

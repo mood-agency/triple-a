@@ -6,8 +6,8 @@ import { useSettings } from '@/hooks/useSettings';
 import { createSupabaseSync, SupabaseDataSync } from '@/store/persisters/supabaseSync';
 import { supabase } from '@/lib/supabase';
 
-const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
-const SYNC_DEBOUNCE = 2000; // 2 seconds
+const SYNC_INTERVAL = Number(import.meta.env.VITE_SYNC_INTERVAL_MS) || 5 * 60 * 1000;
+const SYNC_DEBOUNCE = Number(import.meta.env.VITE_SYNC_DEBOUNCE_MS) || 2000;
 
 interface SyncState {
   isSyncing: boolean;

@@ -11,8 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { useDatabase } from '@/contexts/DatabaseContext';
-import { persistDatabase } from '@/db';
+import { useTinyBase } from '@/contexts/TinyBaseContext';
 import {
   exportAllData,
   downloadExportFile,
@@ -24,7 +23,7 @@ import type { ImportResult } from '@/types/note';
 
 export function ImportExportDialog() {
   const { t } = useTranslation();
-  const { db } = useDatabase();
+  const { store } = useTinyBase();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -32,10 +31,10 @@ export function ImportExportDialog() {
   const [error, setError] = useState<string | null>(null);
 
   const handleExport = () => {
-    if (!db) return;
+    if (!store) return;
 
     try {
-      const data = exportAllData(db);
+      const data = exportAllData(store);
       downloadExportFile(data);
       setError(null);
       toast.success(t('toast.exportSuccess'));
@@ -52,7 +51,7 @@ export function ImportExportDialog() {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !db) return;
+    if (!file || !store) return;
 
     setImporting(true);
     setError(null);
@@ -67,7 +66,7 @@ export function ImportExportDialog() {
         return;
       }
 
-      const result = await importData(db, json, persistDatabase, { useCurrentDate: true });
+      const result = await importData(store, json, { useCurrentDate: true });
       setImportResult(result);
 
       if (!result.success && result.errors.length > 0) {

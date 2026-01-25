@@ -28,8 +28,7 @@ import { Button } from '@/components/ui/button';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSync } from '@/contexts/SyncContext';
-import { useDatabase } from '@/contexts/DatabaseContext';
-import { persistDatabase } from '@/db';
+import { useTinyBase } from '@/contexts/TinyBaseContext';
 import {
   exportAllData,
   downloadExportFile,
@@ -44,7 +43,7 @@ export function AppSidebar() {
   const { theme, setTheme } = useTheme();
   const { user, signOut } = useAuth();
   const { connectionStatus, syncState, lastSyncedAt, pendingCount, error: syncError, syncNow, pushAllToSupabase, pullAllFromSupabase, isPushingAll, isPullingAll } = useSync();
-  const { db } = useDatabase();
+  const { store } = useTinyBase();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Dialog states
@@ -112,10 +111,10 @@ export function AppSidebar() {
 
   // Import/Export handlers
   const handleExport = () => {
-    if (!db) return;
+    if (!store) return;
 
     try {
-      const data = exportAllData(db);
+      const data = exportAllData(store);
       downloadExportFile(data);
       toast.success(t('toast.exportSuccess'));
     } catch (err) {
@@ -130,7 +129,7 @@ export function AppSidebar() {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !db) return;
+    if (!file || !store) return;
 
     try {
       const json = await readFileAsJson(file);
@@ -140,7 +139,7 @@ export function AppSidebar() {
         return;
       }
 
-      const result = await importData(db, json, persistDatabase, { useCurrentDate: true });
+      const result = await importData(store, json, { useCurrentDate: true });
 
       if (result.success) {
         toast.success(t('importExport.importSuccess', {

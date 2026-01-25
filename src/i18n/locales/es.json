@@ -172,7 +172,8 @@
     "imageCopy": "Copiar imagen",
     "imageCopied": "Imagen copiada al portapapeles",
     "imageCopyFailed": "Error al copiar imagen",
-    "imageDelete": "Eliminar imagen"
+    "imageDelete": "Eliminar imagen",
+    "imageDownload": "Descargar imagen"
   },
   "importExport": {
     "title": "Importar / Exportar",
