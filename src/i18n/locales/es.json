@@ -161,7 +161,18 @@
     "importSuccess": "Datos importados correctamente",
     "importError": "Error al importar datos",
     "permanentDeleteSuccess": "Tarea eliminada permanentemente",
-    "permanentDeleteAllSuccess": "Todas las tareas eliminadas permanentemente"
+    "permanentDeleteAllSuccess": "Todas las tareas eliminadas permanentemente",
+    "imageUnsupportedFormat": "Formato de imagen no soportado",
+    "imageUnsupportedFormatDescription": "Solo se permiten imágenes PNG, JPEG, GIF y WebP. Recibido: {{format}}",
+    "imageTooLarge": "Imagen demasiado grande",
+    "imageTooLargeDescription": "El tamaño máximo es {{maxSize}}MB. Tu imagen es de {{fileSize}}MB. Intenta comprimirla o redimensionarla.",
+    "imageInvalid": "Imagen inválida",
+    "imageInvalidDescription": "El contenido pegado no pudo ser procesado como imagen.",
+    "imageViewFullSize": "Ver tamaño completo",
+    "imageCopy": "Copiar imagen",
+    "imageCopied": "Imagen copiada al portapapeles",
+    "imageCopyFailed": "Error al copiar imagen",
+    "imageDelete": "Eliminar imagen"
   },
   "importExport": {
     "title": "Importar / Exportar",

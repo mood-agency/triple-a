@@ -1,5 +1,5 @@
 import { forwardRef, useImperativeHandle, useEffect, useRef } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, ReactNodeViewRenderer } from '@tiptap/react';
 import { wrappingInputRule } from '@tiptap/core';
 import Document from '@tiptap/extension-document';
 import Paragraph from '@tiptap/extension-paragraph';
@@ -19,8 +19,12 @@ import Placeholder from '@tiptap/extension-placeholder';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
+import Image from '@tiptap/extension-image';
 import { common, createLowlight } from 'lowlight';
 import { Markdown } from 'tiptap-markdown';
+import { toast } from 'sonner';
+import i18n from '@/i18n';
+import { TiptapImageView } from './TiptapImageView';
 
 // Register common languages (includes json, javascript, typescript, bash, css, html, python, sql, etc.)
 const lowlight = createLowlight(common);
@@ -112,6 +116,13 @@ const CustomBulletList = BulletList.extend({
         type: this.type,
       }),
     ];
+  },
+});
+
+// Custom Image extension with React NodeView for controls
+const CustomImage = Image.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(TiptapImageView);
   },
 });
 
@@ -215,6 +226,10 @@ export const EditableDescription = forwardRef<EditableDescriptionHandle, Editabl
           tightLists: true,
           bulletListMarker: '-',
         }),
+        CustomImage.configure({
+          inline: true,
+          allowBase64: true,
+        }),
       ],
       content: '',
       editorProps: {
@@ -240,6 +255,67 @@ export const EditableDescription = forwardRef<EditableDescriptionHandle, Editabl
         handleTextInput: (_view, _from, _to, _text) => {
           // Allow all text input to pass through to input rules
           // This enables bullet lists (- or *), ordered lists (1.), and task lists (- [ ])
+          return false;
+        },
+        handlePaste: (view, event) => {
+          const items = event.clipboardData?.items;
+          if (!items) return false;
+
+          // Security limits
+          const MAX_IMAGE_SIZE_MB = 5;
+          const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
+          const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+
+          for (const item of items) {
+            if (item.type.startsWith('image/')) {
+              event.preventDefault();
+
+              // Validate MIME type
+              if (!ALLOWED_TYPES.includes(item.type)) {
+                const format = item.type.split('/')[1]?.toUpperCase() || 'unknown';
+                toast.error(i18n.t('toast.imageUnsupportedFormat'), {
+                  description: i18n.t('toast.imageUnsupportedFormatDescription', { format }),
+                });
+                return true;
+              }
+
+              const file = item.getAsFile();
+              if (file) {
+                // Validate file size
+                if (file.size > MAX_IMAGE_SIZE_BYTES) {
+                  const fileSize = (file.size / 1024 / 1024).toFixed(1);
+                  toast.error(i18n.t('toast.imageTooLarge'), {
+                    description: i18n.t('toast.imageTooLargeDescription', {
+                      maxSize: MAX_IMAGE_SIZE_MB,
+                      fileSize
+                    }),
+                  });
+                  return true;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (readerEvent) => {
+                  const src = readerEvent.target?.result as string;
+
+                  // Validate data URL format
+                  if (!src.startsWith('data:image/')) {
+                    toast.error(i18n.t('toast.imageInvalid'), {
+                      description: i18n.t('toast.imageInvalidDescription'),
+                    });
+                    return;
+                  }
+
+                  view.dispatch(
+                    view.state.tr.replaceSelectionWith(
+                      view.state.schema.nodes.image.create({ src })
+                    )
+                  );
+                };
+                reader.readAsDataURL(file);
+              }
+              return true;
+            }
+          }
           return false;
         },
       },

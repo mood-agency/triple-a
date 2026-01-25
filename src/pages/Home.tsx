@@ -53,23 +53,26 @@ export function Home() {
 
   const [selectedDate, setSelectedDateState] = useState<Date>(getInitialSelectedDate);
 
-  // Update URL when selected date changes
+  // Update URL when selected date changes (only in calendar view)
   const setSelectedDate = useCallback((newDate: Date | undefined) => {
     const dateToSet = newDate ?? new Date();
     setSelectedDateState(dateToSet);
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
-      // Use formatLocalDate to avoid timezone issues
-      const dateStr = formatLocalDate(dateToSet);
-      const today = formatLocalDate(new Date());
-      if (dateStr !== today) {
-        newParams.set('date', dateStr);
-      } else {
-        newParams.delete('date');
-      }
-      return newParams;
-    }, { replace: true });
-  }, [setSearchParams]);
+    // Only update URL date param when in calendar view
+    if (viewMode === 'calendar') {
+      setSearchParams(prev => {
+        const newParams = new URLSearchParams(prev);
+        // Use formatLocalDate to avoid timezone issues
+        const dateStr = formatLocalDate(dateToSet);
+        const today = formatLocalDate(new Date());
+        if (dateStr !== today) {
+          newParams.set('date', dateStr);
+        } else {
+          newParams.delete('date');
+        }
+        return newParams;
+      }, { replace: true });
+    }
+  }, [setSearchParams, viewMode]);
 
   // Initialize filters from URL params
   const getInitialLabelFilter = useCallback(() => {
@@ -107,10 +110,10 @@ export function Home() {
 
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev);
-      if (newViewMode !== 'list') {
-        newParams.set('view', newViewMode);
-      } else {
-        newParams.delete('view');
+      newParams.set('view', newViewMode);
+      if (newViewMode === 'list') {
+        // Clear date param when switching to list view (date is only for calendar)
+        newParams.delete('date');
       }
       // Also clear category param if switching to calendar with notes filter
       if (newViewMode === 'calendar' && categoryFilter === 'notes') {
@@ -159,9 +162,15 @@ export function Home() {
       } else {
         newParams.delete('note');
       }
+      // Ensure view mode is preserved (use current state, not prev params)
+      newParams.set('view', viewMode);
+      // Clear date param in list view (date is only for calendar)
+      if (viewMode === 'list') {
+        newParams.delete('date');
+      }
       return newParams;
     }, { replace: true });
-  }, [setSearchParams]);
+  }, [setSearchParams, viewMode]);
 
   // Update URL when label filter changes
   const handleLabelFilterChange = useCallback((newLabels: string[]) => {

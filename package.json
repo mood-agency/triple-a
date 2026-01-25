@@ -52,6 +52,7 @@
     "@tiptap/extension-document": "^3.16.0",
     "@tiptap/extension-hard-break": "^3.16.0",
     "@tiptap/extension-history": "^3.16.0",
+    "@tiptap/extension-image": "^3.17.1",
     "@tiptap/extension-italic": "^3.16.0",
     "@tiptap/extension-link": "^3.16.0",
     "@tiptap/extension-list-item": "^3.16.0",
