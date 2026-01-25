@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useOutletContext } from 'react-router-dom';
 import { useTinyBase } from '@/contexts/TinyBaseContext';
 import { useAnalytics, type DateRange } from '@/hooks/useAnalytics';
 import { Header } from '@/components/Header';
@@ -13,6 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+
+interface OutletContext {
+  sidebarTrigger: React.ReactNode;
+}
 
 type KPIVariant = 'default' | 'success' | 'warning' | 'danger';
 
@@ -42,6 +47,7 @@ function getPostponementVariant(avg: number): KPIVariant {
 
 export function Analytics() {
   const { t } = useTranslation();
+  const { sidebarTrigger } = useOutletContext<OutletContext>();
   const { isReady } = useTinyBase();
   const [dateRange, setDateRange] = useState<DateRange>('7d');
   const { kpis, trend, problems, loading } = useAnalytics(dateRange);
@@ -55,11 +61,12 @@ export function Analytics() {
   }
 
   return (
-    <div className="h-screen flex flex-col py-8 px-4">
-      <div className="w-full px-4 flex flex-col flex-1 min-h-0">
-        <Header />
+    <>
+      <Header>
+        {sidebarTrigger}
+      </Header>
 
-        <main className="flex-1 overflow-auto min-h-0">
+      <main className="flex-1 overflow-auto min-h-0">
           <div className="mx-auto max-w-6xl space-y-6 pb-8">
             {/* Header with title and date range selector */}
             <div className="flex items-center justify-between">
@@ -129,8 +136,7 @@ export function Analytics() {
               </>
             )}
           </div>
-        </main>
-      </div>
-    </div>
+      </main>
+    </>
   );
 }

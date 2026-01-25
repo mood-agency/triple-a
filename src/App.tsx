@@ -8,6 +8,7 @@ import { ResetPassword } from './pages/ResetPassword'
 import { Contacts } from './pages/Contacts'
 import { Analytics } from './pages/Analytics'
 import { MobileTaskCreate } from './pages/MobileTaskCreate'
+import { MainLayout } from './components/MainLayout'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isConfigured } = useAuth()
@@ -39,38 +40,6 @@ function App() {
       <Route path="/auth" element={<Auth />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Home />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/about"
-        element={
-          <ProtectedRoute>
-            <About />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/contacts"
-        element={
-          <ProtectedRoute>
-            <Contacts />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/analytics"
-        element={
-          <ProtectedRoute>
-            <Analytics />
-          </ProtectedRoute>
-        }
-      />
-      <Route
         path="/mobile/create"
         element={
           <ProtectedRoute>
@@ -78,6 +47,19 @@ function App() {
           </ProtectedRoute>
         }
       />
+      {/* Routes with shared sidebar layout */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <MainLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/contacts" element={<Contacts />} />
+        <Route path="/analytics" element={<Analytics />} />
+      </Route>
     </Routes>
   )
 }

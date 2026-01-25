@@ -1,6 +1,5 @@
 import { useMemo, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { format } from 'date-fns';
 import { Plus } from 'lucide-react';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
@@ -45,12 +44,21 @@ interface TimelineViewProps {
   hasActiveFilters: boolean;
   renderNoResultsMessage: (completedCount: number) => string;
   hideEmptyHours?: boolean;
+  sortByCategory?: boolean;
 }
 
 const EMPTY_LABELS: Label[] = [];
 const DEFAULT_START_HOUR = 8;
 const DEFAULT_END_HOUR = 20;
 const HOUR_HEIGHT = 60;
+
+// Category order for sorting (todo first, then followup, then meeting)
+const categoryOrder: Record<string, number> = {
+  todo: 0,
+  followup: 1,
+  meeting: 2,
+  notes: 3,
+};
 
 export function TimelineView({
   notes,
@@ -90,6 +98,7 @@ export function TimelineView({
   hasActiveFilters,
   renderNoResultsMessage,
   hideEmptyHours = true,
+  sortByCategory = false,
 }: TimelineViewProps) {
   const { t } = useTranslation();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -106,6 +115,20 @@ export function TimelineView({
     }
   }, [taskStatusFilter, notes, completedNotes, deletedNotes]);
 
+  // Sort function for category ordering
+  const sortNotesByCategory = (notes: Note[]): Note[] => {
+    if (!sortByCategory) return notes;
+    return [...notes].sort((a, b) => {
+      // Pinned notes first
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      // Then by category
+      const aOrder = categoryOrder[a.category] ?? 99;
+      const bOrder = categoryOrder[b.category] ?? 99;
+      return aOrder - bOrder;
+    });
+  };
+
   // Separate notes with time vs all-day notes
   const { allDayNotes, timedNotes } = useMemo(() => {
     const allDay: Note[] = [];
@@ -119,10 +142,13 @@ export function TimelineView({
       }
     }
 
-    return { allDayNotes: allDay, timedNotes: timed };
-  }, [currentNotes]);
+    return {
+      allDayNotes: sortNotesByCategory(allDay),
+      timedNotes: timed
+    };
+  }, [currentNotes, sortByCategory]);
 
-  // Group timed notes by hour
+  // Group timed notes by hour (with category sorting applied per hour)
   const notesByHour = useMemo(() => {
     const map = new Map<number, Note[]>();
 
@@ -133,8 +159,15 @@ export function TimelineView({
       map.set(hour, [...existing, note]);
     }
 
+    // Apply category sorting within each hour
+    if (sortByCategory) {
+      for (const [hour, notes] of map.entries()) {
+        map.set(hour, sortNotesByCategory(notes));
+      }
+    }
+
     return map;
-  }, [timedNotes]);
+  }, [timedNotes, sortByCategory]);
 
   // Calculate visible hour range
   const { startHour, endHour } = useMemo(() => {

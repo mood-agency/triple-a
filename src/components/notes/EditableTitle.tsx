@@ -29,6 +29,7 @@ export function EditableTitle({
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(content);
   const inputRef = useRef<HTMLInputElement>(null);
+  const clickXRef = useRef<number | null>(null);
 
   // Sync editedTitle when note changes
   useEffect(() => {
@@ -40,9 +41,48 @@ export function EditableTitle({
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
-      inputRef.current.select();
     }
   }, [isEditing]);
+
+  const handleTitleClick = (e: React.MouseEvent<HTMLHeadingElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    clickXRef.current = e.clientX - rect.left;
+    setIsEditing(true);
+  };
+
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (clickXRef.current !== null) {
+      const clickX = clickXRef.current;
+      clickXRef.current = null;
+      const input = e.target as HTMLInputElement;
+      const text = input.value;
+
+      if (text.length === 0 || clickX <= 0) {
+        input.setSelectionRange(0, 0);
+        return;
+      }
+
+      // Create canvas with input's font to measure text
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const style = window.getComputedStyle(input);
+        ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+
+        // Find the position where click occurred
+        let pos = text.length;
+        for (let i = 1; i <= text.length; i++) {
+          const width = ctx.measureText(text.substring(0, i)).width;
+          if (width >= clickX) {
+            const prevWidth = ctx.measureText(text.substring(0, i - 1)).width;
+            pos = (clickX - prevWidth) <= (width - clickX) ? i - 1 : i;
+            break;
+          }
+        }
+        input.setSelectionRange(pos, pos);
+      }
+    }
+  };
 
   const handleSave = () => {
     if (editedTitle.trim() && editedTitle !== content) {
@@ -79,7 +119,7 @@ export function EditableTitle({
           <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>D</Kbd></span>
         </TooltipContent>
       </Tooltip>
-      <div className="flex items-start gap-1">
+      <div className="flex items-start gap-1 flex-1 min-w-0">
         {isEditing ? (
           <input
             ref={inputRef}
@@ -88,12 +128,13 @@ export function EditableTitle({
             onChange={(e) => setEditedTitle(e.target.value)}
             onBlur={handleSave}
             onKeyDown={handleKeyDown}
+            onFocus={handleInputFocus}
             placeholder={t('newTaskPlaceholder')}
-            className={`text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-muted-foreground/50 ${completed ? 'line-through text-muted-foreground' : ''}`}
+            className={`w-full text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-muted-foreground/50 ${completed ? 'line-through text-muted-foreground' : ''}`}
           />
         ) : (
           <h1
-            onClick={() => setIsEditing(true)}
+            onClick={handleTitleClick}
             className={`text-2xl font-semibold cursor-text ${completed ? 'line-through text-muted-foreground' : ''} ${!(titleValue ?? content) ? 'text-muted-foreground/50' : ''}`}
           >
             {(titleValue ?? content) || t('newTaskPlaceholder')}

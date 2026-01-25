@@ -117,6 +117,9 @@ export function useLabelsStore() {
         sync_status: 'pending',
       });
 
+      // Bump version to invalidate caches that depend on label properties
+      setNoteLabelVersion((v) => v + 1);
+
       toast.success(t('toast.labelUpdated'));
       return { id, name, color, created_at: '', updated_at: timestamp };
     },

@@ -112,6 +112,7 @@
   "deleteNote": "Eliminar nota",
   "noNotes": "No hay notas para este día",
   "noNotesWithFilters": "No se encontraron tareas con",
+  "filterCategoryPrefix": "Categoría:",
   "onlyCompletedTasks": "Se encontraron {{count}} tareas ya completadas",
   "onlyCompletedTasksSingular": "Se encontró 1 tarea ya completada",
   "confirmDelete": "¿Estás seguro de que quieres eliminar esta nota?",
@@ -172,6 +173,7 @@
     "importSuccess": "Se importaron {{notes}} notas y {{history}} registros de historial"
   },
   "labels": "Etiquetas",
+  "manageLabels": "Administrar etiquetas",
   "applied": "Aplicadas",
   "available": "Disponibles",
   "createLabel": "Crear etiqueta",
@@ -188,6 +190,8 @@
   "noCategoriesFound": "No se encontraron categorías",
   "editLabel": "Editar etiqueta",
   "editLabelDescription": "Modifica el nombre y color de la etiqueta",
+  "deleteLabel": "Eliminar etiqueta",
+  "confirmDeleteLabel": "¿Estás seguro de que quieres eliminar esta etiqueta? Se eliminará de todas las tareas.",
   "pin": "Fijar",
   "unpin": "Desfijar",
   "commandPalettePlaceholder": "Buscar etiquetas y categorías...",
@@ -230,6 +234,7 @@
   "fixedTask": "Tarea Fija",
   "sortByDeadline": "Ordenar por fecha límite",
   "sortByAssignee": "Ordenar por responsable",
+  "sortByCategory": "Ordenar por categoría",
   "overdue": "Vencidas",
   "showOverdueOnly": "Mostrar solo tareas vencidas",
   "dateRange": {
