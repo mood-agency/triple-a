@@ -290,7 +290,7 @@ export function TimelineView({
         className="flex-1 overflow-y-auto px-1"
       >
         {timedNotes.length > 0 || allDayNotes.length === 0 ? (
-          <div className="grid grid-cols-[45px_1fr] gap-0">
+          <div className="space-y-0">
             {hours.map((hour) => {
               const notesForHour = notesByHour.get(hour) || [];
               const hasNotes = notesForHour.length > 0;
@@ -301,24 +301,22 @@ export function TimelineView({
               }
 
               return (
-                <div key={hour} className="contents">
+                <div key={hour}>
                   {/* Hour label */}
-                  <div
-                    className="text-xs text-muted-foreground/60 text-right pr-2 pt-2 h-6 border-t border-border/30"
-                  >
+                  <div className="text-xs text-muted-foreground/60 pt-2 pb-1 border-t border-border/30">
                     {String(hour).padStart(2, '0')}:00
                   </div>
 
                   {/* Time slot */}
                   <div
-                    className={`relative border-t border-border/30 ${
+                    className={`relative ${
                       !hasNotes ? 'hover:bg-accent/20 cursor-pointer group' : ''
                     }`}
-                    style={{ minHeight: `${HOUR_HEIGHT}px` }}
+                    style={{ minHeight: hasNotes ? 'auto' : `${HOUR_HEIGHT - 24}px` }}
                     onClick={() => !hasNotes && handleHourClick(hour)}
                   >
                     {hasNotes ? (
-                      <div className="space-y-0 py-1">
+                      <div className="space-y-0">
                         {notesForHour.map((note) => renderNoteRow(note, isDeleted))}
                       </div>
                     ) : (
