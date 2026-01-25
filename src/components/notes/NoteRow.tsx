@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, memo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import {
   Trash2,
@@ -233,41 +234,87 @@ function NoteRow({
     setIsEditingContent(true);
   };
 
+  // Save content with hashtag parsing - returns the cleaned content
+  const saveContentWithHashtagParsing = (): string | null => {
+    if (!contentValue.trim() || contentValue === note.content) {
+      return null;
+    }
+
+    const trimmedValue = contentValue.trim();
+
+    // Parse hashtags from content
+    const parseResult = parseHashtags(trimmedValue, {
+      labels: allLabels,
+      contacts: contacts,
+    });
+
+    // If no hashtags were parsed, just save normally
+    if (parseResult.parsedHashtags.length === 0) {
+      setContentValue(trimmedValue);
+      onEdit(note.id, trimmedValue, note.category, note.description);
+      return trimmedValue;
+    }
+
+    // Determine final category (hashtag category takes precedence)
+    const finalCategory = parseResult.category || note.category;
+
+    // Update assignee if a contact hashtag was found
+    if (parseResult.assigneeId && parseResult.assigneeId !== note.assignee_id) {
+      onUpdateAssignee?.(note.id, parseResult.assigneeId);
+    }
+
+    // Add matched labels
+    for (const labelId of parseResult.labelIds) {
+      onAddLabel?.(note.id, labelId);
+    }
+
+    // Create and add new labels
+    for (const labelName of parseResult.newLabelNames) {
+      onCreateLabelAndAdd?.(note.id, labelName);
+    }
+
+    // Use cleaned content (hashtags removed)
+    setContentValue(parseResult.cleanedContent);
+    onEdit(note.id, parseResult.cleanedContent, finalCategory, note.description);
+
+    // Build toast message with details of what was applied
+    const details: string[] = [];
+    for (const parsed of parseResult.parsedHashtags) {
+      switch (parsed.type) {
+        case 'category':
+          details.push(t('toast.hashtagCategory', { name: parsed.tag }));
+          break;
+        case 'contact': {
+          const contact = contacts.find(c => c.id === parsed.matchedId);
+          const contactName = contact ? `${contact.name} ${contact.lastname}`.trim() : parsed.tag;
+          details.push(t('toast.hashtagContact', { name: contactName }));
+          break;
+        }
+        case 'label': {
+          const label = allLabels.find(l => l.id === parsed.matchedId);
+          details.push(t('toast.hashtagLabel', { name: label?.name || parsed.tag }));
+          break;
+        }
+        case 'new_label':
+          details.push(t('toast.hashtagNewLabel', { name: parsed.tag }));
+          break;
+      }
+    }
+
+    if (details.length > 0) {
+      toast.success(t('toast.hashtagsParsed', { details: details.join(', ') }));
+    }
+
+    return parseResult.cleanedContent;
+  };
+
   const handleContentBlur = () => {
     // Don't exit edit mode if command palette is open (focus will be restored)
     if (isCommandPaletteOpen) {
       return;
     }
     if (contentValue.trim() && contentValue !== note.content) {
-      const trimmedValue = contentValue.trim();
-
-      // Parse hashtags from content
-      const parseResult = parseHashtags(trimmedValue, {
-        labels: allLabels,
-        contacts: contacts,
-      });
-
-      // Determine final category (hashtag category takes precedence)
-      const finalCategory = parseResult.category || note.category;
-
-      // Update assignee if a contact hashtag was found
-      if (parseResult.assigneeId && parseResult.assigneeId !== note.assignee_id) {
-        onUpdateAssignee?.(note.id, parseResult.assigneeId);
-      }
-
-      // Add matched labels
-      for (const labelId of parseResult.labelIds) {
-        onAddLabel?.(note.id, labelId);
-      }
-
-      // Create and add new labels
-      for (const labelName of parseResult.newLabelNames) {
-        onCreateLabelAndAdd?.(note.id, labelName);
-      }
-
-      // Use cleaned content (hashtags removed)
-      setContentValue(parseResult.cleanedContent);
-      onEdit(note.id, parseResult.cleanedContent, finalCategory, note.description);
+      saveContentWithHashtagParsing();
     } else if (!contentValue.trim()) {
       setContentValue(note.content);
     }
@@ -279,9 +326,9 @@ function NoteRow({
     if (e.key === 'd' && e.ctrlKey && note.category !== 'notes' && note.category !== 'meeting') {
       e.preventDefault();
       e.stopPropagation();
-      // Save current content first before toggling
+      // Save current content with hashtag parsing before toggling
       if (contentValue.trim() && contentValue !== note.content) {
-        onEdit(note.id, contentValue.trim(), note.category, note.description);
+        saveContentWithHashtagParsing();
       }
       onToggleCompleted(note.id, !note.completed);
       return;
@@ -304,9 +351,9 @@ function NoteRow({
       setShowAssigneeDropdown(true);
     } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      // Save current content first
+      // Save current content with hashtag parsing
       if (contentValue.trim() && contentValue !== note.content) {
-        onEdit(note.id, contentValue.trim(), note.category, note.description);
+        saveContentWithHashtagParsing();
       }
       setIsEditingContent(false);
       // Create new note after this one (but not for completed or deleted tasks)
@@ -352,7 +399,7 @@ function NoteRow({
         }}
         style={style}
         onClick={() => onSelect(note.id)}
-        className={`group grid grid-cols-[auto_1fr_auto] items-center h-6 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' && note.category !== 'meeting' ? 'opacity-50' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
+        className={`group grid ${compactView ? 'grid-cols-[auto_1fr_auto]' : 'grid-cols-[auto_minmax(0,1fr)_auto_auto_auto_auto]'} items-center h-6 hover:bg-muted/30 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' && note.category !== 'meeting' ? 'opacity-50' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
       >
         {/* Category icon column - hidden in compact view */}
         {!compactView ? (
@@ -635,21 +682,28 @@ function NoteRow({
                 {contentValue || t('newTaskPlaceholder')}
               </span>
             )}
-            {!compactView && labels.length > 0 && (
-              <div className="flex gap-1 shrink-0">
-                {labels.map((label) => (
-                  <span
-                    key={label.id}
-                    className="px-1.5 py-0.5 text-[10px] rounded-full text-white leading-none"
-                    style={{ backgroundColor: label.color }}
-                  >
-                    {label.name}
-                  </span>
-                ))}
-              </div>
-            )}
-            {!compactView && note.deadline && !hideDeadline && (
-              <div className={`flex items-center gap-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded ${
+        </div>
+
+        {/* Labels column */}
+        {!compactView && (
+          <div className="flex gap-1 shrink-0 justify-end px-1">
+            {labels.map((label) => (
+              <span
+                key={label.id}
+                className="px-1.5 py-0.5 text-[10px] rounded-full text-white leading-none"
+                style={{ backgroundColor: label.color }}
+              >
+                {label.name}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Deadline column */}
+        {!compactView && (
+          <div className="shrink-0 min-w-[120px] flex justify-end px-1">
+            {note.deadline && !hideDeadline && (
+              <div className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${
                 parseLocalDate(note.deadline) < new Date() && !note.completed
                   ? 'text-destructive bg-destructive/10'
                   : 'text-muted-foreground bg-muted'
@@ -658,13 +712,20 @@ function NoteRow({
                 <span>{format(parseLocalDate(note.deadline), 'dd/MM/yyyy HH:mm')}</span>
               </div>
             )}
-            {!compactView && assigneeName && (
-              <div className="flex items-center gap-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded border border-input bg-background text-foreground">
+          </div>
+        )}
+
+        {/* Assignee column */}
+        {!compactView && (
+          <div className="shrink-0 min-w-[100px] flex justify-end px-1">
+            {assigneeName && (
+              <div className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-input bg-background text-foreground">
                 <User className="h-3 w-3" />
                 <span>{assigneeName}</span>
               </div>
             )}
-        </div>
+          </div>
+        )}
 
         {/* Actions column */}
         <div className="flex items-center justify-center gap-0.5 select-none mr-1">

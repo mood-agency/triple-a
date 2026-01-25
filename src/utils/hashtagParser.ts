@@ -1,3 +1,4 @@
+import Fuse, { type IFuseOptions } from 'fuse.js';
 import type { Label, NoteCategory } from '@/types/note';
 import type { Contact } from '@/types/contact';
 
@@ -7,91 +8,13 @@ const HASHTAG_REGEX = /(?:^|\s)#([\p{L}\p{N}_-]+)/gu;
 
 const VALID_CATEGORIES: NoteCategory[] = ['todo', 'followup', 'notes', 'meeting'];
 
-// Minimum score threshold for fuzzy matching (0-1)
-const FUZZY_THRESHOLD = 0.6;
-
-interface FuzzyMatch<T> {
-  item: T;
-  score: number;
-}
-
-/**
- * Calculates a fuzzy match score between a query and a target string.
- * Returns a score from 0 to 1, where 1 is an exact match.
- *
- * Scoring criteria:
- * - Exact match: 1.0
- * - Prefix match: 0.9 + bonus for length ratio
- * - Subsequence match: based on character positions
- */
-function fuzzyScore(query: string, target: string): number {
-  const q = query.toLowerCase();
-  const t = target.toLowerCase();
-
-  // Exact match
-  if (q === t) return 1.0;
-
-  // Query longer than target - no match possible
-  if (q.length > t.length) return 0;
-
-  // Prefix match (e.g., "lili" matches "liliana")
-  if (t.startsWith(q)) {
-    // Score based on how much of the target is covered
-    return 0.9 + (q.length / t.length) * 0.1;
-  }
-
-  // Subsequence match (e.g., "mkt" matches "market")
-  // Check if all characters of query appear in order in target
-  let queryIdx = 0;
-  let consecutiveBonus = 0;
-  let lastMatchIdx = -1;
-
-  for (let targetIdx = 0; targetIdx < t.length && queryIdx < q.length; targetIdx++) {
-    if (t[targetIdx] === q[queryIdx]) {
-      // Bonus for consecutive matches
-      if (lastMatchIdx === targetIdx - 1) {
-        consecutiveBonus += 0.1;
-      }
-      // Bonus for matching at word boundaries
-      if (targetIdx === 0 || t[targetIdx - 1] === ' ' || t[targetIdx - 1] === '-' || t[targetIdx - 1] === '_') {
-        consecutiveBonus += 0.05;
-      }
-      lastMatchIdx = targetIdx;
-      queryIdx++;
-    }
-  }
-
-  // All query characters found in order
-  if (queryIdx === q.length) {
-    const baseScore = q.length / t.length; // Coverage ratio
-    return Math.min(0.85, baseScore * 0.7 + consecutiveBonus);
-  }
-
-  return 0;
-}
-
-/**
- * Finds the best fuzzy match from a list of candidates
- */
-function findBestFuzzyMatch<T>(
-  query: string,
-  candidates: T[],
-  getStrings: (item: T) => string[]
-): FuzzyMatch<T> | null {
-  let bestMatch: FuzzyMatch<T> | null = null;
-
-  for (const item of candidates) {
-    const strings = getStrings(item);
-    for (const str of strings) {
-      const score = fuzzyScore(query, str);
-      if (score >= FUZZY_THRESHOLD && (!bestMatch || score > bestMatch.score)) {
-        bestMatch = { item, score };
-      }
-    }
-  }
-
-  return bestMatch;
-}
+// Fuse.js base options
+const FUSE_OPTIONS: IFuseOptions<unknown> = {
+  threshold: 0.4, // 0 = exact match, 1 = match anything
+  distance: 100,
+  minMatchCharLength: 2,
+  includeScore: true,
+};
 
 export interface HashtagParseContext {
   labels: Label[];
@@ -123,12 +46,52 @@ export function extractHashtags(content: string): string[] {
 }
 
 /**
+ * Busca la mejor coincidencia fuzzy para una categoría
+ */
+function findCategoryMatch(query: string): NoteCategory | null {
+  const fuse = new Fuse(VALID_CATEGORIES, {
+    ...FUSE_OPTIONS,
+    threshold: 0.3, // Más estricto para categorías
+  });
+  const results = fuse.search(query);
+  return results.length > 0 ? results[0].item : null;
+}
+
+/**
+ * Busca la mejor coincidencia fuzzy para un contacto
+ */
+function findContactMatch(query: string, contacts: Contact[]): Contact | null {
+  if (contacts.length === 0) return null;
+
+  const fuse = new Fuse(contacts, {
+    ...FUSE_OPTIONS,
+    keys: ['name', 'lastname'],
+  });
+  const results = fuse.search(query);
+  return results.length > 0 ? results[0].item : null;
+}
+
+/**
+ * Busca la mejor coincidencia fuzzy para un label
+ */
+function findLabelMatch(query: string, labels: Label[]): Label | null {
+  if (labels.length === 0) return null;
+
+  const fuse = new Fuse(labels, {
+    ...FUSE_OPTIONS,
+    keys: ['name'],
+  });
+  const results = fuse.search(query);
+  return results.length > 0 ? results[0].item : null;
+}
+
+/**
  * Parsea hashtags del contenido y los resuelve a categorías, contactos y labels
  *
  * Orden de prioridad:
  * 1. Categorías (todo, followup, notes, meeting)
- * 2. Contactos (por nombre o apellido, case-insensitive)
- * 3. Labels existentes (por nombre, case-insensitive)
+ * 2. Contactos (por nombre o apellido, fuzzy match)
+ * 3. Labels existentes (por nombre, fuzzy match)
  * 4. Crear nuevo label si no hay match
  */
 export function parseHashtags(
@@ -164,41 +127,29 @@ export function parseHashtags(
     processedTags.add(normalizedTag);
 
     // 1. Verificar si es una categoría (fuzzy match)
-    const categoryMatch = findBestFuzzyMatch(
-      normalizedTag,
-      VALID_CATEGORIES,
-      (cat) => [cat]
-    );
+    const categoryMatch = findCategoryMatch(normalizedTag);
     if (categoryMatch) {
-      result.category = categoryMatch.item;
+      result.category = categoryMatch;
       result.parsedHashtags.push({ tag, type: 'category' });
       tagsToRemove.add(tag);
       continue;
     }
 
     // 2. Verificar si es un contacto (fuzzy match por nombre o apellido)
-    const contactMatch = findBestFuzzyMatch(
-      normalizedTag,
-      context.contacts,
-      (c) => [c.name, c.lastname, `${c.name} ${c.lastname}`]
-    );
+    const contactMatch = findContactMatch(normalizedTag, context.contacts);
     if (contactMatch && !result.assigneeId) {
-      result.assigneeId = contactMatch.item.id;
-      result.parsedHashtags.push({ tag, type: 'contact', matchedId: contactMatch.item.id });
+      result.assigneeId = contactMatch.id;
+      result.parsedHashtags.push({ tag, type: 'contact', matchedId: contactMatch.id });
       tagsToRemove.add(tag);
       continue;
     }
 
     // 3. Verificar si es un label existente (fuzzy match)
-    const labelMatch = findBestFuzzyMatch(
-      normalizedTag,
-      context.labels,
-      (l) => [l.name]
-    );
+    const labelMatch = findLabelMatch(normalizedTag, context.labels);
     if (labelMatch) {
-      if (!result.labelIds.includes(labelMatch.item.id)) {
-        result.labelIds.push(labelMatch.item.id);
-        result.parsedHashtags.push({ tag, type: 'label', matchedId: labelMatch.item.id });
+      if (!result.labelIds.includes(labelMatch.id)) {
+        result.labelIds.push(labelMatch.id);
+        result.parsedHashtags.push({ tag, type: 'label', matchedId: labelMatch.id });
       }
       tagsToRemove.add(tag);
       continue;
@@ -224,7 +175,6 @@ export function parseHashtags(
  * Elimina los hashtags especificados del contenido
  */
 function removeHashtagsFromContent(content: string, tagsToRemove: Set<string>): string {
-  // Crear un regex que matchee los hashtags específicos
   let cleaned = content;
 
   for (const tag of tagsToRemove) {
