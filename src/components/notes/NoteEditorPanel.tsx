@@ -22,6 +22,7 @@ import { EditableTitle } from '@/components/notes/EditableTitle';
 import type { Note, NoteCategory, Label, NoteHistory } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { parseLocalDate } from '@/utils/dateUtils';
+import { getInitials } from '@/lib/utils';
 
 interface NoteEditorPanelProps {
   note: Note;
@@ -101,11 +102,15 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
 }, ref) {
   const { t, i18n } = useTranslation();
 
-  // Get assignee name
-  const assigneeName = useMemo(() => {
-    if (!note.assignee_id) return null;
+  // Get assignee initials and full name (e.g., "LF" for "Liliana Ferro")
+  const { assigneeName, assigneeFullName } = useMemo(() => {
+    if (!note.assignee_id) return { assigneeName: null, assigneeFullName: null };
     const contact = contacts.find(c => c.id === note.assignee_id);
-    return contact ? `${contact.name} ${contact.lastname}`.trim() : null;
+    if (!contact) return { assigneeName: null, assigneeFullName: null };
+    return {
+      assigneeName: getInitials(contact.name, contact.lastname),
+      assigneeFullName: `${contact.name} ${contact.lastname}`.trim()
+    };
   }, [note.assignee_id, contacts]);
 
   // Ctrl+D to toggle task completion (only for non-notes categories)
@@ -345,9 +350,9 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
           className="h-7 w-7"
           hideIcon
         />
-        {assigneeName && (
+        {assigneeFullName && (
           <span className="px-2 py-0.5 text-xs font-normal rounded-full border border-input bg-background text-foreground leading-none flex items-center gap-1">
-            {assigneeName}
+            {assigneeFullName}
             <button
               type="button"
               onClick={() => onUpdateAssignee(note.id, null)}

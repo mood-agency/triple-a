@@ -45,6 +45,7 @@ import { NoteFilters } from './NoteFilters';
 import { parseLocalDate, startOfDay, endOfDay, getLocalDateKey } from '@/utils/dateUtils';
 import { useContacts } from '@/hooks/useContacts';
 import { useDeletedNotes } from '@/hooks/useDeletedNotes';
+import { getInitials } from '@/lib/utils';
 
 interface NoteListProps {
   notes: Note[];
@@ -176,7 +177,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     for (const note of notesRef.current) {
       if (note.assignee_id) {
         const contact = contacts.find(c => c.id === note.assignee_id);
-        cache.set(note.id, contact ? `${contact.name} ${contact.lastname}`.trim() : null);
+        cache.set(note.id, contact ? getInitials(contact.name, contact.lastname) : null);
       } else {
         cache.set(note.id, null);
       }
@@ -1430,8 +1431,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   };
 
   return (
-    <div ref={containerRef} className="flex flex-col h-full overflow-hidden" tabIndex={0}>
-      <div className="flex gap-2 mb-3 flex-shrink-0">
+    <div ref={containerRef} className="flex flex-col h-full" tabIndex={0}>
+      <div className="flex items-center gap-2 mb-3 flex-shrink-0">
         {/* Sidebar trigger - first position */}
         {sidebarTrigger}
 
