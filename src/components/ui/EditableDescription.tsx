@@ -29,6 +29,7 @@ interface EditableDescriptionProps {
   value: string;
   onChange: (value: string) => void;
   onBlur?: () => void;
+  onFocus?: () => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   placeholder?: string;
   className?: string;
@@ -141,7 +142,7 @@ const CustomCodeBlockLowlight = CodeBlockLowlight.extend({
 
 export const EditableDescription = forwardRef<EditableDescriptionHandle, EditableDescriptionProps>(
   function EditableDescription(
-    { value, onChange, onBlur, onKeyDown, placeholder, className = '' },
+    { value, onChange, onBlur, onFocus, onKeyDown, placeholder, className = '' },
     ref
   ) {
     const lastExternalValueRef = useRef(value);
@@ -249,6 +250,7 @@ export const EditableDescription = forwardRef<EditableDescriptionHandle, Editabl
         onChange(markdown);
       },
       onBlur: () => onBlur?.(),
+      onFocus: () => onFocus?.(),
     });
 
     // Initialize content once editor is ready

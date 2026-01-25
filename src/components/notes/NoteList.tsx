@@ -257,11 +257,11 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   };
   const [sortByDeadline, setSortByDeadline] = useState(false);
   const [sortByAssignee, setSortByAssignee] = useState(false);
-  const [sortByCategory, setSortByCategory] = useState(false);
+  const [sortByCategory, setSortByCategory] = useState(true);
   const [sortConfig, setSortConfig] = useState<{ deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null }>({
     deadline: null,
     assignee: null,
-    category: null,
+    category: 'asc',
   });
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
   const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
@@ -361,8 +361,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     }
     // Filter by overdue status (only show tasks with deadlines that have passed)
     // Uses same logic as the red badge display: deadline < now
+    // Meetings are excluded since they are scheduled events, not tasks with deadlines
     if (showOverdueOnly) {
-      if (!note.deadline) return false;
+      if (!note.deadline || note.category === 'meeting') return false;
       const isOverdue = parseLocalDate(note.deadline) < new Date() && !note.completed;
       if (!isOverdue) return false;
     }
@@ -908,7 +909,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     setFocusTarget('description-start');
   }, []);
 
-  // Track description focus state
+  // Handle description focus
   const handleDescriptionFocus = () => {
     setIsDescriptionFocused(true);
   };
@@ -1431,7 +1432,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   };
 
   return (
-    <div ref={containerRef} className="flex flex-col h-full" tabIndex={0}>
+    <div ref={containerRef} className="flex flex-col h-full outline-none" tabIndex={0}>
       <div className="flex items-center gap-2 mb-3 flex-shrink-0">
         {/* Sidebar trigger - first position */}
         {sidebarTrigger}
@@ -1489,14 +1490,15 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="icon"
               onClick={() => setCompactTaskView(!compactTaskView)}
-              className={`p-1.5 rounded-md transition-colors ${compactTaskView ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+              className={`h-8 w-8 shadow-none ${compactTaskView ? 'bg-accent text-accent-foreground' : ''}`}
               aria-label={t('compactView')}
             >
               <AlignJustify className="h-4 w-4" />
-            </button>
+            </Button>
           </TooltipTrigger>
           <TooltipContent>
             <p>{t('compactViewTooltip')}</p>
@@ -1609,7 +1611,6 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                   onAddLabel={handleAddLabelToNote}
                   onRemoveLabel={handleRemoveLabelFromNote}
                   onCreateLabel={handleCreateLabelClick}
-                  onCreateLabelAndAdd={handleCreateLabelAndAdd}
                   onEditLabel={handleEditLabel}
                   fixedNoteId={fixedNoteId}
                   onToggleFixInSidebar={handleToggleFixInSidebarById}
@@ -1821,6 +1822,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onEdit={onEdit}
               onDescriptionChange={setDescriptionValue}
               onDescriptionBlur={handleDescriptionBlur}
+              onDescriptionFocus={handleDescriptionFocus}
               onDescriptionKeyDown={handleDescriptionKeyDown}
               onTogglePostponeHistory={() => setShowPostponeHistory(!showPostponeHistory)}
               onAddLabel={handleAddLabel}
