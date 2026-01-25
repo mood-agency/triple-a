@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
-import { Calendar, PanelRightClose, PanelRightOpen, List, Pickaxe, Forward, StickyNote, Users as UsersIcon, User, Tag, AlertCircle, AlignJustify, Plus } from 'lucide-react';
+import { Calendar, PanelRightClose, PanelRightOpen, List, Pickaxe, Forward, StickyNote, Users as UsersIcon, User, Tag, AlertCircle, AlignJustify, Plus, ArrowLeft } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -101,6 +102,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const { settings, updateSettings } = useSettings();
   const { contacts } = useContacts();
   const { deletedNotes } = useDeletedNotes();
+  const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<EditableDescriptionHandle>(null);
   const descriptionCaretPositionRef = useRef<number | null>(null);
@@ -268,6 +270,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [showPostponeHistory, setShowPostponeHistory] = useState(false);
   const [deadlinePickerOpen, setDeadlinePickerOpen] = useState(false);
+  const originalDeadlineRef = useRef<string | null>(null);
   const [assigneePickerOpen, setAssigneePickerOpen] = useState(false);
 
   // Fixed note editor state (for right column)
@@ -275,6 +278,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [fixedNoteLabelDropdownOpen, setFixedNoteLabelDropdownOpen] = useState(false);
   const [fixedNoteCategoryDropdownOpen, setFixedNoteCategoryDropdownOpen] = useState(false);
   const [fixedNoteDeadlinePickerOpen, setFixedNoteDeadlinePickerOpen] = useState(false);
+  const fixedNoteOriginalDeadlineRef = useRef<string | null>(null);
   const [fixedNoteAssigneePickerOpen, setFixedNoteAssigneePickerOpen] = useState(false);
   const [fixedNoteDescriptionValue, setFixedNoteDescriptionValue] = useState('');
   const [fixedNoteShowPostponeHistory, setFixedNoteShowPostponeHistory] = useState(false);
@@ -367,6 +371,13 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       if (!note.deadline || note.category === 'meeting') return false;
       const isOverdue = parseLocalDate(note.deadline) < new Date() && !note.completed;
       if (!isOverdue) return false;
+    }
+    // Hide past meetings (meetings from previous days) - but show them when searching
+    // Meetings remain visible all day on their scheduled date, then disappear the next day
+    if (!searchQuery.trim() && note.category === 'meeting' && note.deadline && !note.completed) {
+      const meetingDate = startOfDay(parseLocalDate(note.deadline));
+      const today = startOfDay(new Date());
+      if (meetingDate < today) return false;
     }
     // Filter by date range (filter tasks by their deadline within the range)
     if (dateRangeFilter.from || dateRangeFilter.to) {
@@ -629,19 +640,29 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     }
   };
 
-  // Called when user clicks Save button in the date picker
+  // Called when date picker opens/closes - track original deadline
+  const handleDeadlinePickerOpenChange = (open: boolean) => {
+    if (open && selectedNote) {
+      // Save the original deadline when opening
+      originalDeadlineRef.current = selectedNote.deadline;
+    }
+    setDeadlinePickerOpen(open);
+  };
+
+  // Called when user closes the date picker (via Save button or clicking outside)
   const handleDeadlineSave = (date: Date) => {
     if (!selectedNote) return;
 
-    // If there's an existing deadline that changed, prompt for postpone reason
-    if (selectedNote.deadline) {
-      const existingDate = parseLocalDate(selectedNote.deadline);
+    // If there was an original deadline, prompt for postpone reason
+    if (originalDeadlineRef.current) {
+      const existingDate = parseLocalDate(originalDeadlineRef.current);
       // Only show postpone dialog if the date actually changed
       if (existingDate.getTime() !== date.getTime()) {
         handleOpenPostponeDialog(selectedNote.id, date);
       }
     }
-    // If no existing deadline, the change was already applied via handleDeadlineChange
+    // Clear the ref
+    originalDeadlineRef.current = null;
   };
 
   const handleFixedNoteDeadlineChange = (date: Date | undefined) => {
@@ -656,19 +677,29 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     }
   };
 
-  // Called when user clicks Save button in the fixed note date picker
+  // Called when fixed note date picker opens/closes - track original deadline
+  const handleFixedNoteDeadlinePickerOpenChange = (open: boolean) => {
+    if (open && fixedNote) {
+      // Save the original deadline when opening
+      fixedNoteOriginalDeadlineRef.current = fixedNote.deadline;
+    }
+    setFixedNoteDeadlinePickerOpen(open);
+  };
+
+  // Called when user closes the fixed note date picker (via Save button or clicking outside)
   const handleFixedNoteDeadlineSave = (date: Date) => {
     if (!fixedNote) return;
 
-    // If there's an existing deadline that changed, prompt for postpone reason
-    if (fixedNote.deadline) {
-      const existingDate = parseLocalDate(fixedNote.deadline);
+    // If there was an original deadline, prompt for postpone reason
+    if (fixedNoteOriginalDeadlineRef.current) {
+      const existingDate = parseLocalDate(fixedNoteOriginalDeadlineRef.current);
       // Only show postpone dialog if the date actually changed
       if (existingDate.getTime() !== date.getTime()) {
         handleOpenPostponeDialog(fixedNote.id, date);
       }
     }
-    // If no existing deadline, the change was already applied via handleFixedNoteDeadlineChange
+    // Clear the ref
+    fixedNoteOriginalDeadlineRef.current = null;
   };
 
   // PERFORMANCE: Uses ref to avoid dependency on filteredNotes
@@ -1433,7 +1464,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
   return (
     <div ref={containerRef} className="flex flex-col h-full outline-none" tabIndex={0}>
-      <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+      {/* Toolbar - hide on mobile when editor is shown */}
+      <div className={`flex items-center gap-2 mb-3 flex-shrink-0 ${isMobile && selectedNote ? 'hidden' : ''}`}>
         {/* Sidebar trigger - first position */}
         {sidebarTrigger}
 
@@ -1488,22 +1520,25 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
             </TooltipContent>
           </Tooltip>
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setCompactTaskView(!compactTaskView)}
-              className={`h-8 w-8 shadow-none ${compactTaskView ? 'bg-accent text-accent-foreground' : ''}`}
-              aria-label={t('compactView')}
-            >
-              <AlignJustify className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{t('compactViewTooltip')}</p>
-          </TooltipContent>
-        </Tooltip>
+        {/* Compact view toggle - hide on mobile */}
+        {!isMobile && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setCompactTaskView(!compactTaskView)}
+                className={`h-8 w-8 shadow-none ${compactTaskView ? 'bg-accent text-accent-foreground' : ''}`}
+                aria-label={t('compactView')}
+              >
+                <AlignJustify className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('compactViewTooltip')}</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
         <NoteFilters
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
@@ -1545,8 +1580,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           hasCompletedTasks={completedNotes.length > 0}
           hasDeletedTasks={deletedNotes.length > 0}
         />
-        {/* Sidebar button - only show when a note is fixed to sidebar */}
-        {fixedNoteId && (
+        {/* Sidebar button - only show when a note is fixed to sidebar (hide on mobile) */}
+        {fixedNoteId && !isMobile && (
           <div className="ml-auto">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1572,8 +1607,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         )}
       </div>
       <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
-        {/* NOTE LIST COLUMN WIDTH - adjust w-[30%] to change the note list width */}
-        <div className="w-[30%] shrink-0 flex flex-col overflow-hidden">
+        {/* NOTE LIST COLUMN - full width on mobile, 30% on desktop */}
+        {/* On mobile: hide when note is selected (show editor instead) */}
+        <div className={`${isMobile ? 'w-full' : 'w-[30%]'} ${isMobile && selectedNote ? 'hidden' : ''} shrink-0 flex flex-col overflow-hidden`}>
           {viewMode === 'calendar' ? (
             <div className="flex flex-col h-full overflow-hidden">
               {/* Calendar picker - left aligned */}
@@ -1809,7 +1845,19 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         </div>
 
         {selectedNote && (
-        <div className="flex-1 min-w-0 border-l border-dashed border-muted-foreground/20 pl-4 overflow-hidden flex flex-col">
+        <div className={`${isMobile ? 'w-full' : 'flex-1'} min-w-0 ${isMobile ? '' : 'border-l border-dashed border-muted-foreground/20 pl-4'} overflow-hidden flex flex-col`}>
+            {/* Mobile back button */}
+            {isMobile && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onSelectNote(null)}
+                className="mb-2 self-start -ml-2"
+              >
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                {t('back')}
+              </Button>
+            )}
             <NoteEditorPanel
               ref={descriptionRef}
               note={selectedNote}
@@ -1841,7 +1889,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onDelete={() => handleDeleteWithToast(selectedNote)}
               onLabelDropdownOpenChange={handleLabelDropdownOpenChange}
               onCategoryDropdownOpenChange={handleCategoryDropdownOpenChange}
-              onDeadlinePickerOpenChange={setDeadlinePickerOpen}
+              onDeadlinePickerOpenChange={handleDeadlinePickerOpenChange}
               onAssigneePickerOpenChange={handleAssigneePickerOpenChange}
               onEditHistoryEntry={(entry) => setEditingHistoryEntry(entry)}
               onUpdateHistoryReason={updateHistoryReason}
@@ -1852,7 +1900,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       </div>
         )}
 
-      {showSidebar && (
+      {/* Fixed sidebar - hide on mobile */}
+      {showSidebar && !isMobile && (
       <div className="flex-1 min-w-0 border-l border-dashed border-muted-foreground/20 pl-4 overflow-hidden flex flex-col">
           {fixedNote ? (
             <NoteEditorPanel
@@ -1884,7 +1933,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onDelete={() => handleDeleteWithToast(fixedNote)}
               onLabelDropdownOpenChange={setFixedNoteLabelDropdownOpen}
               onCategoryDropdownOpenChange={setFixedNoteCategoryDropdownOpen}
-              onDeadlinePickerOpenChange={setFixedNoteDeadlinePickerOpen}
+              onDeadlinePickerOpenChange={handleFixedNoteDeadlinePickerOpenChange}
               onAssigneePickerOpenChange={setFixedNoteAssigneePickerOpen}
               onEditHistoryEntry={(entry) => setEditingFixedNoteHistoryEntry(entry)}
               onUpdateHistoryReason={updateFixedNoteHistoryReason}

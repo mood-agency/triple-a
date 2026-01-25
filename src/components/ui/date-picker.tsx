@@ -63,7 +63,29 @@ export function DatePicker({
   })
 
   const open = externalOpen !== undefined ? externalOpen : internalOpen
-  const setOpen = externalOnOpenChange || setInternalOpen
+  const baseSetOpen = externalOnOpenChange || setInternalOpen
+
+  // Track the original date when popover opens (for postpone detection)
+  const originalDateRef = React.useRef<Date | undefined>(undefined)
+
+  // Wrap setOpen to detect when popover closes and trigger onSave if date changed
+  const setOpen = React.useCallback((newOpen: boolean) => {
+    if (newOpen) {
+      // Popover opening - save the original date
+      originalDateRef.current = date
+    } else {
+      // Popover closing - check if date changed and call onSave
+      if (onSave && date && originalDateRef.current) {
+        const originalTime = originalDateRef.current.getTime()
+        const currentTime = date.getTime()
+        if (originalTime !== currentTime) {
+          onSave(date)
+        }
+      }
+      originalDateRef.current = undefined
+    }
+    baseSetOpen(newOpen)
+  }, [baseSetOpen, date, onSave])
 
   // Update isAllDay when date changes externally
   React.useEffect(() => {
@@ -278,9 +300,7 @@ export function DatePicker({
                     size="sm"
                     className="ml-auto"
                     onClick={() => {
-                      if (onSave && date && !isAllDay) {
-                        onSave(date)
-                      }
+                      // onSave is called automatically in setOpen when date changed
                       setOpen(false)
                     }}
                   >

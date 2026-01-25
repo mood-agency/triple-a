@@ -1,16 +1,13 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { es, enUS } from 'date-fns/locale';
 import {
-  ArrowLeft,
   Check,
   Plus,
   Pickaxe,
   Forward,
   StickyNote,
   Users,
-  ChevronLeft,
-  ChevronRight,
   Circle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -41,6 +38,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { WeekStrip } from '@/components/ui/week-strip';
 import { cn } from '@/lib/utils';
 import { useNotes } from '@/hooks/useNotes';
 import { useLabels } from '@/hooks/useLabels';
@@ -56,26 +54,12 @@ const categoryIcons: Record<NoteCategory, React.ElementType> = {
   meeting: Users,
 };
 
-const DAYS_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-const DAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS_ES = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-];
-const MONTHS_EN = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-];
-
 export function MobileTaskCreate() {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
   const isSpanish = i18n.language === 'es';
-  const DAYS = isSpanish ? DAYS_ES : DAYS_EN;
-  const MONTHS = isSpanish ? MONTHS_ES : MONTHS_EN;
+  const locale = isSpanish ? es : enUS;
 
-  // Calendar state
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  // Date selection state
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   // Get ALL notes (no date filter) - we'll filter by deadline client-side like CalendarView does
@@ -96,55 +80,6 @@ export function MobileTaskCreate() {
   const [labelsOpen, setLabelsOpen] = useState(false);
   const [assigneeOpen, setAssigneeOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Calendar logic
-  const calendarDays = useMemo(() => {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startOffset = firstDay.getDay();
-    const daysInMonth = lastDay.getDate();
-
-    const days: (Date | null)[] = [];
-
-    // Add empty slots for days before the first of the month
-    for (let i = 0; i < startOffset; i++) {
-      days.push(null);
-    }
-
-    // Add the days of the month
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push(new Date(year, month, i));
-    }
-
-    return days;
-  }, [currentMonth]);
-
-  const goToPreviousMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
-  };
-
-  const goToNextMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
-  };
-
-  const isToday = (date: Date) => {
-    const today = new Date();
-    return (
-      date.getDate() === today.getDate() &&
-      date.getMonth() === today.getMonth() &&
-      date.getFullYear() === today.getFullYear()
-    );
-  };
-
-  const isSelected = (date: Date) => {
-    return (
-      date.getDate() === selectedDate.getDate() &&
-      date.getMonth() === selectedDate.getMonth() &&
-      date.getFullYear() === selectedDate.getFullYear()
-    );
-  };
 
   // Task creation handlers
   const handleToggleLabel = (label: LabelType) => {
@@ -246,133 +181,87 @@ export function MobileTaskCreate() {
       });
   }, [filteredNotes]);
 
+  // Calculate modifiers for WeekStrip indicators
+  const weekStripModifiers = useMemo(() => {
+    const hasTodo: Date[] = [];
+    const hasMeeting: Date[] = [];
+    const hasFollowup: Date[] = [];
+
+    notes.forEach((note) => {
+      if (!note.deadline || note.completed) return;
+      const deadlineDate = new Date(note.deadline);
+
+      if (note.category === 'todo') {
+        hasTodo.push(deadlineDate);
+      } else if (note.category === 'meeting') {
+        hasMeeting.push(deadlineDate);
+      } else if (note.category === 'followup') {
+        hasFollowup.push(deadlineDate);
+      }
+    });
+
+    return { hasTodo, hasMeeting, hasFollowup };
+  }, [notes]);
+
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center justify-between">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/')} className="shrink-0">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-lg font-semibold">{t('mobile.calendar')}</h1>
-        <div className="w-10" />
-      </header>
-
-      {/* Calendar */}
-      <div className="p-4 border-b">
-        {/* Month Navigation */}
-        <div className="flex items-center justify-between mb-4">
-          <Button variant="ghost" size="icon" onClick={goToPreviousMonth}>
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <span className="text-lg font-medium">
-            {MONTHS[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-          </span>
-          <Button variant="ghost" size="icon" onClick={goToNextMonth}>
-            <ChevronRight className="h-5 w-5" />
-          </Button>
-        </div>
-
-        {/* Day Headers */}
-        <div className="grid grid-cols-7 gap-1 mb-2">
-          {DAYS.map((day) => (
-            <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">
-              {day}
-            </div>
-          ))}
-        </div>
-
-        {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-1">
-          {calendarDays.map((date, index) => (
-            <div key={index} className="aspect-square">
-              {date && (
-                <button
-                  onClick={() => setSelectedDate(date)}
-                  className={cn(
-                    'w-full h-full flex items-center justify-center rounded-full text-sm transition-colors',
-                    isSelected(date) && 'bg-primary text-primary-foreground',
-                    isToday(date) && !isSelected(date) && 'bg-accent text-accent-foreground',
-                    !isSelected(date) && !isToday(date) && 'hover:bg-muted'
-                  )}
-                >
-                  {date.getDate()}
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Selected Date Header with Category Filter */}
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
+      {/* Category Filter */}
       <div className="px-4 py-3 border-b bg-muted/50">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-medium">
-            {selectedDate.toLocaleDateString(isSpanish ? 'es-ES' : 'en-US', {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-            })}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {filteredNotes.length === 0
-              ? t('mobile.noTasks')
-              : t('mobile.tasksCount', { count: filteredNotes.length })}
-          </p>
-        </div>
-        {/* Category Filter Chips */}
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        {/* Category Filter Chips - icon only */}
+        <div className="flex gap-2">
           <button
             onClick={() => setCategoryFilter('all')}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap',
+              'flex items-center justify-center w-8 h-8 rounded-full text-xs font-medium transition-colors',
               categoryFilter === 'all'
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-muted/80'
             )}
+            title={t('categoryAll')}
           >
-            {t('categoryAll')}
+            {t('all')}
           </button>
           <button
             onClick={() => setCategoryFilter('todo')}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap',
+              'flex items-center justify-center w-8 h-8 rounded-full transition-colors',
               categoryFilter === 'todo'
                 ? 'bg-red-500 text-white'
                 : 'bg-muted text-muted-foreground hover:bg-muted/80'
             )}
+            title={t('categoryTodo')}
           >
-            <Pickaxe className="h-3 w-3" />
-            {t('categoryTodo')}
+            <Pickaxe className="h-4 w-4" />
           </button>
           <button
             onClick={() => setCategoryFilter('followup')}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap',
+              'flex items-center justify-center w-8 h-8 rounded-full transition-colors',
               categoryFilter === 'followup'
                 ? 'bg-yellow-500 text-white'
                 : 'bg-muted text-muted-foreground hover:bg-muted/80'
             )}
+            title={t('categoryFollowUp')}
           >
-            <Forward className="h-3 w-3" />
-            {t('categoryFollowUp')}
+            <Forward className="h-4 w-4" />
           </button>
           <button
             onClick={() => setCategoryFilter('meeting')}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap',
+              'flex items-center justify-center w-8 h-8 rounded-full transition-colors',
               categoryFilter === 'meeting'
                 ? 'bg-green-500 text-white'
                 : 'bg-muted text-muted-foreground hover:bg-muted/80'
             )}
+            title={t('categoryMeeting')}
           >
-            <Users className="h-3 w-3" />
-            {t('categoryMeeting')}
+            <Users className="h-4 w-4" />
           </button>
         </div>
       </div>
 
       {/* Task List */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {activeNotes.length === 0 && completedNotes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <Circle className="h-12 w-12 mb-3 opacity-50" />
@@ -493,11 +382,22 @@ export function MobileTaskCreate() {
         )}
       </div>
 
+      {/* Week Strip - Bottom */}
+      <div className="px-2 py-3 border-t bg-background">
+        <WeekStrip
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+          modifiers={weekStripModifiers}
+          locale={locale}
+          className="justify-center"
+        />
+      </div>
+
       {/* Floating Action Button */}
       <Button
         onClick={() => setIsCreateOpen(true)}
         size="icon"
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg"
+        className="fixed bottom-24 right-6 h-14 w-14 rounded-full shadow-lg"
       >
         <Plus className="h-6 w-6" />
       </Button>
