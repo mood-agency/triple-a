@@ -1215,10 +1215,21 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     const afterNote = currentFilteredNotes.find((n) => n.id === noteId);
     if (!afterNote) return;
 
-    // In calendar mode with a selected date, set the deadline to the selected date
-    const deadline = viewMode === 'calendar' && calendarSelectedDate
-      ? calendarSelectedDate.toISOString().split('T')[0]
-      : undefined;
+    // In calendar mode, inherit the deadline from the note we're creating after
+    // This preserves the time component (e.g., if the note is at 14:00, new note will also be at 14:00)
+    let deadline: string | undefined;
+    if (viewMode === 'calendar' && calendarSelectedDate) {
+      if (afterNote.deadline) {
+        // Use the original note's deadline (preserves time component)
+        deadline = afterNote.deadline;
+      } else {
+        // Fallback to just the date if no deadline on original note
+        const year = calendarSelectedDate.getFullYear();
+        const month = String(calendarSelectedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(calendarSelectedDate.getDate()).padStart(2, '0');
+        deadline = `${year}-${month}-${day}`;
+      }
+    }
 
     // Pass label filter so new task is visible with current filters
     const result = onCreateNoteAfter(noteId, afterNote.category, deadline, labelFilter);
