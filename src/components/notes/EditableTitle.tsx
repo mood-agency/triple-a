@@ -27,15 +27,16 @@ export function EditableTitle({
   const { t } = useTranslation();
   // Don't auto-start editing - let the NoteRow handle focus for new tasks
   const [isEditing, setIsEditing] = useState(false);
-  const [editedTitle, setEditedTitle] = useState(content);
+  const [editedTitle, setEditedTitle] = useState(titleValue ?? content);
   const inputRef = useRef<HTMLInputElement>(null);
   const clickXRef = useRef<number | null>(null);
+  const ignoreBlurRef = useRef(false);
 
   // Sync editedTitle when note changes
   useEffect(() => {
-    setEditedTitle(content);
+    setEditedTitle(titleValue ?? content);
     setIsEditing(false);
-  }, [noteId, content]);
+  }, [noteId, content, titleValue]);
 
   // Focus input when user clicks to edit (not on mount)
   useEffect(() => {
@@ -94,6 +95,18 @@ export function EditableTitle({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Prevent Alt+key combinations from causing blur due to Windows menu activation
+    if (e.altKey && e.key !== 'Alt') {
+      e.preventDefault();
+      e.stopPropagation();
+      ignoreBlurRef.current = true;
+      // Re-focus the input after a short delay to counteract any focus loss
+      setTimeout(() => {
+        ignoreBlurRef.current = false;
+        inputRef.current?.focus();
+      }, 10);
+      return;
+    }
     if (e.key === 'Enter') {
       handleSave();
     } else if (e.key === 'Escape') {
@@ -126,7 +139,11 @@ export function EditableTitle({
             type="text"
             value={editedTitle}
             onChange={(e) => setEditedTitle(e.target.value)}
-            onBlur={handleSave}
+            onBlur={() => {
+              // Ignore blur if it was caused by Alt+key combination
+              if (ignoreBlurRef.current) return;
+              handleSave();
+            }}
             onKeyDown={handleKeyDown}
             onFocus={handleInputFocus}
             placeholder={t('newTaskPlaceholder')}

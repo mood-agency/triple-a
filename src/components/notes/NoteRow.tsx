@@ -441,335 +441,335 @@ function NoteRow({
         {/* Content column */}
         <div className={`group/title relative select-none flex items-center gap-1.5 ${!compactView ? 'pl-1.5' : ''} ${isEditingContent ? '' : 'overflow-hidden'}`} onClick={handleContentClick}>
           {isEditingContent ? (
-              <>
-                <input
-                  ref={contentInputRef}
-                  type="text"
-                  value={contentValue}
-                  onChange={(e) => {
-                    setContentValue(e.target.value);
-                    onContentChange?.(e.target.value);
-                  }}
-                  onBlur={() => {
-                    // Don't blur if clicking inside the label or category dropdown
-                    if (showLabelDropdown || showCategoryDropdown) return;
-                    handleContentBlur();
-                  }}
-                  onKeyDown={handleContentKeyDown}
-                  onFocus={(e) => {
-                    // Calculate caret position from stored click X using input's font
-                    if (clickXRef.current !== null) {
-                      const clickX = clickXRef.current;
-                      clickXRef.current = null;
-                      const input = e.target as HTMLInputElement;
-                      const text = input.value;
+            <>
+              <input
+                ref={contentInputRef}
+                type="text"
+                value={contentValue}
+                onChange={(e) => {
+                  setContentValue(e.target.value);
+                  onContentChange?.(e.target.value);
+                }}
+                onBlur={() => {
+                  // Don't blur if clicking inside the label, category, or assignee dropdown
+                  if (showLabelDropdown || showCategoryDropdown || showAssigneeDropdown) return;
+                  handleContentBlur();
+                }}
+                onKeyDown={handleContentKeyDown}
+                onFocus={(e) => {
+                  // Calculate caret position from stored click X using input's font
+                  if (clickXRef.current !== null) {
+                    const clickX = clickXRef.current;
+                    clickXRef.current = null;
+                    const input = e.target as HTMLInputElement;
+                    const text = input.value;
 
-                      if (text.length === 0 || clickX <= 0) {
-                        input.setSelectionRange(0, 0);
-                        return;
-                      }
-
-                      // Create canvas with input's font to measure text
-                      const canvas = document.createElement('canvas');
-                      const ctx = canvas.getContext('2d');
-                      if (ctx) {
-                        const style = window.getComputedStyle(input);
-                        ctx.font = `${style.fontSize} ${style.fontFamily}`;
-
-                        // Find the position where click occurred
-                        let pos = text.length;
-                        for (let i = 1; i <= text.length; i++) {
-                          const width = ctx.measureText(text.substring(0, i)).width;
-                          if (width >= clickX) {
-                            const prevWidth = ctx.measureText(text.substring(0, i - 1)).width;
-                            pos = (clickX - prevWidth) <= (width - clickX) ? i - 1 : i;
-                            break;
-                          }
-                        }
-                        input.setSelectionRange(pos, pos);
-                      }
+                    if (text.length === 0 || clickX <= 0) {
+                      input.setSelectionRange(0, 0);
+                      return;
                     }
-                  }}
-                  placeholder={t('newTaskPlaceholder')}
-                  className="flex-1 min-w-0 text-sm leading-4 bg-transparent border-none outline-none p-0 m-0 text-foreground caret-foreground placeholder:text-muted-foreground/50"
-                />
-                <Popover open={showLabelDropdown} onOpenChange={(open) => {
-                  setShowLabelDropdown(open);
-                  if (!open) {
-                    contentInputRef.current?.focus();
+
+                    // Create canvas with input's font to measure text
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) {
+                      const style = window.getComputedStyle(input);
+                      ctx.font = `${style.fontSize} ${style.fontFamily}`;
+
+                      // Find the position where click occurred
+                      let pos = text.length;
+                      for (let i = 1; i <= text.length; i++) {
+                        const width = ctx.measureText(text.substring(0, i)).width;
+                        if (width >= clickX) {
+                          const prevWidth = ctx.measureText(text.substring(0, i - 1)).width;
+                          pos = (clickX - prevWidth) <= (width - clickX) ? i - 1 : i;
+                          break;
+                        }
+                      }
+                      input.setSelectionRange(pos, pos);
+                    }
                   }
-                }}>
-                  <PopoverTrigger asChild>
-                    <span className="sr-only">Labels</span>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-52 p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder={t('searchLabels')} className="h-9" />
-                      <CommandList>
-                        <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
-                        <CommandGroup>
-                          {allLabels.map((label) => {
-                            const isAssigned = labels.some(l => l.id === label.id);
-                            return (
-                              <CommandItem
-                                key={label.id}
-                                value={label.name}
-                                onSelect={() => {
-                                  if (isAssigned) {
-                                    onRemoveLabel?.(note.id, label.id);
-                                  } else {
-                                    onAddLabel?.(note.id, label.id);
-                                  }
-                                  setShowLabelDropdown(false);
-                                  contentInputRef.current?.focus();
-                                }}
-                                className="group flex items-center justify-between"
-                              >
-                                <div className="flex items-center">
-                                  <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
-                                  {label.name}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  {isAssigned && <Check className="h-4 w-4" />}
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onEditLabel?.(label);
-                                      setShowLabelDropdown(false);
-                                    }}
-                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
-                                  >
-                                    <Pencil className="h-3 w-3 text-muted-foreground" />
-                                  </button>
-                                </div>
-                              </CommandItem>
-                            );
-                          })}
-                        </CommandGroup>
-                        <CommandSeparator />
-                        <CommandGroup>
-                          <CommandItem
-                            onSelect={() => {
-                              onCreateLabel?.();
-                              setShowLabelDropdown(false);
-                            }}
-                          >
-                            <Plus className="h-3 w-3 mr-2" />
-                            {t('createLabel')}
-                          </CommandItem>
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                <Popover open={showCategoryDropdown} onOpenChange={(open) => {
-                  setShowCategoryDropdown(open);
-                  if (!open) {
-                    contentInputRef.current?.focus();
-                  }
-                }}>
-                  <PopoverTrigger asChild>
-                    <span className="sr-only">{t('category')}</span>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-44 p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder={t('searchCategory')} className="h-9" />
-                      <CommandList>
-                        <CommandEmpty>{t('noCategoriesFound')}</CommandEmpty>
-                        <CommandGroup>
-                          <CommandItem
-                            value="todo"
-                            onSelect={() => {
-                              onEdit(note.id, note.content, 'todo', note.description);
-                              setShowCategoryDropdown(false);
-                              contentInputRef.current?.focus();
-                            }}
-                            className="flex items-center justify-between"
-                          >
-                            <div className="flex items-center">
-                              <Pickaxe className="h-4 w-4 mr-2" />
-                              {t('categoryTodo')}
-                            </div>
-                            {note.category === 'todo' && <Check className="h-4 w-4" />}
-                          </CommandItem>
-                          <CommandItem
-                            value="followup"
-                            onSelect={() => {
-                              onEdit(note.id, note.content, 'followup', note.description);
-                              setShowCategoryDropdown(false);
-                              contentInputRef.current?.focus();
-                            }}
-                            className="flex items-center justify-between"
-                          >
-                            <div className="flex items-center">
-                              <Forward className="h-4 w-4 mr-2" />
-                              {t('categoryFollowUp')}
-                            </div>
-                            {note.category === 'followup' && <Check className="h-4 w-4" />}
-                          </CommandItem>
-                          <CommandItem
-                            value="notes"
-                            onSelect={() => {
-                              onEdit(note.id, note.content, 'notes', note.description);
-                              setShowCategoryDropdown(false);
-                              contentInputRef.current?.focus();
-                            }}
-                            className="flex items-center justify-between"
-                          >
-                            <div className="flex items-center">
-                              <StickyNote className="h-4 w-4 mr-2" />
-                              {t('categoryNotes')}
-                            </div>
-                            {note.category === 'notes' && <Check className="h-4 w-4" />}
-                          </CommandItem>
-                          <CommandItem
-                            value="meeting"
-                            onSelect={() => {
-                              onEdit(note.id, note.content, 'meeting', note.description);
-                              setShowCategoryDropdown(false);
-                              contentInputRef.current?.focus();
-                            }}
-                            className="flex items-center justify-between"
-                          >
-                            <div className="flex items-center">
-                              <Users className="h-4 w-4 mr-2" />
-                              {t('categoryMeeting')}
-                            </div>
-                            {note.category === 'meeting' && <Check className="h-4 w-4" />}
-                          </CommandItem>
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                <Popover open={showAssigneeDropdown} onOpenChange={(open) => {
-                  setShowAssigneeDropdown(open);
-                  if (!open) {
-                    contentInputRef.current?.focus();
-                  }
-                }}>
-                  <PopoverTrigger asChild>
-                    <span className="sr-only">{t('assignee.setAssignee')}</span>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56 p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder={t('assignee.search')} className="h-9" />
-                      <CommandList>
-                        <CommandEmpty>{t('assignee.noResults')}</CommandEmpty>
-                        <CommandGroup>
-                          {contacts.map((contact) => {
-                            const fullName = `${contact.name} ${contact.lastname}`.trim();
-                            return (
-                              <CommandItem
-                                key={contact.id}
-                                value={fullName}
-                                onSelect={() => {
-                                  onUpdateAssignee?.(note.id, contact.id === note.assignee_id ? null : contact.id);
-                                  setShowAssigneeDropdown(false);
-                                  contentInputRef.current?.focus();
-                                }}
-                                className="flex items-center justify-between"
-                              >
-                                <span className="truncate">{fullName}</span>
-                                {note.assignee_id === contact.id && <Check className="h-4 w-4" />}
-                              </CommandItem>
-                            );
-                          })}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </>
-            ) : (
-              <>
-                <span
-                  className={`flex-1 min-w-0 text-sm leading-4 truncate ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${note.completed ? 'line-through text-muted-foreground' : ''} ${isSelected && isDescriptionFocused ? 'cursor-text underline decoration-primary decoration-2 underline-offset-2' : ''} ${!contentValue ? 'text-muted-foreground/50 italic' : ''}`}
-                  {...attributes}
-                  {...listeners}
-                >
-                  {contentValue || t('newTaskPlaceholder')}
-                </span>
-                {/* Action icons - floating over the title, only visible on hover (except active states) */}
-                <div className={`absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-0.5 pl-1 transition-opacity ${note.pinned || isFixedInSidebar ? 'opacity-100 bg-background' : 'opacity-0 group-hover/title:opacity-100 group-hover/title:bg-background'}`}>
-                  {!note.completed && !isDeleted && (
-                    <>
+                }}
+                placeholder={t('newTaskPlaceholder')}
+                className="flex-1 min-w-0 text-sm leading-4 bg-transparent border-none outline-none p-0 m-0 text-foreground caret-foreground placeholder:text-muted-foreground/50"
+              />
+              <Popover open={showLabelDropdown} onOpenChange={(open) => {
+                setShowLabelDropdown(open);
+                if (!open) {
+                  contentInputRef.current?.focus();
+                }
+              }}>
+                <PopoverTrigger asChild>
+                  <span className="sr-only">Labels</span>
+                </PopoverTrigger>
+                <PopoverContent className="w-52 p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder={t('searchLabels')} className="h-9" />
+                    <CommandList>
+                      <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
+                      <CommandGroup>
+                        {allLabels.map((label) => {
+                          const isAssigned = labels.some(l => l.id === label.id);
+                          return (
+                            <CommandItem
+                              key={label.id}
+                              value={label.name}
+                              onSelect={() => {
+                                if (isAssigned) {
+                                  onRemoveLabel?.(note.id, label.id);
+                                } else {
+                                  onAddLabel?.(note.id, label.id);
+                                }
+                                setShowLabelDropdown(false);
+                                contentInputRef.current?.focus();
+                              }}
+                              className="group flex items-center justify-between"
+                            >
+                              <div className="flex items-center">
+                                <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
+                                {label.name}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {isAssigned && <Check className="h-4 w-4" />}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEditLabel?.(label);
+                                    setShowLabelDropdown(false);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
+                                >
+                                  <Pencil className="h-3 w-3 text-muted-foreground" />
+                                </button>
+                              </div>
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                      <CommandSeparator />
+                      <CommandGroup>
+                        <CommandItem
+                          onSelect={() => {
+                            onCreateLabel?.();
+                            setShowLabelDropdown(false);
+                          }}
+                        >
+                          <Plus className="h-3 w-3 mr-2" />
+                          {t('createLabel')}
+                        </CommandItem>
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <Popover open={showCategoryDropdown} onOpenChange={(open) => {
+                setShowCategoryDropdown(open);
+                if (!open) {
+                  contentInputRef.current?.focus();
+                }
+              }}>
+                <PopoverTrigger asChild>
+                  <span className="sr-only">{t('category')}</span>
+                </PopoverTrigger>
+                <PopoverContent className="w-44 p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder={t('searchCategory')} className="h-9" />
+                    <CommandList>
+                      <CommandEmpty>{t('noCategoriesFound')}</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="todo"
+                          onSelect={() => {
+                            onEdit(note.id, note.content, 'todo', note.description);
+                            setShowCategoryDropdown(false);
+                            contentInputRef.current?.focus();
+                          }}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center">
+                            <Pickaxe className="h-4 w-4 mr-2" />
+                            {t('categoryTodo')}
+                          </div>
+                          {note.category === 'todo' && <Check className="h-4 w-4" />}
+                        </CommandItem>
+                        <CommandItem
+                          value="followup"
+                          onSelect={() => {
+                            onEdit(note.id, note.content, 'followup', note.description);
+                            setShowCategoryDropdown(false);
+                            contentInputRef.current?.focus();
+                          }}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center">
+                            <Forward className="h-4 w-4 mr-2" />
+                            {t('categoryFollowUp')}
+                          </div>
+                          {note.category === 'followup' && <Check className="h-4 w-4" />}
+                        </CommandItem>
+                        <CommandItem
+                          value="notes"
+                          onSelect={() => {
+                            onEdit(note.id, note.content, 'notes', note.description);
+                            setShowCategoryDropdown(false);
+                            contentInputRef.current?.focus();
+                          }}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center">
+                            <StickyNote className="h-4 w-4 mr-2" />
+                            {t('categoryNotes')}
+                          </div>
+                          {note.category === 'notes' && <Check className="h-4 w-4" />}
+                        </CommandItem>
+                        <CommandItem
+                          value="meeting"
+                          onSelect={() => {
+                            onEdit(note.id, note.content, 'meeting', note.description);
+                            setShowCategoryDropdown(false);
+                            contentInputRef.current?.focus();
+                          }}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center">
+                            <Users className="h-4 w-4 mr-2" />
+                            {t('categoryMeeting')}
+                          </div>
+                          {note.category === 'meeting' && <Check className="h-4 w-4" />}
+                        </CommandItem>
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <Popover open={showAssigneeDropdown} onOpenChange={(open) => {
+                setShowAssigneeDropdown(open);
+                if (!open) {
+                  contentInputRef.current?.focus();
+                }
+              }}>
+                <PopoverTrigger asChild>
+                  <span className="sr-only">{t('assignee.setAssignee')}</span>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder={t('assignee.search')} className="h-9" />
+                    <CommandList>
+                      <CommandEmpty>{t('assignee.noResults')}</CommandEmpty>
+                      <CommandGroup>
+                        {contacts.map((contact) => {
+                          const fullName = `${contact.name} ${contact.lastname}`.trim();
+                          return (
+                            <CommandItem
+                              key={contact.id}
+                              value={fullName}
+                              onSelect={() => {
+                                onUpdateAssignee?.(note.id, contact.id === note.assignee_id ? null : contact.id);
+                                setShowAssigneeDropdown(false);
+                                contentInputRef.current?.focus();
+                              }}
+                              className="flex items-center justify-between"
+                            >
+                              <span className="truncate">{fullName}</span>
+                              {note.assignee_id === contact.id && <Check className="h-4 w-4" />}
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </>
+          ) : (
+            <>
+              <span
+                className={`flex-1 min-w-0 text-sm leading-4 truncate ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${note.completed ? 'line-through text-muted-foreground' : ''} ${isSelected && isDescriptionFocused ? 'cursor-text underline decoration-primary decoration-2 underline-offset-2' : ''} ${!contentValue ? 'text-muted-foreground/50 italic' : ''}`}
+                {...attributes}
+                {...listeners}
+              >
+                {contentValue || t('newTaskPlaceholder')}
+              </span>
+              {/* Action icons - floating over the title, only visible on hover (except active states) */}
+              <div className={`absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-0.5 pl-1 transition-opacity ${note.pinned || isFixedInSidebar ? 'opacity-100 bg-background' : 'opacity-0 group-hover/title:opacity-100 group-hover/title:bg-background'}`}>
+                {!note.completed && !isDeleted && (
+                  <>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className={`p-1 cursor-pointer transition-opacity ${note.pinned ? 'text-primary' : 'text-muted-foreground/60 hover:text-primary'}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onTogglePinned(note.id, !note.pinned);
+                          }}
+                        >
+                          <Pin className="h-3.5 w-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{note.pinned ? t('unpin') : t('pin')}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    {onToggleFixInSidebar && (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
                             type="button"
-                            className={`p-1 cursor-pointer transition-opacity ${note.pinned ? 'text-primary' : 'text-muted-foreground/60 hover:text-primary'}`}
+                            className={`p-1 cursor-pointer transition-opacity ${isFixedInSidebar ? 'text-blue-500' : 'text-muted-foreground/60 hover:text-blue-500'}`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              onTogglePinned(note.id, !note.pinned);
+                              onToggleFixInSidebar?.(note.id);
                             }}
                           >
-                            <Pin className="h-3.5 w-3.5" />
+                            <PanelRightOpen className="h-3.5 w-3.5" />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>{note.pinned ? t('unpin') : t('pin')}</p>
+                          <p>{isFixedInSidebar ? t('unfixFromSidebar') : t('fixToSidebar')}</p>
                         </TooltipContent>
                       </Tooltip>
-                      {onToggleFixInSidebar && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              className={`p-1 cursor-pointer transition-opacity ${isFixedInSidebar ? 'text-blue-500' : 'text-muted-foreground/60 hover:text-blue-500'}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onToggleFixInSidebar?.(note.id);
-                              }}
-                            >
-                              <PanelRightOpen className="h-3.5 w-3.5" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{isFixedInSidebar ? t('unfixFromSidebar') : t('fixToSidebar')}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                    </>
-                  )}
-                  {isDeleted && onRestore ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          className="p-1 cursor-pointer text-muted-foreground/60 hover:text-primary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRestore();
-                          }}
-                        >
-                          <RotateCcw className="h-3.5 w-3.5" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{t('trash.restore')}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          className="p-1 cursor-pointer text-muted-foreground/60 hover:text-destructive"
-                          onClick={handleDeleteClick}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{t('deleteTask')}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                </div>
-              </>
-            )}
+                    )}
+                  </>
+                )}
+                {isDeleted && onRestore ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="p-1 cursor-pointer text-muted-foreground/60 hover:text-primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRestore();
+                        }}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{t('trash.restore')}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="p-1 cursor-pointer text-muted-foreground/60 hover:text-destructive"
+                        onClick={handleDeleteClick}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{t('deleteTask')}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Labels column */}
@@ -789,7 +789,20 @@ function NoteRow({
 
         {/* Deadline column */}
         {!compactView && (
-          <div className="shrink-0 flex justify-end px-1">
+          <div className="shrink-0 flex items-center justify-end gap-1 px-1">
+            {/* Google Calendar indicator */}
+            {note.gcal_event_id && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center text-blue-500">
+                    <Calendar className="h-3 w-3" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t('gcal.syncedWithGCal')}</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
             {note.deadline && !hideDeadline && (() => {
               const deadlineDate = parseLocalDate(note.deadline);
               const isCurrentYear = deadlineDate.getFullYear() === new Date().getFullYear();
@@ -798,11 +811,10 @@ function NoteRow({
                 ? (hasTime ? 'dd/MM HH:mm' : 'dd/MM')
                 : (hasTime ? 'dd/MM/yyyy HH:mm' : 'dd/MM/yyyy');
               return (
-                <div className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${
-                  deadlineDate < new Date() && !note.completed
+                <div className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${deadlineDate < new Date() && !note.completed
                     ? 'text-destructive bg-destructive/10'
                     : 'text-muted-foreground bg-muted'
-                }`}>
+                  }`}>
                   <Calendar className="h-3 w-3" />
                   <span>{format(deadlineDate, dateFormat)}</span>
                 </div>
@@ -877,6 +889,7 @@ export const MemoizedNoteRow = memo(
     if (prevProps.note.completed !== nextProps.note.completed) return false;
     if (prevProps.note.deadline !== nextProps.note.deadline) return false;
     if (prevProps.note.pinned !== nextProps.note.pinned) return false;
+    if (prevProps.note.gcal_event_id !== nextProps.note.gcal_event_id) return false;
     if (prevProps.assigneeName !== nextProps.assigneeName) return false;
 
     // Selection state (most important for click performance)
