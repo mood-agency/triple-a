@@ -1245,8 +1245,45 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
   const hasActiveFilters = searchQuery.trim() !== '' || categoryFilter !== 'all' || labelFilter.length > 0 || assigneeFilter.length > 0 || showOverdueOnly;
 
+  // Count notes that truly match filters (not just showing because they're pinned)
+  // This is used to determine if we should show "no results" message when only pinned notes are visible
+  const notesMatchingFilters = useMemo(() => {
+    // Only relevant when we have label or assignee filters (pinned notes bypass these)
+    if (labelFilter.length === 0 && assigneeFilter.length === 0 && !showOverdueOnly) {
+      return activeNotes.length;
+    }
+
+    return activeNotes.filter((note) => {
+      // If note is pinned, check if it would pass the filters it normally bypasses
+      if (note.pinned) {
+        // Check label filter
+        if (labelFilter.length > 0) {
+          const noteLabelIds = (noteLabelsCache.get(note.id) ?? []).map(l => l.id);
+          const hasMatchingLabel = labelFilter.some(labelId => noteLabelIds.includes(labelId));
+          if (!hasMatchingLabel) return false;
+        }
+        // Check assignee filter
+        if (assigneeFilter.length > 0) {
+          if (!note.assignee_id || !assigneeFilter.includes(note.assignee_id)) {
+            return false;
+          }
+        }
+        // Check overdue filter
+        if (showOverdueOnly) {
+          if (!note.deadline || note.category === 'meeting') return false;
+          const isOverdue = parseLocalDate(note.deadline) < new Date() && !note.completed;
+          if (!isOverdue) return false;
+        }
+      }
+      return true;
+    }).length;
+  }, [activeNotes, labelFilter, assigneeFilter, showOverdueOnly, noteLabelsCache]);
+
   // Special case: show message when there are only completed tasks (no active tasks)
   const shouldShowOnlyCompletedMessage = hasActiveFilters && activeNotes.length === 0 && completedNotes.length > 0;
+
+  // Show "no results" when we have filters active and no notes truly match (only pinned notes visible)
+  const shouldShowNoResultsWithPinnedVisible = hasActiveFilters && notesMatchingFilters === 0 && activeNotes.length > 0;
 
 
   // Category icons and colors mapping
@@ -1257,8 +1294,32 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     meeting: { icon: <UsersIcon className="h-3 w-3" />, className: 'bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30' },
   };
 
+  // Reusable component for displaying "no results" message with consistent styling
+  // Can be used inline (after pinned notes) or as full-height centered message
+  const NoResultsMessage = ({ completedCount, fillHeight = true }: { completedCount?: number; fillHeight?: boolean }) => {
+    const content = renderNoResultsContent(completedCount);
+
+    if (fillHeight) {
+      return (
+        <div className="flex-1 flex items-center justify-center h-full">
+          <p className="text-center text-muted-foreground/60 text-sm italic">
+            {content}
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <p className="text-center text-muted-foreground/60 text-sm italic">
+          {content}
+        </p>
+      </div>
+    );
+  };
+
   // Build a comprehensive no-results message showing all active filters with badges
-  const renderNoResultsMessage = (completedCount?: number) => {
+  const renderNoResultsContent = (completedCount?: number) => {
     // Special case: filters match only completed tasks (no active tasks)
     const effectiveCompletedCount = completedCount ?? completedNotes.length;
     if (shouldShowOnlyCompletedMessage || (completedCount !== undefined && completedCount > 0)) {
@@ -1565,7 +1626,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                     if (note) onRestore(note);
                   }}
                   hasActiveFilters={hasActiveFilters}
-                  renderNoResultsMessage={(completedCount) => renderNoResultsMessage(completedCount)}
+                  renderNoResultsMessage={(completedCount) => renderNoResultsContent(completedCount)}
                   sortByCategory={sortByCategory}
                 />
               ) : (
@@ -1578,74 +1639,73 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
             <>
               {/* Active tasks section */}
               {taskStatusFilter === 'active' && (
-              <div className="overflow-y-auto pr-2 flex-[3]">
+              <div className="overflow-y-auto pr-2 flex-[3] flex flex-col">
                 {/* Show message when no active tasks but have filters */}
                 {shouldShowOnlyCompletedMessage ? (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-center text-muted-foreground/60 text-sm italic">
-                      {renderNoResultsMessage()}
-                    </p>
-                  </div>
+                  <NoResultsMessage />
                 ) : activeNotes.length === 0 && filteredNotes.length === 0 && hasActiveFilters ? (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-center text-muted-foreground/60 text-sm italic">
-                      {renderNoResultsMessage()}
-                    </p>
-                  </div>
+                  <NoResultsMessage />
                 ) : (
-                  <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <SortableContext
-                      items={activeNotes.map((n) => n.id)}
-                      strategy={verticalListSortingStrategy}
+                  <>
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragStart={handleDragStart}
+                      onDragEnd={handleDragEnd}
                     >
-                      {activeNotes.map((note) => (
-                      <MemoizedNoteRow
-                        key={note.id}
-                        note={note}
-                        onDeleteWithToast={handleDeleteWithToast}
-                        onToggleCompleted={handleToggleCompletedWithNavigation}
-                        onTogglePinned={onTogglePinned}
-                        isSelected={selectedNote?.id === note.id}
-                        onSelect={handleSelectNoteById}
-                        onEdit={onEdit}
-                        onNavigateDown={handleNavigateDownById}
-                        onNavigateUp={handleNavigateUpById}
-                        onNavigateToDescription={handleNavigateToDescription}
-                        shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
-                        desiredColumn={desiredColumn}
-                        onTitleFocused={handleTitleFocused}
-                        onCreateNoteAfter={handleCreateNoteAfterById}
-                        isDragging={activeId === note.id}
-                        labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
-                        allLabels={labels}
-                        onAddLabel={handleAddLabelToNote}
-                        onRemoveLabel={handleRemoveLabelFromNote}
-                        onCreateLabel={handleCreateLabelClick}
-                  onCreateLabelAndAdd={handleCreateLabelAndAdd}
-                        onEditLabel={handleEditLabel}
-                                                isFixedInSidebar={fixedNoteId === note.id}
-                        onToggleFixInSidebar={handleToggleFixInSidebarById}
-                        onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
-                        assigneeName={assigneeNamesCache.get(note.id)}
-                        compactView={compactTaskView}
-                            isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
-                            contacts={contacts}
-                            onUpdateAssignee={onUpdateAssignee}
-                      />
-                      ))}
-                    </SortableContext>
-                  </DndContext>
+                      <SortableContext
+                        items={activeNotes.map((n) => n.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {activeNotes.map((note) => (
+                        <MemoizedNoteRow
+                          key={note.id}
+                          note={note}
+                          onDeleteWithToast={handleDeleteWithToast}
+                          onToggleCompleted={handleToggleCompletedWithNavigation}
+                          onTogglePinned={onTogglePinned}
+                          isSelected={selectedNote?.id === note.id}
+                          onSelect={handleSelectNoteById}
+                          onEdit={onEdit}
+                          onNavigateDown={handleNavigateDownById}
+                          onNavigateUp={handleNavigateUpById}
+                          onNavigateToDescription={handleNavigateToDescription}
+                          shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
+                          desiredColumn={desiredColumn}
+                          onTitleFocused={handleTitleFocused}
+                          onCreateNoteAfter={handleCreateNoteAfterById}
+                          isDragging={activeId === note.id}
+                          labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
+                          allLabels={labels}
+                          onAddLabel={handleAddLabelToNote}
+                          onRemoveLabel={handleRemoveLabelFromNote}
+                          onCreateLabel={handleCreateLabelClick}
+                          onCreateLabelAndAdd={handleCreateLabelAndAdd}
+                          onEditLabel={handleEditLabel}
+                          isFixedInSidebar={fixedNoteId === note.id}
+                          onToggleFixInSidebar={handleToggleFixInSidebarById}
+                          onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
+                          assigneeName={assigneeNamesCache.get(note.id)}
+                          compactView={compactTaskView}
+                          isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
+                          contacts={contacts}
+                          onUpdateAssignee={onUpdateAssignee}
+                        />
+                        ))}
+                      </SortableContext>
+                    </DndContext>
+                    {/* Show no results message after pinned notes when they don't match filters */}
+                    {shouldShowNoResultsWithPinnedVisible && (
+                      <NoResultsMessage fillHeight={false} />
+                    )}
+                  </>
                 )}
               </div>
               )}
 
               {/* Completed tasks section */}
-              {completedNotes.length > 0 && taskStatusFilter === 'completed' && (
+              {taskStatusFilter === 'completed' && (
+                completedNotes.length > 0 ? (
                 <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">
                   <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
                     {t('completedTasks')} ({completedNotes.length})
@@ -1688,10 +1748,14 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                     ))}
                   </div>
                 </div>
+                ) : hasActiveFilters ? (
+                  <NoResultsMessage />
+                ) : null
               )}
 
               {/* Deleted tasks section */}
-              {deletedNotes.length > 0 && taskStatusFilter === 'deleted' && (
+              {taskStatusFilter === 'deleted' && (
+                deletedNotes.length > 0 ? (
                 <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">
                   <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
                     {t('trash.title')} ({deletedNotes.length})
@@ -1736,6 +1800,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                     ))}
                   </div>
                 </div>
+                ) : hasActiveFilters ? (
+                  <NoResultsMessage />
+                ) : null
               )}
             </>
           )}
