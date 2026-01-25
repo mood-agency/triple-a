@@ -161,7 +161,18 @@
     "importSuccess": "Data imported successfully",
     "importError": "Error importing data",
     "permanentDeleteSuccess": "Task permanently deleted",
-    "permanentDeleteAllSuccess": "All tasks permanently deleted"
+    "permanentDeleteAllSuccess": "All tasks permanently deleted",
+    "imageUnsupportedFormat": "Unsupported image format",
+    "imageUnsupportedFormatDescription": "Only PNG, JPEG, GIF, and WebP images are allowed. Received: {{format}}",
+    "imageTooLarge": "Image too large",
+    "imageTooLargeDescription": "Maximum size is {{maxSize}}MB. Your image is {{fileSize}}MB. Try compressing or resizing it.",
+    "imageInvalid": "Invalid image",
+    "imageInvalidDescription": "The pasted content could not be processed as an image.",
+    "imageViewFullSize": "View full size",
+    "imageCopy": "Copy image",
+    "imageCopied": "Image copied to clipboard",
+    "imageCopyFailed": "Failed to copy image",
+    "imageDelete": "Delete image"
   },
   "importExport": {
     "title": "Import / Export",
