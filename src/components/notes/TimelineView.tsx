@@ -5,6 +5,8 @@ import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { MemoizedNoteRow } from './NoteRow';
 import { hasTimeComponent, getHourFromDeadline } from '@/utils/dateUtils';
+import { sortNotesByCategory } from '@/utils/noteUtils';
+import { useNoteRowProps } from '@/hooks/useNoteRowProps';
 
 interface TimelineViewProps {
   notes: Note[];
@@ -47,18 +49,9 @@ interface TimelineViewProps {
   sortByCategory?: boolean;
 }
 
-const EMPTY_LABELS: Label[] = [];
 const DEFAULT_START_HOUR = 8;
 const DEFAULT_END_HOUR = 20;
 const HOUR_HEIGHT = 60;
-
-// Category order for sorting (todo first, then followup, then meeting)
-const categoryOrder: Record<string, number> = {
-  todo: 0,
-  followup: 1,
-  meeting: 2,
-  notes: 3,
-};
 
 export function TimelineView({
   notes,
@@ -103,6 +96,37 @@ export function TimelineView({
   const { t } = useTranslation();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Build note row props using the shared hook
+  const getNoteRowProps = useNoteRowProps({
+    onDeleteWithToast,
+    onToggleCompleted,
+    onTogglePinned,
+    onSelect: onSelectNote,
+    onEdit,
+    onNavigateDown,
+    onNavigateUp,
+    onNavigateToDescription,
+    onTitleFocused,
+    onCreateNoteAfter,
+    allLabels: labels,
+    onAddLabel,
+    onRemoveLabel,
+    onCreateLabel,
+    onEditLabel,
+    fixedNoteId,
+    onToggleFixInSidebar,
+    contacts,
+    onUpdateAssignee,
+    noteLabelsCache,
+    assigneeNamesCache,
+    selectedNote,
+    focusTarget,
+    desiredColumn,
+    compactView,
+    isDescriptionFocused,
+    onContentChange,
+  });
+
   // Get current notes based on filter
   const currentNotes = useMemo(() => {
     switch (taskStatusFilter) {
@@ -115,18 +139,9 @@ export function TimelineView({
     }
   }, [taskStatusFilter, notes, completedNotes, deletedNotes]);
 
-  // Sort function for category ordering
-  const sortNotesByCategory = (notes: Note[]): Note[] => {
-    if (!sortByCategory) return notes;
-    return [...notes].sort((a, b) => {
-      // Pinned notes first
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-      // Then by category
-      const aOrder = categoryOrder[a.category] ?? 99;
-      const bOrder = categoryOrder[b.category] ?? 99;
-      return aOrder - bOrder;
-    });
+  // Helper to conditionally sort by category
+  const applyCategorySort = (notesToSort: Note[]): Note[] => {
+    return sortByCategory ? sortNotesByCategory(notesToSort) : notesToSort;
   };
 
   // Separate notes with time vs all-day notes
@@ -143,7 +158,7 @@ export function TimelineView({
     }
 
     return {
-      allDayNotes: sortNotesByCategory(allDay),
+      allDayNotes: applyCategorySort(allDay),
       timedNotes: timed
     };
   }, [currentNotes, sortByCategory]);
@@ -161,8 +176,8 @@ export function TimelineView({
 
     // Apply category sorting within each hour
     if (sortByCategory) {
-      for (const [hour, notes] of map.entries()) {
-        map.set(hour, sortNotesByCategory(notes));
+      for (const [hour, hourNotes] of map.entries()) {
+        map.set(hour, sortNotesByCategory(hourNotes));
       }
     }
 
@@ -214,41 +229,14 @@ export function TimelineView({
     }
   };
 
-  const renderNoteRow = (note: Note, isDeleted = false) => (
+  const renderNoteRow = (note: Note, isDeletedNote = false) => (
     <MemoizedNoteRow
       key={note.id}
-      note={note}
-      onDeleteWithToast={onDeleteWithToast}
-      onToggleCompleted={onToggleCompleted}
-      onTogglePinned={onTogglePinned}
-      isSelected={selectedNote?.id === note.id}
-      onSelect={onSelectNote}
-      onEdit={onEdit}
-      onNavigateDown={onNavigateDown}
-      onNavigateUp={onNavigateUp}
-      onNavigateToDescription={onNavigateToDescription}
-      shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
-      desiredColumn={desiredColumn}
-      onTitleFocused={onTitleFocused}
-      onCreateNoteAfter={onCreateNoteAfter}
-      isDragging={false}
-      labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
-      allLabels={labels}
-      onAddLabel={onAddLabel}
-      onRemoveLabel={onRemoveLabel}
-      onCreateLabel={onCreateLabel}
-      onEditLabel={onEditLabel}
-      isFixedInSidebar={fixedNoteId === note.id}
-      onToggleFixInSidebar={onToggleFixInSidebar}
-      onContentChange={selectedNote?.id === note.id ? onContentChange : undefined}
-      assigneeName={assigneeNamesCache.get(note.id)}
-      compactView={compactView}
-      isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
-      contacts={contacts}
-      onUpdateAssignee={onUpdateAssignee}
-      isDeleted={isDeleted}
-      hideDeadline
-      onRestore={isDeleted && onRestoreNote ? () => onRestoreNote(note.id) : undefined}
+      {...getNoteRowProps(note, {
+        isDeleted: isDeletedNote,
+        hideDeadline: true,
+        onRestore: isDeletedNote && onRestoreNote ? () => onRestoreNote(note.id) : undefined,
+      })}
     />
   );
 
