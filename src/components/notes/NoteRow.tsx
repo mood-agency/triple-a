@@ -399,7 +399,7 @@ function NoteRow({
         }}
         style={style}
         onClick={() => onSelect(note.id)}
-        className={`group grid ${compactView ? 'grid-cols-[auto_1fr_auto]' : 'grid-cols-[auto_minmax(0,1fr)_auto_auto_auto_auto]'} items-center h-6 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' && note.category !== 'meeting' ? 'opacity-50' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
+        className={`group grid ${compactView ? 'grid-cols-[auto_1fr_auto]' : 'grid-cols-[auto_minmax(0,1fr)_auto_auto_auto]'} items-center h-6 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' && note.category !== 'meeting' ? 'opacity-50' : ''} ${isDragging ? 'opacity-50 bg-muted/30' : ''}`}
       >
         {/* Category icon column - hidden in compact view */}
         {!compactView ? (
@@ -439,7 +439,7 @@ function NoteRow({
         ) : <div />}
 
         {/* Content column */}
-        <div className={`pr-1.5 select-none flex items-center gap-1.5 ${!compactView ? 'pl-1.5' : ''} ${isEditingContent ? '' : 'overflow-hidden'}`} onClick={handleContentClick}>
+        <div className={`group/title relative select-none flex items-center gap-1.5 ${!compactView ? 'pl-1.5' : ''} ${isEditingContent ? '' : 'overflow-hidden'}`} onClick={handleContentClick}>
           {isEditingContent ? (
               <>
                 <input
@@ -683,13 +683,92 @@ function NoteRow({
                 </Popover>
               </>
             ) : (
-              <span
-                className={`text-sm leading-4 truncate ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${note.completed ? 'line-through text-muted-foreground' : ''} ${isSelected && isDescriptionFocused ? 'cursor-text underline decoration-primary decoration-2 underline-offset-2' : ''} ${!contentValue ? 'text-muted-foreground/50 italic' : ''}`}
-                {...attributes}
-                {...listeners}
-              >
-                {contentValue || t('newTaskPlaceholder')}
-              </span>
+              <>
+                <span
+                  className={`flex-1 min-w-0 text-sm leading-4 truncate ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${note.completed ? 'line-through text-muted-foreground' : ''} ${isSelected && isDescriptionFocused ? 'cursor-text underline decoration-primary decoration-2 underline-offset-2' : ''} ${!contentValue ? 'text-muted-foreground/50 italic' : ''}`}
+                  {...attributes}
+                  {...listeners}
+                >
+                  {contentValue || t('newTaskPlaceholder')}
+                </span>
+                {/* Action icons - floating over the title, only visible on hover (except active states) */}
+                <div className={`absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-0.5 pl-1 transition-opacity ${note.pinned || isFixedInSidebar ? 'opacity-100 bg-background' : 'opacity-0 group-hover/title:opacity-100 group-hover/title:bg-background'}`}>
+                  {!note.completed && !isDeleted && (
+                    <>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className={`p-1 cursor-pointer transition-opacity ${note.pinned ? 'text-primary' : 'text-muted-foreground/60 hover:text-primary'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onTogglePinned(note.id, !note.pinned);
+                            }}
+                          >
+                            <Pin className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{note.pinned ? t('unpin') : t('pin')}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      {onToggleFixInSidebar && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className={`p-1 cursor-pointer transition-opacity ${isFixedInSidebar ? 'text-blue-500' : 'text-muted-foreground/60 hover:text-blue-500'}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleFixInSidebar?.(note.id);
+                              }}
+                            >
+                              <PanelRightOpen className="h-3.5 w-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{isFixedInSidebar ? t('unfixFromSidebar') : t('fixToSidebar')}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </>
+                  )}
+                  {isDeleted && onRestore ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className="p-1 cursor-pointer text-muted-foreground/60 hover:text-primary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRestore();
+                          }}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{t('trash.restore')}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className="p-1 cursor-pointer text-muted-foreground/60 hover:text-destructive"
+                          onClick={handleDeleteClick}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{t('deleteTask')}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
+              </>
             )}
         </div>
 
@@ -720,7 +799,7 @@ function NoteRow({
                 : (hasTime ? 'dd/MM/yyyy HH:mm' : 'dd/MM/yyyy');
               return (
                 <div className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${
-                  deadlineDate < new Date() && !note.completed && note.category !== 'meeting'
+                  deadlineDate < new Date() && !note.completed
                     ? 'text-destructive bg-destructive/10'
                     : 'text-muted-foreground bg-muted'
                 }`}>
@@ -755,81 +834,6 @@ function NoteRow({
           </div>
         )}
 
-        {/* Actions column */}
-        <div className="flex items-center justify-center gap-0.5 select-none mr-1">
-          {/* Hide pin and sidebar buttons for completed and deleted tasks */}
-          {!note.completed && !isDeleted && (
-            <>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className={`transition-opacity p-1.5 cursor-pointer ${note.pinned ? 'text-primary opacity-100' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-primary'}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onTogglePinned(note.id, !note.pinned);
-                    }}
-                  >
-                    <Pin className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{note.pinned ? t('unpin') : t('pin')}</p>
-                </TooltipContent>
-              </Tooltip>
-              {onToggleFixInSidebar && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className={`transition-opacity p-1.5 cursor-pointer ${isFixedInSidebar ? 'text-blue-500 opacity-100' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-blue-500'}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleFixInSidebar?.(note.id);
-                      }}
-                    >
-                      <PanelRightOpen className="h-4 w-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{isFixedInSidebar ? t('unfixFromSidebar') : t('fixToSidebar')}</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </>
-          )}
-          {isDeleted && onRestore ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/60 hover:text-primary p-1.5 cursor-pointer"
-                  onClick={onRestore}
-                >
-                  <RotateCcw className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{t('trash.restore')}</p>
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/60 hover:text-destructive p-1.5 cursor-pointer"
-                  onClick={handleDeleteClick}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{t('deleteTask')}</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-        </div>
       </div>
 
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

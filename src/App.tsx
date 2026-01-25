@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from './contexts/AuthContext'
+import { useIsMobile } from './hooks/use-mobile'
 import { Home } from './pages/Home'
 import { About } from './pages/About'
 import { Auth } from './pages/Auth'
@@ -35,6 +36,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <Navigate to="/auth" replace />
 }
 
+// Component that redirects to mobile view if on mobile device
+function MobileRedirect({ children }: { children: React.ReactNode }) {
+  const isMobile = useIsMobile()
+
+  if (isMobile) {
+    return <Navigate to="/mobile/create" replace />
+  }
+
+  return <>{children}</>
+}
+
 function App() {
   return (
     <Routes>
@@ -52,7 +64,9 @@ function App() {
       <Route
         element={
           <ProtectedRoute>
-            <MainLayout />
+            <MobileRedirect>
+              <MainLayout />
+            </MobileRedirect>
           </ProtectedRoute>
         }
       >
