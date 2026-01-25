@@ -8,6 +8,7 @@ export interface AppSettings {
   viewMode: 'list' | 'calendar'
   beeperToken: string | null
   compactTaskView: boolean
+  activeProjectId: string | null
 }
 
 const SETTINGS_KEY = 'app-settings'
@@ -19,6 +20,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   viewMode: 'list',
   beeperToken: null,
   compactTaskView: false,
+  activeProjectId: null,
 }
 
 function loadSettings(): AppSettings {

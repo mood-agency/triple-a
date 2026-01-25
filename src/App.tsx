@@ -9,7 +9,9 @@ import { ResetPassword } from './pages/ResetPassword'
 import { Contacts } from './pages/Contacts'
 import { Analytics } from './pages/Analytics'
 import { Labels } from './pages/Labels'
+import { Projects } from './pages/Projects'
 import { MobileTaskCreate } from './pages/MobileTaskCreate'
+import { CalendarSettings } from './pages/CalendarSettings'
 import { MainLayout } from './components/MainLayout'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -75,6 +77,9 @@ function App() {
         <Route path="/contacts" element={<Contacts />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/labels" element={<Labels />} />
+        <Route path="/projects" element={<Projects />} />
+        <Route path="/settings/calendar" element={<CalendarSettings />} />
+        <Route path="/settings/calendar/callback" element={<CalendarSettings />} />
       </Route>
     </Routes>
   )

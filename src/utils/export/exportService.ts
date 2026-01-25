@@ -10,7 +10,7 @@ const EXPORT_VERSION = '1.0';
  */
 export function exportAllData(store: MergeableStore): ExportData {
   // Get notes table
-  const notesTable = store.getTable('notes') as Record<string, NoteRow> | undefined;
+  const notesTable = store.getTable('notes') as unknown as Record<string, NoteRow> | undefined;
   const notes: Note[] = notesTable
     ? Object.entries(notesTable)
         .filter(([, row]) => !row.deleted_at)
@@ -29,6 +29,7 @@ export function exportAllData(store: MergeableStore): ExportData {
           updated_at: row.updated_at,
           deleted_at: row.deleted_at,
           assignee_id: row.assignee_id,
+          project_id: row.project_id,
         }))
         .sort((a, b) => {
           if (a.date !== b.date) return b.date.localeCompare(a.date);
@@ -37,7 +38,7 @@ export function exportAllData(store: MergeableStore): ExportData {
     : [];
 
   // Get note history table
-  const historyTable = store.getTable('note_history') as Record<string, NoteHistoryRow> | undefined;
+  const historyTable = store.getTable('note_history') as unknown as Record<string, NoteHistoryRow> | undefined;
   const noteHistory: NoteHistory[] = historyTable
     ? Object.entries(historyTable)
         .map(([id, row]) => ({
@@ -56,7 +57,7 @@ export function exportAllData(store: MergeableStore): ExportData {
     : [];
 
   // Get labels table
-  const labelsTable = store.getTable('labels') as Record<string, LabelRow> | undefined;
+  const labelsTable = store.getTable('labels') as unknown as Record<string, LabelRow> | undefined;
   const labels: Label[] = labelsTable
     ? Object.entries(labelsTable)
         .filter(([, row]) => !row.deleted_at)
@@ -71,7 +72,7 @@ export function exportAllData(store: MergeableStore): ExportData {
     : [];
 
   // Get note-label relationships
-  const noteLabelsTable = store.getTable('note_labels') as Record<string, NoteLabelRow> | undefined;
+  const noteLabelsTable = store.getTable('note_labels') as unknown as Record<string, NoteLabelRow> | undefined;
   const noteLabels: NoteLabel[] = noteLabelsTable
     ? Object.entries(noteLabelsTable).map(([, row]) => ({
         note_id: row.note_id,

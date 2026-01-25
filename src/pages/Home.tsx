@@ -127,7 +127,7 @@ export function Home() {
     setViewMode(viewMode === 'list' ? 'calendar' : 'list');
   }, [viewMode, setViewMode]);
 
-  // Load ALL notes without date filtering
+  // Load ALL notes without date filtering (filtered by active project)
   const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, updateAssignee, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote } = useNotes();
 
   // Derive the full note object from the ID (memoized)
@@ -253,7 +253,9 @@ export function Home() {
     // Note: selectedNote will automatically update via useMemo when notes array changes
   }, [postponeNote]);
 
-  if (!isReady || loading) {
+  // Only block on TinyBase not ready - never unmount NoteList due to loading
+  // This prevents React hooks count mismatch when project changes
+  if (!isReady) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

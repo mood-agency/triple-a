@@ -5,6 +5,8 @@ import { AuthProvider } from './contexts/AuthContext'
 import { TinyBaseProvider } from './contexts/TinyBaseContext'
 import { SyncProvider } from './contexts/SyncContext'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { ProjectProvider } from './contexts/ProjectContext'
+import { GoogleCalendarProvider } from './contexts/GoogleCalendarContext'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Toaster } from './components/ui/sonner'
 import './index.css'
@@ -19,8 +21,12 @@ createRoot(document.getElementById('root')!).render(
           <AuthProvider>
             <TinyBaseProvider>
               <SyncProvider>
-                <App />
-                <Toaster />
+                <ProjectProvider>
+                  <GoogleCalendarProvider>
+                    <App />
+                    <Toaster />
+                  </GoogleCalendarProvider>
+                </ProjectProvider>
               </SyncProvider>
             </TinyBaseProvider>
           </AuthProvider>

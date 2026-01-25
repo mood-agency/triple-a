@@ -23,9 +23,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useDeletedNotes } from '@/hooks/useDeletedNotes';
-import { useDatabase } from '@/contexts/DatabaseContext';
-import { persistDatabase } from '@/db';
-import { useSync } from '@/contexts/SyncContext';
+import { useTinyBase } from '@/contexts/TinyBaseContext';
 import type { Note } from '@/types/note';
 
 interface DeletedTasksDialogProps {
@@ -41,8 +39,7 @@ export const DeletedTasksDialog = memo(function DeletedTasksDialog({
   onRestore,
 }: DeletedTasksDialogProps) {
   const { t } = useTranslation();
-  const { db } = useDatabase();
-  const { queueOperation } = useSync();
+  const { store } = useTinyBase();
   const { deletedNotes, refresh } = useDeletedNotes();
   const [confirmDelete, setConfirmDelete] = React.useState<string | null>(null);
   const [confirmDeleteAll, setConfirmDeleteAll] = React.useState(false);
@@ -60,24 +57,21 @@ export const DeletedTasksDialog = memo(function DeletedTasksDialog({
   };
 
   const handlePermanentDelete = async (id: string) => {
-    if (!db) return;
+    if (!store) return;
 
-    db.run('DELETE FROM notes WHERE id = ?', [id]);
-    await persistDatabase();
-    await queueOperation('notes', 'delete', id);
+    // Hard delete from TinyBase
+    store.delRow('notes', id);
     refresh();
     setConfirmDelete(null);
     toast.success(t('toast.permanentDeleteSuccess'));
   };
 
   const handleDeleteAll = async () => {
-    if (!db) return;
+    if (!store) return;
 
     for (const note of deletedNotes) {
-      db.run('DELETE FROM notes WHERE id = ?', [note.id]);
-      await queueOperation('notes', 'delete', note.id);
+      store.delRow('notes', note.id);
     }
-    await persistDatabase();
     refresh();
     setConfirmDeleteAll(false);
     toast.success(t('toast.permanentDeleteAllSuccess'));

@@ -20,12 +20,16 @@ export interface Note {
   deleted_at: string | null;
   // Assignee (references contacts table)
   assignee_id: string | null;
+  // Project (references projects table)
+  project_id: string | null;
   // Computed field from history
   last_postpone_reason?: string | null;
   // Sync fields
   remote_id?: string | null;
   sync_status?: SyncStatus;
   last_synced_at?: string | null;
+  // Google Calendar sync field
+  gcal_event_id?: string | null;
 }
 
 export interface NoteHistory {

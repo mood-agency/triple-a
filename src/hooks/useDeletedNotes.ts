@@ -35,6 +35,7 @@ export function useDeletedNotes() {
           updated_at: row.updated_at as string,
           deleted_at: (row.deleted_at as string) || null,
           assignee_id: (row.assignee_id as string) || null,
+          project_id: (row.project_id as string) || null,
         };
       })
       // Sort by deleted_at descending (most recently deleted first)

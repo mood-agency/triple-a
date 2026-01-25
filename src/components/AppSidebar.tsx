@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
-import { Home, Users, BarChart3, Settings, Moon, Sun, Languages, LogOut, User, Cloud, CloudOff, RefreshCw, AlertCircle, Check, CloudUpload, CloudDownload, Download, Upload, Loader2, Tag } from 'lucide-react';
+import { Home, Users, BarChart3, Moon, Sun, Languages, LogOut, User, Cloud, CloudOff, RefreshCw, AlertCircle, Check, CloudUpload, CloudDownload, Download, Upload, Loader2, Tag, FolderKanban, Calendar } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { ProjectSelector } from '@/components/projects/ProjectSelector';
 import {
   Sidebar,
   SidebarContent,
@@ -238,13 +239,18 @@ export function AppSidebar() {
       url: '/labels',
       icon: Tag,
     },
+    {
+      title: t('nav.projects', 'Projects'),
+      url: '/projects',
+      icon: FolderKanban,
+    },
   ];
 
   return (
     <Sidebar side="left" collapsible="offcanvas">
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="px-2 py-2">
-          <h2 className="text-lg font-semibold">{t('app.menu', 'Menu')}</h2>
+          <ProjectSelector />
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -347,10 +353,10 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <Link to="/about">
-                <Settings />
-                <span>{t('nav.settings', 'Settings')}</span>
+            <SidebarMenuButton asChild isActive={location.pathname === '/settings/calendar'}>
+              <Link to="/settings/calendar">
+                <Calendar className="text-blue-600" />
+                <span>{t('gcal.title')}</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
