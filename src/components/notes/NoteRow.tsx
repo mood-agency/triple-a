@@ -42,6 +42,7 @@ import {
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { parseLocalDate } from '@/utils/dateUtils';
+import { parseHashtags } from '@/utils/hashtagParser';
 
 export interface NoteRowProps {
   note: Note;
@@ -64,6 +65,7 @@ export interface NoteRowProps {
   onAddLabel?: (noteId: string, labelId: string) => void;
   onRemoveLabel?: (noteId: string, labelId: string) => void;
   onCreateLabel?: () => void;
+  onCreateLabelAndAdd?: (noteId: string, labelName: string) => void;
   onEditLabel?: (label: Label) => void;
   isCommandPaletteOpen?: boolean;
   isFixedInSidebar?: boolean;
@@ -103,6 +105,7 @@ function NoteRow({
   onAddLabel,
   onRemoveLabel,
   onCreateLabel,
+  onCreateLabelAndAdd,
   onEditLabel,
   isCommandPaletteOpen,
   isFixedInSidebar = false,
@@ -237,8 +240,34 @@ function NoteRow({
     }
     if (contentValue.trim() && contentValue !== note.content) {
       const trimmedValue = contentValue.trim();
-      setContentValue(trimmedValue);
-      onEdit(note.id, trimmedValue, note.category, note.description);
+
+      // Parse hashtags from content
+      const parseResult = parseHashtags(trimmedValue, {
+        labels: allLabels,
+        contacts: contacts,
+      });
+
+      // Determine final category (hashtag category takes precedence)
+      const finalCategory = parseResult.category || note.category;
+
+      // Update assignee if a contact hashtag was found
+      if (parseResult.assigneeId && parseResult.assigneeId !== note.assignee_id) {
+        onUpdateAssignee?.(note.id, parseResult.assigneeId);
+      }
+
+      // Add matched labels
+      for (const labelId of parseResult.labelIds) {
+        onAddLabel?.(note.id, labelId);
+      }
+
+      // Create and add new labels
+      for (const labelName of parseResult.newLabelNames) {
+        onCreateLabelAndAdd?.(note.id, labelName);
+      }
+
+      // Use cleaned content (hashtags removed)
+      setContentValue(parseResult.cleanedContent);
+      onEdit(note.id, parseResult.cleanedContent, finalCategory, note.description);
     } else if (!contentValue.trim()) {
       setContentValue(note.content);
     }
@@ -630,7 +659,7 @@ function NoteRow({
               </div>
             )}
             {!compactView && assigneeName && (
-              <div className="flex items-center gap-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded text-muted-foreground bg-muted">
+              <div className="flex items-center gap-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded border border-input bg-background text-foreground">
                 <User className="h-3 w-3" />
                 <span>{assigneeName}</span>
               </div>

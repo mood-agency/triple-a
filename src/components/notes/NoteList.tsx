@@ -257,6 +257,11 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [sortByDeadline, setSortByDeadline] = useState(false);
   const [sortByAssignee, setSortByAssignee] = useState(false);
   const [sortByCategory, setSortByCategory] = useState(false);
+  const [sortConfig, setSortConfig] = useState<{ deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null }>({
+    deadline: null,
+    assignee: null,
+    category: null,
+  });
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
   const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [showPostponeHistory, setShowPostponeHistory] = useState(false);
@@ -315,8 +320,12 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   // Filter notes based on search query, category, labels, and overdue status
   // Memoized to avoid recomputing on every render
   const baseFilteredNotes = useMemo(() => notes.filter((note) => {
-    // Pinned notes always pass through filters (except search query)
+    // Pinned notes pass through most filters (except search query and category-based exclusion)
     if (note.pinned) {
+      // Still respect category filter: when 'all', exclude notes; when specific, match that category
+      if (categoryFilter === 'all' && note.category === 'notes') return false;
+      if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
+
       // Still filter by search query if present
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -328,7 +337,12 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     }
 
     // Filter by category
-    if (categoryFilter !== 'all' && note.category !== categoryFilter) {
+    // When 'all' is selected, show only action items (todo, followup, meeting) - NOT notes
+    // Notes only appear when explicitly filtered with categoryFilter === 'notes'
+    if (categoryFilter === 'all') {
+      // Exclude notes category when showing "all" action items
+      if (note.category === 'notes') return false;
+    } else if (note.category !== categoryFilter) {
       return false;
     }
     // Filter by labels (OR logic - note must have at least one selected label)
@@ -386,14 +400,17 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       if (!a.pinned && b.pinned) return 1;
 
       // Sort by category if enabled
-      if (sortByCategory) {
+      if (sortConfig.category) {
         const aOrder = categoryOrder[a.category] ?? 99;
         const bOrder = categoryOrder[b.category] ?? 99;
-        if (aOrder !== bOrder) return aOrder - bOrder;
+        if (aOrder !== bOrder) {
+          const result = aOrder - bOrder;
+          return sortConfig.category === 'desc' ? -result : result;
+        }
       }
 
       // Sort by assignee if enabled
-      if (sortByAssignee) {
+      if (sortConfig.assignee) {
         const aName = assigneeNamesCache.get(a.id) ?? '';
         const bName = assigneeNamesCache.get(b.id) ?? '';
         // Tasks with assignee come first, then sort alphabetically
@@ -401,25 +418,28 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         if (!aName && bName) return 1;
         if (aName && bName) {
           const nameCompare = aName.localeCompare(bName);
-          if (nameCompare !== 0) return nameCompare;
+          if (nameCompare !== 0) {
+            return sortConfig.assignee === 'desc' ? -nameCompare : nameCompare;
+          }
         }
       }
 
       // Sort by deadline if enabled
-      if (sortByDeadline) {
+      if (sortConfig.deadline) {
         // Notes without deadline go to the end
         if (!a.deadline && !b.deadline) return 0;
         if (!a.deadline) return 1;
         if (!b.deadline) return -1;
-        // Sort by deadline ascending (earliest first)
-        return parseLocalDate(a.deadline).getTime() - parseLocalDate(b.deadline).getTime();
+        // Sort by deadline
+        const result = parseLocalDate(a.deadline).getTime() - parseLocalDate(b.deadline).getTime();
+        return sortConfig.deadline === 'desc' ? -result : result;
       }
 
       return 0; // Maintain original order
     });
 
     return active;
-  }, [baseFilteredNotes, sortByDeadline, sortByAssignee, sortByCategory, assigneeNamesCache]);
+  }, [baseFilteredNotes, sortConfig, assigneeNamesCache]);
 
   const completedNotes = useMemo(() => baseFilteredNotes
     .filter((note) => note.completed)
@@ -807,6 +827,13 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     await removeLabelFromNote(noteId, labelId);
   }, [removeLabelFromNote]);
 
+  // Create a new label and add it to a note (used by hashtag parsing)
+  const handleCreateLabelAndAdd = useCallback(async (noteId: string, labelName: string) => {
+    const newLabel = await createLabel(labelName);
+    if (newLabel) {
+      await addLabelToNote(noteId, newLabel.id);
+    }
+  }, [createLabel, addLabelToNote]);
 
   const handleCreateLabelClick = useCallback(() => {
     setShowCreateLabelDialog(true);
@@ -1100,6 +1127,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     setLabelFilter([]);
     setAssigneeFilter([]);
     setSortByDeadline(false);
+    setSortByAssignee(false);
+    setSortByCategory(false);
+    setSortConfig({ deadline: null, assignee: null, category: null });
     setShowOverdueOnly(false);
     setCategoryJustChanged(true);
   }, hotkeyOptions);
@@ -1205,6 +1235,36 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       }
     });
   }, [onCreateNoteAfter, onSelectNote, viewMode, calendarSelectedDate, labelFilter]);
+
+  // Handler to create a task at a specific hour in timeline view
+  const handleCreateTaskAtTime = useCallback((hour: number) => {
+    if (!onCreateNoteAfter || !calendarSelectedDate) return;
+
+    // Build deadline with date + time in local timezone
+    const year = calendarSelectedDate.getFullYear();
+    const month = String(calendarSelectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(calendarSelectedDate.getDate()).padStart(2, '0');
+    const hourStr = String(hour).padStart(2, '0');
+    const deadline = `${year}-${month}-${day}T${hourStr}:00`;
+
+    // Get last note in the current filtered list to use as reference, or use empty string for first note
+    const currentFilteredNotes = filteredNotesRef.current;
+    const lastNote = currentFilteredNotes[currentFilteredNotes.length - 1];
+    const afterNoteId = lastNote?.id ?? '';
+
+    // Create task with 'todo' category and the specific time deadline
+    const result = onCreateNoteAfter(afterNoteId, 'todo', deadline, labelFilter);
+    Promise.resolve(result).then((newNoteOrId) => {
+      if (newNoteOrId) {
+        const newNote: Note = typeof newNoteOrId === 'string'
+          ? { id: newNoteOrId } as unknown as Note
+          : newNoteOrId;
+        onSelectNote(newNote);
+        setDesiredColumn(0);
+        setFocusTarget('title');
+      }
+    });
+  }, [onCreateNoteAfter, onSelectNote, calendarSelectedDate, labelFilter]);
 
   const handleToggleFixInSidebarById = useCallback((noteId: string) => {
     if (fixedNoteId === noteId) {
@@ -1451,6 +1511,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           labels={labels}
           labelFilter={labelFilter}
           onLabelFilterChange={setLabelFilter}
+          sortConfig={sortConfig}
+          onSortConfigChange={setSortConfig}
           sortByDeadline={sortByDeadline}
           onSortByDeadlineChange={setSortByDeadline}
           showOverdueOnly={showOverdueOnly}
@@ -1529,11 +1591,13 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                   desiredColumn={desiredColumn}
                   onTitleFocused={handleTitleFocused}
                   onCreateNoteAfter={handleCreateNoteAfterById}
+                  onCreateTaskAtTime={handleCreateTaskAtTime}
                   labels={labels}
                   noteLabelsCache={noteLabelsCache}
                   onAddLabel={handleAddLabelToNote}
                   onRemoveLabel={handleRemoveLabelFromNote}
                   onCreateLabel={handleCreateLabelClick}
+                  onCreateLabelAndAdd={handleCreateLabelAndAdd}
                   onEditLabel={handleEditLabel}
                   fixedNoteId={fixedNoteId}
                   onToggleFixInSidebar={handleToggleFixInSidebarById}
@@ -1610,6 +1674,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         onAddLabel={handleAddLabelToNote}
                         onRemoveLabel={handleRemoveLabelFromNote}
                         onCreateLabel={handleCreateLabelClick}
+                  onCreateLabelAndAdd={handleCreateLabelAndAdd}
                         onEditLabel={handleEditLabel}
                                                 isFixedInSidebar={fixedNoteId === note.id}
                         onToggleFixInSidebar={handleToggleFixInSidebarById}
@@ -1657,6 +1722,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         onAddLabel={handleAddLabelToNote}
                         onRemoveLabel={handleRemoveLabelFromNote}
                         onCreateLabel={handleCreateLabelClick}
+                  onCreateLabelAndAdd={handleCreateLabelAndAdd}
                         onEditLabel={handleEditLabel}
                                                 isFixedInSidebar={fixedNoteId === note.id}
                         onToggleFixInSidebar={handleToggleFixInSidebarById}
@@ -1702,6 +1768,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                         onAddLabel={handleAddLabelToNote}
                         onRemoveLabel={handleRemoveLabelFromNote}
                         onCreateLabel={handleCreateLabelClick}
+                  onCreateLabelAndAdd={handleCreateLabelAndAdd}
                         onEditLabel={handleEditLabel}
                         isFixedInSidebar={fixedNoteId === note.id}
                         onToggleFixInSidebar={handleToggleFixInSidebarById}

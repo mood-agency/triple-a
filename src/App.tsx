@@ -7,6 +7,7 @@ import { Auth } from './pages/Auth'
 import { ResetPassword } from './pages/ResetPassword'
 import { Contacts } from './pages/Contacts'
 import { Analytics } from './pages/Analytics'
+import { Labels } from './pages/Labels'
 import { MobileTaskCreate } from './pages/MobileTaskCreate'
 import { MainLayout } from './components/MainLayout'
 
@@ -59,6 +60,7 @@ function App() {
         <Route path="/about" element={<About />} />
         <Route path="/contacts" element={<Contacts />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/labels" element={<Labels />} />
       </Route>
     </Routes>
   )

@@ -20,7 +20,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <ThemeProvider defaultTheme="system" storageKey="app-theme">
-        <TooltipProvider>
+        <TooltipProvider delayDuration={500}>
           <AuthProvider>
             <DatabaseProvider skipInit={useTinyBase}>
               <TinyBaseProvider skipInit={!useTinyBase}>

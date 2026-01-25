@@ -235,6 +235,26 @@
   "sortByDeadline": "Ordenar por fecha límite",
   "sortByAssignee": "Ordenar por responsable",
   "sortByCategory": "Ordenar por categoría",
+  "sort": {
+    "title": "Ordenar",
+    "none": "Sin ordenar",
+    "deadline": "Fecha límite",
+    "deadlineAsc": "Fecha límite (más antigua primero)",
+    "deadlineDesc": "Fecha límite (más reciente primero)",
+    "assignee": "Responsable",
+    "assigneeAsc": "Responsable (A-Z)",
+    "assigneeDesc": "Responsable (Z-A)",
+    "category": "Categoría",
+    "categoryAsc": "Categoría (A-Z)",
+    "categoryDesc": "Categoría (Z-A)"
+  },
+  "taskStatus": {
+    "title": "Estado",
+    "active": "Activas",
+    "completed": "Completadas",
+    "deleted": "Eliminadas",
+    "overdue": "Vencidas"
+  },
   "overdue": "Vencidas",
   "showOverdueOnly": "Mostrar solo tareas vencidas",
   "dateRange": {

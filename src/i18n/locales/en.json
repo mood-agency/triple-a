@@ -235,6 +235,26 @@
   "sortByDeadline": "Sort by deadline",
   "sortByAssignee": "Sort by assignee",
   "sortByCategory": "Sort by category",
+  "sort": {
+    "title": "Sort",
+    "none": "No sorting",
+    "deadline": "Deadline",
+    "deadlineAsc": "Deadline (oldest first)",
+    "deadlineDesc": "Deadline (newest first)",
+    "assignee": "Assignee",
+    "assigneeAsc": "Assignee (A-Z)",
+    "assigneeDesc": "Assignee (Z-A)",
+    "category": "Category",
+    "categoryAsc": "Category (A-Z)",
+    "categoryDesc": "Category (Z-A)"
+  },
+  "taskStatus": {
+    "title": "Status",
+    "active": "Active",
+    "completed": "Completed",
+    "deleted": "Deleted",
+    "overdue": "Overdue"
+  },
   "overdue": "Overdue",
   "showOverdueOnly": "Show only overdue tasks",
   "dateRange": {
