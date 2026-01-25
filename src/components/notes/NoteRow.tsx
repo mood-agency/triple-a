@@ -747,7 +747,7 @@ function NoteRow({
         )}
 
         {/* Actions column */}
-        <div className="flex items-center justify-center select-none mr-0.5">
+        <div className="flex items-center justify-center gap-0.5 select-none mr-1">
           {/* Hide pin and sidebar buttons for completed and deleted tasks */}
           {!note.completed && !isDeleted && (
             <>
@@ -755,13 +755,13 @@ function NoteRow({
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    className={`transition-opacity p-0.5 cursor-pointer ${note.pinned ? 'text-primary opacity-100' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-primary'}`}
+                    className={`transition-opacity p-1.5 cursor-pointer ${note.pinned ? 'text-primary opacity-100' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-primary'}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       onTogglePinned(note.id, !note.pinned);
                     }}
                   >
-                    <Pin className="h-3.5 w-3.5" />
+                    <Pin className="h-4 w-4" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -773,13 +773,13 @@ function NoteRow({
                   <TooltipTrigger asChild>
                     <button
                       type="button"
-                      className={`transition-opacity p-0.5 cursor-pointer ${isFixedInSidebar ? 'text-blue-500 opacity-100' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-blue-500'}`}
+                      className={`transition-opacity p-1.5 cursor-pointer ${isFixedInSidebar ? 'text-blue-500 opacity-100' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-blue-500'}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         onToggleFixInSidebar?.(note.id);
                       }}
                     >
-                      <PanelRightOpen className="h-3.5 w-3.5" />
+                      <PanelRightOpen className="h-4 w-4" />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -794,10 +794,10 @@ function NoteRow({
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/60 hover:text-primary p-0.5 cursor-pointer"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/60 hover:text-primary p-1.5 cursor-pointer"
                   onClick={onRestore}
                 >
-                  <RotateCcw className="h-3.5 w-3.5" />
+                  <RotateCcw className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
               <TooltipContent>
@@ -809,10 +809,10 @@ function NoteRow({
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/60 hover:text-destructive p-0.5 cursor-pointer"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/60 hover:text-destructive p-1.5 cursor-pointer"
                   onClick={handleDeleteClick}
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
               <TooltipContent>

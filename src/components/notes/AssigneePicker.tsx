@@ -139,7 +139,6 @@ export function AssigneePicker({
                         value === contact.id ? 'opacity-100' : 'opacity-0'
                       )}
                     />
-                    <User className="mr-2 h-4 w-4 text-muted-foreground" />
                     <span className="truncate">{fullName}</span>
                   </CommandItem>
                 );
