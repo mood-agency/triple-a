@@ -73,11 +73,19 @@ interface NoteListProps {
   onViewModeChange?: (viewMode: 'list' | 'calendar') => void;
   externalSelectedDate?: Date;
   onSelectedDateChange?: (date: Date | undefined) => void;
+  // External sort control (from CommandPalette)
+  externalSortConfig?: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null };
+  onSortConfigChange?: (config: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null }) => void;
+  // External task status control (from CommandPalette)
+  externalTaskStatusFilter?: 'active' | 'completed' | 'deleted';
+  onTaskStatusFilterChange?: (status: 'active' | 'completed' | 'deleted') => void;
+  externalShowOverdueOnly?: boolean;
+  onShowOverdueOnlyChange?: (show: boolean) => void;
   // Sidebar trigger element
   sidebarTrigger?: React.ReactNode;
 }
 
-export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onUpdateAssignee, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, sidebarTrigger }, ref) {
+export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onUpdateAssignee, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, externalSortConfig, onSortConfigChange, externalTaskStatusFilter, onTaskStatusFilterChange, externalShowOverdueOnly, onShowOverdueOnlyChange, sidebarTrigger }, ref) {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { contacts } = useContacts();
@@ -125,7 +133,13 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     onViewModeChange,
     externalSelectedDate,
     onSelectedDateChange,
+    externalSortConfig,
+    onSortConfigChange,
     noteLabelsCache,
+    externalTaskStatusFilter,
+    onTaskStatusFilterChange,
+    externalShowOverdueOnly,
+    onShowOverdueOnlyChange,
   });
 
   const selection = useNoteSelection({
@@ -429,42 +443,6 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       selection.setFocusTarget('title');
     }
 
-    if (e.key === 'ArrowDown' && selectedNote) {
-      const selectionInfo = selection.descriptionRef.current?.getSelectionInfo();
-      if (selectionInfo) {
-        const { cursorPosition, text } = selectionInfo;
-        const textAfterCursor = text.substring(cursorPosition);
-        if (!textAfterCursor.includes('\n')) {
-          e.preventDefault();
-          const column = selection.getColumnPosition(text, cursorPosition);
-          selection.setDesiredColumn(column);
-          if (selection.descriptionValue !== (selectedNote.description || '')) {
-            onEdit(selectedNote.id, selectedNote.content, selectedNote.category, selection.descriptionValue || null);
-          }
-          operations.handleNavigateDownById(selectedNote.id, column);
-        }
-      }
-    }
-    if (e.key === 'ArrowUp' && selectedNote) {
-      const selectionInfo = selection.descriptionRef.current?.getSelectionInfo();
-      if (selectionInfo) {
-        const { cursorPosition, text } = selectionInfo;
-        const textBeforeCursor = text.substring(0, cursorPosition);
-        if (!textBeforeCursor.includes('\n')) {
-          e.preventDefault();
-          const column = selection.getColumnPosition(text, cursorPosition);
-          selection.setDesiredColumn(column);
-          if (selection.descriptionValue !== (selectedNote.description || '')) {
-            onEdit(selectedNote.id, selectedNote.content, selectedNote.category, selection.descriptionValue || null);
-          }
-          // Try to navigate to the previous task; if already at the first task, focus the title
-          const navigated = operations.handleNavigateUpById(selectedNote.id, column);
-          if (!navigated) {
-            selection.setFocusTarget('title');
-          }
-        }
-      }
-    }
   };
 
   const handleFixedNoteDescriptionBlur = () => {

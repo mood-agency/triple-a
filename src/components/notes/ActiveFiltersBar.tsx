@@ -1,4 +1,4 @@
-import { X, User } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
@@ -54,14 +54,14 @@ export function ActiveFiltersBar({
       </span>
 
       {categoryFilter !== 'all' && (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-normal rounded-full bg-secondary text-secondary-foreground">
-          {t('filterByCategory')}: {getCategoryLabel(categoryFilter)}
+        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] rounded-full bg-secondary text-secondary-foreground leading-none">
+          {getCategoryLabel(categoryFilter)}
           <button
             type="button"
             onClick={onClearCategory}
-            className="rounded-full hover:bg-muted-foreground/20 p-0.5"
+            className="rounded-full hover:bg-muted-foreground/20"
           >
-            <X className="h-3 w-3" />
+            <X className="h-2.5 w-2.5" />
           </button>
         </span>
       )}
@@ -70,36 +70,35 @@ export function ActiveFiltersBar({
       {selectedLabels.map(label => (
         <span
           key={label.id}
-          className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-normal rounded-full text-white"
+          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] rounded-full text-white leading-none"
           style={{ backgroundColor: label.color }}
         >
           {label.name}
           <button
             type="button"
             onClick={() => onClearLabel(label.id)}
-            className="rounded-full hover:bg-white/20 p-0.5"
+            className="rounded-full hover:bg-white/20"
           >
-            <X className="h-3 w-3" />
+            <X className="h-2.5 w-2.5" />
           </button>
         </span>
       ))}
 
-      {/* Assignees - white/transparent background with border */}
+      {/* Assignees - white/transparent background with border (same style as task assignees) */}
       {selectedAssignees.map(contact => {
         const fullName = `${contact.name} ${contact.lastname}`.trim();
         return (
           <span
             key={contact.id}
-            className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-normal rounded-full border border-border bg-background text-foreground"
+            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] rounded-full border border-border bg-background text-muted-foreground leading-none"
           >
-            <User className="h-3 w-3" />
             {fullName}
             <button
               type="button"
               onClick={() => onClearAssignee(contact.id)}
-              className="rounded-full hover:bg-muted p-0.5"
+              className="rounded-full hover:bg-muted"
             >
-              <X className="h-3 w-3" />
+              <X className="h-2.5 w-2.5" />
             </button>
           </span>
         );

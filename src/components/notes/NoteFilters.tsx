@@ -6,12 +6,7 @@ import {
   StickyNote,
   Users,
   ChevronDown,
-  Check,
   X,
-  AlertTriangle,
-  CircleDot,
-  CheckCircle2,
-  Trash2,
   CalendarRange,
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -22,14 +17,6 @@ import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import type { NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 
@@ -155,6 +142,14 @@ export function NoteFilters({
   void sortConfig;
   void onSortConfigChange;
 
+  // Suppress unused variable warnings for task status props (now handled by CommandPalette)
+  void showOverdueOnly;
+  void onShowOverdueOnlyChange;
+  void taskStatusFilter;
+  void onTaskStatusFilterChange;
+  void hasCompletedTasks;
+  void hasDeletedTasks;
+
   return (
     <>
       {/* Search input */}
@@ -250,62 +245,8 @@ export function NoteFilters({
       )}
 
 
-      {/* Task status and other options */}
+      {/* Date range filter */}
       <div className="flex gap-1 items-center ml-2 pl-2 border-l border-muted-foreground/20">
-        {/* Task status filter dropdown */}
-        <DropdownMenu>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={`h-8 shadow-none gap-1 ${showOverdueOnly ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}`}
-                  aria-label={t('taskStatus.title')}
-                >
-                  {taskStatusFilter === 'active' && <CircleDot className="h-4 w-4" />}
-                  {taskStatusFilter === 'completed' && <CheckCircle2 className="h-4 w-4" />}
-                  {taskStatusFilter === 'deleted' && <Trash2 className="h-4 w-4" />}
-                  {showOverdueOnly && <AlertTriangle className="h-3 w-3" />}
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('taskStatus.title')}</p>
-            </TooltipContent>
-          </Tooltip>
-          <DropdownMenuContent align="start" className="w-48">
-            <DropdownMenuLabel>{t('taskStatus.title')}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onTaskStatusFilterChange('active')}>
-              <CircleDot className="h-4 w-4 mr-2" />
-              {t('taskStatus.active')}
-              {taskStatusFilter === 'active' && <Check className="h-4 w-4 ml-auto" />}
-            </DropdownMenuItem>
-            {hasCompletedTasks && (
-              <DropdownMenuItem onClick={() => onTaskStatusFilterChange('completed')}>
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                {t('taskStatus.completed')}
-                {taskStatusFilter === 'completed' && <Check className="h-4 w-4 ml-auto" />}
-              </DropdownMenuItem>
-            )}
-            {hasDeletedTasks && (
-              <DropdownMenuItem onClick={() => onTaskStatusFilterChange('deleted')}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                {t('taskStatus.deleted')}
-                {taskStatusFilter === 'deleted' && <Check className="h-4 w-4 ml-auto" />}
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onShowOverdueOnlyChange(!showOverdueOnly)}>
-              <AlertTriangle className="h-4 w-4 mr-2" />
-              {t('taskStatus.overdue')}
-              {showOverdueOnly && <Check className="h-4 w-4 ml-auto" />}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
         {/* Date range filter */}
         <Popover>
           <PopoverTrigger asChild>
