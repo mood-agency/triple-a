@@ -6,7 +6,7 @@ export function MainLayout() {
   return (
     <SidebarProvider defaultOpen={false}>
       <AppSidebar />
-      <SidebarInset className="h-screen flex flex-col py-8 px-4">
+      <SidebarInset className="h-screen flex flex-col py-4 px-4">
         <div className="w-full px-4 flex flex-col flex-1 min-h-0">
           <Outlet context={{ sidebarTrigger: <SidebarTrigger variant="outline" className="h-8 w-8 shadow-none" /> }} />
         </div>

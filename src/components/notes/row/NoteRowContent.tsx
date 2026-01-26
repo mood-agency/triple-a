@@ -86,7 +86,7 @@ export function NoteRowContent({
     const { t } = useTranslation();
 
     return (
-        <div className={`group/title relative select-none flex items-center gap-1.5 ${!compactView ? 'pl-1.5' : ''} ${isEditingContent ? '' : 'overflow-hidden'}`} onClick={onContentClick}>
+        <div className={`group/title relative select-none flex items-center gap-1.5 ${!compactView ? 'pl-1.5' : ''} overflow-hidden`} onClick={onContentClick}>
             {isEditingContent ? (
                 <>
                     <input
@@ -99,8 +99,9 @@ export function NoteRowContent({
                         }}
                         onBlur={onContentBlur}
                         onKeyDown={onContentKeyDown}
-                        onFocus={() => {
-                            // We can handle click position logic here if needed, or rely on parent passing initial focus state
+                        onFocus={(e) => {
+                            // Prevent the input from auto-scrolling when focused
+                            e.target.scrollLeft = 0;
                         }}
                         placeholder={t('newTaskPlaceholder')}
                         className="flex-1 min-w-0 text-sm leading-4 bg-transparent border-none outline-none p-0 m-0 text-foreground caret-foreground placeholder:text-muted-foreground/50"

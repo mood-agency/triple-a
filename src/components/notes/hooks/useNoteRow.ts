@@ -102,17 +102,21 @@ export function useNoteRow({
                 return;
             }
 
-            contentInputRef.current.focus();
+            const input = contentInputRef.current;
+            input.focus();
 
             // Handle click positioning if we have a calculated position
             if (clickXRef.current !== null) {
                 const position = clickXRef.current;
-                contentInputRef.current.setSelectionRange(position, position);
+                input.setSelectionRange(position, position);
+                // Prevent auto-scroll by resetting scrollLeft
+                input.scrollLeft = 0;
 
                 // Backup attempt
                 setTimeout(() => {
                     if (contentInputRef.current) {
                         contentInputRef.current.setSelectionRange(position, position);
+                        contentInputRef.current.scrollLeft = 0;
                     }
                 }, 0);
 
@@ -128,10 +132,13 @@ export function useNoteRow({
             setIsEditingContent(true);
             setTimeout(() => {
                 if (contentInputRef.current) {
-                    contentInputRef.current.focus();
-                    const actualLength = contentInputRef.current.value.length;
+                    const input = contentInputRef.current;
+                    input.focus();
+                    const actualLength = input.value.length;
                     const safePosition = Math.max(0, Math.min(desiredColumn, actualLength));
-                    contentInputRef.current.setSelectionRange(safePosition, safePosition);
+                    input.setSelectionRange(safePosition, safePosition);
+                    // Prevent auto-scroll
+                    input.scrollLeft = 0;
                 }
             }, 0);
             onTitleFocused();
