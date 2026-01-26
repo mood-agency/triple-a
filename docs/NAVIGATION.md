@@ -1,144 +1,184 @@
 # Navegación y Atajos de Teclado
 
-## Descripción General
+## Flujo General de Navegación
 
-La lista de tareas se comporta como un documento de texto continuo, permitiendo navegar con el teclado de forma natural, similar a un editor de texto como Notepad.
+La aplicación sigue un modelo de navegación por teclado similar a un editor de texto, con tres zonas principales:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        BARRA DE BÚSQUEDA                        │
+│                         (Ctrl+F para enfocar)                   │
+├─────────────────────────────────┬───────────────────────────────┤
+│                                 │                               │
+│      PANEL IZQUIERDO            │      PANEL DERECHO            │
+│      Lista de Tareas            │      Descripción              │
+│                                 │      (se expande con Tab)     │
+│   ┌─────────────────────────┐   │                               │
+│   │ Tarea 1                 │   │   ┌───────────────────────┐   │
+│   ├─────────────────────────┤   │   │                       │   │
+│   │ Tarea 2  ← caret aquí   │◄──┼──►│  Editor de            │   │
+│   ├─────────────────────────┤   │   │  descripción          │   │
+│   │ Tarea 3                 │   │   │                       │   │
+│   └─────────────────────────┘   │   └───────────────────────┘   │
+│                                 │                               │
+│   ↑/↓ para navegar              │   Escape para cerrar          │
+│                                 │                               │
+└─────────────────────────────────┴───────────────────────────────┘
+```
+
+### Transiciones de Foco
+
+| Desde | Acción | Hacia |
+|-------|--------|-------|
+| Buscador | `↓` | Primera tarea |
+| Título de tarea | `Tab` | Panel de descripción |
+| Título de tarea | `↑/↓` | Tarea anterior/siguiente |
+| Descripción | `Escape` | Título de la tarea |
 
 ---
 
-## Atajos de Teclado Globales
+## Atajos de Teclado Implementados
 
-Estos atajos funcionan desde cualquier parte de la aplicación (excepto cuando se está escribiendo en un campo de texto).
+### Globales
+
+Funcionan desde cualquier parte de la aplicación:
 
 | Atajo | Acción |
 |-------|--------|
 | `Ctrl+K` | Abrir Command Palette |
 | `Ctrl+F` | Enfocar barra de búsqueda |
+| `Alt+S` | Toggle sidebar izquierdo |
 | `Alt+Q` | Filtrar por categoría "Por Hacer" (toggle) |
 | `Alt+W` | Filtrar por categoría "Seguimiento" (toggle) |
 | `Alt+E` | Filtrar por categoría "Notas" (toggle) |
 | `Alt+R` | Filtrar por categoría "Reunión" (toggle) |
 | `Alt+C` | Limpiar todos los filtros |
-| `↑` | Seleccionar última tarea (si ninguna está seleccionada) |
-| `↓` | Seleccionar primera tarea (si ninguna está seleccionada) |
+| `Alt+T` | Abrir selector de fecha límite |
+| `Alt+V` | Alternar vista lista/calendario |
+| `Alt+F` | Toggle vista compacta de tareas |
+| `Alt+P` | Abrir filtro de asignados |
 | `Escape` | Deseleccionar tarea actual |
 
----
-
-## Atajos en el Título de Tarea
-
-Cuando el cursor está en el título de una tarea:
-
-| Atajo | Acción |
-|-------|--------|
-| `↑` | Navegar a la tarea anterior (mantiene columna) |
-| `↓` | Navegar a la tarea siguiente (mantiene columna) |
-| `Enter` | Crear nueva tarea debajo |
-| `Tab` | Ir a la descripción de la tarea |
-| `Backspace` | Eliminar tarea (si el título está vacío) |
-| `Ctrl+D` | Marcar/desmarcar como completada |
-| `Ctrl+Backspace` | Eliminar tarea |
-| `Ctrl+L` | Abrir selector de etiquetas |
-
----
-
-## Atajos en la Descripción
-
-Cuando el cursor está en la descripción de una tarea:
-
-| Atajo | Acción |
-|-------|--------|
-| `Shift+Tab` | Volver al título de la tarea |
-
----
-
-## Atajos en la Barra de Búsqueda
+### En la Barra de Búsqueda
 
 | Atajo | Acción |
 |-------|--------|
 | `↓` | Seleccionar primera tarea de los resultados |
 | `Escape` | Limpiar búsqueda |
 
----
+### En el Título de Tarea
 
-## Navegación Detallada
+| Atajo | Acción |
+|-------|--------|
+| `↑` | Navegar a la tarea anterior (mantiene columna del cursor) |
+| `↓` | Navegar a la tarea siguiente (mantiene columna del cursor) |
+| `Enter` | Crear nueva tarea debajo |
+| `Tab` | Expandir panel de descripción y enfocar editor |
+| `Backspace` | Eliminar tarea (solo si el título está vacío) |
+| `Ctrl+D` | Marcar/desmarcar como completada |
+| `Ctrl+Backspace` | Eliminar tarea |
+| `Ctrl+L` | Abrir selector de etiquetas |
+| `Escape` | Revertir cambios sin perder foco |
 
-### Click en Título de Tarea
+### En el Panel de Descripción
 
-**Comportamiento:** Al hacer click en el título de una tarea, el caret se posiciona automáticamente en el texto, en la posición exacta donde se hizo click.
-
-**Implementación:**
-- Se calcula la posición del click relativa al texto
-- Se usa `canvas.measureText()` para determinar el carácter exacto
-- El input recibe foco con `setSelectionRange(pos, pos)`
-
----
-
-### Navegación Vertical (↑/↓)
-
-**Comportamiento:** Al presionar las flechas, el cursor salta al título de la tarea adyacente manteniendo la posición horizontal (columna).
-
-**Requisitos:**
-- El input de la tarea destino debe estar en modo edición
-- El caret debe estar visible y activo
-- El usuario puede escribir inmediatamente sin hacer click
-
-**Preservación de columna:**
-- Si la nueva línea es más corta que la posición actual, el cursor va al final
-- Si es igual o más larga, mantiene la misma columna
+| Atajo | Acción |
+|-------|--------|
+| `Escape` | Guardar y cerrar panel, volver al título |
+| `Ctrl+D` | Marcar/desmarcar tarea como completada |
+| `↓` (al final del texto) | Navegar a la siguiente tarea |
+| `↑` (al inicio del texto) | Navegar a la tarea anterior o al título |
 
 ---
 
-### Creación de Nueva Tarea (Enter)
+## Sistema de Preservación de Columna
 
-**Flujo:**
-1. Guarda el contenido actual de la tarea
-2. Crea una nueva tarea con contenido vacío
-3. Calcula el `sort_order` para posicionarla correctamente
-4. Selecciona automáticamente la nueva tarea
-5. El input de la nueva tarea recibe foco con el caret al inicio
-6. El usuario puede comenzar a escribir inmediatamente
-
----
-
-### Sistema de Preservación de Columna
-
-**Concepto:** Al navegar verticalmente entre tareas, el sistema recuerda la posición horizontal del cursor.
-
-**Comportamiento:**
-1. Al presionar ↑ o ↓, se captura la posición actual: `selectionStart`
-2. Se guarda en `desiredColumn`
-3. Al enfocar la nueva tarea, se aplica: `setSelectionRange(pos, pos)`
-4. Si el texto es más corto, se usa `Math.min(desiredColumn, text.length)`
-
----
-
-## Diagrama de Navegación
+Al navegar verticalmente entre tareas con `↑/↓`, el sistema recuerda la posición horizontal del cursor:
 
 ```
-┌─────────────────────────────────────┐
-│ Tarea 1: Comprar leche              │  ← ↑ (primera tarea: no hace nada)
-│   Descripción de tarea 1...         │
-├─────────────────────────────────────┤
-│ Tarea 2: Llamar al doctor|          │  ← cursor aquí, columna 20
-│   (sin descripción)                 │
-├─────────────────────────────────────┤
-│ Tarea 3: Revisar correo             │  ← ↓ salta aquí, mantiene col 20
-│   Descripción de tarea 3...         │     "Revisar correo" tiene 14 chars
-├─────────────────────────────────────┤     → cursor va al final (pos 14)
-│ Tarea 4: Última tarea               │  ← ↓ (última tarea: no hace nada)
-└─────────────────────────────────────┘
-
-Enter en cualquier tarea → Crea nueva tarea abajo
+Tarea 1: Comprar leche|          ← cursor en posición 14
+              ↓
+Tarea 2: Revisar correos largos  ← cursor se mantiene en posición 14
+              ↓
+Tarea 3: Hola                    ← texto más corto, cursor va al final (pos 4)
 ```
+
+**Implementación:** Se guarda en `desiredColumn` y se aplica con `setSelectionRange(pos, pos)`.
 
 ---
 
-## Archivos Clave
+## Cambios Pendientes (TODO)
+
+### Comportamiento deseado no implementado:
+
+- [ ] **Focus inicial**: Al cargar la página, el caret debe posicionarse automáticamente en la primera tarea
+- [ ] **↑ en primera tarea → buscador**: Cuando el usuario está en la primera tarea y presiona `↑`, el foco debe ir a la barra de búsqueda
+- [ ] **↓ en última tarea**: Actualmente puede tener comportamiento inconsistente; debe no hacer nada
+
+### Mejoras sugeridas:
+
+- [ ] Extender `FocusTarget` para incluir `'search'`:
+  ```typescript
+  type FocusTarget = 'search' | 'title' | 'description-start' | 'description-end' | null;
+  ```
+
+---
+
+## Arquitectura Técnica
+
+### Librería de Atajos
+
+Se usa **react-hotkeys-hook v5.2.3** con un patrón de capas jerárquicas:
+
+```
+┌─────────────────────────────────────────────────┐
+│ Capa Global (Home.tsx)                          │
+│   Alt+S, Ctrl+K                                 │
+└─────────────────────────────────────────────────┘
+         ↓
+┌─────────────────────────────────────────────────┐
+│ Capa de Lista (NoteList.tsx)                    │
+│   Ctrl+F, Tab, Escape, Alt+Q/W/E/R/C/T/V/F/P    │
+└─────────────────────────────────────────────────┘
+         ↓
+┌─────────────────────────────────────────────────┐
+│ Capa de Fila (useNoteRow.ts)                    │
+│   ↑/↓, Enter, Backspace, Ctrl+D, Ctrl+Backspace │
+└─────────────────────────────────────────────────┘
+         ↓
+┌─────────────────────────────────────────────────┐
+│ Capa de Descripción                             │
+│   Escape, Shift+Tab, ↑/↓ en bordes              │
+└─────────────────────────────────────────────────┘
+```
+
+### Estados de Foco
+
+Manejados en `useNoteSelection.ts`:
+
+```typescript
+type FocusTarget = 'title' | 'description-start' | 'description-end' | null;
+```
+
+### Archivos Clave
 
 | Archivo | Responsabilidad |
 |---------|-----------------|
-| `src/components/notes/NoteList.tsx` | Orquestador principal de navegación y atajos globales |
+| `src/components/notes/NoteList.tsx` | Orquestador principal, atajos de nivel lista |
+| `src/hooks/useNoteRow.ts` | Navegación entre tareas, atajos de fila |
+| `src/hooks/useNoteSelection.ts` | Máquina de estados de foco |
 | `src/components/CommandPalette.tsx` | Command Palette (Ctrl+K) |
-| `src/components/ui/EditableDescription.tsx` | Edición de descripciones con TipTap |
-| `src/hooks/useNotes.ts` | CRUD y persistencia en base de datos |
+| `src/components/ui/EditableDescription.tsx` | Editor de descripción con TipTap |
+| `src/hooks/useDebugNavigation.tsx` | Debug visual con `?debug=nav` |
+
+---
+
+## Modo Debug
+
+Añadir `?debug=nav` a la URL para activar indicadores visuales:
+
+- **Anillo rojo**: Fila seleccionada
+- **Anillo verde**: Título con foco
+- **Anillo púrpura**: Descripción con foco
+- **Anillo azul**: Elemento actualmente enfocado
+- **Overlay**: Estado de navegación en tiempo real (esquina inferior derecha)

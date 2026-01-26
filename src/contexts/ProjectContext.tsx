@@ -32,48 +32,71 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
   const [initialized, setInitialized] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Sync active project with URL and Settings
+  // Extract project param - URL is the source of truth when valid
+  const projectParam = searchParams.get('project');
+
+  // Compute the effective active project ID synchronously
+  // Priority: valid URL param > internal state > settings > first project
+  const effectiveActiveProjectId = useMemo(() => {
+    if (projectsLoading) return activeProjectId;
+
+    // If URL param is valid, use it immediately (no waiting for useEffect)
+    if (projectParam && projects.some(p => p.id === projectParam)) {
+      return projectParam;
+    }
+
+    // Fall back to internal state if set
+    if (activeProjectId && projects.some(p => p.id === activeProjectId)) {
+      return activeProjectId;
+    }
+
+    // Fall back to settings
+    const activeProjects = projects.filter(p => p.status === 'active');
+    if (settings.activeProjectId && activeProjects.some(p => p.id === settings.activeProjectId)) {
+      return settings.activeProjectId;
+    }
+
+    // Fall back to first active project
+    if (activeProjects.length > 0) {
+      return activeProjects[0].id;
+    }
+
+    return null;
+  }, [projectParam, projects, projectsLoading, activeProjectId, settings.activeProjectId]);
+
+  // Sync internal state and settings with URL (side effects only)
   useEffect(() => {
     if (projectsLoading) return;
 
-    const projectParam = searchParams.get('project');
     const activeProjects = projects.filter(p => p.status === 'active');
 
-    // If we have a URL param, prioritize it (if valid)
-    if (projectParam) {
-      const isValidProject = projects.some(p => p.id === projectParam);
-      if (isValidProject) {
-        if (activeProjectId !== projectParam) {
-          setActiveProjectIdState(projectParam);
-          // Also sync settings just in case
-          if (settings.activeProjectId !== projectParam) {
-            updateSettings({ activeProjectId: projectParam });
-          }
-        }
-        if (!initialized) {
-          setInitialized(true);
-        }
-        return;
+    // If we have a valid URL param, sync internal state and settings
+    if (projectParam && projects.some(p => p.id === projectParam)) {
+      if (activeProjectId !== projectParam) {
+        setActiveProjectIdState(projectParam);
       }
+      if (settings.activeProjectId !== projectParam) {
+        updateSettings({ activeProjectId: projectParam });
+      }
+      if (!initialized) {
+        setInitialized(true);
+      }
+      return;
     }
 
-    // Initialization logic (only runs once if URL param provided, or until we find a default)
+    // Initialization logic (only runs once)
     if (!initialized) {
       if (settings.activeProjectId && activeProjects.some(p => p.id === settings.activeProjectId)) {
-        // Use saved project if it exists and is active
         setActiveProjectIdState(settings.activeProjectId);
-        // Sync to URL
         setSearchParams(prev => {
           const newParams = new URLSearchParams(prev);
           newParams.set('project', settings.activeProjectId!);
           return newParams;
         }, { replace: true });
       } else if (activeProjects.length > 0) {
-        // Use first active project as default
         const defaultId = activeProjects[0].id;
         setActiveProjectIdState(defaultId);
         updateSettings({ activeProjectId: defaultId });
-        // Sync to URL
         setSearchParams(prev => {
           const newParams = new URLSearchParams(prev);
           newParams.set('project', defaultId);
@@ -82,7 +105,7 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
       }
       setInitialized(true);
     }
-  }, [projects, projectsLoading, settings.activeProjectId, updateSettings, initialized, searchParams, setSearchParams, activeProjectId]);
+  }, [projects, projectsLoading, settings.activeProjectId, updateSettings, initialized, projectParam, setSearchParams, activeProjectId]);
 
   // Set active project and persist to settings AND URL
   const setActiveProjectId = useCallback((id: string) => {
@@ -97,9 +120,9 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
 
   // Get the active project object
   const activeProject = useMemo(() => {
-    if (!activeProjectId) return null;
-    return projects.find(p => p.id === activeProjectId) || null;
-  }, [activeProjectId, projects]);
+    if (!effectiveActiveProjectId) return null;
+    return projects.find(p => p.id === effectiveActiveProjectId) || null;
+  }, [effectiveActiveProjectId, projects]);
 
   // Create project wrapper that can set as active
   const createProject = useCallback(async (name: string, setAsActive = true): Promise<Project> => {
@@ -112,12 +135,12 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
 
   const value = useMemo(() => ({
     activeProject,
-    activeProjectId,
+    activeProjectId: effectiveActiveProjectId,
     projects,
     loading: projectsLoading || !initialized,
     setActiveProjectId,
     createProject,
-  }), [activeProject, activeProjectId, projects, projectsLoading, initialized, setActiveProjectId, createProject]);
+  }), [activeProject, effectiveActiveProjectId, projects, projectsLoading, initialized, setActiveProjectId, createProject]);
 
   return (
     <ProjectContext.Provider value={value}>

@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { useDebugNavigation } from '@/hooks/useDebugNavigation';
 
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
@@ -77,6 +78,7 @@ function NoteRow(props: NoteRowProps) {
   } = props;
 
   const { t, i18n } = useTranslation();
+  const { debugMode, debugSelectedClass } = useDebugNavigation();
 
   const {
     contentValue,
@@ -121,7 +123,7 @@ function NoteRow(props: NoteRowProps) {
         }}
         style={style}
         onClick={() => props.onSelect(note.id)}
-        className={`group grid ${compactView ? 'grid-cols-[auto_1fr_auto]' : 'grid-cols-[auto_minmax(0,1fr)_auto_auto_auto]'} items-center h-5 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' && note.category !== 'meeting' ? 'opacity-50' : ''} ${isDraggingProp ? 'opacity-50 bg-muted/30' : ''}`}
+        className={`group grid ${compactView ? 'grid-cols-[auto_1fr_auto]' : 'grid-cols-[auto_minmax(0,1fr)_auto_auto_auto]'} items-center h-5 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' && note.category !== 'meeting' ? 'opacity-50' : ''} ${isDraggingProp ? 'opacity-50 bg-muted/30' : ''} ${props.isSelected && debugMode ? debugSelectedClass : ''}`}
       >
         {/* Category icon column */}
         {!compactView ? (
