@@ -218,13 +218,17 @@
   "unpin": "Unpin",
   "commandPalettePlaceholder": "Search labels and categories...",
   "commandPalette": {
-    "view": "View"
+    "view": "View",
+    "searchLabels": "Search labels...",
+    "searchAssignees": "Search assignees..."
   },
+  "clearLabelFilter": "Clear label filter",
   "noResults": "No results found",
   "activeFilters": "Active Filters",
   "clearAllFilters": "Clear all filters",
   "filterByCategory": "Category",
   "filterByAssignee": "Filter by assignee",
+  "clearAssigneeFilter": "Clear assignee filter",
   "filterByLabel": "Filter by label",
   "allCategories": "All categories",
   "completedTasks": "Completed",
@@ -301,6 +305,9 @@
     "filterNotes": "Filter Notes",
     "filterMeeting": "Filter Meeting",
     "filterAssignee": "Filter by assignee",
+    "filterLabels": "Filter by labels",
+    "filterProjects": "Filter by projects",
+    "filterAssignees": "Filter by assignees",
     "clearFilters": "Clear filters",
     "deselectTask": "Deselect task",
     "navigateTasks": "Navigate between tasks",

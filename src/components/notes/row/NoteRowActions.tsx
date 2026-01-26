@@ -45,7 +45,7 @@ export function NoteRowActions({
                             <p>{note.pinned ? t('unpin') : t('pin')}</p>
                         </TooltipContent>
                     </Tooltip>
-                    {onToggleFixInSidebar && (
+                    {!note.pinned && onToggleFixInSidebar && (
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <button
@@ -84,7 +84,7 @@ export function NoteRowActions({
                         <p>{t('trash.restore')}</p>
                     </TooltipContent>
                 </Tooltip>
-            ) : (
+            ) : !note.pinned && (
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <button

@@ -22,6 +22,9 @@ export function HotkeysHelper() {
       title: t('hotkeys.global'),
       items: [
         { keys: ['Ctrl', 'K'], action: t('hotkeys.openCommandPalette') },
+        { keys: ['Ctrl', 'L'], action: t('hotkeys.filterLabels') },
+        { keys: ['Ctrl', 'P'], action: t('hotkeys.filterProjects') },
+        { keys: ['Ctrl', 'R'], action: t('hotkeys.filterAssignees') },
         { keys: ['Ctrl', 'F'], action: t('hotkeys.focusSearch') },
         { keys: ['Alt', 'Q'], action: t('hotkeys.filterTodo') },
         { keys: ['Alt', 'W'], action: t('hotkeys.filterFollowup') },
