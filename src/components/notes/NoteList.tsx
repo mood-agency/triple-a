@@ -387,22 +387,22 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     filters.setCategoryJustChanged(true);
   }, hotkeyOptions);
 
-  useHotkeys('down', () => {
-    if (selection.isDescriptionFocused) return;
+  useHotkeys('down', (e) => {
+    e.preventDefault();
     if ((filters.categoryJustChanged || !selectedNote) && filters.filteredNotes.length > 0) {
       onSelectNote(filters.filteredNotes[0]);
       selection.setFocusTarget('title');
       filters.setCategoryJustChanged(false);
     }
-  }, hotkeyOptions, [filters.categoryJustChanged, selectedNote, filters.filteredNotes, onSelectNote, selection.isDescriptionFocused]);
-  useHotkeys('up', () => {
-    if (selection.isDescriptionFocused) return;
+  }, { enableOnFormTags: true, enableOnContentEditable: false }, [filters.categoryJustChanged, selectedNote, filters.filteredNotes, onSelectNote]);
+  useHotkeys('up', (e) => {
+    e.preventDefault();
     if ((filters.categoryJustChanged || !selectedNote) && filters.filteredNotes.length > 0) {
       onSelectNote(filters.filteredNotes[filters.filteredNotes.length - 1]);
       selection.setFocusTarget('title');
       filters.setCategoryJustChanged(false);
     }
-  }, hotkeyOptions, [filters.categoryJustChanged, selectedNote, filters.filteredNotes, onSelectNote, selection.isDescriptionFocused]);
+  }, { enableOnFormTags: true, enableOnContentEditable: false }, [filters.categoryJustChanged, selectedNote, filters.filteredNotes, onSelectNote]);
   useHotkeys('escape', () => { onSelectNote(null); filters.setCategoryJustChanged(false); }, { ...hotkeyOptions, enableOnFormTags: false }, [onSelectNote]);
   useHotkeys('tab', () => {
     if (selectedNote) {
@@ -636,7 +636,6 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           labelFilter={filters.labelFilter}
           assigneeFilter={filters.assigneeFilter}
           showOverdueOnly={filters.showOverdueOnly}
-          renderNoResultsContent={() => null}
         />
 
         {selectedNote && selection.showDescriptionPanel && (
