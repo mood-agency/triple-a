@@ -25,14 +25,14 @@ export function NoteRowActions({
     const { t } = useTranslation();
 
     return (
-        <div className={`flex items-center gap-0.5 pl-1 shrink-0 transition-opacity ${note.pinned || isFixedInSidebar ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+        <div className="flex items-center gap-0.5 pl-1 shrink-0">
             {!note.completed && !isDeleted && (
                 <>
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <button
                                 type="button"
-                                className={`p-1 cursor-pointer transition-opacity ${note.pinned ? 'text-primary' : 'text-muted-foreground/60 hover:text-primary'}`}
+                                className={`p-1 cursor-pointer transition-opacity ${note.pinned ? 'opacity-100 text-primary' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-primary'}`}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onTogglePinned(note.id, !note.pinned);
@@ -50,7 +50,7 @@ export function NoteRowActions({
                             <TooltipTrigger asChild>
                                 <button
                                     type="button"
-                                    className={`p-1 cursor-pointer transition-opacity ${isFixedInSidebar ? 'text-blue-500' : 'text-muted-foreground/60 hover:text-blue-500'}`}
+                                    className={`p-1 cursor-pointer transition-opacity ${isFixedInSidebar ? 'opacity-100 text-blue-500' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-blue-500'}`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onToggleFixInSidebar?.(note.id);
@@ -71,7 +71,7 @@ export function NoteRowActions({
                     <TooltipTrigger asChild>
                         <button
                             type="button"
-                            className="p-1 cursor-pointer text-muted-foreground/60 hover:text-primary"
+                            className="p-1 cursor-pointer transition-opacity opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-primary"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onRestore();
@@ -89,7 +89,7 @@ export function NoteRowActions({
                     <TooltipTrigger asChild>
                         <button
                             type="button"
-                            className="p-1 cursor-pointer text-muted-foreground/60 hover:text-destructive"
+                            className="p-1 cursor-pointer transition-opacity opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-destructive"
                             onClick={onDeleteClick}
                         >
                             <Trash2 className="h-3.5 w-3.5" />

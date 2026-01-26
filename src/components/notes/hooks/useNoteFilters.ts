@@ -181,16 +181,16 @@ export function useNoteFilters({
     // Filter Logic
     const baseFilteredNotes = useMemo(() => notes.filter((note) => {
         if (note.pinned) {
-            if (categoryFilter === 'all' && note.category === 'notes') return false;
-            if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
-
-            if (searchQuery.trim()) {
-                const query = searchQuery.toLowerCase();
-                const titleMatch = note.content.toLowerCase().includes(query);
-                const descriptionMatch = note.description?.toLowerCase().includes(query) ?? false;
-                return titleMatch || descriptionMatch;
+            if (!searchQuery.trim()) {
+                if (categoryFilter === 'all' && note.category === 'notes') return false;
+                if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
+                return true;
             }
-            return true;
+            // Cuando hay búsqueda, buscar en el contenido sin filtrar por categoría
+            const query = searchQuery.toLowerCase();
+            const titleMatch = note.content.toLowerCase().includes(query);
+            const descriptionMatch = note.description?.toLowerCase().includes(query) ?? false;
+            return titleMatch || descriptionMatch;
         }
 
         // Solo aplicar filtro de categoría si NO hay búsqueda de texto
