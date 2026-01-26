@@ -76,7 +76,6 @@ export function useNoteFilters({
     });
     const [internalShowOverdueOnly, setInternalShowOverdueOnly] = useState(false);
     const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
-    const [categoryJustChanged, setCategoryJustChanged] = useState(false);
 
 
     // Derived State (combine external and internal)
@@ -402,8 +401,6 @@ export function useNoteFilters({
         setShowOverdueOnly,
         dateRangeFilter,
         setDateRangeFilter,
-        categoryJustChanged,
-        setCategoryJustChanged,
 
         // Filter values (derived)
         labelFilter,

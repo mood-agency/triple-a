@@ -74,11 +74,16 @@ export function DatePicker({
       // Popover opening - save the original date
       originalDateRef.current = date
     } else {
-      // Popover closing - check if date changed and call onSave
+      // Popover closing - check if date (day) changed and call onSave
+      // Only trigger postpone dialog if the actual date changed, not just the time
+      // (e.g., switching between all-day and timed events shouldn't ask for reason)
       if (onSave && date && originalDateRef.current) {
-        const originalTime = originalDateRef.current.getTime()
-        const currentTime = date.getTime()
-        if (originalTime !== currentTime) {
+        const originalDate = originalDateRef.current
+        const sameDay =
+          originalDate.getFullYear() === date.getFullYear() &&
+          originalDate.getMonth() === date.getMonth() &&
+          originalDate.getDate() === date.getDate()
+        if (!sameDay) {
           onSave(date)
         }
       }

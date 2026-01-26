@@ -230,7 +230,8 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
       afterNoteId: string,
       category: NoteCategory = 'todo',
       deadline?: string | null,
-      labelIds: string[] = []
+      labelIds: string[] = [],
+      assigneeId?: string | null
     ): Promise<Note> => {
       if (!store) throw new Error('Store not ready');
 
@@ -269,7 +270,7 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         deadline: deadline || null,
         pinned: false,
         sort_order: newSortOrder,
-        assignee_id: null,
+        assignee_id: assigneeId || null,
         project_id: projectId || null,
         created_at: timestamp,
         updated_at: timestamp,

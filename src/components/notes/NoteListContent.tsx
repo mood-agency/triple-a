@@ -16,6 +16,7 @@ import { CalendarView } from './CalendarView';
 import { TimelineView } from './TimelineView';
 import { MemoizedNoteRow } from './NoteRow';
 import { NoteListEmptyState } from './NoteListEmptyState';
+import { ActiveFiltersBar } from './ActiveFiltersBar';
 
 interface NoteListContentProps {
     isMobile: boolean;
@@ -85,6 +86,13 @@ interface NoteListContentProps {
     labelFilter: string[];
     assigneeFilter: string[];
     showOverdueOnly: boolean;
+
+    // Active Filters Bar Props
+    onClearCategory: () => void;
+    onClearLabel: (labelId: string) => void;
+    onClearAssignee: (assigneeId: string) => void;
+    onClearSearch: () => void;
+    onClearAllFilters: () => void;
 }
 
 export function NoteListContent({
@@ -143,6 +151,11 @@ export function NoteListContent({
     labelFilter,
     assigneeFilter,
     showOverdueOnly,
+    onClearCategory,
+    onClearLabel,
+    onClearAssignee,
+    onClearSearch,
+    onClearAllFilters,
 }: NoteListContentProps) {
     const { t } = useTranslation();
     const EMPTY_LABELS: Label[] = [];
@@ -157,6 +170,19 @@ export function NoteListContent({
 
     return (
         <div className={`${isMobile ? 'w-full' : 'w-[30%]'} ${isMobile && selectedNote ? 'hidden' : ''} shrink-0 flex flex-col overflow-hidden`}>
+            <ActiveFiltersBar
+                categoryFilter={categoryFilter}
+                labelFilter={labelFilter}
+                assigneeFilter={assigneeFilter}
+                searchQuery={searchQuery}
+                labels={labels}
+                contacts={contacts}
+                onClearCategory={onClearCategory}
+                onClearLabel={onClearLabel}
+                onClearAssignee={onClearAssignee}
+                onClearSearch={onClearSearch}
+                onClearAll={onClearAllFilters}
+            />
             {notes.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center">
                     <p className="text-center text-muted-foreground/60 text-sm italic">
