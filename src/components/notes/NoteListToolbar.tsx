@@ -113,7 +113,7 @@ export function NoteListToolbar({
             <Logo size="sm" className="mr-1" />
 
             {/* Hideable toolbar content */}
-            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200">
 
             {/* Sidebar trigger */}
             {sidebarTrigger}
@@ -147,7 +147,7 @@ export function NoteListToolbar({
                 </TooltipTrigger>
                 <TooltipContent className="flex items-center gap-2">
                     <p>{viewMode === 'list' ? t('calendar.switchToCalendarView') : t('calendar.switchToListView')}</p>
-                    <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>Shift</Kbd><Kbd>C</Kbd></span>
+                    <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>V</Kbd></span>
                 </TooltipContent>
             </Tooltip>
             {/* Compact view toggle - hide on mobile */}

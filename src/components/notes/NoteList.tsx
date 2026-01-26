@@ -37,6 +37,7 @@ import { useNoteSelection } from './hooks/useNoteSelection';
 import { useNoteOperations } from './hooks/useNoteOperations';
 import { NoteListToolbar } from './NoteListToolbar';
 import { NoteListContent } from './NoteListContent';
+import { ActiveFiltersBar } from './ActiveFiltersBar';
 import { DebugNavigationOverlay } from '@/hooks/useDebugNavigation';
 
 // Re-export types if needed
@@ -575,6 +576,22 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
             filters.setSearchQuery('');
             searchInputRef.current?.blur();
           }
+        }}
+      />
+
+      <ActiveFiltersBar
+        categoryFilter={filters.categoryFilter}
+        labelFilter={filters.labelFilter}
+        assigneeFilter={filters.assigneeFilter}
+        labels={labels}
+        contacts={contacts}
+        onClearCategory={() => filters.setCategoryFilter('all')}
+        onClearLabel={(labelId) => filters.setLabelFilter(prev => prev.filter(id => id !== labelId))}
+        onClearAssignee={(assigneeId) => filters.setAssigneeFilter(prev => prev.filter(id => id !== assigneeId))}
+        onClearAll={() => {
+          filters.setCategoryFilter('all');
+          filters.setLabelFilter([]);
+          filters.setAssigneeFilter([]);
         }}
       />
 

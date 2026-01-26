@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
-import { Pickaxe, Forward, StickyNote, Check, X, Users, Calendar, List, FolderKanban } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Check, X, Users, Calendar, List, FolderKanban, User, ArrowUp, ArrowDown, Calendar as CalendarIcon, Layers } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/command';
 import type { Label, NoteCategory } from '@/types/note';
 import type { Project } from '@/types/project';
+import type { Contact } from '@/types/contact';
 
 interface FocusState {
   element: HTMLElement;
@@ -35,9 +36,17 @@ interface CommandPaletteProps {
   projects?: Project[];
   activeProjectId?: string | null;
   onSelectProject?: (projectId: string) => void;
+  // Assignee filtering
+  contacts?: Contact[];
+  selectedAssignees?: string[];
+  onSelectAssignee?: (assigneeId: string) => void;
+  onClearAssignees?: () => void;
+  // Sort configuration
+  sortConfig?: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null };
+  onSortChange?: (config: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null }) => void;
 }
 
-type PaletteMode = 'commands' | 'projects';
+type PaletteMode = 'commands' | 'projects' | 'labels' | 'assignees';
 
 export function CommandPalette({
   labels,
@@ -52,6 +61,12 @@ export function CommandPalette({
   projects = [],
   activeProjectId,
   onSelectProject,
+  contacts = [],
+  selectedAssignees = [],
+  onSelectAssignee,
+  onClearAssignees,
+  sortConfig = { deadline: null, assignee: null, category: null },
+  onSortChange,
 }: CommandPaletteProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -140,6 +155,32 @@ export function CommandPalette({
     }
   }, { preventDefault: true, enableOnFormTags: true }, [open, mode, saveFocusState, handleOpenChange]);
 
+  // Ctrl+R to toggle command palette (assignees mode)
+  useHotkeys('ctrl+r, meta+r', () => {
+    if (open && mode === 'assignees') {
+      handleOpenChange(false);
+    } else {
+      setMode('assignees');
+      if (!open) {
+        saveFocusState();
+        setOpen(true);
+      }
+    }
+  }, { preventDefault: true, enableOnFormTags: true }, [open, mode, saveFocusState, handleOpenChange]);
+
+  // Ctrl+L to toggle command palette (labels mode)
+  useHotkeys('ctrl+l, meta+l', () => {
+    if (open && mode === 'labels') {
+      handleOpenChange(false);
+    } else {
+      setMode('labels');
+      if (!open) {
+        saveFocusState();
+        setOpen(true);
+      }
+    }
+  }, { preventDefault: true, enableOnFormTags: true }, [open, mode, saveFocusState, handleOpenChange]);
+
   const handleSelectLabel = (labelId: string) => {
     onSelectLabel(labelId);
   };
@@ -165,17 +206,42 @@ export function CommandPalette({
     handleOpenChange(false);
   };
 
-  const hasActiveFilters = selectedLabels.length > 0 || categoryFilter !== 'all';
+  const hasActiveFilters = selectedLabels.length > 0 || categoryFilter !== 'all' || selectedAssignees.length > 0;
+
+  const handleSelectAssignee = (assigneeId: string) => {
+    onSelectAssignee?.(assigneeId);
+  };
+
+  const handleClearAssignees = () => {
+    onClearAssignees?.();
+  };
+
+  const handleSetSort = (field: 'deadline' | 'assignee' | 'category', direction: 'asc' | 'desc' | null) => {
+    onSortChange?.({ ...sortConfig, [field]: direction });
+    handleOpenChange(false);
+  };
+
+  const handleClearSort = () => {
+    onSortChange?.({ deadline: null, assignee: null, category: null });
+    handleOpenChange(false);
+  };
+
+  const hasActiveSort = sortConfig.deadline !== null || sortConfig.assignee !== null || sortConfig.category !== null;
 
   return (
     <CommandDialog open={open} onOpenChange={handleOpenChange}>
       <CommandInput
-        placeholder={mode === 'projects' ? t('projects.searchProjects', 'Search projects...') : t('commandPalettePlaceholder')}
+        placeholder={
+          mode === 'projects' ? t('projects.searchProjects', 'Search projects...') :
+          mode === 'labels' ? t('commandPalette.searchLabels', 'Search labels...') :
+          mode === 'assignees' ? t('commandPalette.searchAssignees', 'Search assignees...') :
+          t('commandPalettePlaceholder')
+        }
       />
       <CommandList>
         <CommandEmpty>{t('noResults')}</CommandEmpty>
 
-        {mode === 'projects' ? (
+        {mode === 'projects' && (
           <CommandGroup heading={t('projects.allProjects', 'Projects')}>
             {projects.map(project => (
               <CommandItem
@@ -195,7 +261,63 @@ export function CommandPalette({
               </CommandItem>
             ))}
           </CommandGroup>
-        ) : (
+        )}
+
+        {mode === 'labels' && (
+          <CommandGroup heading={t('filterByLabel')}>
+            {selectedLabels.length > 0 && (
+              <CommandItem onSelect={onClearLabels}>
+                <X />
+                {t('clearLabelFilter', 'Clear label filter')}
+              </CommandItem>
+            )}
+            {labels.map((label) => {
+              const isSelected = selectedLabels.includes(label.id);
+              return (
+                <CommandItem
+                  key={label.id}
+                  value={label.name}
+                  onSelect={() => handleSelectLabel(label.id)}
+                >
+                  <span
+                    className="h-3 w-3 rounded-full shrink-0"
+                    style={{ backgroundColor: label.color }}
+                  />
+                  {label.name}
+                  {isSelected && <Check className="text-primary" />}
+                </CommandItem>
+              );
+            })}
+          </CommandGroup>
+        )}
+
+        {mode === 'assignees' && (
+          <CommandGroup heading={t('filterByAssignee')}>
+            {selectedAssignees.length > 0 && (
+              <CommandItem onSelect={handleClearAssignees}>
+                <X />
+                {t('clearAssigneeFilter')}
+              </CommandItem>
+            )}
+            {contacts.map((contact) => {
+              const isSelected = selectedAssignees.includes(contact.id);
+              const fullName = `${contact.name} ${contact.lastname}`.trim();
+              return (
+                <CommandItem
+                  key={contact.id}
+                  value={fullName}
+                  onSelect={() => handleSelectAssignee(contact.id)}
+                >
+                  <User className="h-4 w-4" />
+                  {fullName}
+                  {isSelected && <Check className="text-primary" />}
+                </CommandItem>
+              );
+            })}
+          </CommandGroup>
+        )}
+
+        {mode === 'commands' && (
           <>
             {hasActiveFilters && (
               <>
@@ -213,7 +335,54 @@ export function CommandPalette({
               <CommandItem onSelect={handleToggleViewMode}>
                 {viewMode === 'list' ? <Calendar /> : <List />}
                 {viewMode === 'list' ? t('calendar.switchToCalendarView') : t('calendar.switchToListView')}
-                <CommandShortcut>Ctrl Shift C</CommandShortcut>
+                <CommandShortcut>Alt V</CommandShortcut>
+              </CommandItem>
+            </CommandGroup>
+
+            <CommandSeparator />
+
+            <CommandGroup heading={t('sort.title')}>
+              {hasActiveSort && (
+                <CommandItem onSelect={handleClearSort}>
+                  <X />
+                  {t('sort.none')}
+                </CommandItem>
+              )}
+              <CommandItem onSelect={() => handleSetSort('deadline', 'asc')}>
+                <CalendarIcon />
+                <ArrowUp className="h-3 w-3" />
+                {t('sort.deadlineAsc')}
+                {sortConfig.deadline === 'asc' && <Check className="text-primary" />}
+              </CommandItem>
+              <CommandItem onSelect={() => handleSetSort('deadline', 'desc')}>
+                <CalendarIcon />
+                <ArrowDown className="h-3 w-3" />
+                {t('sort.deadlineDesc')}
+                {sortConfig.deadline === 'desc' && <Check className="text-primary" />}
+              </CommandItem>
+              <CommandItem onSelect={() => handleSetSort('assignee', 'asc')}>
+                <User />
+                <ArrowUp className="h-3 w-3" />
+                {t('sort.assigneeAsc')}
+                {sortConfig.assignee === 'asc' && <Check className="text-primary" />}
+              </CommandItem>
+              <CommandItem onSelect={() => handleSetSort('assignee', 'desc')}>
+                <User />
+                <ArrowDown className="h-3 w-3" />
+                {t('sort.assigneeDesc')}
+                {sortConfig.assignee === 'desc' && <Check className="text-primary" />}
+              </CommandItem>
+              <CommandItem onSelect={() => handleSetSort('category', 'asc')}>
+                <Layers />
+                <ArrowUp className="h-3 w-3" />
+                {t('sort.categoryAsc')}
+                {sortConfig.category === 'asc' && <Check className="text-primary" />}
+              </CommandItem>
+              <CommandItem onSelect={() => handleSetSort('category', 'desc')}>
+                <Layers />
+                <ArrowDown className="h-3 w-3" />
+                {t('sort.categoryDesc')}
+                {sortConfig.category === 'desc' && <Check className="text-primary" />}
               </CommandItem>
             </CommandGroup>
 
@@ -272,6 +441,35 @@ export function CommandPalette({
                           style={{ backgroundColor: label.color }}
                         />
                         {label.name}
+                        {isSelected && <Check className="text-primary" />}
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              </>
+            )}
+
+            {contacts.length > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup heading={t('filterByAssignee')}>
+                  {selectedAssignees.length > 0 && (
+                    <CommandItem onSelect={handleClearAssignees}>
+                      <X />
+                      {t('clearAssigneeFilter')}
+                    </CommandItem>
+                  )}
+                  {contacts.map((contact) => {
+                    const isSelected = selectedAssignees.includes(contact.id);
+                    const fullName = `${contact.name} ${contact.lastname}`.trim();
+                    return (
+                      <CommandItem
+                        key={contact.id}
+                        value={fullName}
+                        onSelect={() => handleSelectAssignee(contact.id)}
+                      >
+                        <User className="h-4 w-4" />
+                        {fullName}
                         {isSelected && <Check className="text-primary" />}
                       </CommandItem>
                     );

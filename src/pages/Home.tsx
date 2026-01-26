@@ -10,6 +10,7 @@ import { useNotesWithCalendarSync } from '@/hooks/useNotesWithCalendarSync';
 import { useTinyBase } from '@/contexts/TinyBaseContext';
 import { useLabels } from '@/hooks/useLabels';
 import { useSettings } from '@/hooks/useSettings';
+import { useContacts } from '@/hooks/useContacts';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useActiveProject } from '@/contexts/ProjectContext';
 import type { Note, NoteCategory } from '@/types/note';
@@ -33,6 +34,7 @@ export function Home() {
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(() => searchParams.get('note'));
   const noteListRef = useRef<NoteListHandle>(null);
   const { labels } = useLabels();
+  const { contacts } = useContacts();
   const { settings, updateSettings } = useSettings();
 
   // View mode from URL (fallback to settings)
@@ -323,6 +325,16 @@ export function Home() {
         projects={projects}
         activeProjectId={activeProjectId}
         onSelectProject={setActiveProjectId}
+        contacts={contacts}
+        selectedAssignees={assigneeFilter}
+        onSelectAssignee={(assigneeId) => {
+          handleAssigneeFilterChange(
+            assigneeFilter.includes(assigneeId)
+              ? assigneeFilter.filter((id) => id !== assigneeId)
+              : [...assigneeFilter, assigneeId]
+          );
+        }}
+        onClearAssignees={() => handleAssigneeFilterChange([])}
       />
 
       <HotkeysHelper />

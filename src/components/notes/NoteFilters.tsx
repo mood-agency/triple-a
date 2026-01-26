@@ -5,21 +5,14 @@ import {
   Forward,
   StickyNote,
   Users,
-  User,
-  Tag,
   ChevronDown,
   Check,
   X,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
   AlertTriangle,
   CircleDot,
   CheckCircle2,
   Trash2,
   CalendarRange,
-  Layers,
-  Calendar as CalendarIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es, enUS } from 'date-fns/locale';
@@ -29,14 +22,6 @@ import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -122,9 +107,9 @@ export function NoteFilters({
   categoryFilter,
   onCategoryFilterChange,
   viewMode = 'list',
-  labels,
-  labelFilter,
-  onLabelFilterChange,
+  labels: _labels,
+  labelFilter: _labelFilter,
+  onLabelFilterChange: _onLabelFilterChange,
   sortConfig,
   onSortConfigChange,
   sortByDeadline,
@@ -137,11 +122,11 @@ export function NoteFilters({
   onSortByAssigneeChange,
   sortByCategory,
   onSortByCategoryChange,
-  contacts,
-  assigneeFilter,
-  onAssigneeFilterChange,
-  assigneePopoverOpen,
-  onAssigneePopoverOpenChange,
+  contacts: _contacts,
+  assigneeFilter: _assigneeFilter,
+  onAssigneeFilterChange: _onAssigneeFilterChange,
+  assigneePopoverOpen: _assigneePopoverOpen,
+  onAssigneePopoverOpenChange: _onAssigneePopoverOpenChange,
   taskStatusFilter,
   onTaskStatusFilterChange,
   hasCompletedTasks = false,
@@ -154,31 +139,21 @@ export function NoteFilters({
   void sortByDeadline;
   void sortByAssignee;
   void sortByCategory;
+  void onSortByDeadlineChange;
+  void onSortByAssigneeChange;
+  void onSortByCategoryChange;
+  void _labels;
+  void _labelFilter;
+  void _onLabelFilterChange;
+  void _contacts;
+  void _assigneeFilter;
+  void _onAssigneeFilterChange;
+  void _assigneePopoverOpen;
+  void _onAssigneePopoverOpenChange;
 
-  // Helper to check if any sort is active
-  const hasActiveSort = sortConfig.deadline !== null || sortConfig.assignee !== null || sortConfig.category !== null;
-
-  // Helper to set specific sort direction
-  const setSort = (field: keyof SortConfig, direction: SortDirection | null) => {
-    onSortConfigChange({ ...sortConfig, [field]: direction });
-
-    // Also update legacy props for backwards compatibility
-    if (field === 'deadline') {
-      onSortByDeadlineChange(direction !== null);
-    } else if (field === 'assignee') {
-      onSortByAssigneeChange(direction !== null);
-    } else if (field === 'category') {
-      onSortByCategoryChange(direction !== null);
-    }
-  };
-
-  // Get sort icon for a field
-  const getSortIcon = (field: keyof SortConfig) => {
-    const direction = sortConfig[field];
-    if (direction === 'asc') return <ArrowUp className="h-3 w-3" />;
-    if (direction === 'desc') return <ArrowDown className="h-3 w-3" />;
-    return null;
-  };
+  // Suppress unused variable warnings for sort-related props (now handled by CommandPalette)
+  void sortConfig;
+  void onSortConfigChange;
 
   return (
     <>
@@ -274,299 +249,9 @@ export function NoteFilters({
         </Tooltip>
       )}
 
-      {/* Label and Assignee filters dropdown */}
-      {(labels.length > 0 || contacts.length > 0) && (
-        <div className="flex gap-1 items-center ml-2 pl-2 border-l border-muted-foreground/20">
-          {/* Labels dropdown */}
-          {labels.length > 0 && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="shadow-none" aria-label={t('labels')}>
-                  <Tag className="h-3.5 w-3.5" />
-                  <span>{t('labels')}</span>
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-52 p-0" align="start">
-                <Command>
-                  <CommandInput placeholder={t('searchLabels')} className="h-9" />
-                  <CommandList>
-                    <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
-                    <CommandGroup>
-                      {labels.map((label) => {
-                        const isSelected = labelFilter.includes(label.id);
-                        return (
-                          <CommandItem
-                            key={label.id}
-                            value={label.name}
-                            onSelect={() => {
-                              onLabelFilterChange((prev) =>
-                                prev.includes(label.id)
-                                  ? prev.filter((id) => id !== label.id)
-                                  : [...prev, label.id]
-                              );
-                            }}
-                            className="flex items-center justify-between"
-                          >
-                            <div className="flex items-center">
-                              <span
-                                className="w-3 h-3 rounded-full mr-2"
-                                style={{ backgroundColor: label.color }}
-                              />
-                              {label.name}
-                            </div>
-                            {isSelected && <Check className="h-4 w-4" />}
-                          </CommandItem>
-                        );
-                      })}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          )}
-          {/* Assignee dropdown */}
-          {contacts.length > 0 && (
-            <Popover open={assigneePopoverOpen} onOpenChange={onAssigneePopoverOpenChange}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="shadow-none" aria-label={t('filterByAssignee')}>
-                      <User className="h-3.5 w-3.5" />
-                      <span>{t('assignee.placeholder')}</span>
-                      <ChevronDown className="h-3 w-3" />
-                    </Button>
-                  </PopoverTrigger>
-                </TooltipTrigger>
-                <TooltipContent className="flex items-center gap-2">
-                  <p>{t('filterByAssignee')}</p>
-                  <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>P</Kbd></span>
-                </TooltipContent>
-              </Tooltip>
-              <PopoverContent className="w-52 p-0" align="start">
-                <Command>
-                  <CommandInput placeholder={t('searchContacts')} className="h-9" />
-                  <CommandList>
-                    <CommandEmpty>{t('noContactsFound')}</CommandEmpty>
-                    <CommandGroup>
-                      {contacts.map((contact) => {
-                        const isSelected = assigneeFilter.includes(contact.id);
-                        const fullName = `${contact.name} ${contact.lastname}`.trim();
-                        return (
-                          <CommandItem
-                            key={contact.id}
-                            value={fullName}
-                            onSelect={() => {
-                              onAssigneeFilterChange((prev) =>
-                                prev.includes(contact.id)
-                                  ? prev.filter((id) => id !== contact.id)
-                                  : [...prev, contact.id]
-                              );
-                            }}
-                            className="flex items-center justify-between"
-                          >
-                            <span>{fullName}</span>
-                            {isSelected && <Check className="h-4 w-4" />}
-                          </CommandItem>
-                        );
-                      })}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          )}
-          {/* Selected label chips */}
-          {labelFilter.length > 0 && (
-            <div className="flex gap-1 items-center">
-              {labelFilter.map((labelId) => {
-                const label = labels.find((l) => l.id === labelId);
-                if (!label) return null;
-                return (
-                  <span
-                    key={label.id}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full text-white"
-                    style={{ backgroundColor: label.color }}
-                  >
-                    {label.name}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onLabelFilterChange((prev) => prev.filter((id) => id !== label.id))
-                      }
-                      className="hover:bg-white/20 rounded-full p-0.5"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
-          )}
-          {/* Selected assignee chips */}
-          {assigneeFilter.length > 0 && (
-            <div className="flex gap-1 items-center">
-              {assigneeFilter.map((contactId) => {
-                const contact = contacts.find((c) => c.id === contactId);
-                if (!contact) return null;
-                const fullName = `${contact.name} ${contact.lastname}`.trim();
-                return (
-                  <span
-                    key={contact.id}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full border border-input bg-background text-foreground"
-                  >
-                    {fullName}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onAssigneeFilterChange((prev) => prev.filter((id) => id !== contact.id))
-                      }
-                      className="hover:bg-muted rounded-full p-0.5"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
-      {/* Sort menu and other options */}
+      {/* Task status and other options */}
       <div className="flex gap-1 items-center ml-2 pl-2 border-l border-muted-foreground/20">
-        {/* Sort dropdown menu */}
-        <DropdownMenu>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={`h-8 shadow-none gap-1 ${hasActiveSort ? 'bg-accent text-accent-foreground' : ''}`}
-                  aria-label={t('sort.title')}
-                >
-                  <ArrowUpDown className="h-4 w-4" />
-                  {hasActiveSort && (
-                    <span className="text-xs">
-                      {sortConfig.deadline && (
-                        <span className="flex items-center gap-0.5">
-                          <CalendarIcon className="h-3 w-3" />
-                          {getSortIcon('deadline')}
-                        </span>
-                      )}
-                      {sortConfig.assignee && (
-                        <span className="flex items-center gap-0.5">
-                          <User className="h-3 w-3" />
-                          {getSortIcon('assignee')}
-                        </span>
-                      )}
-                      {sortConfig.category && (
-                        <span className="flex items-center gap-0.5">
-                          <Layers className="h-3 w-3" />
-                          {getSortIcon('category')}
-                        </span>
-                      )}
-                    </span>
-                  )}
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('sort.title')}</p>
-            </TooltipContent>
-          </Tooltip>
-          <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuLabel>{t('sort.title')}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-
-            {/* Deadline sort options */}
-            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground flex items-center gap-2">
-              <CalendarIcon className="h-3.5 w-3.5" />
-              {t('sort.deadline')}
-            </DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => setSort('deadline', 'asc')}
-              className="pl-6"
-            >
-              <ArrowUp className="h-4 w-4 mr-2" />
-              {t('sort.deadlineAsc')}
-              {sortConfig.deadline === 'asc' && <Check className="h-4 w-4 ml-auto" />}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setSort('deadline', 'desc')}
-              className="pl-6"
-            >
-              <ArrowDown className="h-4 w-4 mr-2" />
-              {t('sort.deadlineDesc')}
-              {sortConfig.deadline === 'desc' && <Check className="h-4 w-4 ml-auto" />}
-            </DropdownMenuItem>
-
-            <DropdownMenuSeparator />
-
-            {/* Assignee sort options */}
-            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground flex items-center gap-2">
-              <User className="h-3.5 w-3.5" />
-              {t('sort.assignee')}
-            </DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => setSort('assignee', 'asc')}
-              className="pl-6"
-            >
-              <ArrowUp className="h-4 w-4 mr-2" />
-              {t('sort.assigneeAsc')}
-              {sortConfig.assignee === 'asc' && <Check className="h-4 w-4 ml-auto" />}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setSort('assignee', 'desc')}
-              className="pl-6"
-            >
-              <ArrowDown className="h-4 w-4 mr-2" />
-              {t('sort.assigneeDesc')}
-              {sortConfig.assignee === 'desc' && <Check className="h-4 w-4 ml-auto" />}
-            </DropdownMenuItem>
-
-            <DropdownMenuSeparator />
-
-            {/* Category sort options */}
-            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground flex items-center gap-2">
-              <Layers className="h-3.5 w-3.5" />
-              {t('sort.category')}
-            </DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => setSort('category', 'asc')}
-              className="pl-6"
-            >
-              <ArrowUp className="h-4 w-4 mr-2" />
-              {t('sort.categoryAsc')}
-              {sortConfig.category === 'asc' && <Check className="h-4 w-4 ml-auto" />}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setSort('category', 'desc')}
-              className="pl-6"
-            >
-              <ArrowDown className="h-4 w-4 mr-2" />
-              {t('sort.categoryDesc')}
-              {sortConfig.category === 'desc' && <Check className="h-4 w-4 ml-auto" />}
-            </DropdownMenuItem>
-
-            {/* Clear all sorts */}
-            {hasActiveSort && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => onSortConfigChange({ deadline: null, assignee: null, category: null })}
-                  className="text-muted-foreground"
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  {t('sort.none')}
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
         {/* Task status filter dropdown */}
         <DropdownMenu>
           <Tooltip>
