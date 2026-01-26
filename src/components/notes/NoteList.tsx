@@ -127,11 +127,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   });
 
   const selection = useNoteSelection({
-    notes,
-    filteredNotes: filters.filteredNotes,
     selectedNote,
-    onSelectNote,
-    searchInputRef,
   });
 
   const operations = useNoteOperations({
@@ -440,7 +436,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       if (selectionInfo) {
         const { cursorPosition, text } = selectionInfo;
         const textAfterCursor = text.substring(cursorPosition);
-        if (!textAfterCursor.includes('\\n')) {
+        if (!textAfterCursor.includes('\n')) {
           e.preventDefault();
           const column = selection.getColumnPosition(text, cursorPosition);
           selection.setDesiredColumn(column);
@@ -456,14 +452,18 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       if (selectionInfo) {
         const { cursorPosition, text } = selectionInfo;
         const textBeforeCursor = text.substring(0, cursorPosition);
-        if (!textBeforeCursor.includes('\\n')) {
+        if (!textBeforeCursor.includes('\n')) {
           e.preventDefault();
           const column = selection.getColumnPosition(text, cursorPosition);
           selection.setDesiredColumn(column);
           if (selection.descriptionValue !== (selectedNote.description || '')) {
             onEdit(selectedNote.id, selectedNote.content, selectedNote.category, selection.descriptionValue || null);
           }
-          selection.setFocusTarget('title');
+          // Try to navigate to the previous task; if already at the first task, focus the title
+          const navigated = operations.handleNavigateUpById(selectedNote.id, column);
+          if (!navigated) {
+            selection.setFocusTarget('title');
+          }
         }
       }
     }
@@ -496,7 +496,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         onEdit(fixedNote.id, fixedNote.content, fixedNote.category, fixedNoteDescriptionValue || null);
       }
       fixedNoteDescriptionRef.current?.blur();
-    } else if (e.key === 'Tab' && e.shiftKey) {
+    } else if (e.key === 'Tab' && e.shiftKey && fixedNote) {
       e.preventDefault();
       if (fixedNoteDescriptionValue !== (fixedNote.description || '')) {
         onEdit(fixedNote.id, fixedNote.content, fixedNote.category, fixedNoteDescriptionValue || null);
