@@ -22,6 +22,14 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
   // Start as false since we load synchronously when store is ready
   const [loading, setLoading] = useState(!isReady);
 
+  // Clear notes immediately when projectId changes to prevent showing stale data
+  const [lastProjectId, setLastProjectId] = useState<string | null | undefined>(projectId);
+  if (projectId !== lastProjectId) {
+    setLastProjectId(projectId);
+    setNotes([]);
+    setLoading(true);
+  }
+
   // Default date for creating new notes (today)
   const defaultDate = formatLocalDate(new Date());
   const effectiveDate = date || defaultDate;
@@ -31,6 +39,8 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
    */
   const loadNotes = useCallback(() => {
     if (!store || !isReady) return;
+
+    console.log('[useNotesStore] loadNotes called with projectId:', projectId);
 
     const notesTable = store.getTable('notes') || {};
     const historyTable = store.getTable('note_history') || {};

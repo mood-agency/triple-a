@@ -11,6 +11,7 @@ import { useTinyBase } from '@/contexts/TinyBaseContext';
 import { useLabels } from '@/hooks/useLabels';
 import { useSettings } from '@/hooks/useSettings';
 import { useSidebar } from '@/components/ui/sidebar';
+import { useActiveProject } from '@/contexts/ProjectContext';
 import type { Note, NoteCategory } from '@/types/note';
 import { parseLocalDate, formatLocalDate } from '@/utils/dateUtils';
 
@@ -23,6 +24,7 @@ export function Home() {
   const { sidebarTrigger } = useOutletContext<OutletContext>();
   const { isReady } = useTinyBase();
   const { toggleSidebar } = useSidebar();
+  const { projects, activeProjectId, setActiveProjectId } = useActiveProject();
 
   // Alt+S to toggle left sidebar
   useHotkeys('alt+s', () => { toggleSidebar(); }, { preventDefault: true, enableOnFormTags: true });
@@ -262,7 +264,9 @@ export function Home() {
 
   // Only block on TinyBase not ready - never unmount NoteList due to loading
   // This prevents React hooks count mismatch when project changes
-  if (!isReady) {
+  // Only block on TinyBase not ready - never unmount NoteList due to loading
+  // This prevents React hooks count mismatch when project changes
+  if (!isReady || (loading && !notes.length)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -316,6 +320,9 @@ export function Home() {
         onSelectCategory={handleCategoryFilterChange}
         viewMode={viewMode}
         onToggleViewMode={toggleViewMode}
+        projects={projects}
+        activeProjectId={activeProjectId}
+        onSelectProject={setActiveProjectId}
       />
 
       <HotkeysHelper />

@@ -1,4 +1,3 @@
-import { } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Pickaxe, Forward, StickyNote, Users, Plus, Pencil } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -14,6 +13,7 @@ import {
 import { type DraggableSyntheticListeners } from '@dnd-kit/core';
 import type { Note, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
+import { useDebugNavigation } from '@/hooks/useDebugNavigation';
 
 interface NoteRowContentProps {
     note: Note;
@@ -84,6 +84,7 @@ export function NoteRowContent({
     onUpdateAssignee,
 }: NoteRowContentProps) {
     const { t } = useTranslation();
+    const { debugMode, debugTitleFocusClass } = useDebugNavigation();
 
     return (
         <div className={`group/title relative select-none flex items-center gap-1.5 flex-1 min-w-0 ${!compactView ? 'pl-1.5' : ''} overflow-hidden`} onClick={onContentClick}>
@@ -105,7 +106,7 @@ export function NoteRowContent({
                             e.target.scrollLeft = 0;
                         }}
                         placeholder={t('newTaskPlaceholder')}
-                        className="flex-1 min-w-0 text-sm leading-4 bg-transparent border-none outline-none p-0 m-0 text-foreground caret-foreground placeholder:text-muted-foreground/50 cursor-text"
+                        className={`flex-1 min-w-0 text-sm leading-4 bg-transparent border-none outline-none p-0 m-0 text-foreground caret-foreground placeholder:text-muted-foreground/50 cursor-text ${debugMode ? debugTitleFocusClass : ''}`}
                     />
 
                     {/* Label Dropdown */}

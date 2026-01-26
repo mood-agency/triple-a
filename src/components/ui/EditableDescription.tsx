@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useEffect, useRef } from 'react';
+import { forwardRef, useImperativeHandle, useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent, ReactNodeViewRenderer } from '@tiptap/react';
 import { wrappingInputRule } from '@tiptap/core';
 import Document from '@tiptap/extension-document';
@@ -25,6 +25,7 @@ import { Markdown } from 'tiptap-markdown';
 import { toast } from 'sonner';
 import i18n from '@/i18n';
 import { TiptapImageView } from './TiptapImageView';
+import { useDebugNavigation } from '@/hooks/useDebugNavigation';
 
 // Register common languages (includes json, javascript, typescript, bash, css, html, python, sql, etc.)
 const lowlight = createLowlight(common);
@@ -160,6 +161,8 @@ export const EditableDescription = forwardRef<EditableDescriptionHandle, Editabl
   ) {
     const lastExternalValueRef = useRef(value);
     const isInitializedRef = useRef(false);
+    const { debugMode, debugDescriptionFocusClass } = useDebugNavigation();
+    const [isFocused, setIsFocused] = useState(false);
 
     const editor = useEditor({
       extensions: [
@@ -408,8 +411,14 @@ export const EditableDescription = forwardRef<EditableDescriptionHandle, Editabl
         lastExternalValueRef.current = markdown;
         onChange(markdown);
       },
-      onBlur: () => onBlur?.(),
-      onFocus: () => onFocus?.(),
+      onBlur: () => {
+        setIsFocused(false);
+        onBlur?.();
+      },
+      onFocus: () => {
+        setIsFocused(true);
+        onFocus?.();
+      },
     });
 
     // Initialize content once editor is ready
@@ -458,7 +467,7 @@ export const EditableDescription = forwardRef<EditableDescriptionHandle, Editabl
     return (
       <EditorContent
         editor={editor}
-        className={className}
+        className={`${className} ${debugMode && isFocused ? debugDescriptionFocusClass : ''}`}
       />
     );
   }

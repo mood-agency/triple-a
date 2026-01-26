@@ -46,12 +46,6 @@ export function HotkeysHelper() {
         { keys: ['Ctrl', 'Backspace'], action: t('hotkeys.deleteTask') },
       ],
     },
-    {
-      title: t('hotkeys.description'),
-      items: [
-        { keys: ['Shift', 'Tab'], action: t('hotkeys.backToTitle') },
-      ],
-    },
   ];
 
   return (

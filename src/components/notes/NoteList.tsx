@@ -37,6 +37,7 @@ import { useNoteSelection } from './hooks/useNoteSelection';
 import { useNoteOperations } from './hooks/useNoteOperations';
 import { NoteListToolbar } from './NoteListToolbar';
 import { NoteListContent } from './NoteListContent';
+import { DebugNavigationOverlay } from '@/hooks/useDebugNavigation';
 
 // Re-export types if needed
 export interface NoteListHandle {
@@ -422,13 +423,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       if (selection.descriptionValue !== (selectedNote.description || '')) {
         onEdit(selectedNote.id, selectedNote.content, selectedNote.category, selection.descriptionValue || null);
       }
-      selection.setDesiredColumn(selectedNote.content.length);
-      selection.setFocusTarget('title');
-    } else if (e.key === 'Tab' && e.shiftKey && selectedNote) {
-      e.preventDefault();
-      if (selection.descriptionValue !== (selectedNote.description || '')) {
-        onEdit(selectedNote.id, selectedNote.content, selectedNote.category, selection.descriptionValue || null);
-      }
+      selection.setShowDescriptionPanel(false);
       selection.setDesiredColumn(selectedNote.content.length);
       selection.setFocusTarget('title');
     }
@@ -489,11 +484,6 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         onEdit(fixedNote.id, fixedNote.content, fixedNote.category, fixedNoteDescriptionValue || null);
       }
       fixedNoteDescriptionRef.current?.blur();
-    } else if (e.key === 'Tab' && e.shiftKey && fixedNote) {
-      e.preventDefault();
-      if (fixedNoteDescriptionValue !== (fixedNote.description || '')) {
-        onEdit(fixedNote.id, fixedNote.content, fixedNote.category, fixedNoteDescriptionValue || null);
-      }
     }
   };
 
@@ -526,6 +516,13 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
   return (
     <div ref={containerRef} className="flex flex-col h-full outline-none" tabIndex={-1}>
+      <DebugNavigationOverlay
+        selectedNoteId={selectedNote?.id ?? null}
+        focusTarget={selection.focusTarget}
+        desiredColumn={selection.desiredColumn}
+        isDescriptionFocused={selection.isDescriptionFocused}
+        showDescriptionPanel={selection.showDescriptionPanel}
+      />
       <NoteListToolbar
         isMobile={isMobile}
         selectedNote={selectedNote}
