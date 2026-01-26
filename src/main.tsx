@@ -45,7 +45,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <ThemeProvider defaultTheme="system" storageKey="app-theme">
-        <TooltipProvider delayDuration={500}>
+        <TooltipProvider delayDuration={500} disableHoverableContent>
           <AuthProvider>
             <TinyBaseProvider>
               <SyncProvider>

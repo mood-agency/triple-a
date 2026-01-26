@@ -7,7 +7,25 @@ const TooltipProvider = TooltipPrimitive.Provider
 
 const Tooltip = TooltipPrimitive.Root
 
-const TooltipTrigger = TooltipPrimitive.Trigger
+const TooltipTrigger = React.forwardRef<
+  React.ElementRef<typeof TooltipPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Trigger>
+>(({ onPointerDown, ...props }, ref) => (
+  <TooltipPrimitive.Trigger
+    ref={ref}
+    onPointerDown={(e) => {
+      // Remove focus after click to prevent tooltip from showing when returning to tab
+      if (e.pointerType !== "touch") {
+        requestAnimationFrame(() => {
+          (e.target as HTMLElement)?.blur?.()
+        })
+      }
+      onPointerDown?.(e)
+    }}
+    {...props}
+  />
+))
+TooltipTrigger.displayName = TooltipPrimitive.Trigger.displayName
 
 const TooltipContent = React.forwardRef<
   React.ElementRef<typeof TooltipPrimitive.Content>,
