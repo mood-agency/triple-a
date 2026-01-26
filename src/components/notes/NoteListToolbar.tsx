@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
+import { Separator } from '@/components/ui/separator';
 import { Plus, List, Calendar, AlignJustify, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { NoteFilters } from './NoteFilters';
 import { Logo } from '@/components/Logo';
@@ -42,6 +43,8 @@ interface NoteListToolbarProps {
     contacts: Contact[];
     assigneeFilter: string[];
     setAssigneeFilter: (assignees: string[] | ((prev: string[]) => string[])) => void;
+    assigneePopoverOpen?: boolean;
+    setAssigneePopoverOpen?: (open: boolean) => void;
     taskStatusFilter: 'active' | 'completed' | 'deleted';
     setTaskStatusFilter: (status: 'active' | 'completed' | 'deleted') => void;
     hasCompletedTasks: boolean;
@@ -89,6 +92,8 @@ export function NoteListToolbar({
     contacts,
     assigneeFilter,
     setAssigneeFilter,
+    assigneePopoverOpen,
+    setAssigneePopoverOpen,
     taskStatusFilter,
     setTaskStatusFilter,
     hasCompletedTasks,
@@ -102,9 +107,13 @@ export function NoteListToolbar({
     const { t } = useTranslation();
 
     return (
-        <div className={`flex items-center gap-2 mb-3 flex-shrink-0 ${isMobile && selectedNote ? 'hidden' : ''}`}>
+        <div className={`flex-shrink-0 group ${isMobile && selectedNote ? 'hidden' : ''}`}>
+        <div className="flex items-center gap-2 mb-2">
             {/* Logo - first position */}
             <Logo size="sm" className="mr-1" />
+
+            {/* Hideable toolbar content */}
+            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
 
             {/* Sidebar trigger */}
             {sidebarTrigger}
@@ -186,6 +195,8 @@ export function NoteListToolbar({
                 contacts={contacts}
                 assigneeFilter={assigneeFilter}
                 onAssigneeFilterChange={setAssigneeFilter}
+                assigneePopoverOpen={assigneePopoverOpen}
+                onAssigneePopoverOpenChange={setAssigneePopoverOpen}
                 taskStatusFilter={taskStatusFilter}
                 onTaskStatusFilterChange={setTaskStatusFilter}
                 hasCompletedTasks={hasCompletedTasks}
@@ -216,6 +227,9 @@ export function NoteListToolbar({
                     </Tooltip>
                 </div>
             )}
+            </div>
+        </div>
+        <Separator className="mb-3" />
         </div>
     );
 }

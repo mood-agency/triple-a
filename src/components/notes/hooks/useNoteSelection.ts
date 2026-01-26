@@ -22,11 +22,13 @@ export function useNoteSelection({
     const [descriptionValue, setDescriptionValue] = useState('');
     const [titleValue, setTitleValue] = useState('');
     const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
+    const [showDescriptionPanel, setShowDescriptionPanel] = useState(false);
 
     // Update description and title values when selected note changes
     useEffect(() => {
         setDescriptionValue(selectedNote?.description || '');
         setTitleValue(selectedNote?.content || '');
+        setShowDescriptionPanel(false);
     }, [selectedNote]);
 
     // Handle Focus Target
@@ -68,6 +70,7 @@ export function useNoteSelection({
     const handleNavigateToDescription = useCallback(() => {
         setDesiredColumn(0);
         setFocusTarget('description-start');
+        setShowDescriptionPanel(true);
     }, []);
 
     // Helper to get column position
@@ -102,6 +105,8 @@ export function useNoteSelection({
         setTitleValue,
         isDescriptionFocused,
         setIsDescriptionFocused,
+        showDescriptionPanel,
+        setShowDescriptionPanel,
         handleTitleFocused,
         handleNavigateToDescription,
         getColumnPosition,

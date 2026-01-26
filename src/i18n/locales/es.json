@@ -223,7 +223,7 @@
   "noResults": "No se encontraron resultados",
   "activeFilters": "Filtros activos",
   "clearAllFilters": "Limpiar todos los filtros",
-  "filterByCategory": "Filtrar por {{category}}",
+  "filterByCategory": "Categoría",
   "filterByAssignee": "Filtrar por responsable",
   "filterByLabel": "Filtrar por etiqueta",
   "allCategories": "Todas las categorías",
@@ -300,6 +300,7 @@
     "filterFollowup": "Filtrar Seguimiento",
     "filterNotes": "Filtrar Notas",
     "filterMeeting": "Filtrar Reunión",
+    "filterAssignee": "Filtrar por responsable",
     "clearFilters": "Limpiar filtros",
     "deselectTask": "Deseleccionar tarea",
     "navigateTasks": "Navegar entre tareas",
@@ -312,7 +313,9 @@
     "openCategories": "Cambiar categoría",
     "openDeadline": "Establecer fecha límite",
     "backToTitle": "Volver al título",
-    "toggleView": "Cambiar vista calendario/lista"
+    "toggleView": "Cambiar vista calendario/lista",
+    "toggleCompact": "Cambiar vista compacta/completa",
+    "toggleSidebar": "Mostrar/ocultar panel lateral"
   },
   "youtube": {
     "import": "Importar de YouTube",

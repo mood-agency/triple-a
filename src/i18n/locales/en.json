@@ -223,7 +223,7 @@
   "noResults": "No results found",
   "activeFilters": "Active Filters",
   "clearAllFilters": "Clear all filters",
-  "filterByCategory": "Filter by {{category}}",
+  "filterByCategory": "Category",
   "filterByAssignee": "Filter by assignee",
   "filterByLabel": "Filter by label",
   "allCategories": "All categories",
@@ -300,6 +300,7 @@
     "filterFollowup": "Filter Follow Up",
     "filterNotes": "Filter Notes",
     "filterMeeting": "Filter Meeting",
+    "filterAssignee": "Filter by assignee",
     "clearFilters": "Clear filters",
     "deselectTask": "Deselect task",
     "navigateTasks": "Navigate between tasks",
@@ -312,7 +313,9 @@
     "openCategories": "Change category",
     "openDeadline": "Set deadline",
     "backToTitle": "Back to title",
-    "toggleView": "Toggle calendar/list view"
+    "toggleView": "Toggle calendar/list view",
+    "toggleCompact": "Toggle compact/full view",
+    "toggleSidebar": "Toggle sidebar"
   },
   "youtube": {
     "import": "Import from YouTube",

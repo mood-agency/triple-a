@@ -93,6 +93,7 @@ export function NoteRowContent({
                         ref={contentInputRef}
                         type="text"
                         value={contentValue}
+                        tabIndex={-1}
                         onChange={(e) => {
                             setContentValue(e.target.value);
                             onContentChange?.(e.target.value);
@@ -104,7 +105,7 @@ export function NoteRowContent({
                             e.target.scrollLeft = 0;
                         }}
                         placeholder={t('newTaskPlaceholder')}
-                        className="flex-1 min-w-0 text-sm leading-4 bg-transparent border-none outline-none p-0 m-0 text-foreground caret-foreground placeholder:text-muted-foreground/50"
+                        className="flex-1 min-w-0 text-sm leading-4 bg-transparent border-none outline-none p-0 m-0 text-foreground caret-foreground placeholder:text-muted-foreground/50 cursor-text"
                     />
 
                     {/* Label Dropdown */}
@@ -242,7 +243,7 @@ export function NoteRowContent({
                 </>
             ) : (
                 <span
-                    className={`flex-1 min-w-0 text-sm leading-4 truncate ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${note.completed ? 'line-through text-muted-foreground' : ''} ${isSelected && isDescriptionFocused ? 'cursor-text underline decoration-primary decoration-2 underline-offset-2' : ''} ${!contentValue ? 'text-muted-foreground/50 italic' : ''}`}
+                    className={`flex-1 min-w-0 text-sm leading-4 truncate ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} hover:cursor-text ${note.completed ? 'line-through text-muted-foreground' : ''} ${isSelected && isDescriptionFocused ? 'cursor-text underline decoration-primary decoration-2 underline-offset-2' : ''} ${!contentValue ? 'text-muted-foreground/50 italic' : ''}`}
                     {...attributes}
                     {...listeners}
                 >

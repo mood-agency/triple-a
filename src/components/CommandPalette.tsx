@@ -10,8 +10,8 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
+  CommandShortcut,
 } from '@/components/ui/command';
-import { Kbd } from '@/components/ui/kbd';
 import type { Label, NoteCategory } from '@/types/note';
 
 interface FocusState {
@@ -143,7 +143,7 @@ export function CommandPalette({
           <>
             <CommandGroup heading={t('activeFilters')}>
               <CommandItem onSelect={handleClearFilters}>
-                <X className="mr-2 h-4 w-4" />
+                <X />
                 {t('clearAllFilters')}
               </CommandItem>
             </CommandGroup>
@@ -153,17 +153,9 @@ export function CommandPalette({
 
         <CommandGroup heading={t('commandPalette.view')}>
           <CommandItem onSelect={handleToggleViewMode}>
-            {viewMode === 'list' ? (
-              <Calendar className="mr-2 h-4 w-4" />
-            ) : (
-              <List className="mr-2 h-4 w-4" />
-            )}
+            {viewMode === 'list' ? <Calendar /> : <List />}
             {viewMode === 'list' ? t('calendar.switchToCalendarView') : t('calendar.switchToListView')}
-            <div className="ml-auto flex items-center gap-0.5">
-              <Kbd>Ctrl</Kbd>
-              <Kbd>Shift</Kbd>
-              <Kbd>C</Kbd>
-            </div>
+            <CommandShortcut>Ctrl Shift C</CommandShortcut>
           </CommandItem>
         </CommandGroup>
 
@@ -171,48 +163,37 @@ export function CommandPalette({
 
         <CommandGroup heading={t('filterByCategory')}>
           <CommandItem onSelect={() => handleSelectCategory('all')}>
-            <Check className={`mr-2 h-4 w-4 ${categoryFilter === 'all' ? 'opacity-100' : 'opacity-0'}`} />
-            <span className="flex-1">{t('allCategories')}</span>
-            <div className="flex items-center gap-0.5">
-              <Kbd>Alt</Kbd>
-              <Kbd>C</Kbd>
-            </div>
+            {categoryFilter === 'all' ? (
+              <Check className="text-primary" />
+            ) : (
+              <span className="w-4" />
+            )}
+            {t('allCategories')}
+            <CommandShortcut>Alt C</CommandShortcut>
           </CommandItem>
           <CommandItem onSelect={() => handleSelectCategory('todo')}>
-            <Pickaxe className="mr-2 h-4 w-4" />
-            <Check className={`mr-2 h-4 w-4 ${categoryFilter === 'todo' ? 'opacity-100' : 'opacity-0'}`} />
-            <span className="flex-1">{t('categoryTodo')}</span>
-            <div className="flex items-center gap-0.5">
-              <Kbd>Alt</Kbd>
-              <Kbd>Q</Kbd>
-            </div>
+            <Pickaxe />
+            {t('categoryTodo')}
+            {categoryFilter === 'todo' && <Check className="text-primary" />}
+            <CommandShortcut>Alt Q</CommandShortcut>
           </CommandItem>
           <CommandItem onSelect={() => handleSelectCategory('followup')}>
-            <Forward className="mr-2 h-4 w-4" />
-            <Check className={`mr-2 h-4 w-4 ${categoryFilter === 'followup' ? 'opacity-100' : 'opacity-0'}`} />
-            <span className="flex-1">{t('categoryFollowUp')}</span>
-            <div className="flex items-center gap-0.5">
-              <Kbd>Alt</Kbd>
-              <Kbd>W</Kbd>
-            </div>
+            <Forward />
+            {t('categoryFollowUp')}
+            {categoryFilter === 'followup' && <Check className="text-primary" />}
+            <CommandShortcut>Alt W</CommandShortcut>
           </CommandItem>
           <CommandItem onSelect={() => handleSelectCategory('notes')}>
-            <StickyNote className="mr-2 h-4 w-4" />
-            <Check className={`mr-2 h-4 w-4 ${categoryFilter === 'notes' ? 'opacity-100' : 'opacity-0'}`} />
-            <span className="flex-1">{t('categoryNotes')}</span>
-            <div className="flex items-center gap-0.5">
-              <Kbd>Alt</Kbd>
-              <Kbd>E</Kbd>
-            </div>
+            <StickyNote />
+            {t('categoryNotes')}
+            {categoryFilter === 'notes' && <Check className="text-primary" />}
+            <CommandShortcut>Alt E</CommandShortcut>
           </CommandItem>
           <CommandItem onSelect={() => handleSelectCategory('meeting')}>
-            <Users className="mr-2 h-4 w-4" />
-            <Check className={`mr-2 h-4 w-4 ${categoryFilter === 'meeting' ? 'opacity-100' : 'opacity-0'}`} />
-            <span className="flex-1">{t('categoryMeeting')}</span>
-            <div className="flex items-center gap-0.5">
-              <Kbd>Alt</Kbd>
-              <Kbd>R</Kbd>
-            </div>
+            <Users />
+            {t('categoryMeeting')}
+            {categoryFilter === 'meeting' && <Check className="text-primary" />}
+            <CommandShortcut>Alt R</CommandShortcut>
           </CommandItem>
         </CommandGroup>
 
@@ -229,11 +210,11 @@ export function CommandPalette({
                     onSelect={() => handleSelectLabel(label.id)}
                   >
                     <span
-                      className="mr-2 h-3 w-3 rounded-full shrink-0"
+                      className="h-3 w-3 rounded-full shrink-0"
                       style={{ backgroundColor: label.color }}
                     />
-                    <span className="flex-1">{label.name}</span>
-                    {isSelected && <Check className="h-4 w-4 text-primary" />}
+                    {label.name}
+                    {isSelected && <Check className="text-primary" />}
                   </CommandItem>
                 );
               })}

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useOutletContext } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { Loader2 } from 'lucide-react';
 import { NoteList, type NoteListHandle } from '@/components/notes/NoteList';
 import { CommandPalette } from '@/components/CommandPalette';
@@ -9,6 +10,7 @@ import { useNotesWithCalendarSync } from '@/hooks/useNotesWithCalendarSync';
 import { useTinyBase } from '@/contexts/TinyBaseContext';
 import { useLabels } from '@/hooks/useLabels';
 import { useSettings } from '@/hooks/useSettings';
+import { useSidebar } from '@/components/ui/sidebar';
 import type { Note, NoteCategory } from '@/types/note';
 import { parseLocalDate, formatLocalDate } from '@/utils/dateUtils';
 
@@ -20,6 +22,10 @@ export function Home() {
   useTranslation();
   const { sidebarTrigger } = useOutletContext<OutletContext>();
   const { isReady } = useTinyBase();
+  const { toggleSidebar } = useSidebar();
+
+  // Alt+S to toggle left sidebar
+  useHotkeys('alt+s', () => { toggleSidebar(); }, { preventDefault: true, enableOnFormTags: true });
   const [searchParams, setSearchParams] = useSearchParams();
   // Optimized: Store only the ID to avoid unnecessary re-renders when note object changes
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(() => searchParams.get('note'));
