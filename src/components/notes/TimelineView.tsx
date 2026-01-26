@@ -243,11 +243,7 @@ export function TimelineView({
   // Show empty state if no notes
   if (currentNotes.length === 0) {
     if (hasActiveFilters) {
-      return (
-        <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
-          {renderNoResultsMessage(completedNotes.length)}
-        </p>
-      );
+      return <>{renderNoResultsMessage(completedNotes.length)}</>;
     }
     return (
       <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
