@@ -124,42 +124,23 @@ export function NoteListToolbar({
             )}
 
             {/* View mode toggle */}
-            <div className="flex">
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className={`h-8 w-8 rounded-r-none border-r-0 shadow-none ${viewMode === 'list' ? 'bg-accent text-accent-foreground' : ''}`}
-                            onClick={() => setViewMode('list')}
-                            aria-label={t('calendar.switchToListView')}
-                        >
-                            <List className="h-4 w-4" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent className="flex items-center gap-2">
-                        <p>{t('calendar.switchToListView')}</p>
-                        <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>Shift</Kbd><Kbd>C</Kbd></span>
-                    </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className={`h-8 w-8 rounded-l-none shadow-none ${viewMode === 'calendar' ? 'bg-accent text-accent-foreground' : ''}`}
-                            onClick={() => setViewMode('calendar')}
-                            aria-label={t('calendar.switchToCalendarView')}
-                        >
-                            <Calendar className="h-4 w-4" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent className="flex items-center gap-2">
-                        <p>{t('calendar.switchToCalendarView')}</p>
-                        <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>Shift</Kbd><Kbd>C</Kbd></span>
-                    </TooltipContent>
-                </Tooltip>
-            </div>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
+                        className="h-8 w-8 shadow-none"
+                        aria-label={viewMode === 'list' ? t('calendar.switchToCalendarView') : t('calendar.switchToListView')}
+                    >
+                        {viewMode === 'list' ? <List className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent className="flex items-center gap-2">
+                    <p>{viewMode === 'list' ? t('calendar.switchToCalendarView') : t('calendar.switchToListView')}</p>
+                    <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>Shift</Kbd><Kbd>C</Kbd></span>
+                </TooltipContent>
+            </Tooltip>
             {/* Compact view toggle - hide on mobile */}
             {!isMobile && (
                 <Tooltip>
@@ -168,14 +149,14 @@ export function NoteListToolbar({
                             variant="outline"
                             size="icon"
                             onClick={() => setCompactTaskView(!compactTaskView)}
-                            className={`h-8 w-8 shadow-none ${compactTaskView ? 'bg-accent text-accent-foreground' : ''}`}
+                            className="h-8 w-8 shadow-none"
                             aria-label={t('compactView')}
                         >
-                            <AlignJustify className="h-4 w-4" />
+                            {compactTaskView ? <AlignJustify className="h-4 w-4" /> : <List className="h-4 w-4" />}
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                        <p>{t('compactViewTooltip')}</p>
+                        <p>{compactTaskView ? t('fullViewTooltip') : t('compactViewTooltip')}</p>
                     </TooltipContent>
                 </Tooltip>
             )}

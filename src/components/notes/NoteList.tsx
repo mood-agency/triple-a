@@ -362,8 +362,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   useHotkeys('ctrl+f', () => { searchInputRef.current?.focus(); searchInputRef.current?.select(); }, hotkeyOptions);
   useHotkeys('alt+q', () => { filters.setCategoryFilter(filters.categoryFilter === 'todo' ? 'all' : 'todo'); filters.setCategoryJustChanged(true); }, hotkeyOptions, [filters.categoryFilter]);
   useHotkeys('alt+w', () => { filters.setCategoryFilter(filters.categoryFilter === 'followup' ? 'all' : 'followup'); filters.setCategoryJustChanged(true); }, hotkeyOptions, [filters.categoryFilter]);
-  useHotkeys('alt+e', () => { filters.setCategoryFilter(filters.categoryFilter === 'notes' ? 'all' : 'notes'); filters.setCategoryJustChanged(true); }, hotkeyOptions, [filters.categoryFilter]);
-  useHotkeys('alt+r', () => { filters.setCategoryFilter(filters.categoryFilter === 'meeting' ? 'all' : 'meeting'); filters.setCategoryJustChanged(true); }, hotkeyOptions, [filters.categoryFilter]);
+  useHotkeys('alt+e', () => { filters.setCategoryFilter(filters.categoryFilter === 'meeting' ? 'all' : 'meeting'); filters.setCategoryJustChanged(true); }, hotkeyOptions, [filters.categoryFilter]);
+  useHotkeys('alt+r', () => { filters.setCategoryFilter(filters.categoryFilter === 'notes' ? 'all' : 'notes'); filters.setCategoryJustChanged(true); }, hotkeyOptions, [filters.categoryFilter]);
   useHotkeys('alt+c', () => {
     filters.setCategoryFilter('all'); filters.setLabelFilter([]); filters.setAssigneeFilter([]);
     filters.setSortByDeadline(false); filters.setSortByAssignee(false); filters.setSortByCategory(false); filters.setShowOverdueOnly(false);

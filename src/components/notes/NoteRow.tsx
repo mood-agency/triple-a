@@ -193,19 +193,21 @@ function NoteRow(props: NoteRowProps) {
             onUpdateAssignee={props.onUpdateAssignee}
           />
 
-          {/* Actions - positioned right of content */}
-          <NoteRowActions
-            note={note}
-            isFixedInSidebar={isFixedInSidebar}
-            isDeleted={isDeleted}
-            onTogglePinned={onTogglePinned}
-            onToggleFixInSidebar={onToggleFixInSidebar}
-            onRestore={onRestore}
-            onDeleteClick={(e) => {
-              e.stopPropagation();
-              setShowDeleteDialog(true);
-            }}
-          />
+          {/* Actions - positioned right of content, hidden in compact view */}
+          {!compactView && (
+            <NoteRowActions
+              note={note}
+              isFixedInSidebar={isFixedInSidebar}
+              isDeleted={isDeleted}
+              onTogglePinned={onTogglePinned}
+              onToggleFixInSidebar={onToggleFixInSidebar}
+              onRestore={onRestore}
+              onDeleteClick={(e) => {
+                e.stopPropagation();
+                setShowDeleteDialog(true);
+              }}
+            />
+          )}
         </div>
 
         {/* Labels column */}

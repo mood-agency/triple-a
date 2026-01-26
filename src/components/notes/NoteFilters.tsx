@@ -244,7 +244,7 @@ export function NoteFilters({
           </TooltipTrigger>
           <TooltipContent className="flex items-center gap-2">
             <p>{t('filterByCategory', { category: t('categoryMeeting') })}</p>
-            <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>R</Kbd></span>
+            <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>E</Kbd></span>
           </TooltipContent>
         </Tooltip>
       </div>
@@ -265,7 +265,7 @@ export function NoteFilters({
           </TooltipTrigger>
           <TooltipContent className="flex items-center gap-2">
             <p>{t('filterByCategory', { category: t('categoryNotes') })}</p>
-            <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>E</Kbd></span>
+            <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>R</Kbd></span>
           </TooltipContent>
         </Tooltip>
       )}

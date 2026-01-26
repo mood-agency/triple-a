@@ -86,7 +86,7 @@ export function NoteRowContent({
     const { t } = useTranslation();
 
     return (
-        <div className={`group/title relative select-none flex items-center gap-1.5 ${!compactView ? 'pl-1.5' : ''} overflow-hidden`} onClick={onContentClick}>
+        <div className={`group/title relative select-none flex items-center gap-1.5 flex-1 min-w-0 ${!compactView ? 'pl-1.5' : ''} overflow-hidden`} onClick={onContentClick}>
             {isEditingContent ? (
                 <>
                     <input

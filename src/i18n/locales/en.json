@@ -97,6 +97,7 @@
     "beeperConfigured": "Beeper configured successfully"
   },
   "deleteTask": "Delete task",
+  "deleteTaskConfirmation": "Are you sure you want to delete this task?",
   "markComplete": "Mark as complete",
   "markIncomplete": "Mark as incomplete",
   "back": "Back",
@@ -286,7 +287,8 @@
     "clear": "Clear date range"
   },
   "compactView": "Compact view",
-  "compactViewTooltip": "Hide icons, dates, and labels in task list",
+  "compactViewTooltip": "Switch to compact view",
+  "fullViewTooltip": "Switch to full view",
   "hotkeys": {
     "title": "Keyboard Shortcuts",
     "global": "Global",

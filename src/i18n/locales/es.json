@@ -97,6 +97,7 @@
     "beeperConfigured": "Beeper configurado correctamente"
   },
   "deleteTask": "Eliminar tarea",
+  "deleteTaskConfirmation": "¿Estás seguro de que deseas eliminar esta tarea?",
   "markComplete": "Marcar como completado",
   "markIncomplete": "Marcar como incompleto",
   "back": "Volver",
@@ -286,7 +287,8 @@
     "clear": "Limpiar rango"
   },
   "compactView": "Vista compacta",
-  "compactViewTooltip": "Ocultar iconos, fechas y etiquetas en la lista de tareas",
+  "compactViewTooltip": "Cambiar a vista compacta",
+  "fullViewTooltip": "Cambiar a vista completa",
   "hotkeys": {
     "title": "Atajos de Teclado",
     "global": "Globales",
