@@ -124,12 +124,10 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (e.key === 'Escape') {
-        // Save changes before blurring
+        // Save changes before passing to parent for focus handling
         if (descriptionValue !== (note.description || '')) {
           onEdit(note.id, note.content, note.category, descriptionValue || null);
         }
-        descriptionRef.current?.blur();
-        return;
       }
       onDescriptionKeyDown?.(e);
     };

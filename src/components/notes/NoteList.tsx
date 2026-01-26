@@ -199,6 +199,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [deadlinePickerOpen, setDeadlinePickerOpen] = useState(false);
   const originalDeadlineRef = useRef<string | null>(null);
   const [assigneePickerOpen, setAssigneePickerOpen] = useState(false);
+  const [assigneeFilterPopoverOpen, setAssigneeFilterPopoverOpen] = useState(false);
 
   // Fixed Note Editor specific state
   const [fixedNoteLabelDropdownOpen, setFixedNoteLabelDropdownOpen] = useState(false);
@@ -384,9 +385,19 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       filters.setCategoryJustChanged(false);
     }
   }, hotkeyOptions, [filters.categoryJustChanged, selectedNote, filters.filteredNotes, onSelectNote]);
-  useHotkeys('escape', () => { onSelectNote(null); filters.setCategoryJustChanged(false); }, hotkeyOptions, [onSelectNote]);
+  useHotkeys('escape', () => { onSelectNote(null); filters.setCategoryJustChanged(false); }, { ...hotkeyOptions, enableOnFormTags: false }, [onSelectNote]);
+  useHotkeys('tab', () => {
+    if (selectedNote) {
+      if (!selection.showDescriptionPanel) {
+        selection.handleNavigateToDescription();
+      }
+      // When panel is already shown, Tab does nothing (preventDefault still applies)
+    }
+  }, { ...hotkeyOptions, enableOnFormTags: ['INPUT'], enableOnContentEditable: true }, [selectedNote, selection.showDescriptionPanel]);
   useHotkeys('alt+t', () => { if (selectedNote) setDeadlinePickerOpen(true); }, { ...hotkeyOptions, enableOnContentEditable: true }, [selectedNote]);
-  useHotkeys('ctrl+shift+c', () => { filters.setViewMode(filters.viewMode === 'list' ? 'calendar' : 'list'); }, hotkeyOptions, [filters.viewMode]);
+  useHotkeys('alt+v', () => { filters.setViewMode(filters.viewMode === 'list' ? 'calendar' : 'list'); }, hotkeyOptions, [filters.viewMode]);
+  useHotkeys('alt+f', () => { setCompactTaskView(!compactTaskView); }, hotkeyOptions, [compactTaskView]);
+  useHotkeys('alt+p', () => { setAssigneeFilterPopoverOpen(true); }, hotkeyOptions);
 
 
   // Editor Handlers wrapper
@@ -405,23 +416,14 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         onEdit(selectedNote.id, selectedNote.content, selectedNote.category, selection.descriptionValue || null);
       }
       operations.handleToggleCompletedWithNavigation(selectedNote.id, !selectedNote.completed);
-    } else if (e.key === 'l' && e.altKey) {
+    } else if (e.key === 'Escape' && selectedNote) {
       e.preventDefault();
-      selection.descriptionCaretPositionRef.current = selection.descriptionRef.current?.getSelectionInfo()?.cursorPosition ?? null;
-      setLabelDropdownOpen(true);
-    } else if (e.key === 'c' && e.altKey) {
-      e.preventDefault();
-      selection.descriptionCaretPositionRef.current = selection.descriptionRef.current?.getSelectionInfo()?.cursorPosition ?? null;
-      setCategoryDropdownOpen(true);
-    } else if (e.key === 'p' && e.altKey) {
-      e.preventDefault();
-      selection.descriptionCaretPositionRef.current = selection.descriptionRef.current?.getSelectionInfo()?.cursorPosition ?? null;
-      setAssigneePickerOpen(true);
-    } else if (e.key === 'Escape') {
-      if (selectedNote && selection.descriptionValue !== (selectedNote.description || '')) {
+      e.stopPropagation();
+      if (selection.descriptionValue !== (selectedNote.description || '')) {
         onEdit(selectedNote.id, selectedNote.content, selectedNote.category, selection.descriptionValue || null);
       }
-      selection.descriptionRef.current?.blur();
+      selection.setDesiredColumn(selectedNote.content.length);
+      selection.setFocusTarget('title');
     } else if (e.key === 'Tab' && e.shiftKey && selectedNote) {
       e.preventDefault();
       if (selection.descriptionValue !== (selectedNote.description || '')) {
@@ -482,15 +484,6 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         onEdit(fixedNote.id, fixedNote.content, fixedNote.category, fixedNoteDescriptionValue || null);
       }
       operations.handleToggleCompletedWithNavigation(fixedNote.id, !fixedNote.completed);
-    } else if (e.key === 'l' && e.altKey) {
-      e.preventDefault();
-      setFixedNoteLabelDropdownOpen(true);
-    } else if (e.key === 'c' && e.altKey) {
-      e.preventDefault();
-      setFixedNoteCategoryDropdownOpen(true);
-    } else if (e.key === 'p' && e.altKey) {
-      e.preventDefault();
-      setFixedNoteAssigneePickerOpen(true);
     } else if (e.key === 'Escape') {
       if (fixedNote && fixedNoteDescriptionValue !== (fixedNote.description || '')) {
         onEdit(fixedNote.id, fixedNote.content, fixedNote.category, fixedNoteDescriptionValue || null);
@@ -532,7 +525,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
 
   return (
-    <div ref={containerRef} className="flex flex-col h-full outline-none" tabIndex={0}>
+    <div ref={containerRef} className="flex flex-col h-full outline-none" tabIndex={-1}>
       <NoteListToolbar
         isMobile={isMobile}
         selectedNote={selectedNote}
@@ -565,6 +558,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         contacts={contacts}
         assigneeFilter={filters.assigneeFilter}
         setAssigneeFilter={filters.setAssigneeFilter}
+        assigneePopoverOpen={assigneeFilterPopoverOpen}
+        setAssigneePopoverOpen={setAssigneeFilterPopoverOpen}
         taskStatusFilter={filters.taskStatusFilter}
         setTaskStatusFilter={filters.setTaskStatusFilter}
         hasCompletedTasks={filters.completedNotes.length > 0}
@@ -647,8 +642,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           renderNoResultsContent={() => null}
         />
 
-        {selectedNote && (
-          <div className={`${isMobile ? 'w-full' : 'flex-1'} min-w-0 ${isMobile ? '' : 'border-l border-dashed border-muted-foreground/20 pl-4'} overflow-hidden flex flex-col`}>
+        {selectedNote && selection.showDescriptionPanel && (
+          <div className={`${isMobile ? 'w-full' : 'flex-1'} min-w-0 ${isMobile ? '' : 'border-l border-muted-foreground/20 pl-4'} overflow-hidden flex flex-col`}>
             {isMobile && (
               <Button
                 variant="ghost"
@@ -704,7 +699,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
         {/* Fixed sidebar */}
         {showSidebar && !isMobile && (
-          <div className="flex-1 min-w-0 border-l border-dashed border-muted-foreground/20 pl-4 overflow-hidden flex flex-col">
+          <div className="flex-1 min-w-0 border-l border-muted-foreground/20 pl-4 overflow-hidden flex flex-col">
             {fixedNote ? (
               <NoteEditorPanel
                 ref={fixedNoteDescriptionRef}

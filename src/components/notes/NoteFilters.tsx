@@ -104,6 +104,8 @@ interface NoteFiltersProps {
   contacts: Contact[];
   assigneeFilter: string[];
   onAssigneeFilterChange: (assignees: string[] | ((prev: string[]) => string[])) => void;
+  assigneePopoverOpen?: boolean;
+  onAssigneePopoverOpenChange?: (open: boolean) => void;
 
   // Task status filter
   taskStatusFilter: 'active' | 'completed' | 'deleted';
@@ -138,6 +140,8 @@ export function NoteFilters({
   contacts,
   assigneeFilter,
   onAssigneeFilterChange,
+  assigneePopoverOpen,
+  onAssigneePopoverOpenChange,
   taskStatusFilter,
   onTaskStatusFilterChange,
   hasCompletedTasks = false,
@@ -323,14 +327,22 @@ export function NoteFilters({
           )}
           {/* Assignee dropdown */}
           {contacts.length > 0 && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="shadow-none" aria-label={t('filterByAssignee')}>
-                  <User className="h-3.5 w-3.5" />
-                  <span>{t('assignee.placeholder')}</span>
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </PopoverTrigger>
+            <Popover open={assigneePopoverOpen} onOpenChange={onAssigneePopoverOpenChange}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="shadow-none" aria-label={t('filterByAssignee')}>
+                      <User className="h-3.5 w-3.5" />
+                      <span>{t('assignee.placeholder')}</span>
+                      <ChevronDown className="h-3 w-3" />
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent className="flex items-center gap-2">
+                  <p>{t('filterByAssignee')}</p>
+                  <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>P</Kbd></span>
+                </TooltipContent>
+              </Tooltip>
               <PopoverContent className="w-52 p-0" align="start">
                 <Command>
                   <CommandInput placeholder={t('searchContacts')} className="h-9" />

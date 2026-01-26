@@ -251,6 +251,12 @@ export const EditableDescription = forwardRef<EditableDescriptionHandle, Editabl
               stopPropagation: () => event.stopPropagation(),
             } as React.KeyboardEvent<HTMLDivElement>;
             onKeyDown(syntheticEvent);
+            // If Escape was pressed, we've handled it - prevent Tiptap and other handlers
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              event.stopPropagation();
+              return true;
+            }
           }
           return false;
         },

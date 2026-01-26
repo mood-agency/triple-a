@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { parseHashtags } from '@/utils/hashtagParser';
@@ -145,6 +146,13 @@ export function useNoteRow({
         }
     }, [shouldFocusTitle, isSelected, desiredColumn, onTitleFocused]);
 
+    // Handle ESC key globally to reset content without losing focus
+    useHotkeys('escape', () => {
+        if (isEditingContent) {
+            setContentValue(note.content);
+        }
+    }, { enableOnFormTags: ['INPUT'] }, [isEditingContent, note.content]);
+
     const saveContentWithHashtagParsing = useCallback((): string | null => {
         if (!contentValue.trim() || contentValue === note.content) {
             return null;
@@ -241,16 +249,7 @@ export function useNoteRow({
             onDeleteWithToast(note);
             return;
         }
-        if (e.key === 'l' && e.altKey) {
-            e.preventDefault();
-            setShowLabelDropdown(true);
-        } else if (e.key === 'c' && e.altKey) {
-            e.preventDefault();
-            setShowCategoryDropdown(true);
-        } else if (e.key === 'p' && e.altKey) {
-            e.preventDefault();
-            setShowAssigneeDropdown(true);
-        } else if (e.key === 'Enter' && !e.shiftKey) {
+        if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             if (contentValue.trim() && contentValue !== note.content) {
                 saveContentWithHashtagParsing();
@@ -263,10 +262,6 @@ export function useNoteRow({
             e.preventDefault();
             setIsEditingContent(false);
             onDeleteWithToast(note);
-        } else if (e.key === 'Tab' && !e.shiftKey) {
-            e.preventDefault();
-            handleContentBlur();
-            onNavigateToDescription();
         } else if (e.key === 'ArrowDown') {
             const column = contentInputRef.current?.selectionStart ?? 0;
             const didNavigate = onNavigateDown(note.id, column);
@@ -281,9 +276,6 @@ export function useNoteRow({
                 e.preventDefault();
                 handleContentBlur();
             }
-        } else if (e.key === 'Escape') {
-            setContentValue(note.content);
-            setIsEditingContent(false);
         }
     }, [contentValue, note, saveContentWithHashtagParsing, onToggleCompleted, onDeleteWithToast, onCreateNoteAfter, handleContentBlur, onNavigateToDescription, onNavigateDown, onNavigateUp]);
 
