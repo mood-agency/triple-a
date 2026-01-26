@@ -32,6 +32,7 @@ import { useNoteHistory } from '@/hooks/useNoteHistory';
 import { useDeletedNotes } from '@/hooks/useDeletedNotes';
 import { NoteEditorPanel } from './NoteEditorPanel';
 import { PostponeDialog } from './PostponeDialog';
+import { DeleteTaskDialog } from './DeleteTaskDialog';
 import { useNoteFilters } from './hooks/useNoteFilters';
 import { useNoteSelection } from './hooks/useNoteSelection';
 import { useNoteOperations } from './hooks/useNoteOperations';
@@ -47,7 +48,7 @@ export interface NoteListHandle {
 interface NoteListProps {
   notes: Note[];
   onEdit: (id: string, content: string, category?: NoteCategory, description?: string | null) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string, reason: string) => void;
   onRestore: (note: Note) => void;
   onToggleCompleted: (id: string, completed: boolean) => void;
   onTogglePinned: (id: string, pinned: boolean) => void;
@@ -262,6 +263,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [postponeDialogOpen, setPostponeDialogOpen] = useState(false);
   const [noteToPostpone, setNoteToPostpone] = useState<Note | null>(null);
   const [pendingPostponeDate, setPendingPostponeDate] = useState<Date | null>(null);
+  const [showEditorDeleteDialog, setShowEditorDeleteDialog] = useState(false);
   const [showPostponeHistory, setShowPostponeHistory] = useState(false);
   const [deadlinePickerOpen, setDeadlinePickerOpen] = useState(false);
   const originalDeadlineRef = useRef<string | null>(null);
@@ -277,6 +279,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [fixedNoteDescriptionValue, setFixedNoteDescriptionValue] = useState('');
   const [fixedNoteShowPostponeHistory, setFixedNoteShowPostponeHistory] = useState(false);
   const fixedNoteDescriptionRef = useRef<any>(null);
+  const [showFixedNoteDeleteDialog, setShowFixedNoteDeleteDialog] = useState(false);
 
   // --- Effects & Handlers ---
   useEffect(() => {
@@ -596,10 +599,6 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         setTaskStatusFilter={filters.setTaskStatusFilter}
         hasCompletedTasks={filters.completedNotes.length > 0}
         hasDeletedTasks={deletedNotes.length > 0}
-        fixedNoteId={fixedNoteId}
-        showSidebar={showSidebar}
-        setShowSidebar={setShowSidebar}
-        setFixedNoteId={setFixedNoteId}
         onSearchKeyDown={(e) => {
           if (e.key === 'ArrowDown' && filters.filteredNotes.length > 0) {
             e.preventDefault();
@@ -724,7 +723,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onDeadlineChange={handleDeadlineChange}
               onDeadlineSave={handleDeadlineSave}
               onUpdateAssignee={onUpdateAssignee}
-              onDelete={() => operations.handleDeleteWithToast(selectedNote)}
+              onDelete={() => setShowEditorDeleteDialog(true)}
               onLabelDropdownOpenChange={handleLabelDropdownOpenChange}
               onCategoryDropdownOpenChange={handleCategoryDropdownOpenChange}
               onDeadlinePickerOpenChange={handleDeadlinePickerOpenChange}
@@ -768,7 +767,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 onDeadlineChange={handleFixedNoteDeadlineChange}
                 onDeadlineSave={handleFixedNoteDeadlineSave}
                 onUpdateAssignee={onUpdateAssignee}
-                onDelete={() => operations.handleDeleteWithToast(fixedNote)}
+                onDelete={() => setShowFixedNoteDeleteDialog(true)}
                 onLabelDropdownOpenChange={setFixedNoteLabelDropdownOpen}
                 onCategoryDropdownOpenChange={setFixedNoteCategoryDropdownOpen}
                 onDeadlinePickerOpenChange={handleFixedNoteDeadlinePickerOpenChange}
@@ -778,6 +777,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 onDeleteHistoryEntry={(id) => setFixedNoteHistoryEntryToDelete(id)}
                 onSetEditingHistoryEntry={setEditingFixedNoteHistoryEntry}
                 onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !fixedNote.completed)}
+                onClose={() => {
+                  setFixedNoteId(null);
+                  setShowSidebar(false);
+                }}
               />
             ) : (
               <p className="text-sm text-muted-foreground/50 italic">{t('selectNoteToEdit')}</p>
@@ -924,6 +927,34 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Task Dialog for main editor panel */}
+      {selectedNote && (
+        <DeleteTaskDialog
+          open={showEditorDeleteDialog}
+          onOpenChange={setShowEditorDeleteDialog}
+          onConfirm={(reason) => {
+            operations.handleDeleteWithToast(selectedNote, reason);
+            setShowEditorDeleteDialog(false);
+          }}
+          taskContent={selectedNote.content}
+        />
+      )}
+
+      {/* Delete Task Dialog for fixed note editor */}
+      {fixedNote && (
+        <DeleteTaskDialog
+          open={showFixedNoteDeleteDialog}
+          onOpenChange={setShowFixedNoteDeleteDialog}
+          onConfirm={(reason) => {
+            operations.handleDeleteWithToast(fixedNote, reason);
+            setShowFixedNoteDeleteDialog(false);
+            setFixedNoteId(null);
+            setShowSidebar(false);
+          }}
+          taskContent={fixedNote.content}
+        />
+      )}
     </div>
   );
 });

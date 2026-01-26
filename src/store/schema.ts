@@ -26,6 +26,7 @@ export interface NoteRow {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  deleted_reason: string | null;
   remote_id: string | null;
   sync_status: SyncStatus;
   last_synced_at: string | null;

@@ -34,6 +34,7 @@ export function useDeletedNotes() {
           created_at: row.created_at as string,
           updated_at: row.updated_at as string,
           deleted_at: (row.deleted_at as string) || null,
+          deleted_reason: (row.deleted_reason as string) || null,
           assignee_id: (row.assignee_id as string) || null,
           project_id: (row.project_id as string) || null,
         };

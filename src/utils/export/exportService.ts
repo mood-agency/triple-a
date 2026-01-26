@@ -28,6 +28,7 @@ export function exportAllData(store: MergeableStore): ExportData {
           created_at: row.created_at,
           updated_at: row.updated_at,
           deleted_at: row.deleted_at,
+          deleted_reason: row.deleted_reason || null,
           assignee_id: row.assignee_id,
           project_id: row.project_id,
         }))

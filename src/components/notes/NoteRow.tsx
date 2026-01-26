@@ -5,15 +5,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import { DeleteTaskDialog } from './DeleteTaskDialog';
 import { useDebugNavigation } from '@/hooks/useDebugNavigation';
 
 import type { Note, NoteCategory, Label } from '@/types/note';
@@ -26,7 +18,7 @@ import { NoteRowActions } from './row/NoteRowActions';
 
 export interface NoteRowProps {
   note: Note;
-  onDeleteWithToast: (note: Note) => void;
+  onDeleteWithToast: (note: Note, reason: string) => void;
   onToggleCompleted: (id: string, completed: boolean) => void;
   onTogglePinned: (id: string, pinned: boolean) => void;
   isSelected: boolean;
@@ -195,21 +187,19 @@ function NoteRow(props: NoteRowProps) {
             onUpdateAssignee={props.onUpdateAssignee}
           />
 
-          {/* Actions - positioned right of content, hidden in compact view */}
-          {!compactView && (
-            <NoteRowActions
-              note={note}
-              isFixedInSidebar={isFixedInSidebar}
-              isDeleted={isDeleted}
-              onTogglePinned={onTogglePinned}
-              onToggleFixInSidebar={onToggleFixInSidebar}
-              onRestore={onRestore}
-              onDeleteClick={(e) => {
-                e.stopPropagation();
-                setShowDeleteDialog(true);
-              }}
-            />
-          )}
+          {/* Actions - positioned right of content */}
+          <NoteRowActions
+            note={note}
+            isFixedInSidebar={isFixedInSidebar}
+            isDeleted={isDeleted}
+            onTogglePinned={onTogglePinned}
+            onToggleFixInSidebar={onToggleFixInSidebar}
+            onRestore={onRestore}
+            onDeleteClick={(e) => {
+              e.stopPropagation();
+              setShowDeleteDialog(true);
+            }}
+          />
         </div>
 
         {/* Labels column */}
@@ -304,24 +294,12 @@ function NoteRow(props: NoteRowProps) {
         )}
       </div>
 
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('deleteTask')}</DialogTitle>
-            <DialogDescription>
-              {t('deleteTaskConfirmation')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
-              {t('cancel')}
-            </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete}>
-              {t('delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteTaskDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        onConfirm={handleConfirmDelete}
+        taskContent={note.content}
+      />
     </>
   );
 }

@@ -40,7 +40,7 @@ interface NoteListContentProps {
 
     // Handlers
     handleSelectNoteById: (id: string) => void;
-    handleDeleteWithToast: (note: Note) => void;
+    handleDeleteWithToast: (note: Note, reason: string) => void;
     handleToggleCompletedWithNavigation: (id: string, completed: boolean) => void;
     onTogglePinned: (id: string, pinned: boolean) => void;
     onEdit: (id: string, content: string, category?: NoteCategory, description?: string | null) => void;
