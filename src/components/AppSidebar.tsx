@@ -248,19 +248,17 @@ export function AppSidebar() {
 
   return (
     <Sidebar side="left" collapsible="offcanvas">
-      <SidebarHeader className="border-b border-sidebar-border">
-        <div className="px-2 py-2">
-          <ProjectSelector />
-        </div>
+      <SidebarHeader className="border-b border-sidebar-border p-2">
+        <ProjectSelector />
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>{t('nav.navigation', 'Navigation')}</SidebarGroupLabel>
+        <SidebarGroup className="p-2 py-1">
+          <SidebarGroupLabel className="h-6 px-1">{t('nav.navigation', 'Navigation')}</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-0.5">
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={location.pathname === item.url}>
+                  <SidebarMenuButton asChild isActive={location.pathname === item.url} size="sm">
                     <Link to={item.url}>
                       <item.icon />
                       <span>{item.title}</span>
@@ -272,14 +270,15 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         {user && (
-          <SidebarGroup>
-            <SidebarGroupLabel>{t('sync.status', 'Sync')}</SidebarGroupLabel>
+          <SidebarGroup className="p-2 py-1">
+            <SidebarGroupLabel className="h-6 px-1">{t('sync.status', 'Sync')}</SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>
+              <SidebarMenu className="gap-0.5">
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     onClick={() => syncNow()}
                     disabled={syncState === 'syncing' || connectionStatus === 'offline'}
+                    size="sm"
                   >
                     {getSyncIcon()}
                     <span className="flex-1">{getSyncStatusText()}</span>
@@ -292,6 +291,7 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     onClick={() => setShowPullConfirmDialog(true)}
                     disabled={!canPull}
+                    size="sm"
                   >
                     {isPullingAll ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -305,6 +305,7 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     onClick={() => setShowPushConfirmDialog(true)}
                     disabled={!canPush}
+                    size="sm"
                   >
                     {isPushingAll ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -318,18 +319,18 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
-        <SidebarGroup>
-          <SidebarGroupLabel>{t('importExport.title', 'Data')}</SidebarGroupLabel>
+        <SidebarGroup className="p-2 py-1">
+          <SidebarGroupLabel className="h-6 px-1">{t('importExport.title', 'Data')}</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-0.5">
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={handleExport}>
+                <SidebarMenuButton onClick={handleExport} size="sm">
                   <Download className="h-4 w-4" />
                   <span>{t('importExport.export')}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={handleImportClick}>
+                <SidebarMenuButton onClick={handleImportClick} size="sm">
                   <Upload className="h-4 w-4" />
                   <span>{t('importExport.import')}</span>
                 </SidebarMenuButton>
@@ -338,22 +339,22 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t border-sidebar-border">
-        <SidebarMenu>
+      <SidebarFooter className="border-t border-sidebar-border p-2">
+        <SidebarMenu className="gap-0.5">
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={toggleLanguage}>
+            <SidebarMenuButton onClick={toggleLanguage} size="sm">
               <Languages />
               <span>{t('language', 'Language')}: {i18n.language.toUpperCase()}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={toggleTheme}>
+            <SidebarMenuButton onClick={toggleTheme} size="sm">
               {theme === 'dark' ? <Sun /> : <Moon />}
               <span>{theme === 'dark' ? t('theme.light', 'Light Mode') : t('theme.dark', 'Dark Mode')}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={location.pathname === '/settings/calendar'}>
+            <SidebarMenuButton asChild isActive={location.pathname === '/settings/calendar'} size="sm">
               <Link to="/settings/calendar">
                 <Calendar className="text-blue-600" />
                 <span>{t('gcal.title')}</span>
@@ -380,7 +381,7 @@ export function AppSidebar() {
                 </div>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={signOut} className="text-destructive hover:text-destructive">
+                <SidebarMenuButton onClick={signOut} className="text-destructive hover:text-destructive" size="sm">
                   <LogOut />
                   <span>{t('auth.signOut', 'Sign Out')}</span>
                 </SidebarMenuButton>

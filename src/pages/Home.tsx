@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react';
 import { NoteList, type NoteListHandle } from '@/components/notes/NoteList';
 import { CommandPalette } from '@/components/CommandPalette';
 import { HotkeysHelper } from '@/components/HotkeysHelper';
-import { useNotes } from '@/hooks/useNotes';
+import { useNotesWithCalendarSync } from '@/hooks/useNotesWithCalendarSync';
 import { useTinyBase } from '@/contexts/TinyBaseContext';
 import { useLabels } from '@/hooks/useLabels';
 import { useSettings } from '@/hooks/useSettings';
@@ -128,7 +128,8 @@ export function Home() {
   }, [viewMode, setViewMode]);
 
   // Load ALL notes without date filtering (filtered by active project)
-  const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, updateAssignee, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote } = useNotes();
+  // Uses calendar sync enabled hook to auto-sync meetings to Google Calendar
+  const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, updateAssignee, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote } = useNotesWithCalendarSync();
 
   // Derive the full note object from the ID (memoized)
   // This prevents re-renders when the note object reference changes but ID stays the same

@@ -45,6 +45,49 @@ export function TinyBaseProvider({ children }: TinyBaseProviderProps) {
           setStore(appStore);
           setPersister(appPersister);
           setIsReady(true);
+
+          // Debug: Expose store to window for debugging
+          if (typeof window !== 'undefined') {
+            (window as unknown as { __tinybase_debug__: unknown }).__tinybase_debug__ = {
+              store: appStore,
+              getNotes: () => {
+                const notes = appStore.getTable('notes');
+                console.table(Object.entries(notes).map(([id, note]) => ({
+                  id,
+                  content: (note.content as string)?.substring(0, 50),
+                  category: note.category,
+                  date: note.date,
+                  deadline: note.deadline,
+                  gcal_event_id: note.gcal_event_id,
+                  deleted_at: note.deleted_at,
+                  sync_status: note.sync_status,
+                })));
+                return notes;
+              },
+              getMeetings: () => {
+                const notes = appStore.getTable('notes');
+                const meetings = Object.entries(notes).filter(([, note]) => note.category === 'meeting');
+                console.table(meetings.map(([id, note]) => ({
+                  id,
+                  content: (note.content as string)?.substring(0, 50),
+                  date: note.date,
+                  deadline: note.deadline,
+                  gcal_event_id: note.gcal_event_id,
+                  deleted_at: note.deleted_at,
+                })));
+                return Object.fromEntries(meetings);
+              },
+              getNote: (id: string) => appStore.getRow('notes', id),
+              getAllTables: () => ({
+                notes: Object.keys(appStore.getTable('notes')).length,
+                labels: Object.keys(appStore.getTable('labels')).length,
+                contacts: Object.keys(appStore.getTable('contacts')).length,
+                projects: Object.keys(appStore.getTable('projects')).length,
+              }),
+            };
+            console.log('TinyBase debug available: window.__tinybase_debug__');
+            console.log('Commands: getNotes(), getMeetings(), getNote(id), getAllTables()');
+          }
         }
       } catch (err) {
         console.error('[TinyBase] Initialization error:', err);

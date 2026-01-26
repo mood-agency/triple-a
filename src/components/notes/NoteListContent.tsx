@@ -175,7 +175,7 @@ export function NoteListContent({
             ) : viewMode === 'calendar' ? (
                 <div className="flex flex-col h-full overflow-hidden">
                     {/* Calendar picker - left aligned */}
-                    <div className="flex-shrink-0 p-2">
+                    <div className="flex-shrink-0 py-2">
                         <CalendarView
                             notes={notes}
                             categoryFilter={categoryFilter}

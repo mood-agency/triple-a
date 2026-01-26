@@ -44,14 +44,12 @@ export function useNoteRow({
     shouldFocusTitle,
     desiredColumn,
     onTitleFocused,
-    labels = [],
     allLabels = [],
     contacts = [],
     onUpdateAssignee,
     onAddLabel,
     onCreateLabelAndAdd,
     isCommandPaletteOpen,
-    onContentChange,
 }: UseNoteRowProps) {
     const { t } = useTranslation();
     const [isEditingContent, setIsEditingContent] = useState(false);

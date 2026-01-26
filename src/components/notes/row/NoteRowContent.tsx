@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Pickaxe, Forward, StickyNote, Users, Plus, Pencil } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -20,7 +20,7 @@ interface NoteRowContentProps {
     contentValue: string;
     setContentValue: (value: string) => void;
     isEditingContent: boolean;
-    contentInputRef: React.RefObject<HTMLInputElement>;
+    contentInputRef: React.RefObject<HTMLInputElement | null>;
     isDragging: boolean;
     isSelected: boolean;
     isDescriptionFocused: boolean;
@@ -99,7 +99,7 @@ export function NoteRowContent({
                         }}
                         onBlur={onContentBlur}
                         onKeyDown={onContentKeyDown}
-                        onFocus={(e) => {
+                        onFocus={() => {
                             // We can handle click position logic here if needed, or rely on parent passing initial focus state
                         }}
                         placeholder={t('newTaskPlaceholder')}

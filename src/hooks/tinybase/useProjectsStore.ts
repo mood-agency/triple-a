@@ -41,6 +41,8 @@ export function useProjectsStore() {
           created_at: projectRow.created_at as string,
           updated_at: projectRow.updated_at as string,
           deleted_at: (projectRow.deleted_at as string) || null,
+          gcal_calendar_id: (projectRow.gcal_calendar_id as string) || null,
+          gcal_account_id: (projectRow.gcal_account_id as string) || null,
           remote_id: (projectRow.remote_id as string) || null,
           sync_status: (projectRow.sync_status as Project['sync_status']) || 'local',
           last_synced_at: (projectRow.last_synced_at as string) || null,
@@ -100,6 +102,11 @@ export function useProjectsStore() {
         created_at: timestamp,
         updated_at: timestamp,
         deleted_at: null,
+        gcal_calendar_id: null,
+        gcal_account_id: null,
+        remote_id: null,
+        sync_status: 'local',
+        last_synced_at: null,
       };
 
       store.setRow('projects', id, {
@@ -112,6 +119,8 @@ export function useProjectsStore() {
         created_at: timestamp,
         updated_at: timestamp,
         deleted_at: null,
+        gcal_calendar_id: null,
+        gcal_account_id: null,
         remote_id: null,
         sync_status: 'local',
         last_synced_at: null,
@@ -163,9 +172,33 @@ export function useProjectsStore() {
         created_at: existingRow.created_at as string,
         updated_at: timestamp,
         deleted_at: null,
+        gcal_calendar_id: (existingRow.gcal_calendar_id as string) || null,
+        gcal_account_id: (existingRow.gcal_account_id as string) || null,
+        remote_id: (existingRow.remote_id as string) || null,
+        sync_status: 'pending',
+        last_synced_at: (existingRow.last_synced_at as string) || null,
       };
     },
     [store, t]
+  );
+
+  /**
+   * Update a project's Google Calendar sync setting
+   */
+  const updateProjectCalendar = useCallback(
+    (id: string, gcalCalendarId: string | null, gcalAccountId: string | null = null): void => {
+      if (!store) throw new Error('Store not ready');
+
+      const timestamp = now();
+
+      store.setPartialRow('projects', id, {
+        gcal_calendar_id: gcalCalendarId,
+        gcal_account_id: gcalAccountId,
+        updated_at: timestamp,
+        sync_status: 'pending',
+      });
+    },
+    [store]
   );
 
   /**
@@ -261,6 +294,7 @@ export function useProjectsStore() {
     loading,
     createProject,
     updateProject,
+    updateProjectCalendar,
     deleteProject,
     archiveProject,
     getActiveProjects,

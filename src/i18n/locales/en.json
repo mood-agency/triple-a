@@ -451,12 +451,24 @@
     "filterByProject": "Filter by project",
     "allProjects": "All projects",
     "notesCount": "{{count}} tasks",
-    "archive": "Archive"
+    "archive": "Archive",
+    "googleCalendar": "Google Calendar",
+    "googleCalendarDescription": "Sync events from this calendar to this project",
+    "selectCalendar": "Select calendar",
+    "noCalendar": "No calendar",
+    "connectGoogleCalendar": "Connect Google Calendar",
+    "connectGoogleCalendarDescription": "Sync events from Google Calendar to this project",
+    "selectCalendarOrConnect": "Select a calendar or connect a new Google account",
+    "connectAnotherAccount": "Connect another account",
+    "googleCalendarConnected": "Google Calendar connected",
+    "googleCalendarDisconnected": "Google Calendar disconnected",
+    "saveProjectFirst": "Save the project first to connect Google Calendar"
   },
   "gcal": {
     "title": "Google Calendar",
     "settingsTitle": "Calendar Settings",
     "connect": "Connect Google Calendar",
+    "notConfigured": "Google Calendar is not configured",
     "connected": "Connected",
     "disconnect": "Disconnect",
     "connectDescription": "Import events from Google Calendar as tasks in your list.",
@@ -475,7 +487,25 @@
     "syncSuccess": "Imported: {{imported}}, Updated: {{updated}}, Deleted: {{deleted}}",
     "syncError": "Sync error",
     "noCalendarsSelected": "Select at least one calendar to sync",
-    "syncedWithGCal": "Imported from Google Calendar"
+    "syncedWithGCal": "Imported from Google Calendar",
+    "defaultProject": "Default project",
+    "defaultProjectDescription": "Imported events will be assigned to this project",
+    "selectProject": "Select project",
+    "noProject": "No project",
+    "eventCreated": "Event created in Google Calendar",
+    "eventUpdated": "Event updated in Google Calendar",
+    "eventDeleted": "Event deleted from Google Calendar",
+    "eventCreateError": "Failed to create event in Google Calendar",
+    "eventUpdateError": "Failed to update event in Google Calendar",
+    "eventDeleteError": "Failed to delete event from Google Calendar",
+    "accounts": "Connected Accounts",
+    "addAccount": "Add Google Account",
+    "accountAdded": "Google account connected: {{email}}",
+    "accountRemoved": "Google account removed",
+    "removeAccount": "Remove account",
+    "confirmRemoveAccount": "Are you sure you want to remove this Google account? Events synced from this account will no longer be updated.",
+    "noAccounts": "No Google accounts connected",
+    "selectAccount": "Select account"
   },
   "date": {
     "today": "Today",
@@ -517,5 +547,15 @@
     },
     "invalidPhone": "Phone must be in international format (e.g., +521234567890)",
     "phoneHelp": "International format with country code (e.g., +52 for Mexico)"
+  },
+  "share": {
+    "title": "Shared Content",
+    "taskTitle": "Task title",
+    "taskTitlePlaceholder": "Enter title...",
+    "description": "Description",
+    "descriptionPlaceholder": "Optional description...",
+    "createTask": "Create Task",
+    "errorEmptyTitle": "Title cannot be empty",
+    "errorCreating": "Error creating task"
   }
 }
