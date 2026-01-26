@@ -47,49 +47,6 @@ export interface EditableDescriptionHandle {
   setCursorPosition: (position: number) => void;
 }
 
-// Helper function to clean legacy HTML content and convert to markdown
-function cleanLegacyContent(content: string): string {
-  if (!content) return '';
-
-  let cleaned = content;
-
-  // If the content contains escaped HTML entities, clean it up
-  if (cleaned.includes('&lt;') || cleaned.includes('&gt;')) {
-    // Decode HTML entities
-    cleaned = cleaned.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"');
-  }
-
-  // If the content contains HTML tags, convert to markdown
-  if (cleaned.includes('<p>') || cleaned.includes('</p>') || cleaned.includes('<strong>') || cleaned.includes('<a ')) {
-    // Remove <br> tags and convert to newlines
-    cleaned = cleaned.replace(/<br\s*\/?>/gi, '\n');
-    // Remove paragraph tags and convert to newlines
-    cleaned = cleaned.replace(/<\/p>\s*<p>/g, '\n\n');
-    cleaned = cleaned.replace(/<p>/g, '').replace(/<\/p>/g, '');
-    // Extract text from anchor tags
-    cleaned = cleaned.replace(/<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g, '[$2]($1)');
-    // Extract content from code blocks with language
-    cleaned = cleaned.replace(/<pre><code[^>]*class="language-(\w+)"[^>]*>([\s\S]*?)<\/code><\/pre>/g, '```$1\n$2\n```');
-    // Extract content from code blocks without language
-    cleaned = cleaned.replace(/<pre><code[^>]*>([\s\S]*?)<\/code><\/pre>/g, '```\n$1\n```');
-    // Extract content from inline code
-    cleaned = cleaned.replace(/<code>([^<]*)<\/code>/g, '`$1`');
-    // Extract content from strong/bold
-    cleaned = cleaned.replace(/<strong>([^<]*)<\/strong>/g, '**$1**');
-    cleaned = cleaned.replace(/<b>([^<]*)<\/b>/g, '**$1**');
-    // Extract content from em/italic
-    cleaned = cleaned.replace(/<em>([^<]*)<\/em>/g, '*$1*');
-    cleaned = cleaned.replace(/<i>([^<]*)<\/i>/g, '*$1*');
-    // Remove any remaining HTML tags
-    cleaned = cleaned.replace(/<[^>]+>/g, '');
-    // Clean up multiple newlines
-    cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
-    cleaned = cleaned.trim();
-  }
-
-  return cleaned;
-}
-
 // Custom TaskItem with input rule for "- [ ] " and "- [x] " using wrappingInputRule
 const CustomTaskItem = TaskItem.extend({
   addInputRules() {
@@ -406,10 +363,9 @@ export const EditableDescription = forwardRef<EditableDescriptionHandle, Editabl
         },
       },
       onUpdate: ({ editor }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const markdown = (editor.storage as any).markdown?.getMarkdown() || editor.getText();
-        lastExternalValueRef.current = markdown;
-        onChange(markdown);
+        const json = JSON.stringify(editor.getJSON());
+        lastExternalValueRef.current = json;
+        onChange(json);
       },
       onBlur: () => {
         setIsFocused(false);
@@ -426,10 +382,14 @@ export const EditableDescription = forwardRef<EditableDescriptionHandle, Editabl
       if (!editor || isInitializedRef.current) return;
       isInitializedRef.current = true;
       if (value) {
-        const markdown = cleanLegacyContent(value);
-        lastExternalValueRef.current = markdown;
-        // tiptap-markdown parses markdown automatically when using setContent
-        editor.commands.setContent(markdown);
+        lastExternalValueRef.current = value;
+        try {
+          const parsed = JSON.parse(value);
+          editor.commands.setContent(parsed);
+        } catch {
+          // Fallback for legacy content (plain text or markdown)
+          editor.commands.setContent(value);
+        }
       }
     }, [editor, value]);
 
@@ -438,9 +398,14 @@ export const EditableDescription = forwardRef<EditableDescriptionHandle, Editabl
       if (!editor || !isInitializedRef.current) return;
 
       if (lastExternalValueRef.current !== value) {
-        const markdown = cleanLegacyContent(value);
-        lastExternalValueRef.current = markdown;
-        editor.commands.setContent(markdown);
+        lastExternalValueRef.current = value;
+        try {
+          const parsed = JSON.parse(value);
+          editor.commands.setContent(parsed);
+        } catch {
+          // Fallback for legacy content (plain text or markdown)
+          editor.commands.setContent(value);
+        }
       }
     }, [value, editor]);
 
