@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pickaxe, Forward, StickyNote, Check, X, Users, Calendar, List, FolderKanban, User, ArrowUp, ArrowDown, Calendar as CalendarIcon, Layers, CircleDot, CheckCircle2, Trash2, AlertTriangle } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Check, X, Users, Calendar, List, FolderKanban, User, ArrowUp, ArrowDown, Calendar as CalendarIcon, Layers, CircleDot, CheckCircle2, Trash2, AlertTriangle, Plus } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -30,6 +30,7 @@ interface CommandPaletteProps {
   projects?: Project[];
   activeProjectId?: string | null;
   onSelectProject?: (projectId: string) => void;
+  onRequestCreateProject?: () => void;
   // Assignee filtering
   contacts?: Contact[];
   selectedAssignees?: string[];
@@ -60,6 +61,7 @@ export function CommandPalette({
   projects = [],
   activeProjectId,
   onSelectProject,
+  onRequestCreateProject,
   contacts = [],
   selectedAssignees = [],
   onSelectAssignee,
@@ -143,6 +145,18 @@ export function CommandPalette({
 
         {mode === 'projects' && (
           <CommandGroup heading={t('projects.allProjects', 'Projects')}>
+            <CommandItem
+              key="create-project"
+              value="add project create new agregar crear nuevo"
+              onSelect={() => {
+                onRequestCreateProject?.();
+                close();
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              {t('projects.addProject')}
+            </CommandItem>
+            <CommandSeparator className="my-1" />
             {projects.map(project => (
               <CommandItem
                 key={project.id}

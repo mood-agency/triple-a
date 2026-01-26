@@ -181,6 +181,11 @@ export function NoteListContent({
                             categoryFilter={categoryFilter}
                             selectedDate={calendarSelectedDate}
                             onSelectDate={setCalendarSelectedDate}
+                            labelFilter={labelFilter}
+                            assigneeFilter={assigneeFilter}
+                            searchQuery={searchQuery}
+                            showOverdueOnly={showOverdueOnly}
+                            noteLabelsCache={noteLabelsCache}
                         />
                     </div>
                     {/* Timeline view for selected date - below calendar */}

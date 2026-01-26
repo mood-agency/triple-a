@@ -375,7 +375,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   };
 
   // Hotkeys
-  const hotkeyOptions = { preventDefault: true, enableOnFormTags: true };
+  const hotkeyOptions = { preventDefault: true, enableOnFormTags: true, enableOnContentEditable: true };
   useHotkeys('ctrl+f', () => { searchInputRef.current?.focus(); searchInputRef.current?.select(); }, hotkeyOptions);
   useHotkeys('alt+q', () => { filters.setCategoryFilter(filters.categoryFilter === 'todo' ? 'all' : 'todo'); filters.setCategoryJustChanged(true); }, hotkeyOptions, [filters.categoryFilter]);
   useHotkeys('alt+w', () => { filters.setCategoryFilter(filters.categoryFilter === 'followup' ? 'all' : 'followup'); filters.setCategoryJustChanged(true); }, hotkeyOptions, [filters.categoryFilter]);

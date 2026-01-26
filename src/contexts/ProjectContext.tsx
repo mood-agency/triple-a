@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo, t
 import { useSearchParams } from 'react-router-dom';
 import { useProjects } from '@/hooks/useProjects';
 import { useSettings } from '@/hooks/useSettings';
-import type { Project } from '@/types/project';
+import type { Project, ProjectInput } from '@/types/project';
 
 interface ProjectContextValue {
   /** Currently active project */
@@ -16,7 +16,7 @@ interface ProjectContextValue {
   /** Set the active project by ID */
   setActiveProjectId: (id: string) => void;
   /** Create a new project and optionally set it as active */
-  createProject: (name: string, setAsActive?: boolean) => Promise<Project>;
+  createProject: (input: ProjectInput, setAsActive?: boolean) => Promise<Project>;
 }
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);
@@ -125,8 +125,8 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
   }, [effectiveActiveProjectId, projects]);
 
   // Create project wrapper that can set as active
-  const createProject = useCallback(async (name: string, setAsActive = true): Promise<Project> => {
-    const newProject = await createProjectBase({ name });
+  const createProject = useCallback(async (input: ProjectInput, setAsActive = true): Promise<Project> => {
+    const newProject = await createProjectBase(input);
     if (setAsActive) {
       setActiveProjectId(newProject.id);
     }
