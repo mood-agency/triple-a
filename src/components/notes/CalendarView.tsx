@@ -5,13 +5,18 @@ import { es, enUS } from 'date-fns/locale'
 import { CalendarX2, Calendar as CalendarIcon } from 'lucide-react'
 import { WeekStrip } from '@/components/ui/week-strip'
 import { useCalendarNotes } from '@/hooks/useCalendarNotes'
-import type { Note, NoteCategory } from '@/types/note'
+import type { Note, NoteCategory, Label } from '@/types/note'
 
 interface CalendarViewProps {
   notes: Note[]
   categoryFilter: NoteCategory | 'all'
   selectedDate: Date | undefined
   onSelectDate: (date: Date | undefined) => void
+  labelFilter?: string[]
+  assigneeFilter?: string[]
+  searchQuery?: string
+  showOverdueOnly?: boolean
+  noteLabelsCache?: Map<string, Label[]>
 }
 
 export function CalendarView({
@@ -19,11 +24,24 @@ export function CalendarView({
   categoryFilter,
   selectedDate,
   onSelectDate,
+  labelFilter = [],
+  assigneeFilter = [],
+  searchQuery = '',
+  showOverdueOnly = false,
+  noteLabelsCache,
 }: CalendarViewProps) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language === 'es' ? es : enUS
 
-  const { notesByDate } = useCalendarNotes(notes, categoryFilter)
+  const { notesByDate } = useCalendarNotes(
+    notes,
+    categoryFilter,
+    labelFilter,
+    assigneeFilter,
+    searchQuery,
+    showOverdueOnly,
+    noteLabelsCache
+  )
 
   // Check if there are any tasks with deadlines
   const hasAnyTasks = notesByDate.size > 0

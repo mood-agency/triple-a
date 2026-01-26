@@ -120,22 +120,22 @@ export function CommandPaletteProvider({ children }: CommandPaletteProviderProps
   // Ctrl+K to toggle command palette (commands mode)
   useHotkeys('ctrl+k, meta+k', () => {
     toggle('commands');
-  }, { preventDefault: true, enableOnFormTags: true }, [toggle]);
+  }, { preventDefault: true, enableOnFormTags: true, enableOnContentEditable: true }, [toggle]);
 
   // Ctrl+P to toggle command palette (projects mode)
   useHotkeys('ctrl+p, meta+p', () => {
     toggle('projects');
-  }, { preventDefault: true, enableOnFormTags: true }, [toggle]);
+  }, { preventDefault: true, enableOnFormTags: true, enableOnContentEditable: true }, [toggle]);
 
   // Ctrl+R to toggle command palette (assignees mode)
   useHotkeys('ctrl+r, meta+r', () => {
     toggle('assignees');
-  }, { preventDefault: true, enableOnFormTags: true }, [toggle]);
+  }, { preventDefault: true, enableOnFormTags: true, enableOnContentEditable: true }, [toggle]);
 
   // Ctrl+L to toggle command palette (labels mode)
   useHotkeys('ctrl+l, meta+l', () => {
     toggle('labels');
-  }, { preventDefault: true, enableOnFormTags: true }, [toggle]);
+  }, { preventDefault: true, enableOnFormTags: true, enableOnContentEditable: true }, [toggle]);
 
   const value = useMemo(() => ({
     isOpen,

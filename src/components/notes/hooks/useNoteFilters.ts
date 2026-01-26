@@ -194,10 +194,14 @@ export function useNoteFilters({
             return true;
         }
 
-        if (categoryFilter === 'all') {
-            if (note.category === 'notes') return false;
-        } else if (note.category !== categoryFilter) {
-            return false;
+        // Solo aplicar filtro de categoría si NO hay búsqueda de texto
+        // (cuando hay búsqueda, queremos buscar en todas las categorías incluyendo notas)
+        if (!searchQuery.trim()) {
+            if (categoryFilter === 'all') {
+                if (note.category === 'notes') return false;
+            } else if (note.category !== categoryFilter) {
+                return false;
+            }
         }
 
         if (labelFilter.length > 0) {

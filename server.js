@@ -459,7 +459,7 @@ async function getGoogleAccessToken(supabase, userId) {
 /**
  * Google Calendar Auth endpoint
  * POST /api/gcal-auth
- * Body: { action: 'exchange' | 'status' | 'disconnect', code?, redirectUri? }
+ * Body: { action: 'exchange' | 'status' | 'disconnect' | 'add_account', code?, redirectUri? }
  */
 app.post('/api/gcal-auth', async (req, res) => {
   res.set(corsHeaders)
@@ -558,6 +558,85 @@ app.post('/api/gcal-auth', async (req, res) => {
         await supabase.from('google_calendar_events').delete().eq('user_id', user.id)
 
         return res.status(200).json({ success: true })
+      }
+
+      case 'add_account': {
+        if (!code || !redirectUri) {
+          return res.status(400).json({ error: 'Missing code or redirectUri' })
+        }
+
+        if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+          return res.status(500).json({ error: 'Google Calendar not configured on server' })
+        }
+
+        // Exchange code for tokens
+        const tokenResponse = await fetch(GOOGLE_TOKEN_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            code,
+            client_id: GOOGLE_CLIENT_ID,
+            client_secret: GOOGLE_CLIENT_SECRET,
+            redirect_uri: redirectUri,
+            grant_type: 'authorization_code',
+          }),
+        })
+
+        if (!tokenResponse.ok) {
+          const errorData = await tokenResponse.json()
+          console.error('Token exchange failed:', errorData)
+          return res.status(400).json({ error: 'Failed to exchange code for tokens' })
+        }
+
+        const tokens = await tokenResponse.json()
+
+        // Get user info (email) from Google
+        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        })
+
+        if (!userInfoResponse.ok) {
+          console.error('Failed to get user info')
+          return res.status(400).json({ error: 'Failed to get Google account info' })
+        }
+
+        const userInfo = await userInfoResponse.json()
+        const email = userInfo.email
+        const displayName = userInfo.name || null
+
+        // Insert into google_calendar_accounts
+        const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000)
+
+        const { data: account, error: insertError } = await supabase
+          .from('google_calendar_accounts')
+          .upsert({
+            user_id: user.id,
+            email,
+            display_name: displayName,
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token || '',
+            token_expires_at: tokenExpiresAt.toISOString(),
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,email' })
+          .select()
+          .single()
+
+        if (insertError) {
+          console.error('Failed to store account:', insertError)
+          return res.status(500).json({ error: 'Failed to store account' })
+        }
+
+        // Return account (without sensitive token fields)
+        return res.status(200).json({
+          account: {
+            id: account.id,
+            user_id: account.user_id,
+            email: account.email,
+            display_name: account.display_name,
+            created_at: account.created_at,
+            updated_at: account.updated_at,
+          }
+        })
       }
 
       default:

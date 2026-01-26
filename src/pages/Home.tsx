@@ -5,6 +5,7 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import { Loader2 } from 'lucide-react';
 import { NoteList, type NoteListHandle } from '@/components/notes/NoteList';
 import { CommandPalette } from '@/components/CommandPalette';
+import { CreateProjectDialog } from '@/components/projects/CreateProjectDialog';
 import { HotkeysHelper } from '@/components/HotkeysHelper';
 import { useNotesWithCalendarSync } from '@/hooks/useNotesWithCalendarSync';
 import { useTinyBase } from '@/contexts/TinyBaseContext';
@@ -25,10 +26,10 @@ export function Home() {
   const { sidebarTrigger } = useOutletContext<OutletContext>();
   const { isReady } = useTinyBase();
   const { toggleSidebar } = useSidebar();
-  const { projects, activeProjectId, setActiveProjectId } = useActiveProject();
+  const { projects, activeProjectId, setActiveProjectId, createProject } = useActiveProject();
 
   // Alt+S to toggle left sidebar
-  useHotkeys('alt+s', () => { toggleSidebar(); }, { preventDefault: true, enableOnFormTags: true });
+  useHotkeys('alt+s', () => { toggleSidebar(); }, { preventDefault: true, enableOnFormTags: true, enableOnContentEditable: true });
   const [searchParams, setSearchParams] = useSearchParams();
   // Optimized: Store only the ID to avoid unnecessary re-renders when note object changes
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(() => searchParams.get('note'));
@@ -113,6 +114,7 @@ export function Home() {
     assignee: null,
     category: null,
   });
+  const [showCreateProjectDialog, setShowCreateProjectDialog] = useState(false);
 
   // Update URL when view mode changes
   const setViewMode = useCallback((newViewMode: 'list' | 'calendar') => {
@@ -338,6 +340,7 @@ export function Home() {
         projects={projects}
         activeProjectId={activeProjectId}
         onSelectProject={setActiveProjectId}
+        onRequestCreateProject={() => setShowCreateProjectDialog(true)}
         contacts={contacts}
         selectedAssignees={assigneeFilter}
         onSelectAssignee={(assigneeId) => {
@@ -359,6 +362,14 @@ export function Home() {
       />
 
       <HotkeysHelper />
+
+      <CreateProjectDialog
+        open={showCreateProjectDialog}
+        onOpenChange={setShowCreateProjectDialog}
+        onCreateProject={async (data) => {
+          await createProject(data, true);
+        }}
+      />
     </>
   );
 }

@@ -49,7 +49,7 @@ export function ProjectSelector({ className, collapsed = false }: ProjectSelecto
 
     setIsCreating(true);
     try {
-      await createProject(newProjectName.trim(), true);
+      await createProject({ name: newProjectName.trim() }, true);
       setNewProjectName('');
       setShowNewProjectDialog(false);
     } finally {

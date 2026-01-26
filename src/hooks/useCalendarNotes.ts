@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { Note, NoteCategory } from '@/types/note'
+import type { Note, NoteCategory, Label } from '@/types/note'
 import { parseLocalDate, formatLocalDate, getLocalDateKey } from '@/utils/dateUtils'
 
 export interface CalendarNotesResult {
@@ -15,7 +15,12 @@ export interface CalendarNotesResult {
  */
 export function useCalendarNotes(
   notes: Note[],
-  categoryFilter: NoteCategory | 'all' = 'all'
+  categoryFilter: NoteCategory | 'all' = 'all',
+  labelFilter: string[] = [],
+  assigneeFilter: string[] = [],
+  searchQuery: string = '',
+  showOverdueOnly: boolean = false,
+  noteLabelsCache?: Map<string, Label[]>
 ): CalendarNotesResult {
   // Filter to only open followups and meetings with deadlines
   const calendarNotes = useMemo(() => {
@@ -32,9 +37,34 @@ export function useCalendarNotes(
       // Apply category filter if set
       if (categoryFilter !== 'all' && note.category !== categoryFilter) return false
 
+      // Apply label filter
+      if (labelFilter.length > 0 && noteLabelsCache) {
+        const noteLabelIds = (noteLabelsCache.get(note.id) ?? []).map(l => l.id)
+        if (!labelFilter.some(labelId => noteLabelIds.includes(labelId))) return false
+      }
+
+      // Apply assignee filter
+      if (assigneeFilter.length > 0) {
+        if (!note.assignee_id || !assigneeFilter.includes(note.assignee_id)) return false
+      }
+
+      // Apply search query filter
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase()
+        const titleMatch = note.content.toLowerCase().includes(query)
+        const descriptionMatch = note.description?.toLowerCase().includes(query) ?? false
+        if (!titleMatch && !descriptionMatch) return false
+      }
+
+      // Apply overdue only filter
+      if (showOverdueOnly) {
+        const isOverdue = parseLocalDate(note.deadline) < new Date()
+        if (!isOverdue) return false
+      }
+
       return true
     })
-  }, [notes, categoryFilter])
+  }, [notes, categoryFilter, labelFilter, assigneeFilter, searchQuery, showOverdueOnly, noteLabelsCache])
 
   // Group notes by deadline date (YYYY-MM-DD format)
   const notesByDate = useMemo(() => {
