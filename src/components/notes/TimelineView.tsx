@@ -15,7 +15,7 @@ interface TimelineViewProps {
   selectedDate: Date;
   selectedNote: Note | null;
   onSelectNote: (noteId: string) => void;
-  onDeleteWithToast: (note: Note) => void;
+  onDeleteWithToast: (note: Note, reason: string) => void;
   onToggleCompleted: (id: string, completed: boolean) => void;
   onTogglePinned: (id: string, pinned: boolean) => void;
   onEdit: (id: string, content: string, category?: NoteCategory, description?: string | null) => void;

@@ -102,6 +102,8 @@
     "title": "¿Por qué vas a eliminar esta tarea?",
     "notRelevant": "Ya no es relevante",
     "duplicate": "Duplicada",
+    "other": "Otro motivo",
+    "otherPlaceholder": "Escribe el motivo...",
     "confirm": "Eliminar"
   },
   "markComplete": "Marcar como completado",
