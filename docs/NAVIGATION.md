@@ -173,6 +173,35 @@ type FocusTarget = 'title' | 'description-start' | 'description-end' | null;
 
 ---
 
+## Lógica de Posponer Tareas
+
+### Cuándo se muestra el diálogo de posponer
+
+El diálogo de "Registrar motivo de aplazamiento" solo aparece cuando **la fecha (día) realmente cambia**, no cuando solo cambia la hora o el formato del evento.
+
+**Comportamiento:**
+
+| Acción | ¿Pide razón? |
+|--------|--------------|
+| Cambiar de "con horario" a "todo el día" (mismo día) | NO |
+| Cambiar de "todo el día" a "con horario" (mismo día) | NO |
+| Cambiar solo la hora (mismo día) | NO |
+| Cambiar a un **día diferente** | SÍ |
+
+**Implementación:** En `src/components/ui/date-picker.tsx`, al cerrar el popover se compara solo año, mes y día (no la hora):
+
+```typescript
+const sameDay =
+  originalDate.getFullYear() === date.getFullYear() &&
+  originalDate.getMonth() === date.getMonth() &&
+  originalDate.getDate() === date.getDate()
+if (!sameDay) {
+  onSave(date) // Solo dispara el diálogo de posponer si el día cambió
+}
+```
+
+---
+
 ## Modo Debug
 
 Añadir `?debug=nav` a la URL para activar indicadores visuales:

@@ -37,7 +37,6 @@ import { useNoteSelection } from './hooks/useNoteSelection';
 import { useNoteOperations } from './hooks/useNoteOperations';
 import { NoteListToolbar } from './NoteListToolbar';
 import { NoteListContent } from './NoteListContent';
-import { ActiveFiltersBar } from './ActiveFiltersBar';
 import { DebugNavigationOverlay } from '@/hooks/useDebugNavigation';
 
 // Re-export types if needed
@@ -146,6 +145,57 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     selectedNote,
   });
 
+  // Track previous filter values to detect changes and auto-select first task
+  // Note: searchQuery is excluded - user should press Down arrow after typing to navigate to results
+  const prevFiltersRef = useRef({
+    categoryFilter: filters.categoryFilter,
+    labelFilter: JSON.stringify(filters.labelFilter),
+    assigneeFilter: JSON.stringify(filters.assigneeFilter),
+    showOverdueOnly: filters.showOverdueOnly,
+    viewMode: filters.viewMode,
+    calendarSelectedDate: filters.calendarSelectedDate?.getTime(),
+  });
+
+  // Refs for current values to use in setTimeout
+  const viewModeRef = useRef(filters.viewMode);
+  viewModeRef.current = filters.viewMode;
+  const calendarFilteredNotesRef = useRef(filters.calendarFilteredNotes);
+  calendarFilteredNotesRef.current = filters.calendarFilteredNotes;
+
+  useEffect(() => {
+    const prev = prevFiltersRef.current;
+    const hasFilterChanged =
+      prev.categoryFilter !== filters.categoryFilter ||
+      prev.labelFilter !== JSON.stringify(filters.labelFilter) ||
+      prev.assigneeFilter !== JSON.stringify(filters.assigneeFilter) ||
+      prev.showOverdueOnly !== filters.showOverdueOnly ||
+      prev.viewMode !== filters.viewMode ||
+      prev.calendarSelectedDate !== filters.calendarSelectedDate?.getTime();
+
+    if (hasFilterChanged) {
+      // Use setTimeout to ensure selection happens after dialogs/modals close
+      setTimeout(() => {
+        const notesToUse = viewModeRef.current === 'calendar' ? calendarFilteredNotesRef.current : filters.activeNotesRef.current;
+        if (notesToUse.length > 0) {
+          onSelectNote(notesToUse[0]);
+          selection.setFocusTarget('title');
+          selection.setDesiredColumn(0);
+        } else {
+          onSelectNote(null);
+        }
+      }, 0);
+    }
+
+    prevFiltersRef.current = {
+      categoryFilter: filters.categoryFilter,
+      labelFilter: JSON.stringify(filters.labelFilter),
+      assigneeFilter: JSON.stringify(filters.assigneeFilter),
+      showOverdueOnly: filters.showOverdueOnly,
+      viewMode: filters.viewMode,
+      calendarSelectedDate: filters.calendarSelectedDate?.getTime(),
+    };
+  }, [filters.categoryFilter, filters.labelFilter, filters.assigneeFilter, filters.showOverdueOnly, filters.viewMode, filters.calendarSelectedDate, filters.activeNotesRef, onSelectNote, selection]);
+
   const operations = useNoteOperations({
     filteredNotesRef: filters.filteredNotesRef,
     activeNotesRef: filters.activeNotesRef,
@@ -160,6 +210,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     viewMode: filters.viewMode,
     calendarSelectedDate: filters.calendarSelectedDate,
     labelFilter: filters.labelFilter,
+    assigneeFilter: filters.assigneeFilter,
   });
 
   // --- UI State ---
@@ -377,33 +428,36 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   // Hotkeys
   const hotkeyOptions = { preventDefault: true, enableOnFormTags: true, enableOnContentEditable: true };
   useHotkeys('ctrl+f', () => { searchInputRef.current?.focus(); searchInputRef.current?.select(); }, hotkeyOptions);
-  useHotkeys('alt+q', () => { filters.setCategoryFilter(filters.categoryFilter === 'todo' ? 'all' : 'todo'); filters.setCategoryJustChanged(true); }, hotkeyOptions, [filters.categoryFilter]);
-  useHotkeys('alt+w', () => { filters.setCategoryFilter(filters.categoryFilter === 'followup' ? 'all' : 'followup'); filters.setCategoryJustChanged(true); }, hotkeyOptions, [filters.categoryFilter]);
-  useHotkeys('alt+e', () => { filters.setCategoryFilter(filters.categoryFilter === 'meeting' ? 'all' : 'meeting'); filters.setCategoryJustChanged(true); }, hotkeyOptions, [filters.categoryFilter]);
-  useHotkeys('alt+r', () => { filters.setCategoryFilter(filters.categoryFilter === 'notes' ? 'all' : 'notes'); filters.setCategoryJustChanged(true); }, hotkeyOptions, [filters.categoryFilter]);
+  useHotkeys('alt+q', () => { filters.setCategoryFilter(filters.categoryFilter === 'todo' ? 'all' : 'todo'); }, hotkeyOptions, [filters.categoryFilter]);
+  useHotkeys('alt+w', () => { filters.setCategoryFilter(filters.categoryFilter === 'followup' ? 'all' : 'followup'); }, hotkeyOptions, [filters.categoryFilter]);
+  useHotkeys('alt+e', () => { filters.setCategoryFilter(filters.categoryFilter === 'meeting' ? 'all' : 'meeting'); }, hotkeyOptions, [filters.categoryFilter]);
+  useHotkeys('alt+r', () => { filters.setCategoryFilter(filters.categoryFilter === 'notes' ? 'all' : 'notes'); }, hotkeyOptions, [filters.categoryFilter]);
   useHotkeys('alt+c', () => {
     filters.setCategoryFilter('all'); filters.setLabelFilter([]); filters.setAssigneeFilter([]); filters.setSearchQuery('');
     filters.setSortByDeadline(false); filters.setSortByAssignee(false); filters.setSortByCategory(false); filters.setShowOverdueOnly(false);
-    filters.setCategoryJustChanged(true);
   }, hotkeyOptions);
 
   useHotkeys('down', (e) => {
     e.preventDefault();
-    if ((filters.categoryJustChanged || !selectedNote) && filters.filteredNotes.length > 0) {
+    if (!selectedNote && filters.filteredNotes.length > 0) {
       onSelectNote(filters.filteredNotes[0]);
       selection.setFocusTarget('title');
-      filters.setCategoryJustChanged(false);
     }
-  }, { enableOnFormTags: true, enableOnContentEditable: false }, [filters.categoryJustChanged, selectedNote, filters.filteredNotes, onSelectNote]);
+  }, { enableOnFormTags: true, enableOnContentEditable: false }, [selectedNote, filters.filteredNotes, onSelectNote]);
   useHotkeys('up', (e) => {
     e.preventDefault();
-    if ((filters.categoryJustChanged || !selectedNote) && filters.filteredNotes.length > 0) {
+    if (!selectedNote && filters.filteredNotes.length > 0) {
       onSelectNote(filters.filteredNotes[filters.filteredNotes.length - 1]);
       selection.setFocusTarget('title');
-      filters.setCategoryJustChanged(false);
     }
-  }, { enableOnFormTags: true, enableOnContentEditable: false }, [filters.categoryJustChanged, selectedNote, filters.filteredNotes, onSelectNote]);
-  useHotkeys('escape', () => { onSelectNote(null); filters.setCategoryJustChanged(false); }, { ...hotkeyOptions, enableOnFormTags: false }, [onSelectNote]);
+  }, { enableOnFormTags: true, enableOnContentEditable: false }, [selectedNote, filters.filteredNotes, onSelectNote]);
+  useHotkeys('escape', () => {
+    // Don't deselect if a dialog or command palette is open
+    const dialogOpen = document.querySelector('[role="dialog"], [cmdk-root]');
+    if (!dialogOpen) {
+      onSelectNote(null);
+    }
+  }, { ...hotkeyOptions, enableOnFormTags: false }, [onSelectNote]);
   useHotkeys('tab', () => {
     if (selectedNote) {
       if (!selection.showDescriptionPanel) {
@@ -559,25 +613,6 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         }}
       />
 
-      <ActiveFiltersBar
-        categoryFilter={filters.categoryFilter}
-        labelFilter={filters.labelFilter}
-        assigneeFilter={filters.assigneeFilter}
-        searchQuery={filters.searchQuery}
-        labels={labels}
-        contacts={contacts}
-        onClearCategory={() => filters.setCategoryFilter('all')}
-        onClearLabel={(labelId) => filters.setLabelFilter(prev => prev.filter(id => id !== labelId))}
-        onClearAssignee={(assigneeId) => filters.setAssigneeFilter(prev => prev.filter(id => id !== assigneeId))}
-        onClearSearch={() => filters.setSearchQuery('')}
-        onClearAll={() => {
-          filters.setCategoryFilter('all');
-          filters.setLabelFilter([]);
-          filters.setAssigneeFilter([]);
-          filters.setSearchQuery('');
-        }}
-      />
-
       <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
         <NoteListContent
           isMobile={isMobile}
@@ -636,6 +671,16 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           labelFilter={filters.labelFilter}
           assigneeFilter={filters.assigneeFilter}
           showOverdueOnly={filters.showOverdueOnly}
+          onClearCategory={() => filters.setCategoryFilter('all')}
+          onClearLabel={(labelId) => filters.setLabelFilter(prev => prev.filter(id => id !== labelId))}
+          onClearAssignee={(assigneeId) => filters.setAssigneeFilter(prev => prev.filter(id => id !== assigneeId))}
+          onClearSearch={() => filters.setSearchQuery('')}
+          onClearAllFilters={() => {
+            filters.setCategoryFilter('all');
+            filters.setLabelFilter([]);
+            filters.setAssigneeFilter([]);
+            filters.setSearchQuery('');
+          }}
         />
 
         {selectedNote && selection.showDescriptionPanel && (

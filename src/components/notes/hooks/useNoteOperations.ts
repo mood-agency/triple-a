@@ -13,10 +13,11 @@ interface UseNoteOperationsProps {
     onNavigateToEditor?: (column: number) => void;
     setDesiredColumn: (column: number) => void;
     setFocusTarget: (target: 'title' | 'description-start' | 'description-end' | null) => void;
-    onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[]) => Promise<Note>;
+    onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[], assigneeId?: string | null) => Promise<Note>;
     viewMode: 'list' | 'calendar';
     calendarSelectedDate?: Date;
     labelFilter: string[];
+    assigneeFilter: string[];
 }
 
 export function useNoteOperations({
@@ -32,7 +33,8 @@ export function useNoteOperations({
     onCreateNoteAfter,
     viewMode,
     calendarSelectedDate,
-    labelFilter
+    labelFilter,
+    assigneeFilter
 }: UseNoteOperationsProps) {
     const { t } = useTranslation();
 
@@ -142,8 +144,10 @@ export function useNoteOperations({
             }
         }
 
-        // Pass label filter so new task is visible with current filters
-        const result = onCreateNoteAfter(noteId, afterNote.category, deadline, labelFilter);
+        // Pass filters so new task is visible with current filters
+        // If exactly one assignee in filter, use it so the task appears
+        const assigneeId = assigneeFilter.length === 1 ? assigneeFilter[0] : null;
+        const result = onCreateNoteAfter(noteId, afterNote.category, deadline, labelFilter, assigneeId);
         // Handle both Promise and synchronous returns
         Promise.resolve(result).then((newNoteOrId) => {
             if (newNoteOrId) {
@@ -155,7 +159,7 @@ export function useNoteOperations({
                 setFocusTarget('title');
             }
         });
-    }, [onCreateNoteAfter, onSelectNote, viewMode, calendarSelectedDate, labelFilter, filteredNotesRef, setDesiredColumn, setFocusTarget]);
+    }, [onCreateNoteAfter, onSelectNote, viewMode, calendarSelectedDate, labelFilter, assigneeFilter, filteredNotesRef, setDesiredColumn, setFocusTarget]);
 
     // Handler to create a task at a specific hour in timeline view
     const handleCreateTaskAtTime = useCallback((hour: number) => {
@@ -174,7 +178,9 @@ export function useNoteOperations({
         const afterNoteId = lastNote?.id ?? '';
 
         // Create task with 'todo' category and the specific time deadline
-        const result = onCreateNoteAfter(afterNoteId, 'todo', deadline, labelFilter);
+        // If exactly one assignee in filter, use it so the task appears
+        const assigneeId = assigneeFilter.length === 1 ? assigneeFilter[0] : null;
+        const result = onCreateNoteAfter(afterNoteId, 'todo', deadline, labelFilter, assigneeId);
         Promise.resolve(result).then((newNoteOrId) => {
             if (newNoteOrId) {
                 const newNote: Note = typeof newNoteOrId === 'string'
@@ -185,7 +191,7 @@ export function useNoteOperations({
                 setFocusTarget('title');
             }
         });
-    }, [onCreateNoteAfter, onSelectNote, calendarSelectedDate, labelFilter, filteredNotesRef, setDesiredColumn, setFocusTarget]);
+    }, [onCreateNoteAfter, onSelectNote, calendarSelectedDate, labelFilter, assigneeFilter, filteredNotesRef, setDesiredColumn, setFocusTarget]);
 
     const handleNavigateDownById = useCallback((noteId: string, column: number): boolean => {
         const currentFilteredNotes = filteredNotesRef.current;
