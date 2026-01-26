@@ -10,7 +10,7 @@ import { EMPTY_LABELS } from '@/constants/notes';
  */
 export interface NoteRowBaseProps {
   // Callbacks
-  onDeleteWithToast: (note: Note) => void;
+  onDeleteWithToast: (note: Note, reason: string) => void;
   onToggleCompleted: (id: string, completed: boolean) => void;
   onTogglePinned: (id: string, pinned: boolean) => void;
   onSelect: (noteId: string) => void;

@@ -102,6 +102,8 @@
     "title": "Why are you deleting this task?",
     "notRelevant": "No longer relevant",
     "duplicate": "Duplicate",
+    "other": "Other reason",
+    "otherPlaceholder": "Enter the reason...",
     "confirm": "Delete"
   },
   "markComplete": "Mark as complete",

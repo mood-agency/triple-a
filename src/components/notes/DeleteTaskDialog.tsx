@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-type DeleteReason = 'not_relevant' | 'duplicate';
+type DeleteReason = 'not_relevant' | 'duplicate' | 'other';
 
 interface DeleteTaskDialogProps {
   open: boolean;
@@ -30,29 +30,52 @@ export const DeleteTaskDialog = memo(function DeleteTaskDialog({
 }: DeleteTaskDialogProps) {
   const { t } = useTranslation();
   const [selectedReason, setSelectedReason] = React.useState<DeleteReason | null>(null);
+  const [customReason, setCustomReason] = React.useState('');
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   // Reset selection when dialog opens
   React.useEffect(() => {
     if (open) {
       setSelectedReason(null);
+      setCustomReason('');
     }
   }, [open]);
 
+  // Focus textarea when "other" is selected
+  React.useEffect(() => {
+    if (selectedReason === 'other' && textareaRef.current) {
+      setTimeout(() => textareaRef.current?.focus(), 0);
+    }
+  }, [selectedReason]);
+
   const handleConfirm = () => {
     if (!selectedReason) return;
-    onConfirm(selectedReason);
+    const reason = selectedReason === 'other' ? customReason.trim() : selectedReason;
+    if (!reason) return;
+    onConfirm(reason);
     handleClose();
   };
 
   const handleClose = () => {
     setSelectedReason(null);
+    setCustomReason('');
     onOpenChange(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && e.ctrlKey) {
+      e.preventDefault();
+      handleConfirm();
+    }
   };
 
   const reasons: { value: DeleteReason; label: string }[] = [
     { value: 'not_relevant', label: t('deleteTaskDialog.notRelevant') },
     { value: 'duplicate', label: t('deleteTaskDialog.duplicate') },
+    { value: 'other', label: t('deleteTaskDialog.other') },
   ];
+
+  const isConfirmDisabled = !selectedReason || (selectedReason === 'other' && !customReason.trim());
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -84,6 +107,18 @@ export const DeleteTaskDialog = memo(function DeleteTaskDialog({
               {reason.label}
             </button>
           ))}
+
+          {selectedReason === 'other' && (
+            <textarea
+              ref={textareaRef}
+              value={customReason}
+              onChange={(e) => setCustomReason(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={t('deleteTaskDialog.otherPlaceholder')}
+              className="mt-2 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground caret-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              rows={3}
+            />
+          )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
@@ -93,7 +128,7 @@ export const DeleteTaskDialog = memo(function DeleteTaskDialog({
           <Button
             variant="destructive"
             onClick={handleConfirm}
-            disabled={!selectedReason}
+            disabled={isConfirmDisabled}
           >
             {t('deleteTaskDialog.confirm')}
           </Button>
