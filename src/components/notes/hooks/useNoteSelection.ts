@@ -24,11 +24,23 @@ export function useNoteSelection({
     const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
     const [showDescriptionPanel, setShowDescriptionPanel] = useState(false);
 
+    // Track the note ID to detect when we switch to a different note
+    const selectedNoteIdRef = useRef<string | null>(null);
+
     // Update description and title values when selected note changes
     useEffect(() => {
+        const newNoteId = selectedNote?.id ?? null;
+        const noteIdChanged = selectedNoteIdRef.current !== newNoteId;
+        selectedNoteIdRef.current = newNoteId;
+
         setDescriptionValue(selectedNote?.description || '');
         setTitleValue(selectedNote?.content || '');
-        setShowDescriptionPanel(false);
+
+        // Only close panel if we switched to a different note (or null)
+        // This prevents closing when the same note is updated (e.g., deadline change)
+        if (noteIdChanged) {
+            setShowDescriptionPanel(false);
+        }
     }, [selectedNote]);
 
     // Handle Focus Target

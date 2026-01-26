@@ -382,7 +382,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   useHotkeys('alt+e', () => { filters.setCategoryFilter(filters.categoryFilter === 'meeting' ? 'all' : 'meeting'); filters.setCategoryJustChanged(true); }, hotkeyOptions, [filters.categoryFilter]);
   useHotkeys('alt+r', () => { filters.setCategoryFilter(filters.categoryFilter === 'notes' ? 'all' : 'notes'); filters.setCategoryJustChanged(true); }, hotkeyOptions, [filters.categoryFilter]);
   useHotkeys('alt+c', () => {
-    filters.setCategoryFilter('all'); filters.setLabelFilter([]); filters.setAssigneeFilter([]);
+    filters.setCategoryFilter('all'); filters.setLabelFilter([]); filters.setAssigneeFilter([]); filters.setSearchQuery('');
     filters.setSortByDeadline(false); filters.setSortByAssignee(false); filters.setSortByCategory(false); filters.setShowOverdueOnly(false);
     filters.setCategoryJustChanged(true);
   }, hotkeyOptions);
@@ -561,15 +561,18 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         categoryFilter={filters.categoryFilter}
         labelFilter={filters.labelFilter}
         assigneeFilter={filters.assigneeFilter}
+        searchQuery={filters.searchQuery}
         labels={labels}
         contacts={contacts}
         onClearCategory={() => filters.setCategoryFilter('all')}
         onClearLabel={(labelId) => filters.setLabelFilter(prev => prev.filter(id => id !== labelId))}
         onClearAssignee={(assigneeId) => filters.setAssigneeFilter(prev => prev.filter(id => id !== assigneeId))}
+        onClearSearch={() => filters.setSearchQuery('')}
         onClearAll={() => {
           filters.setCategoryFilter('all');
           filters.setLabelFilter([]);
           filters.setAssigneeFilter([]);
+          filters.setSearchQuery('');
         }}
       />
 

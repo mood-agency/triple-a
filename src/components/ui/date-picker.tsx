@@ -182,7 +182,32 @@ export function DatePicker({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent
+        className="w-auto p-0"
+        align="start"
+        onInteractOutside={(e) => {
+          // Prevent closing when interacting with Select dropdown (rendered in a portal)
+          const target = e.target as HTMLElement;
+          if (target.closest('[data-radix-select-content]') ||
+              target.closest('[data-radix-popper-content-wrapper]')) {
+            e.preventDefault();
+          }
+        }}
+        onPointerDownOutside={(e) => {
+          // Also prevent pointer down events from closing the popover
+          const target = e.target as HTMLElement;
+          if (target.closest('[data-radix-select-content]') ||
+              target.closest('[data-radix-popper-content-wrapper]')) {
+            e.preventDefault();
+          }
+        }}
+        onFocusOutside={(e) => {
+          // Prevent focus change from closing the popover when using Select
+          if (showTime) {
+            e.preventDefault();
+          }
+        }}
+      >
         <div className="p-3 border-b">
           <Input
             ref={inputRef}

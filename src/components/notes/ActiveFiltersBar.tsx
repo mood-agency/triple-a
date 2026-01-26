@@ -7,11 +7,13 @@ interface ActiveFiltersBarProps {
   categoryFilter: NoteCategory | 'all';
   labelFilter: string[];
   assigneeFilter: string[];
+  searchQuery: string;
   labels: Label[];
   contacts: Contact[];
   onClearCategory: () => void;
   onClearLabel: (labelId: string) => void;
   onClearAssignee: (assigneeId: string) => void;
+  onClearSearch: () => void;
   onClearAll: () => void;
 }
 
@@ -19,16 +21,19 @@ export function ActiveFiltersBar({
   categoryFilter,
   labelFilter,
   assigneeFilter,
+  searchQuery,
   labels,
   contacts,
   onClearCategory,
   onClearLabel,
   onClearAssignee,
+  onClearSearch,
   onClearAll,
 }: ActiveFiltersBarProps) {
   const { t } = useTranslation();
 
-  const hasFilters = categoryFilter !== 'all' || labelFilter.length > 0 || assigneeFilter.length > 0;
+  const trimmedSearch = searchQuery.trim();
+  const hasFilters = categoryFilter !== 'all' || labelFilter.length > 0 || assigneeFilter.length > 0 || trimmedSearch !== '';
 
   if (!hasFilters) {
     return null;
@@ -52,6 +57,19 @@ export function ActiveFiltersBar({
       <span className="text-xs text-muted-foreground font-medium">
         {t('activeFilters')}:
       </span>
+
+      {trimmedSearch && (
+        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] rounded-full bg-secondary text-secondary-foreground leading-none">
+          "{trimmedSearch}"
+          <button
+            type="button"
+            onClick={onClearSearch}
+            className="rounded-full hover:bg-muted-foreground/20"
+          >
+            <X className="h-2.5 w-2.5" />
+          </button>
+        </span>
+      )}
 
       {categoryFilter !== 'all' && (
         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] rounded-full bg-secondary text-secondary-foreground leading-none">
@@ -104,7 +122,7 @@ export function ActiveFiltersBar({
         );
       })}
 
-      {(categoryFilter !== 'all' || labelFilter.length > 0 || assigneeFilter.length > 0) && (
+      {(trimmedSearch || categoryFilter !== 'all' || labelFilter.length > 0 || assigneeFilter.length > 0) && (
         <button
           type="button"
           onClick={onClearAll}

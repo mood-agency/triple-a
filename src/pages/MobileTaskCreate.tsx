@@ -404,7 +404,7 @@ export function MobileTaskCreate() {
 
       {/* Create Task Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{t('mobile.createTask')}</DialogTitle>
           </DialogHeader>
