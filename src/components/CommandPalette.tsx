@@ -1,7 +1,6 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { useHotkeys } from 'react-hotkeys-hook';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pickaxe, Forward, StickyNote, Check, X, Users, Calendar, List, FolderKanban, User, ArrowUp, ArrowDown, Calendar as CalendarIcon, Layers } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Check, X, Users, Calendar, List, FolderKanban, User, ArrowUp, ArrowDown, Calendar as CalendarIcon, Layers, CircleDot, CheckCircle2, Trash2, AlertTriangle } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -12,15 +11,10 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from '@/components/ui/command';
+import { useCommandPalette } from '@/contexts/CommandPaletteContext';
 import type { Label, NoteCategory } from '@/types/note';
 import type { Project } from '@/types/project';
 import type { Contact } from '@/types/contact';
-
-interface FocusState {
-  element: HTMLElement;
-  selectionStart: number | null;
-  selectionEnd: number | null;
-}
 
 interface CommandPaletteProps {
   labels: Label[];
@@ -44,9 +38,14 @@ interface CommandPaletteProps {
   // Sort configuration
   sortConfig?: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null };
   onSortChange?: (config: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null }) => void;
+  // Task status filter
+  taskStatusFilter?: 'active' | 'completed' | 'deleted';
+  onTaskStatusFilterChange?: (status: 'active' | 'completed' | 'deleted') => void;
+  showOverdueOnly?: boolean;
+  onShowOverdueOnlyChange?: (show: boolean) => void;
+  hasCompletedTasks?: boolean;
+  hasDeletedTasks?: boolean;
 }
-
-type PaletteMode = 'commands' | 'projects' | 'labels' | 'assignees';
 
 export function CommandPalette({
   labels,
@@ -67,119 +66,20 @@ export function CommandPalette({
   onClearAssignees,
   sortConfig = { deadline: null, assignee: null, category: null },
   onSortChange,
+  taskStatusFilter = 'active',
+  onTaskStatusFilterChange,
+  showOverdueOnly = false,
+  onShowOverdueOnlyChange,
+  hasCompletedTasks = false,
+  hasDeletedTasks = false,
 }: CommandPaletteProps) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<PaletteMode>('commands');
-  const savedFocusRef = useRef<FocusState | null>(null);
+  const { isOpen, mode, handleOpenChange, close } = useCommandPalette();
 
   // Notify parent of open state changes
   useEffect(() => {
-    onOpenStateChange?.(open);
-  }, [open, onOpenStateChange]);
-
-  const saveFocusState = useCallback(() => {
-    const activeElement = document.activeElement as HTMLElement;
-    if (activeElement && activeElement !== document.body) {
-      const focusState: FocusState = {
-        element: activeElement,
-        selectionStart: null,
-        selectionEnd: null,
-      };
-
-      // Save cursor position for input elements
-      if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
-        focusState.selectionStart = activeElement.selectionStart;
-        focusState.selectionEnd = activeElement.selectionEnd;
-      }
-
-      savedFocusRef.current = focusState;
-    }
-  }, []);
-
-  const restoreFocusState = useCallback(() => {
-    const savedFocus = savedFocusRef.current;
-    if (savedFocus && savedFocus.element) {
-      // Use setTimeout to ensure the dialog has fully closed
-      setTimeout(() => {
-        savedFocus.element.focus();
-
-        // Restore cursor position for input elements
-        if (
-          (savedFocus.element instanceof HTMLInputElement || savedFocus.element instanceof HTMLTextAreaElement) &&
-          savedFocus.selectionStart !== null &&
-          savedFocus.selectionEnd !== null
-        ) {
-          savedFocus.element.setSelectionRange(savedFocus.selectionStart, savedFocus.selectionEnd);
-        }
-
-        savedFocusRef.current = null;
-      }, 0);
-    }
-  }, []);
-
-  const handleOpenChange = useCallback((newOpen: boolean) => {
-    if (newOpen) {
-      saveFocusState();
-    } else {
-      restoreFocusState();
-      // Reset mode to commands when closing, but with a slight delay to avoid UI flicker
-      setTimeout(() => setMode('commands'), 300);
-    }
-    setOpen(newOpen);
-  }, [saveFocusState, restoreFocusState]);
-
-  // Ctrl+K to toggle command palette (commands mode)
-  useHotkeys('ctrl+k, meta+k', () => {
-    if (open && mode === 'commands') {
-      handleOpenChange(false);
-    } else {
-      setMode('commands');
-      if (!open) {
-        saveFocusState();
-        setOpen(true);
-      }
-    }
-  }, { preventDefault: true, enableOnFormTags: true }, [open, mode, saveFocusState, handleOpenChange]);
-
-  // Ctrl+P to toggle command palette (projects mode)
-  useHotkeys('ctrl+p, meta+p', () => {
-    if (open && mode === 'projects') {
-      handleOpenChange(false);
-    } else {
-      setMode('projects');
-      if (!open) {
-        saveFocusState();
-        setOpen(true);
-      }
-    }
-  }, { preventDefault: true, enableOnFormTags: true }, [open, mode, saveFocusState, handleOpenChange]);
-
-  // Ctrl+R to toggle command palette (assignees mode)
-  useHotkeys('ctrl+r, meta+r', () => {
-    if (open && mode === 'assignees') {
-      handleOpenChange(false);
-    } else {
-      setMode('assignees');
-      if (!open) {
-        saveFocusState();
-        setOpen(true);
-      }
-    }
-  }, { preventDefault: true, enableOnFormTags: true }, [open, mode, saveFocusState, handleOpenChange]);
-
-  // Ctrl+L to toggle command palette (labels mode)
-  useHotkeys('ctrl+l, meta+l', () => {
-    if (open && mode === 'labels') {
-      handleOpenChange(false);
-    } else {
-      setMode('labels');
-      if (!open) {
-        saveFocusState();
-        setOpen(true);
-      }
-    }
-  }, { preventDefault: true, enableOnFormTags: true }, [open, mode, saveFocusState, handleOpenChange]);
+    onOpenStateChange?.(isOpen);
+  }, [isOpen, onOpenStateChange]);
 
   const handleSelectLabel = (labelId: string) => {
     onSelectLabel(labelId);
@@ -187,23 +87,23 @@ export function CommandPalette({
 
   const handleSelectCategory = (category: NoteCategory | 'all') => {
     onSelectCategory(category);
-    handleOpenChange(false);
+    close();
   };
 
   const handleClearFilters = () => {
     onClearLabels();
     onSelectCategory('all');
-    handleOpenChange(false);
+    close();
   };
 
   const handleToggleViewMode = () => {
     onToggleViewMode();
-    handleOpenChange(false);
+    close();
   };
 
   const handleSelectProject = (projectId: string) => {
     onSelectProject?.(projectId);
-    handleOpenChange(false);
+    close();
   };
 
   const hasActiveFilters = selectedLabels.length > 0 || categoryFilter !== 'all' || selectedAssignees.length > 0;
@@ -218,18 +118,18 @@ export function CommandPalette({
 
   const handleSetSort = (field: 'deadline' | 'assignee' | 'category', direction: 'asc' | 'desc' | null) => {
     onSortChange?.({ ...sortConfig, [field]: direction });
-    handleOpenChange(false);
+    close();
   };
 
   const handleClearSort = () => {
     onSortChange?.({ deadline: null, assignee: null, category: null });
-    handleOpenChange(false);
+    close();
   };
 
   const hasActiveSort = sortConfig.deadline !== null || sortConfig.assignee !== null || sortConfig.category !== null;
 
   return (
-    <CommandDialog open={open} onOpenChange={handleOpenChange}>
+    <CommandDialog open={isOpen} onOpenChange={handleOpenChange}>
       <CommandInput
         placeholder={
           mode === 'projects' ? t('projects.searchProjects', 'Search projects...') :
@@ -383,6 +283,35 @@ export function CommandPalette({
                 <ArrowDown className="h-3 w-3" />
                 {t('sort.categoryDesc')}
                 {sortConfig.category === 'desc' && <Check className="text-primary" />}
+              </CommandItem>
+            </CommandGroup>
+
+            <CommandSeparator />
+
+            <CommandGroup heading={t('taskStatus.title')}>
+              <CommandItem onSelect={() => { onTaskStatusFilterChange?.('active'); close(); }}>
+                <CircleDot />
+                {t('taskStatus.active')}
+                {taskStatusFilter === 'active' && !showOverdueOnly && <Check className="text-primary" />}
+              </CommandItem>
+              {hasCompletedTasks && (
+                <CommandItem onSelect={() => { onTaskStatusFilterChange?.('completed'); close(); }}>
+                  <CheckCircle2 />
+                  {t('taskStatus.completed')}
+                  {taskStatusFilter === 'completed' && <Check className="text-primary" />}
+                </CommandItem>
+              )}
+              {hasDeletedTasks && (
+                <CommandItem onSelect={() => { onTaskStatusFilterChange?.('deleted'); close(); }}>
+                  <Trash2 />
+                  {t('taskStatus.deleted')}
+                  {taskStatusFilter === 'deleted' && <Check className="text-primary" />}
+                </CommandItem>
+              )}
+              <CommandItem onSelect={() => { onShowOverdueOnlyChange?.(!showOverdueOnly); close(); }}>
+                <AlertTriangle />
+                {t('taskStatus.overdue')}
+                {showOverdueOnly && <Check className="text-primary" />}
               </CommandItem>
             </CommandGroup>
 

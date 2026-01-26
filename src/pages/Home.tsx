@@ -106,6 +106,13 @@ export function Home() {
   const [labelFilter, setLabelFilter] = useState<string[]>(getInitialLabelFilter);
   const [categoryFilter, setCategoryFilter] = useState<NoteCategory | 'all'>(getInitialCategoryFilter);
   const [assigneeFilter, setAssigneeFilter] = useState<string[]>(getInitialAssigneeFilter);
+  const [taskStatusFilter, setTaskStatusFilter] = useState<'active' | 'completed' | 'deleted'>('active');
+  const [showOverdueOnly, setShowOverdueOnly] = useState(false);
+  const [sortConfig, setSortConfig] = useState<{ deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null }>({
+    deadline: null,
+    assignee: null,
+    category: null,
+  });
 
   // Update URL when view mode changes
   const setViewMode = useCallback((newViewMode: 'list' | 'calendar') => {
@@ -304,6 +311,12 @@ export function Home() {
         onViewModeChange={setViewMode}
         externalSelectedDate={selectedDate}
         onSelectedDateChange={setSelectedDate}
+        externalTaskStatusFilter={taskStatusFilter}
+        onTaskStatusFilterChange={setTaskStatusFilter}
+        externalShowOverdueOnly={showOverdueOnly}
+        onShowOverdueOnlyChange={setShowOverdueOnly}
+        externalSortConfig={sortConfig}
+        onSortConfigChange={setSortConfig}
         sidebarTrigger={sidebarTrigger}
       />
 
@@ -335,6 +348,14 @@ export function Home() {
           );
         }}
         onClearAssignees={() => handleAssigneeFilterChange([])}
+        taskStatusFilter={taskStatusFilter}
+        onTaskStatusFilterChange={setTaskStatusFilter}
+        showOverdueOnly={showOverdueOnly}
+        onShowOverdueOnlyChange={setShowOverdueOnly}
+        hasCompletedTasks={notes.some(n => n.completed)}
+        hasDeletedTasks={notes.some(n => n.deleted_at)}
+        sortConfig={sortConfig}
+        onSortChange={setSortConfig}
       />
 
       <HotkeysHelper />

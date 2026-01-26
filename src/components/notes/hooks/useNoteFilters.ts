@@ -5,6 +5,8 @@ import { sortNotes, sortCompletedNotes, type NoteSortConfig } from '@/utils/note
 import { useContacts } from '@/hooks/useContacts';
 import { getInitials } from '@/lib/utils'; // Assuming this utility exists
 
+type SortConfigType = { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null };
+
 interface UseNoteFiltersProps {
     notes: Note[];
     deletedNotes: Note[];
@@ -18,7 +20,15 @@ interface UseNoteFiltersProps {
     onViewModeChange?: (viewMode: 'list' | 'calendar') => void;
     externalSelectedDate?: Date;
     onSelectedDateChange?: (date: Date | undefined) => void;
+    // Sort configuration (from CommandPalette)
+    externalSortConfig?: SortConfigType;
+    onSortConfigChange?: (config: SortConfigType) => void;
     noteLabelsCache: Map<string, Label[]>;
+    // Task status filter (from CommandPalette)
+    externalTaskStatusFilter?: 'active' | 'completed' | 'deleted';
+    onTaskStatusFilterChange?: (status: 'active' | 'completed' | 'deleted') => void;
+    externalShowOverdueOnly?: boolean;
+    onShowOverdueOnlyChange?: (show: boolean) => void;
 }
 
 export function useNoteFilters({
@@ -34,7 +44,13 @@ export function useNoteFilters({
     onViewModeChange,
     externalSelectedDate,
     onSelectedDateChange,
+    externalSortConfig,
+    onSortConfigChange,
     noteLabelsCache,
+    externalTaskStatusFilter,
+    onTaskStatusFilterChange,
+    externalShowOverdueOnly,
+    onShowOverdueOnlyChange,
 }: UseNoteFiltersProps) {
     const { contacts } = useContacts();
 
@@ -49,16 +65,16 @@ export function useNoteFilters({
     const [internalViewMode, setInternalViewMode] = useState<'list' | 'calendar'>('list');
 
     const [searchQuery, setSearchQuery] = useState('');
-    const [taskStatusFilter, setTaskStatusFilter] = useState<'active' | 'completed' | 'deleted'>('active');
+    const [internalTaskStatusFilter, setInternalTaskStatusFilter] = useState<'active' | 'completed' | 'deleted'>('active');
     const [sortByDeadline, setSortByDeadline] = useState(false);
     const [sortByAssignee, setSortByAssignee] = useState(false);
     const [sortByCategory, setSortByCategory] = useState(false);
-    const [sortConfig, setSortConfig] = useState<{ deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null }>({
+    const [internalSortConfig, setInternalSortConfig] = useState<SortConfigType>({
         deadline: null,
         assignee: null,
         category: null,
     });
-    const [showOverdueOnly, setShowOverdueOnly] = useState(false);
+    const [internalShowOverdueOnly, setInternalShowOverdueOnly] = useState(false);
     const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
     const [categoryJustChanged, setCategoryJustChanged] = useState(false);
 
@@ -69,6 +85,9 @@ export function useNoteFilters({
     const assigneeFilter = externalAssigneeFilter ?? internalAssigneeFilter;
     const viewMode = externalViewMode ?? internalViewMode;
     const calendarSelectedDate = externalSelectedDate ?? internalCalendarSelectedDate;
+    const sortConfig = externalSortConfig ?? internalSortConfig;
+    const taskStatusFilter = externalTaskStatusFilter ?? internalTaskStatusFilter;
+    const showOverdueOnly = externalShowOverdueOnly ?? internalShowOverdueOnly;
 
     // Setters
     const setLabelFilter = (value: string[] | ((prev: string[]) => string[])) => {
@@ -111,6 +130,30 @@ export function useNoteFilters({
             onSelectedDateChange(date);
         } else {
             setInternalCalendarSelectedDate(date);
+        }
+    };
+
+    const setSortConfig = (value: SortConfigType) => {
+        if (onSortConfigChange) {
+            onSortConfigChange(value);
+        } else {
+            setInternalSortConfig(value);
+        }
+    };
+
+    const setTaskStatusFilter = (value: 'active' | 'completed' | 'deleted') => {
+        if (onTaskStatusFilterChange) {
+            onTaskStatusFilterChange(value);
+        } else {
+            setInternalTaskStatusFilter(value);
+        }
+    };
+
+    const setShowOverdueOnly = (value: boolean) => {
+        if (onShowOverdueOnlyChange) {
+            onShowOverdueOnlyChange(value);
+        } else {
+            setInternalShowOverdueOnly(value);
         }
     };
 
