@@ -11,6 +11,7 @@ const sizeMap = {
 };
 
 export function Logo({ className = "", size = "md" }: LogoProps) {
+
   return (
     <span
       className={`font-serif font-bold select-none ${sizeMap[size]} ${className}`}
