@@ -388,19 +388,21 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   }, hotkeyOptions);
 
   useHotkeys('down', () => {
+    if (selection.isDescriptionFocused) return;
     if ((filters.categoryJustChanged || !selectedNote) && filters.filteredNotes.length > 0) {
       onSelectNote(filters.filteredNotes[0]);
       selection.setFocusTarget('title');
       filters.setCategoryJustChanged(false);
     }
-  }, hotkeyOptions, [filters.categoryJustChanged, selectedNote, filters.filteredNotes, onSelectNote]);
+  }, hotkeyOptions, [filters.categoryJustChanged, selectedNote, filters.filteredNotes, onSelectNote, selection.isDescriptionFocused]);
   useHotkeys('up', () => {
+    if (selection.isDescriptionFocused) return;
     if ((filters.categoryJustChanged || !selectedNote) && filters.filteredNotes.length > 0) {
       onSelectNote(filters.filteredNotes[filters.filteredNotes.length - 1]);
       selection.setFocusTarget('title');
       filters.setCategoryJustChanged(false);
     }
-  }, hotkeyOptions, [filters.categoryJustChanged, selectedNote, filters.filteredNotes, onSelectNote]);
+  }, hotkeyOptions, [filters.categoryJustChanged, selectedNote, filters.filteredNotes, onSelectNote, selection.isDescriptionFocused]);
   useHotkeys('escape', () => { onSelectNote(null); filters.setCategoryJustChanged(false); }, { ...hotkeyOptions, enableOnFormTags: false }, [onSelectNote]);
   useHotkeys('tab', () => {
     if (selectedNote) {
