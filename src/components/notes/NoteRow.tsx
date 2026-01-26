@@ -123,7 +123,7 @@ function NoteRow(props: NoteRowProps) {
         }}
         style={style}
         onClick={() => props.onSelect(note.id)}
-        className={`group grid ${compactView ? 'grid-cols-[auto_1fr_auto]' : 'grid-cols-[auto_minmax(0,1fr)_auto_auto_auto]'} items-center h-5 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' && note.category !== 'meeting' ? 'opacity-50' : ''} ${isDraggingProp ? 'opacity-50 bg-muted/30' : ''} ${props.isSelected && debugMode ? debugSelectedClass : ''}`}
+        className={`group grid ${compactView ? 'grid-cols-[auto_1fr_auto]' : 'grid-cols-[auto_minmax(0,1fr)_auto_auto_auto]'} items-center h-6 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' && note.category !== 'meeting' ? 'opacity-50' : ''} ${isDraggingProp ? 'opacity-50 bg-muted/30' : ''} ${props.isSelected && debugMode ? debugSelectedClass : ''}`}
       >
         {/* Category icon column */}
         {!compactView ? (
