@@ -13,6 +13,10 @@ export interface Project {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  // Google Calendar sync - calendar ID to sync events from
+  gcal_calendar_id: string | null;
+  // Google Calendar account ID (for multi-account support)
+  gcal_account_id: string | null;
   // Sync fields
   remote_id?: string | null;
   sync_status?: SyncStatus;

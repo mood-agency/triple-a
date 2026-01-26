@@ -129,3 +129,50 @@ export interface GCalSyncResult {
   eventsDeleted: number;
   errors: string[];
 }
+
+/**
+ * Request body for creating a Google Calendar event
+ */
+export interface GCalCreateEventRequest {
+  calendarId: string;
+  summary: string;
+  description?: string;
+  start: {
+    dateTime?: string;
+    date?: string;
+    timeZone?: string;
+  };
+  end: {
+    dateTime?: string;
+    date?: string;
+    timeZone?: string;
+  };
+}
+
+/**
+ * Response from creating a Google Calendar event
+ */
+export interface GCalCreateEventResponse {
+  event?: GCalEvent;
+  error?: string;
+}
+
+/**
+ * Google Calendar Account - represents a connected Google account
+ */
+export interface GCalAccount {
+  id: string;
+  user_id: string;
+  email: string;
+  display_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Calendar with account info for display
+ */
+export interface GCalCalendarWithAccount extends GCalCalendar {
+  accountId: string;
+  accountEmail: string;
+}

@@ -7,12 +7,16 @@ import type {
   GCalCalendarsResponse,
   GCalEventsResponse,
   GCalEventsRequest,
+  GCalCreateEventRequest,
+  GCalCreateEventResponse,
+  GCalAccount,
+  GCalCalendarWithAccount,
 } from '@/types/googleCalendar';
 
 const GOOGLE_OAUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_CALENDAR_SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
-  'https://www.googleapis.com/auth/calendar.events.readonly',
+  'https://www.googleapis.com/auth/calendar.events',
 ].join(' ');
 
 /**
@@ -367,6 +371,233 @@ class GoogleCalendarService {
         .eq('user_id', user.id);
     } catch (error) {
       console.error('Error updating last sync time:', error);
+    }
+  }
+
+  /**
+   * Create a new event in Google Calendar
+   */
+  async createEvent(request: GCalCreateEventRequest): Promise<GCalCreateEventResponse> {
+    if (!supabase) {
+      return { error: 'Supabase not configured' };
+    }
+
+    try {
+      const result = await callApi<{ event: GCalEvent }>('gcal-create-event', request as unknown as Record<string, unknown>);
+      return { event: result.event };
+    } catch (error) {
+      console.error('Error creating event:', error);
+      return { error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Update an existing event in Google Calendar
+   */
+  async updateEvent(
+    calendarId: string,
+    eventId: string,
+    updates: Partial<Omit<GCalCreateEventRequest, 'calendarId'>>
+  ): Promise<GCalCreateEventResponse> {
+    if (!supabase) {
+      return { error: 'Supabase not configured' };
+    }
+
+    try {
+      const result = await callApi<{ event: GCalEvent }>('gcal-update-event', {
+        calendarId,
+        eventId,
+        ...updates,
+      });
+      return { event: result.event };
+    } catch (error) {
+      console.error('Error updating event:', error);
+      return { error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Delete an event from Google Calendar
+   */
+  async deleteEvent(calendarId: string, eventId: string): Promise<{ success: boolean; error?: string }> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase not configured' };
+    }
+
+    try {
+      await callApi<{ success: boolean }>('gcal-delete-event', {
+        calendarId,
+        eventId,
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  // ============================================
+  // Multi-account support methods
+  // ============================================
+
+  /**
+   * Get all connected Google Calendar accounts for the user
+   */
+  async getAccounts(): Promise<GCalAccount[]> {
+    if (!supabase) return [];
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from('google_calendar_accounts')
+        .select('id, user_id, email, display_name, created_at, updated_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching accounts:', error);
+        return [];
+      }
+
+      return data as GCalAccount[];
+    } catch (error) {
+      console.error('Error fetching accounts:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Exchange authorization code for tokens and create a new account
+   */
+  async addAccount(code: string, redirectUri: string): Promise<{ success: boolean; account?: GCalAccount; error?: string }> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase not configured' };
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        return { success: false, error: 'Not authenticated' };
+      }
+
+      const result = await callApi<{ account: GCalAccount }>('gcal-auth', {
+        action: 'add_account',
+        code,
+        redirectUri,
+      });
+
+      return { success: true, account: result.account };
+    } catch (error) {
+      console.error('Error adding account:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Remove a connected Google Calendar account
+   */
+  async removeAccount(accountId: string): Promise<{ success: boolean; error?: string }> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase not configured' };
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { success: false, error: 'Not authenticated' };
+      }
+
+      const { error } = await supabase
+        .from('google_calendar_accounts')
+        .delete()
+        .eq('id', accountId)
+        .eq('user_id', user.id);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error removing account:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Get calendars for a specific account
+   */
+  async getCalendarsForAccount(accountId: string): Promise<{ calendars: GCalCalendar[]; error?: string }> {
+    if (!supabase) {
+      return { calendars: [], error: 'Supabase not configured' };
+    }
+
+    try {
+      const result = await callApi<GCalCalendarsResponse>('gcal-calendars', { accountId });
+      return { calendars: result.calendars || [] };
+    } catch (error) {
+      console.error('Error fetching calendars for account:', error);
+      return { calendars: [], error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Get calendars from all connected accounts
+   */
+  async getAllCalendarsWithAccounts(): Promise<{ calendars: GCalCalendarWithAccount[]; error?: string }> {
+    if (!supabase) {
+      return { calendars: [], error: 'Supabase not configured' };
+    }
+
+    try {
+      const accounts = await this.getAccounts();
+      const allCalendars: GCalCalendarWithAccount[] = [];
+
+      for (const account of accounts) {
+        const { calendars, error } = await this.getCalendarsForAccount(account.id);
+        if (error) {
+          console.warn(`Error fetching calendars for account ${account.email}:`, error);
+          continue;
+        }
+
+        for (const cal of calendars) {
+          allCalendars.push({
+            ...cal,
+            accountId: account.id,
+            accountEmail: account.email,
+          });
+        }
+      }
+
+      return { calendars: allCalendars };
+    } catch (error) {
+      console.error('Error fetching all calendars:', error);
+      return { calendars: [], error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Get events from a calendar using a specific account
+   */
+  async getEventsForAccount(
+    accountId: string,
+    request: GCalEventsRequest
+  ): Promise<{ events: GCalEvent[]; error?: string }> {
+    if (!supabase) {
+      return { events: [], error: 'Supabase not configured' };
+    }
+
+    try {
+      const result = await callApi<GCalEventsResponse>('gcal-events', {
+        ...request,
+        accountId,
+      } as unknown as Record<string, unknown>);
+      return { events: result.events || [] };
+    } catch (error) {
+      console.error('Error fetching events for account:', error);
+      return { events: [], error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
 }

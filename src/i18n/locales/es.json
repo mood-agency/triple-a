@@ -451,12 +451,24 @@
     "filterByProject": "Filtrar por proyecto",
     "allProjects": "Todos los proyectos",
     "notesCount": "{{count}} tareas",
-    "archive": "Archivar"
+    "archive": "Archivar",
+    "googleCalendar": "Google Calendar",
+    "googleCalendarDescription": "Sincronizar eventos de este calendario con este proyecto",
+    "selectCalendar": "Seleccionar calendario",
+    "noCalendar": "Sin calendario",
+    "connectGoogleCalendar": "Conectar Google Calendar",
+    "connectGoogleCalendarDescription": "Sincronizar eventos de Google Calendar con este proyecto",
+    "selectCalendarOrConnect": "Selecciona un calendario o conecta una nueva cuenta de Google",
+    "connectAnotherAccount": "Conectar otra cuenta",
+    "googleCalendarConnected": "Google Calendar conectado",
+    "googleCalendarDisconnected": "Google Calendar desconectado",
+    "saveProjectFirst": "Guarda el proyecto primero para conectar Google Calendar"
   },
   "gcal": {
     "title": "Google Calendar",
     "settingsTitle": "Configuración de Calendario",
     "connect": "Conectar Google Calendar",
+    "notConfigured": "Google Calendar no está configurado",
     "connected": "Conectado",
     "disconnect": "Desconectar",
     "connectDescription": "Importa eventos de Google Calendar como tareas en tu lista.",
@@ -475,7 +487,25 @@
     "syncSuccess": "Importados: {{imported}}, Actualizados: {{updated}}, Eliminados: {{deleted}}",
     "syncError": "Error al sincronizar",
     "noCalendarsSelected": "Selecciona al menos un calendario para sincronizar",
-    "syncedWithGCal": "Importado de Google Calendar"
+    "syncedWithGCal": "Importado de Google Calendar",
+    "defaultProject": "Proyecto predeterminado",
+    "defaultProjectDescription": "Los eventos importados se asignarán a este proyecto",
+    "selectProject": "Seleccionar proyecto",
+    "noProject": "Sin proyecto",
+    "eventCreated": "Evento creado en Google Calendar",
+    "eventUpdated": "Evento actualizado en Google Calendar",
+    "eventDeleted": "Evento eliminado de Google Calendar",
+    "eventCreateError": "Error al crear evento en Google Calendar",
+    "eventUpdateError": "Error al actualizar evento en Google Calendar",
+    "eventDeleteError": "Error al eliminar evento de Google Calendar",
+    "accounts": "Cuentas conectadas",
+    "addAccount": "Agregar cuenta de Google",
+    "accountAdded": "Cuenta de Google conectada: {{email}}",
+    "accountRemoved": "Cuenta de Google eliminada",
+    "removeAccount": "Eliminar cuenta",
+    "confirmRemoveAccount": "¿Estás seguro de que deseas eliminar esta cuenta de Google? Los eventos sincronizados de esta cuenta ya no se actualizarán.",
+    "noAccounts": "No hay cuentas de Google conectadas",
+    "selectAccount": "Seleccionar cuenta"
   },
   "date": {
     "today": "Hoy",
@@ -517,5 +547,15 @@
     },
     "invalidPhone": "El teléfono debe estar en formato internacional (ej: +521234567890)",
     "phoneHelp": "Formato internacional con código de país (ej: +52 para México)"
+  },
+  "share": {
+    "title": "Contenido Compartido",
+    "taskTitle": "Título de la tarea",
+    "taskTitlePlaceholder": "Escribe el título...",
+    "description": "Descripción",
+    "descriptionPlaceholder": "Descripción opcional...",
+    "createTask": "Crear Tarea",
+    "errorEmptyTitle": "El título no puede estar vacío",
+    "errorCreating": "Error al crear la tarea"
   }
 }

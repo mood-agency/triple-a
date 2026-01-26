@@ -60,7 +60,14 @@ function WeekStrip({
   }
 
   return (
-    <div className={cn("flex items-center gap-1", className)}>
+    <div className={cn("flex flex-col gap-2", className)}>
+      {/* Month and Year header */}
+      <div className="text-center text-sm font-medium capitalize">
+        {format(centerDate, "MMMM yyyy", { locale })}
+      </div>
+
+      {/* Week navigation */}
+      <div className="flex items-center gap-1">
       {/* Previous button */}
       <Button
         variant="ghost"
@@ -136,6 +143,7 @@ function WeekStrip({
           Hoy
         </Button>
       )}
+      </div>
     </div>
   )
 }

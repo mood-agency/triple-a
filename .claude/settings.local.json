@@ -76,7 +76,9 @@
       "Bash(powershell -Command \"Get-ChildItem -Path ''c:\\\\Users\\\\argen\\\\Documents\\\\GitHub\\\\triple-a\\\\src\\\\pages'' | select Name\")",
       "Bash(powershell -Command \"Get-ChildItem -Path ''c:\\\\Users\\\\argen\\\\Documents\\\\GitHub\\\\triple-a\\\\supabase\\\\migrations'' | select Name\")",
       "Bash(Select-String -Pattern \"node\")",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(npx cap:*)",
+      "Bash(npm run cap:build:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\argen\\Documents\\GitHub\\triple-a"

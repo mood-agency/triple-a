@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Triple A</string>
+    <string name="title_activity_main">Triple A</string>
+    <string name="package_name">com.triplea.app</string>
+    <string name="custom_url_scheme">com.triplea.app</string>
+</resources>

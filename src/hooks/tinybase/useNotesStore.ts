@@ -87,6 +87,7 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
           remote_id: (row.remote_id as string) || null,
           sync_status: (row.sync_status as Note['sync_status']) || 'local',
           last_synced_at: (row.last_synced_at as string) || null,
+          gcal_event_id: (row.gcal_event_id as string) || null,
         };
       })
       // Sort: pinned first, then by sort_order

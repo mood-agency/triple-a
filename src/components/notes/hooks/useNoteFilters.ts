@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import { parseLocalDate, startOfDay, endOfDay, getLocalDateKey } from '@/utils/dateUtils';
 import { sortNotes, sortCompletedNotes, type NoteSortConfig } from '@/utils/noteUtils';

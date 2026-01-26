@@ -5,19 +5,11 @@ import type { EditableDescriptionHandle } from '@/components/ui/EditableDescript
 type FocusTarget = 'title' | 'description-start' | 'description-end' | null;
 
 interface UseNoteSelectionProps {
-    notes: Note[]; // Pass full list or filtered list depending on context
-    filteredNotes: Note[]; // The list currently visible/navigable
     selectedNote: Note | null;
-    onSelectNote: (note: Note | null) => void;
-    searchInputRef: React.RefObject<HTMLInputElement>;
 }
 
 export function useNoteSelection({
-    notes,
-    filteredNotes,
     selectedNote,
-    onSelectNote,
-    searchInputRef
 }: UseNoteSelectionProps) {
     const descriptionRef = useRef<EditableDescriptionHandle>(null);
     const descriptionCaretPositionRef = useRef<number | null>(null);

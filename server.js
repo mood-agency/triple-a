@@ -751,6 +751,186 @@ app.post('/api/gcal-events', async (req, res) => {
   }
 })
 
+/**
+ * Create Google Calendar Event endpoint
+ * POST /api/gcal-create-event
+ * Body: { calendarId: string, summary: string, description?: string, start: {...}, end: {...} }
+ */
+app.post('/api/gcal-create-event', async (req, res) => {
+  res.set(corsHeaders)
+
+  try {
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      return res.status(500).json({ error: 'Server not configured' })
+    }
+
+    const user = await verifyUser(req, supabase)
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+
+    const { accessToken, error: tokenError } = await getGoogleAccessToken(supabase, user.id)
+    if (tokenError) {
+      return res.status(400).json({ error: tokenError })
+    }
+
+    const { calendarId, summary, description, start, end } = req.body
+
+    if (!calendarId || !summary || !start || !end) {
+      return res.status(400).json({ error: 'calendarId, summary, start, and end are required' })
+    }
+
+    // Create event in Google Calendar
+    const eventBody = {
+      summary,
+      description: description || '',
+      start,
+      end,
+    }
+
+    const response = await fetch(
+      `${GOOGLE_CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(eventBody),
+      }
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error('Google Calendar API error creating event:', errorData)
+      return res.status(response.status).json({ error: 'Failed to create event', details: errorData.error?.message })
+    }
+
+    const createdEvent = await response.json()
+    return res.status(200).json({ event: createdEvent })
+  } catch (error) {
+    console.error('Error in gcal-create-event:', error)
+    return res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+/**
+ * Update Google Calendar Event endpoint
+ * POST /api/gcal-update-event
+ * Body: { calendarId: string, eventId: string, summary?: string, description?: string, start?: {...}, end?: {...} }
+ */
+app.post('/api/gcal-update-event', async (req, res) => {
+  res.set(corsHeaders)
+
+  try {
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      return res.status(500).json({ error: 'Server not configured' })
+    }
+
+    const user = await verifyUser(req, supabase)
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+
+    const { accessToken, error: tokenError } = await getGoogleAccessToken(supabase, user.id)
+    if (tokenError) {
+      return res.status(400).json({ error: tokenError })
+    }
+
+    const { calendarId, eventId, summary, description, start, end } = req.body
+
+    if (!calendarId || !eventId) {
+      return res.status(400).json({ error: 'calendarId and eventId are required' })
+    }
+
+    // Build update body with only provided fields
+    const eventBody = {}
+    if (summary !== undefined) eventBody.summary = summary
+    if (description !== undefined) eventBody.description = description
+    if (start !== undefined) eventBody.start = start
+    if (end !== undefined) eventBody.end = end
+
+    const response = await fetch(
+      `${GOOGLE_CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(eventBody),
+      }
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error('Google Calendar API error updating event:', errorData)
+      return res.status(response.status).json({ error: 'Failed to update event', details: errorData.error?.message })
+    }
+
+    const updatedEvent = await response.json()
+    return res.status(200).json({ event: updatedEvent })
+  } catch (error) {
+    console.error('Error in gcal-update-event:', error)
+    return res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+/**
+ * Delete Google Calendar Event endpoint
+ * POST /api/gcal-delete-event
+ * Body: { calendarId: string, eventId: string }
+ */
+app.post('/api/gcal-delete-event', async (req, res) => {
+  res.set(corsHeaders)
+
+  try {
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      return res.status(500).json({ error: 'Server not configured' })
+    }
+
+    const user = await verifyUser(req, supabase)
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+
+    const { accessToken, error: tokenError } = await getGoogleAccessToken(supabase, user.id)
+    if (tokenError) {
+      return res.status(400).json({ error: tokenError })
+    }
+
+    const { calendarId, eventId } = req.body
+
+    if (!calendarId || !eventId) {
+      return res.status(400).json({ error: 'calendarId and eventId are required' })
+    }
+
+    const response = await fetch(
+      `${GOOGLE_CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    )
+
+    if (!response.ok && response.status !== 204) {
+      const errorData = await response.json().catch(() => ({}))
+      console.error('Google Calendar API error deleting event:', errorData)
+      return res.status(response.status).json({ error: 'Failed to delete event', details: errorData.error?.message })
+    }
+
+    return res.status(200).json({ success: true })
+  } catch (error) {
+    console.error('Error in gcal-delete-event:', error)
+    return res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 // ============================================
 // Email Webhook Endpoint
 // ============================================

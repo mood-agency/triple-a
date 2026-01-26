@@ -3,10 +3,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Kbd } from '@/components/ui/kbd';
 import { Plus, List, Calendar, AlignJustify, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { NoteFilters } from './NoteFilters';
+import { Logo } from '@/components/Logo';
 import { useTranslation } from 'react-i18next';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
-import type { NoteSortConfig } from '@/utils/noteUtils';
 
 interface NoteListToolbarProps {
     isMobile: boolean;
@@ -26,7 +26,7 @@ interface NoteListToolbarProps {
     setCategoryFilter: (category: NoteCategory | 'all') => void;
     labels: Label[];
     labelFilter: string[];
-    setLabelFilter: (labels: string[]) => void;
+    setLabelFilter: (labels: string[] | ((prev: string[]) => string[])) => void;
     sortConfig: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null };
     setSortConfig: (config: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null }) => void;
     sortByDeadline: boolean;
@@ -41,7 +41,7 @@ interface NoteListToolbarProps {
     setSortByCategory: (sort: boolean) => void;
     contacts: Contact[];
     assigneeFilter: string[];
-    setAssigneeFilter: (assignees: string[]) => void;
+    setAssigneeFilter: (assignees: string[] | ((prev: string[]) => string[])) => void;
     taskStatusFilter: 'active' | 'completed' | 'deleted';
     setTaskStatusFilter: (status: 'active' | 'completed' | 'deleted') => void;
     hasCompletedTasks: boolean;
@@ -103,7 +103,10 @@ export function NoteListToolbar({
 
     return (
         <div className={`flex items-center gap-2 mb-3 flex-shrink-0 ${isMobile && selectedNote ? 'hidden' : ''}`}>
-            {/* Sidebar trigger - first position */}
+            {/* Logo - first position */}
+            <Logo size="sm" className="mr-1" />
+
+            {/* Sidebar trigger */}
             {sidebarTrigger}
 
             {/* Create task button */}

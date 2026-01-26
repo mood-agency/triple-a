@@ -12,6 +12,7 @@ import { Labels } from './pages/Labels'
 import { Projects } from './pages/Projects'
 import { MobileTaskCreate } from './pages/MobileTaskCreate'
 import { CalendarSettings } from './pages/CalendarSettings'
+import ShareReceiver from './pages/ShareReceiver'
 import { MainLayout } from './components/MainLayout'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -62,6 +63,14 @@ function App() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/share"
+        element={
+          <ProtectedRoute>
+            <ShareReceiver />
+          </ProtectedRoute>
+        }
+      />
       {/* Routes with shared sidebar layout */}
       <Route
         element={
@@ -78,6 +87,7 @@ function App() {
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/labels" element={<Labels />} />
         <Route path="/projects" element={<Projects />} />
+        <Route path="/projects/callback" element={<Projects />} />
         <Route path="/settings/calendar" element={<CalendarSettings />} />
         <Route path="/settings/calendar/callback" element={<CalendarSettings />} />
       </Route>
