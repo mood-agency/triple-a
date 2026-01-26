@@ -85,7 +85,6 @@ interface NoteListContentProps {
     labelFilter: string[];
     assigneeFilter: string[];
     showOverdueOnly: boolean;
-    renderNoResultsContent: (completedCount?: number) => React.ReactNode;
 }
 
 export function NoteListContent({
@@ -144,22 +143,14 @@ export function NoteListContent({
     labelFilter,
     assigneeFilter,
     showOverdueOnly,
-    renderNoResultsContent,
 }: NoteListContentProps) {
     const { t } = useTranslation();
     const EMPTY_LABELS: Label[] = [];
 
     const NoResultsMessage = ({ completedCount, fillHeight = true }: { completedCount?: number; fillHeight?: boolean }) => {
         return <NoteListEmptyState
-            searchQuery={searchQuery}
-            categoryFilter={categoryFilter}
-            labelFilter={labelFilter}
-            assigneeFilter={assigneeFilter}
-            showOverdueOnly={showOverdueOnly}
             completedCount={completedCount}
             shouldShowOnlyCompletedMessage={shouldShowOnlyCompletedMessage}
-            labels={labels}
-            contacts={contacts}
             fillHeight={fillHeight}
         />;
     };
@@ -229,7 +220,7 @@ export function NoteListContent({
                                 if (note) onRestore(note);
                             }}
                             hasActiveFilters={hasActiveFilters}
-                            renderNoResultsMessage={(completedCount) => renderNoResultsContent(completedCount)}
+                            renderNoResultsMessage={(completedCount) => <NoResultsMessage completedCount={completedCount} />}
                             sortByCategory={false} // Assuming default false or passed prop
                         />
                     ) : (
