@@ -251,11 +251,11 @@ export function Home() {
     });
   }, [createNote, categoryFilter, labelFilter, handleSelectNote]);
 
-  const handleDeleteNote = useCallback((id: string) => {
+  const handleDeleteNote = useCallback((id: string, reason: string) => {
     if (selectedNoteId === id) {
       handleSelectNote(null);
     }
-    deleteNote(id);
+    deleteNote(id, reason);
   }, [selectedNoteId, handleSelectNote, deleteNote]);
 
   const handleUpdateNote = useCallback(async (id: string, content: string, category?: import('@/types/note').NoteCategory, description?: string | null) => {

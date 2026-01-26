@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 interface UseNoteOperationsProps {
     filteredNotesRef: React.MutableRefObject<Note[]>;
     activeNotesRef: React.MutableRefObject<Note[]>;
-    onDelete: (id: string) => void;
+    onDelete: (id: string, reason: string) => void;
     onRestore: (note: Note) => void;
     onToggleCompleted: (id: string, completed: boolean) => void;
     onSelectNote: (note: Note | null) => void;
@@ -38,7 +38,7 @@ export function useNoteOperations({
 }: UseNoteOperationsProps) {
     const { t } = useTranslation();
 
-    const handleDeleteWithToast = useCallback((note: Note) => {
+    const handleDeleteWithToast = useCallback((note: Note, reason: string) => {
         const currentFilteredNotes = filteredNotesRef.current;
         const currentIndex = currentFilteredNotes.findIndex((n) => n.id === note.id);
 
@@ -58,7 +58,7 @@ export function useNoteOperations({
         }
 
         // Delete first, then navigate
-        onDelete(note.id);
+        onDelete(note.id, reason);
 
         // Navigate after deletion
         if (shouldNavigateToEditor) {

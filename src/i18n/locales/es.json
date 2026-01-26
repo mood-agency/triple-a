@@ -98,6 +98,12 @@
   },
   "deleteTask": "Eliminar tarea",
   "deleteTaskConfirmation": "¿Estás seguro de que deseas eliminar esta tarea?",
+  "deleteTaskDialog": {
+    "title": "¿Por qué vas a eliminar esta tarea?",
+    "notRelevant": "Ya no es relevante",
+    "duplicate": "Duplicada",
+    "confirm": "Eliminar"
+  },
   "markComplete": "Marcar como completado",
   "markIncomplete": "Marcar como incompleto",
   "back": "Volver",

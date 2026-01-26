@@ -1,7 +1,7 @@
 import { forwardRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus, Calendar, Layers } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus, Calendar, Layers, PanelRightClose } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
@@ -62,6 +62,7 @@ interface NoteEditorPanelProps {
   onDeleteHistoryEntry: (id: string) => void;
   onSetEditingHistoryEntry: (entry: { id: string; reason: string } | null) => void;
   onToggleComplete: (id: string) => void;
+  onClose?: () => void;
 }
 
 export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorPanelProps>(function NoteEditorPanel({
@@ -101,6 +102,7 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
   onDeleteHistoryEntry,
   onSetEditingHistoryEntry,
   onToggleComplete,
+  onClose,
 }, ref) {
   const { t, i18n } = useTranslation();
 
@@ -134,6 +136,25 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
         onDelete={onDelete}
         titleValue={titleValue}
       />
+
+      {onClose && (
+        <div className="flex justify-end -mt-1 mb-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors"
+              >
+                <PanelRightClose className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('hideSidebar')}</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
 
       {/* Category row */}
       <NoteMetaRow icon={Layers}>

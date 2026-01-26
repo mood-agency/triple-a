@@ -12,7 +12,7 @@ interface UseNoteRowProps {
     isSelected: boolean;
     onSelect: (noteId: string) => void;
     onEdit: (id: string, content: string, category?: NoteCategory, description?: string | null) => void;
-    onDeleteWithToast: (note: Note) => void;
+    onDeleteWithToast: (note: Note, reason: string) => void;
     onToggleCompleted: (id: string, completed: boolean) => void;
     onCreateNoteAfter?: (noteId: string) => void;
     onNavigateDown: (noteId: string, column: number) => boolean;
@@ -246,7 +246,7 @@ export function useNoteRow({
             e.preventDefault();
             e.stopPropagation();
             setIsEditingContent(false);
-            onDeleteWithToast(note);
+            setShowDeleteDialog(true);
             return;
         }
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -261,7 +261,7 @@ export function useNoteRow({
         } else if (e.key === 'Backspace' && contentValue === '') {
             e.preventDefault();
             setIsEditingContent(false);
-            onDeleteWithToast(note);
+            setShowDeleteDialog(true);
         } else if (e.key === 'ArrowDown') {
             const column = contentInputRef.current?.selectionStart ?? 0;
             const didNavigate = onNavigateDown(note.id, column);
@@ -277,7 +277,7 @@ export function useNoteRow({
                 handleContentBlur();
             }
         }
-    }, [contentValue, note, saveContentWithHashtagParsing, onToggleCompleted, onDeleteWithToast, onCreateNoteAfter, handleContentBlur, onNavigateToDescription, onNavigateDown, onNavigateUp]);
+    }, [contentValue, note, saveContentWithHashtagParsing, onToggleCompleted, onCreateNoteAfter, handleContentBlur, onNavigateToDescription, onNavigateDown, onNavigateUp]);
 
     const handleContentClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
         e.stopPropagation();
@@ -304,8 +304,8 @@ export function useNoteRow({
         onToggleCompleted(note.id, !note.completed);
     }, [note.id, note.completed, onToggleCompleted]);
 
-    const handleConfirmDelete = useCallback(() => {
-        onDeleteWithToast(note);
+    const handleConfirmDelete = useCallback((reason: string) => {
+        onDeleteWithToast(note, reason);
         setShowDeleteDialog(false);
     }, [onDeleteWithToast, note]);
 

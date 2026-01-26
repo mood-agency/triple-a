@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
 import { Separator } from '@/components/ui/separator';
-import { Plus, List, Calendar, AlignJustify, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { Plus, List, Calendar, AlignJustify } from 'lucide-react';
 import { NoteFilters } from './NoteFilters';
 import { Logo } from '@/components/Logo';
 import { useTranslation } from 'react-i18next';
@@ -50,12 +50,6 @@ interface NoteListToolbarProps {
     hasCompletedTasks: boolean;
     hasDeletedTasks: boolean;
 
-    // Sidebar
-    fixedNoteId: string | null;
-    showSidebar: boolean;
-    setShowSidebar: (show: boolean) => void;
-    setFixedNoteId: (id: string | null) => void;
-
     // Keyboard handlers for search
     onSearchKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }
@@ -98,10 +92,6 @@ export function NoteListToolbar({
     setTaskStatusFilter,
     hasCompletedTasks,
     hasDeletedTasks,
-    fixedNoteId,
-    showSidebar,
-    setShowSidebar,
-    setFixedNoteId,
     onSearchKeyDown,
 }: NoteListToolbarProps) {
     const { t } = useTranslation();
@@ -202,31 +192,6 @@ export function NoteListToolbar({
                 hasCompletedTasks={hasCompletedTasks}
                 hasDeletedTasks={hasDeletedTasks}
             />
-            {/* Sidebar button - only show when a note is fixed to sidebar (hide on mobile) */}
-            {fixedNoteId && !isMobile && (
-                <div className="ml-auto">
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    if (showSidebar) {
-                                        // When closing sidebar, also clear the fixed note
-                                        setFixedNoteId(null);
-                                    }
-                                    setShowSidebar(!showSidebar);
-                                }}
-                                className="p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors"
-                            >
-                                {showSidebar ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-                            </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>{showSidebar ? t('hideSidebar') : t('showSidebar')}</p>
-                        </TooltipContent>
-                    </Tooltip>
-                </div>
-            )}
             </div>
         </div>
         <Separator className="mb-3" />

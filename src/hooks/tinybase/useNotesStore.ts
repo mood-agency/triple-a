@@ -91,6 +91,7 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
           created_at: row.created_at as string,
           updated_at: row.updated_at as string,
           deleted_at: (row.deleted_at as string) || null,
+          deleted_reason: (row.deleted_reason as string) || null,
           assignee_id: (row.assignee_id as string) || null,
           project_id: (row.project_id as string) || null,
           last_postpone_reason: lastPostponeReason,
@@ -217,6 +218,7 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         created_at: timestamp,
         updated_at: timestamp,
         deleted_at: null,
+        deleted_reason: null,
       };
     },
     [store, effectiveDate, projectId]
@@ -321,6 +323,7 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         created_at: timestamp,
         updated_at: timestamp,
         deleted_at: null,
+        deleted_reason: null,
       };
     },
     [store, effectiveDate, projectId]
@@ -378,12 +381,13 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
    * Delete a note (soft delete)
    */
   const deleteNote = useCallback(
-    (id: string): void => {
+    (id: string, reason: string): void => {
       if (!store) return;
 
       const timestamp = now();
       store.setPartialRow('notes', id, {
         deleted_at: timestamp,
+        deleted_reason: reason,
         updated_at: timestamp,
         sync_status: 'pending',
       });
@@ -401,6 +405,7 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
       const timestamp = now();
       store.setPartialRow('notes', note.id, {
         deleted_at: null,
+        deleted_reason: null,
         updated_at: timestamp,
         sync_status: 'pending',
       });

@@ -98,6 +98,12 @@
   },
   "deleteTask": "Delete task",
   "deleteTaskConfirmation": "Are you sure you want to delete this task?",
+  "deleteTaskDialog": {
+    "title": "Why are you deleting this task?",
+    "notRelevant": "No longer relevant",
+    "duplicate": "Duplicate",
+    "confirm": "Delete"
+  },
   "markComplete": "Mark as complete",
   "markIncomplete": "Mark as incomplete",
   "back": "Back",
