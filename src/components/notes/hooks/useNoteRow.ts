@@ -3,6 +3,7 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { parseHashtags } from '@/utils/hashtagParser';
+import { useAutoSave } from '@/hooks/useAutoSave';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { getCursorPosition, getFontString } from '@/utils/cursorUtils';
@@ -29,6 +30,7 @@ interface UseNoteRowProps {
     onCreateLabelAndAdd?: (noteId: string, labelName: string) => void;
     isCommandPaletteOpen?: boolean;
     onContentChange?: (content: string) => void;
+    autoSaveInterval?: number; // in seconds, 0 = disabled
 }
 
 export function useNoteRow({
@@ -51,6 +53,7 @@ export function useNoteRow({
     onAddLabel,
     onCreateLabelAndAdd,
     isCommandPaletteOpen,
+    autoSaveInterval = 3,
 }: UseNoteRowProps) {
     const { t } = useTranslation();
     const [isEditingContent, setIsEditingContent] = useState(false);
@@ -69,10 +72,26 @@ export function useNoteRow({
     const focusFromNavigationRef = useRef(false);
     const hasAutoFocusedRef = useRef(false);
 
-    // Sync content value when note changes
+    // Auto-save hook for periodic saving while editing
+    const autoSave = useAutoSave({
+        value: contentValue,
+        originalValue: note.content,
+        onSave: (value) => {
+            if (value.trim()) {
+                // Save without hashtag parsing (that happens on final blur)
+                onEdit(note.id, value.trim(), note.category, note.description);
+            }
+        },
+        debounceMs: autoSaveInterval * 1000,
+        enabled: isEditingContent && autoSaveInterval > 0,
+    });
+
+    // Sync content value when note changes (but not while editing)
     useEffect(() => {
-        setContentValue(note.content);
-    }, [note.content]);
+        if (!isEditingContent) {
+            setContentValue(note.content);
+        }
+    }, [note.content, isEditingContent]);
 
     // Auto-focus empty notes when selected (newly created notes)
     useEffect(() => {
@@ -223,13 +242,16 @@ export function useNoteRow({
 
         if (showLabelDropdown || showCategoryDropdown || showAssigneeDropdown) return;
 
+        // Flush any pending auto-save
+        autoSave.handleBlur();
+
         if (contentValue.trim() && contentValue !== note.content) {
             saveContentWithHashtagParsing();
         } else if (!contentValue.trim()) {
             setContentValue(note.content);
         }
         setIsEditingContent(false);
-    }, [contentValue, note.content, isCommandPaletteOpen, saveContentWithHashtagParsing, showLabelDropdown, showCategoryDropdown, showAssigneeDropdown]);
+    }, [contentValue, note.content, isCommandPaletteOpen, saveContentWithHashtagParsing, showLabelDropdown, showCategoryDropdown, showAssigneeDropdown, autoSave]);
 
 
     const handleContentKeyDown = useCallback((e: React.KeyboardEvent) => {

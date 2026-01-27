@@ -158,6 +158,13 @@ export function DatePicker({
     }
   }
 
+  // Check if the date is overdue (past)
+  const isOverdue = React.useMemo(() => {
+    if (!date) return false
+    const now = new Date()
+    return date < now
+  }, [date])
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -167,6 +174,7 @@ export function DatePicker({
           className={cn(
             iconOnly ? "h-8 w-8 shadow-none" : "justify-start text-left font-normal gap-1.5 px-1.5",
             !date && "text-muted-foreground",
+            isOverdue && "text-destructive hover:text-destructive",
             className
           )}
         >

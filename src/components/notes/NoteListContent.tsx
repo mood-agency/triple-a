@@ -95,6 +95,9 @@ interface NoteListContentProps {
     onClearAssignee: (assigneeId: string) => void;
     onClearSearch: () => void;
     onClearAllFilters: () => void;
+
+    // Auto-save settings
+    autoSaveInterval?: number; // in seconds, 0 = disabled
 }
 
 export const NoteListContent = memo(function NoteListContent({
@@ -158,6 +161,7 @@ export const NoteListContent = memo(function NoteListContent({
     onClearAssignee,
     onClearSearch,
     onClearAllFilters,
+    autoSaveInterval = 3,
 }: NoteListContentProps) {
     const { t } = useTranslation();
 
@@ -311,6 +315,7 @@ export const NoteListContent = memo(function NoteListContent({
                                                     isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
                                                     contacts={contacts}
                                                     onUpdateAssignee={onUpdateAssignee}
+                                                    autoSaveInterval={autoSaveInterval}
                                                 />
                                             ))}
                                         </SortableContext>
@@ -365,6 +370,7 @@ export const NoteListContent = memo(function NoteListContent({
                                             isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
                                             contacts={contacts}
                                             onUpdateAssignee={onUpdateAssignee}
+                                            autoSaveInterval={autoSaveInterval}
                                         />
                                     ))}
                                 </div>
@@ -417,6 +423,7 @@ export const NoteListContent = memo(function NoteListContent({
                                             isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
                                             contacts={contacts}
                                             onUpdateAssignee={onUpdateAssignee}
+                                            autoSaveInterval={autoSaveInterval}
                                         />
                                     ))}
                                 </div>

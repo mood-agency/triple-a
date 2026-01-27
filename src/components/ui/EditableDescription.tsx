@@ -368,10 +368,12 @@ export const EditableDescription = forwardRef<EditableDescriptionHandle, Editabl
         onChange(json);
       },
       onBlur: () => {
+        console.log('[EditableDescription] TipTap editor onBlur');
         setIsFocused(false);
         onBlur?.();
       },
       onFocus: () => {
+        console.log('[EditableDescription] TipTap editor onFocus');
         setIsFocused(true);
         onFocus?.();
       },

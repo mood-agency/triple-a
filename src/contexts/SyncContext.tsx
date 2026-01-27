@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react'
+import { toast } from 'sonner'
 import { useAuth } from './AuthContext'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useSettings } from '@/hooks/useSettings'
@@ -7,6 +8,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { SyncContextState, SyncConnectionStatus, SyncState, SyncTable, SyncOperation } from '@/types/sync'
 import { useTinyBase } from './TinyBaseContext'
 import { SupabaseDataSync } from '@/store/persisters/supabaseSync'
+import i18n from '@/i18n'
 
 interface PushAllProgress {
   current: number
@@ -49,8 +51,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [connectionStatus, setConnectionStatus] = useState<SyncConnectionStatus>('offline')
   const [syncState, setSyncState] = useState<SyncState>('idle')
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
-  const [pendingCount] = useState(0)
+  const [pendingCount, setPendingCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const prevOnlineRef = useRef<boolean | null>(null)
 
   const [isPushingAll, setIsPushingAll] = useState(false)
   const [isPullingAll, setIsPullingAll] = useState(false)
@@ -100,6 +103,25 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setConnectionStatus('online')
     } else {
       setConnectionStatus('offline')
+    }
+  }, [isOnline])
+
+  // Show toast notifications for online/offline transitions
+  useEffect(() => {
+    // Skip the initial render
+    if (prevOnlineRef.current === null) {
+      prevOnlineRef.current = isOnline
+      return
+    }
+
+    // Only show toast if status actually changed
+    if (prevOnlineRef.current !== isOnline) {
+      if (isOnline) {
+        toast.success(i18n.t('sync.backOnline'))
+      } else {
+        toast.warning(i18n.t('sync.nowOffline'))
+      }
+      prevOnlineRef.current = isOnline
     }
   }, [isOnline])
 
@@ -234,6 +256,20 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     syncNowRef.current = syncNow
   }, [syncNow])
 
+  // Calculate pending changes count
+  const calculatePendingCount = useCallback(() => {
+    if (!tinybaseStore) return 0
+    const tables = ['notes', 'labels', 'contacts', 'note_labels'] as const
+    let count = 0
+    tables.forEach((tableName) => {
+      const table = tinybaseStore.getTable(tableName) || {}
+      count += Object.values(table).filter(
+        (row) => (row as Record<string, unknown>).sync_status === 'pending'
+      ).length
+    })
+    return count
+  }, [tinybaseStore])
+
   // Listen for local TinyBase changes and trigger sync + broadcast
   useEffect(() => {
     if (!tinybaseStore || !settings.autoSync || !isSyncServiceReady) return
@@ -248,6 +284,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         )
       })
 
+      // Update pending count
+      setPendingCount(calculatePendingCount())
+
       if (hasPending && !isSyncingRef.current) {
         // Debounced sync that also broadcasts to other clients after completion
         if (syncDebounceRef.current) {
@@ -256,6 +295,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         syncDebounceRef.current = setTimeout(async () => {
           if (isSyncingRef.current) return
           await syncNowRef.current()
+          // Update pending count after sync
+          setPendingCount(calculatePendingCount())
           // Only broadcast after syncing LOCAL changes (not pulls from other clients)
           if (broadcastChannelRef.current && supabase) {
             broadcastChannelRef.current.send({
@@ -267,6 +308,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         }, SYNC_DEBOUNCE)
       }
     }
+
+    // Initial count calculation
+    setPendingCount(calculatePendingCount())
 
     // Listen for changes to all sync-relevant tables
     const listenerIds = [
@@ -280,7 +324,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     return () => {
       listenerIds.forEach((id) => tinybaseStore.delListener(id))
     }
-  }, [tinybaseStore, settings.autoSync, isSyncServiceReady])
+  }, [tinybaseStore, settings.autoSync, isSyncServiceReady, calculatePendingCount])
 
   // Set up realtime subscriptions using broadcast for cross-client sync
   useEffect(() => {
@@ -295,6 +339,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         if (clientId !== clientIdRef.current) {
           syncNowRef.current()
         }
+      })
+      .on('broadcast', { event: 'api-mutation' }, (payload) => {
+        // API mutation event received - trigger sync to pull changes
+        console.log('[SyncContext] API mutation received:', payload.payload)
+        syncNowRef.current()
       })
       .subscribe()
 

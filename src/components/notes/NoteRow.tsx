@@ -51,6 +51,7 @@ export interface NoteRowProps {
   contacts?: Contact[];
   onUpdateAssignee?: (noteId: string, assigneeId: string | null) => void;
   hideDeadline?: boolean;
+  autoSaveInterval?: number; // in seconds, 0 = disabled
 }
 
 function NoteRow(props: NoteRowProps) {

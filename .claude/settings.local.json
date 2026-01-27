@@ -78,7 +78,9 @@
       "Bash(Select-String -Pattern \"node\")",
       "Bash(powershell:*)",
       "Bash(npx cap:*)",
-      "Bash(npm run cap:build:*)"
+      "Bash(npm run cap:build:*)",
+      "Skill(commit-commands:commit)",
+      "Skill(commit-commands:commit:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\argen\\Documents\\GitHub\\triple-a"
