@@ -260,6 +260,7 @@
   "actionPostponed": "Pospuesto",
   "postponeReasons": "Motivos de aplazamiento",
   "noPostponeReasons": "Sin motivos registrados",
+  "noPostponeHistoryYet": "Aún no hay historial de posponer",
   "deletePostponeReason": "Eliminar motivo",
   "editPostponeReason": "Editar motivo",
   "confirmDeletePostpone": "¿Estás seguro de que deseas eliminar este motivo de aplazamiento?",

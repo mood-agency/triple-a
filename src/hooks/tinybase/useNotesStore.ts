@@ -187,6 +187,10 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         action_type: 'created',
         reason: null,
         previous_date: null,
+        created_at: timestamp,
+        remote_id: null,
+        sync_status: 'local',
+        last_synced_at: null,
       });
 
       // Add labels if provided
@@ -304,6 +308,10 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         action_type: 'created',
         reason: null,
         previous_date: null,
+        created_at: timestamp,
+        remote_id: null,
+        sync_status: 'local',
+        last_synced_at: null,
       });
 
       // Return the created note
@@ -372,6 +380,10 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         action_type: 'edit',
         reason: null,
         previous_date: null,
+        created_at: timestamp,
+        remote_id: null,
+        sync_status: 'local',
+        last_synced_at: null,
       });
     },
     [store]
@@ -443,6 +455,10 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         action_type: completed ? 'completed' : 'uncompleted',
         reason: null,
         previous_date: null,
+        created_at: timestamp,
+        remote_id: null,
+        sync_status: 'local',
+        last_synced_at: null,
       });
     },
     [store]
@@ -549,6 +565,10 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         action_type: 'postponed',
         reason: reason || null,
         previous_date: previousDeadline,
+        created_at: timestamp,
+        remote_id: null,
+        sync_status: 'local',
+        last_synced_at: null,
       };
       console.log('[postponeNote] Saving history entry:', historyEntry);
       store.setRow('note_history', historyId, historyEntry);

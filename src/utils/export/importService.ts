@@ -112,6 +112,10 @@ export async function importData(
             action_type: history.action_type || 'edit',
             reason: history.reason ?? null,
             previous_date: history.previous_date ?? null,
+            created_at: history.changed_at,
+            remote_id: null,
+            sync_status: 'local',
+            last_synced_at: null,
           });
           result.historyImported++;
         }
