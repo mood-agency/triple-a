@@ -12,6 +12,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
+import { EMPTY_LABELS } from '@/constants/notes';
 import { CalendarView } from './CalendarView';
 import { TimelineView } from './TimelineView';
 import { MemoizedNoteRow } from './NoteRow';
@@ -158,7 +159,6 @@ export function NoteListContent({
     onClearAllFilters,
 }: NoteListContentProps) {
     const { t } = useTranslation();
-    const EMPTY_LABELS: Label[] = [];
 
     const NoResultsMessage = ({ completedCount, fillHeight = true }: { completedCount?: number; fillHeight?: boolean }) => {
         return <NoteListEmptyState
