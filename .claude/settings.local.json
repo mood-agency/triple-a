@@ -80,7 +80,12 @@
       "Bash(npx cap:*)",
       "Bash(npm run cap:build:*)",
       "Skill(commit-commands:commit)",
-      "Skill(commit-commands:commit:*)"
+      "Skill(commit-commands:commit:*)",
+      "WebFetch(domain:docs.molt.bot)",
+      "WebFetch(domain:clawdhub.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:block.github.io)",
+      "WebFetch(domain:composio.dev)"
     ],
     "additionalDirectories": [
       "c:\\Users\\argen\\Documents\\GitHub\\triple-a"

@@ -157,18 +157,43 @@ export function Home() {
     return notes.find(n => n.id === selectedNoteId) ?? null;
   }, [notes, selectedNoteId]);
 
-  // Sync selected note ID from URL param when notes load
+  // Sync selected note ID from URL param when notes load or URL changes
   useEffect(() => {
-    if (!loading && notes.length > 0) {
-      const noteId = searchParams.get('note');
-      if (noteId && noteId !== selectedNoteId) {
-        const note = notes.find(n => n.id === noteId);
-        if (note) {
-          setSelectedNoteId(noteId);
-        }
+    const noteId = searchParams.get('note');
+
+    // If URL has no note param, clear selection
+    if (!noteId) {
+      if (selectedNoteId !== null) {
+        setSelectedNoteId(null);
       }
+      return;
     }
-  }, [loading, notes, searchParams, selectedNoteId]);
+
+    // If we're still loading notes, wait for them to load
+    if (loading) {
+      // But ensure selectedNoteId is set from URL so it's ready when notes load
+      if (selectedNoteId !== noteId) {
+        setSelectedNoteId(noteId);
+      }
+      return;
+    }
+
+    // URL has a note param and notes have loaded - try to find and select it
+    const note = notes.find(n => n.id === noteId);
+    if (note) {
+      // Note exists - make sure it's selected
+      if (selectedNoteId !== noteId) {
+        setSelectedNoteId(noteId);
+      }
+    } else if (notes.length > 0) {
+      // Notes have loaded but note not found
+      // Keep the selectedNoteId to show note not found state
+      if (selectedNoteId !== noteId) {
+        setSelectedNoteId(noteId);
+      }
+      console.warn(`Note ${noteId} from URL not found in project ${activeProjectId}`);
+    }
+  }, [loading, notes, searchParams, selectedNoteId, activeProjectId]);
 
   // Update URL when selected note changes
   // Optimized: Work with note ID instead of full object
