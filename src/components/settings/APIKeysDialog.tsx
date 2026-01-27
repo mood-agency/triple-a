@@ -79,7 +79,9 @@ export function APIKeysDialog({ open, onOpenChange }: APIKeysDialogProps) {
                   <APIKeyCard
                     key={apiKey.id}
                     apiKey={apiKey}
-                    onRevoke={revokeAPIKey}
+                    onRevoke={async (id) => {
+                      await revokeAPIKey(id);
+                    }}
                   />
                 ))}
               </div>

@@ -382,7 +382,7 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
       )}
 
       {/* Postpone history section */}
-      {showPostponeHistory && history.filter(h => h.action_type === 'postponed').length > 0 && (
+      {showPostponeHistory && (
         <div className="border-t border-dashed border-muted-foreground/20 pt-3 mt-3 max-h-[25%] flex flex-col shrink-0">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70 mb-2 shrink-0">
             <CalendarClock className="h-3 w-3" />
@@ -392,9 +392,10 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
             </span>
           </div>
           <div className="space-y-2 overflow-y-auto">
-            {history
-              .filter(h => h.action_type === 'postponed')
-              .map((entry) => (
+            {history.filter(h => h.action_type === 'postponed').length > 0 ? (
+              history
+                .filter(h => h.action_type === 'postponed')
+                .map((entry) => (
                 <div
                   key={entry.id}
                   className="group text-sm text-muted-foreground bg-muted/30 rounded-md px-3 py-2 relative flex items-start justify-between gap-2"
@@ -443,7 +444,7 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
                     <button
                       type="button"
                       onClick={() => onEditHistoryEntry({ id: entry.id, reason: entry.reason || '' })}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded text-muted-foreground/60 hover:text-foreground"
+                      className="transition-opacity p-1 hover:bg-muted rounded text-muted-foreground/60 hover:text-foreground"
                       title={t('editPostponeReason')}
                     >
                       <Pencil className="h-3.5 w-3.5" />
@@ -451,14 +452,19 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
                     <button
                       type="button"
                       onClick={() => onDeleteHistoryEntry(entry.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded text-muted-foreground/60 hover:text-destructive"
+                      className="transition-opacity p-1 hover:bg-destructive/10 rounded text-muted-foreground/60 hover:text-destructive"
                       title={t('deletePostponeReason')}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
-              ))}
+                ))
+            ) : (
+              <p className="text-xs text-muted-foreground/50 italic px-3 py-2">
+                {t('noPostponeHistoryYet')}
+              </p>
+            )}
           </div>
         </div>
       )}

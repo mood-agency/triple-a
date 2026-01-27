@@ -260,6 +260,7 @@
   "actionPostponed": "Postponed",
   "postponeReasons": "Postponement reasons",
   "noPostponeReasons": "No reasons recorded",
+  "noPostponeHistoryYet": "No postpone history yet",
   "deletePostponeReason": "Delete reason",
   "editPostponeReason": "Edit reason",
   "confirmDeletePostpone": "Are you sure you want to delete this postponement reason?",

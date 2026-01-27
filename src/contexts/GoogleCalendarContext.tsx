@@ -932,6 +932,10 @@ async function createNoteFromEvent(
     action_type: 'created',
     reason: 'Imported from Google Calendar',
     previous_date: null,
+    created_at: timestamp,
+    remote_id: null,
+    sync_status: 'local',
+    last_synced_at: null,
   });
 
   return id;
@@ -984,6 +988,10 @@ async function updateNoteFromEvent(
     action_type: 'edit',
     reason: 'Updated from Google Calendar',
     previous_date: null,
+    created_at: timestamp,
+    remote_id: null,
+    sync_status: 'local',
+    last_synced_at: null,
   });
 }
 

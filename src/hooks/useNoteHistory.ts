@@ -17,12 +17,17 @@ export function useNoteHistory(noteId: string | null) {
     }
 
     const historyTable = store.getTable('note_history') || {};
+    console.log('[useNoteHistory] Total entries in note_history:', Object.keys(historyTable).length);
 
-    const rows: NoteHistory[] = Object.entries(historyTable)
-      .filter(([, h]) => (h as Record<string, unknown>).note_id === noteId)
+    const filteredEntries = Object.entries(historyTable)
+      .filter(([, h]) => (h as Record<string, unknown>).note_id === noteId);
+
+    console.log('[useNoteHistory] Entries for noteId', noteId, ':', filteredEntries.length);
+
+    const rows: NoteHistory[] = filteredEntries
       .map(([id, h]) => {
         const row = h as Record<string, unknown>;
-        return {
+        const entry = {
           id,
           note_id: row.note_id as string,
           content: row.content as string,
@@ -34,9 +39,13 @@ export function useNoteHistory(noteId: string | null) {
           reason: (row.reason as string) || null,
           previous_date: (row.previous_date as string) || null,
         };
+        console.log('[useNoteHistory] Entry:', entry.id, 'action_type:', entry.action_type, 'reason:', entry.reason);
+        return entry;
       })
       .sort((a, b) => b.changed_at.localeCompare(a.changed_at));
 
+    console.log('[useNoteHistory] Final rows count:', rows.length);
+    console.log('[useNoteHistory] Postponed entries:', rows.filter(r => r.action_type === 'postponed').length);
     setHistory(rows);
     setLoading(false);
   }, [store, storeReady, noteId]);
