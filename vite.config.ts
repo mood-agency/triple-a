@@ -46,6 +46,28 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MB
         runtimeCaching: [
           {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+              }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-webfonts',
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+              }
+            }
+          },
+          {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
             handler: 'NetworkFirst',
             options: {
@@ -56,7 +78,9 @@ export default defineConfig({
               }
             }
           }
-        ]
+        ],
+        navigateFallback: '/offline.html',
+        navigateFallbackDenylist: [/^\/api/]
       }
     })
   ],

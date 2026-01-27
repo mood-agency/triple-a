@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Settings, Download, Upload, AlertCircle, CheckCircle, MessageCircle, Users, BarChart3, Cloud, CloudOff, RefreshCw, Check, CloudUpload, CloudDownload, Loader2, MoreVertical, Calendar } from 'lucide-react';
+import { Settings, Download, Upload, AlertCircle, CheckCircle, MessageCircle, Users, BarChart3, Cloud, CloudOff, RefreshCw, Check, CloudUpload, CloudDownload, Loader2, MoreVertical, Calendar, Save, Key } from 'lucide-react';
 import { useSync } from '@/contexts/SyncContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTinyBase } from '@/contexts/TinyBaseContext';
@@ -17,6 +17,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -35,6 +42,7 @@ import {
   validateImportData,
 } from '@/utils/dataExport';
 import type { ImportResult } from '@/types/note';
+import { APIKeysDialog } from '@/components/settings/APIKeysDialog';
 
 export function SettingsMenu() {
   const { t } = useTranslation();
@@ -52,6 +60,9 @@ export function SettingsMenu() {
   // Beeper token dialog state
   const [beeperDialogOpen, setBeeperDialogOpen] = useState(false);
   const [beeperTokenInput, setBeeperTokenInput] = useState('');
+
+  // API Keys dialog state
+  const [apiKeysDialogOpen, setApiKeysDialogOpen] = useState(false);
 
   // Push/Pull dialogs state
   const [showPushConfirmDialog, setShowPushConfirmDialog] = useState(false);
@@ -311,6 +322,31 @@ export function SettingsMenu() {
                   />
                 </div>
               </div>
+              <div className="px-2 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Save className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Label className="text-sm font-normal">
+                      {t('settingsMenu.autoSave')}
+                    </Label>
+                  </div>
+                  <Select
+                    value={String(settings.autoSaveInterval)}
+                    onValueChange={(value) => updateSettings({ autoSaveInterval: Number(value) })}
+                  >
+                    <SelectTrigger className="h-7 w-[70px] text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">{t('settingsMenu.autoSaveOff')}</SelectItem>
+                      <SelectItem value="2">2s</SelectItem>
+                      <SelectItem value="3">3s</SelectItem>
+                      <SelectItem value="5">5s</SelectItem>
+                      <SelectItem value="10">10s</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <DropdownMenuItem
                 onClick={() => setShowPullConfirmDialog(true)}
                 disabled={!canPull}
@@ -352,6 +388,10 @@ export function SettingsMenu() {
           <DropdownMenuItem onClick={() => navigate('/settings/calendar')}>
             <Calendar className="h-4 w-4 mr-2 text-blue-600" />
             {t('gcal.title')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setApiKeysDialogOpen(true)}>
+            <Key className="h-4 w-4 mr-2 text-amber-600" />
+            {t('apiKeys.title')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -502,6 +542,12 @@ export function SettingsMenu() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* API Keys dialog */}
+      <APIKeysDialog
+        open={apiKeysDialogOpen}
+        onOpenChange={setApiKeysDialogOpen}
+      />
     </>
   );
 }

@@ -66,6 +66,7 @@ interface NoteEditorPanelProps {
   onSetEditingHistoryEntry: (entry: { id: string; reason: string } | null) => void;
   onToggleComplete: (id: string) => void;
   onClose?: () => void;
+  autoSaveInterval?: number; // in seconds, 0 = disabled
 }
 
 // Helper to parse description preview from TipTap JSON or plain text
@@ -127,6 +128,7 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
   onSetEditingHistoryEntry,
   onToggleComplete,
   onClose,
+  autoSaveInterval = 3,
 }, ref) {
   const { t, i18n } = useTranslation();
 
@@ -161,6 +163,7 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
             onToggleComplete={onToggleComplete}
             onDelete={onDelete}
             titleValue={titleValue}
+            autoSaveInterval={autoSaveInterval}
           />
         </div>
         {onClose && (

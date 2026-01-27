@@ -5,6 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
 import { getCursorPosition, getFontString } from '@/utils/cursorUtils';
+import { useAutoSave } from '@/hooks/useAutoSave';
 
 interface EditableTitleProps {
   noteId: string;
@@ -14,6 +15,7 @@ interface EditableTitleProps {
   onToggleComplete: (id: string) => void;
   onDelete: () => void;
   titleValue?: string;
+  autoSaveInterval?: number; // in seconds, 0 = disabled
 }
 
 export function EditableTitle({
@@ -24,6 +26,7 @@ export function EditableTitle({
   onToggleComplete,
   onDelete,
   titleValue,
+  autoSaveInterval = 3,
 }: EditableTitleProps) {
   const { t } = useTranslation();
   // Don't auto-start editing - let the NoteRow handle focus for new tasks
@@ -33,11 +36,36 @@ export function EditableTitle({
   const clickXRef = useRef<number | null>(null);
   const ignoreBlurRef = useRef(false);
 
-  // Sync editedTitle when note changes
+  // Auto-save for title while editing
+  const autoSave = useAutoSave({
+    value: editedTitle,
+    originalValue: titleValue ?? content,
+    onSave: (value) => {
+      if (value.trim()) {
+        onEdit(noteId, value.trim());
+      }
+    },
+    debounceMs: autoSaveInterval * 1000,
+    enabled: isEditing && autoSaveInterval > 0,
+  });
+
+  // Track noteId to detect when we switch notes
+  const prevNoteIdRef = useRef(noteId);
+
+  // Sync editedTitle when note changes (but not while editing)
   useEffect(() => {
-    setEditedTitle(titleValue ?? content);
-    setIsEditing(false);
-  }, [noteId, content, titleValue]);
+    const noteIdChanged = prevNoteIdRef.current !== noteId;
+    prevNoteIdRef.current = noteId;
+
+    if (noteIdChanged) {
+      // Note changed - reset everything
+      setEditedTitle(titleValue ?? content);
+      setIsEditing(false);
+    } else if (!isEditing) {
+      // Same note, not editing - sync with store
+      setEditedTitle(titleValue ?? content);
+    }
+  }, [noteId, content, titleValue, isEditing]);
 
   // Focus input and set cursor position when user clicks to edit
   useEffect(() => {
@@ -148,6 +176,8 @@ export function EditableTitle({
             onBlur={() => {
               // Ignore blur if it was caused by Alt+key combination
               if (ignoreBlurRef.current) return;
+              // Flush any pending auto-save
+              autoSave.handleBlur();
               handleSave();
             }}
             onKeyDown={handleKeyDown}

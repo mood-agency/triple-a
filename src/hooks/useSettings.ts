@@ -9,6 +9,7 @@ export interface AppSettings {
   beeperToken: string | null
   compactTaskView: boolean
   activeProjectId: string | null
+  autoSaveInterval: number // in seconds (0 = disabled)
 }
 
 const SETTINGS_KEY = 'app-settings'
@@ -21,6 +22,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   beeperToken: null,
   compactTaskView: false,
   activeProjectId: null,
+  autoSaveInterval: 3, // 3 seconds default
 }
 
 function loadSettings(): AppSettings {

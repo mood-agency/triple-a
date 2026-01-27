@@ -144,6 +144,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
   const selection = useNoteSelection({
     selectedNote,
+    onEdit,
+    autoSaveInterval: settings.autoSaveInterval,
   });
 
   // Track previous filter values to detect changes and auto-select first task
@@ -542,12 +544,21 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
   // Editor Handlers wrapper
   const handleDescriptionBlur = () => {
+    console.log('[NoteList] handleDescriptionBlur - description lost focus');
     selection.setIsDescriptionFocused(false);
+    // Flush any pending auto-save
+    selection.flushDescriptionAutoSave();
     if (selectedNote && selection.descriptionValue !== (selectedNote.description || '')) {
+      console.log('[NoteList] Saving on blur (value changed)');
       onEdit(selectedNote.id, selectedNote.content, selectedNote.category, selection.descriptionValue || null);
+    } else {
+      console.log('[NoteList] No save needed on blur (value unchanged)');
     }
   };
-  const handleDescriptionFocus = () => selection.setIsDescriptionFocused(true);
+  const handleDescriptionFocus = () => {
+    console.log('[NoteList] handleDescriptionFocus - description gained focus');
+    selection.setIsDescriptionFocused(true);
+  };
 
   const handleDescriptionKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'd' && e.ctrlKey && selectedNote) {
@@ -730,6 +741,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           onClearAssignee={handleClearAssignee}
           onClearSearch={handleClearSearch}
           onClearAllFilters={handleClearAllFilters}
+          autoSaveInterval={settings.autoSaveInterval}
         />
 
         {selectedNote && selection.showDescriptionPanel && (
@@ -786,6 +798,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onDeleteHistoryEntry={(id) => setHistoryEntryToDelete(id)}
               onSetEditingHistoryEntry={setEditingHistoryEntry}
               onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !selectedNote.completed)}
+              autoSaveInterval={settings.autoSaveInterval}
             />
           </div>
         )}
@@ -837,6 +850,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                   setFixedNoteId(null);
                   setShowSidebar(false);
                 }}
+                autoSaveInterval={settings.autoSaveInterval}
               />
             ) : (
               <p className="text-sm text-muted-foreground/50 italic">{t('selectNoteToEdit')}</p>

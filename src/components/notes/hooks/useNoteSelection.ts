@@ -1,15 +1,20 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { Note } from '@/types/note';
+import type { Note, NoteCategory } from '@/types/note';
 import type { EditableDescriptionHandle } from '@/components/ui/EditableDescription';
+import { useAutoSave } from '@/hooks/useAutoSave';
 
 type FocusTarget = 'title' | 'description-start' | 'description-end' | null;
 
 interface UseNoteSelectionProps {
     selectedNote: Note | null;
+    onEdit?: (id: string, content: string, category?: NoteCategory, description?: string | null) => void;
+    autoSaveInterval?: number; // in seconds, 0 = disabled
 }
 
 export function useNoteSelection({
     selectedNote,
+    onEdit,
+    autoSaveInterval = 3,
 }: UseNoteSelectionProps) {
     const descriptionRef = useRef<EditableDescriptionHandle>(null);
     const descriptionCaretPositionRef = useRef<number | null>(null);
@@ -24,6 +29,38 @@ export function useNoteSelection({
     const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
     const [showDescriptionPanel, setShowDescriptionPanel] = useState(false);
 
+    // Auto-save for description while editing
+    const descriptionAutoSave = useAutoSave({
+        value: descriptionValue,
+        originalValue: selectedNote?.description || '',
+        onSave: (value) => {
+            console.log('[NoteSelection] Auto-save triggered for note:', selectedNote?.id);
+            if (selectedNote && onEdit) {
+                onEdit(selectedNote.id, selectedNote.content, selectedNote.category, value || null);
+            }
+        },
+        debounceMs: autoSaveInterval * 1000,
+        enabled: isDescriptionFocused && !!selectedNote && !!onEdit && autoSaveInterval > 0,
+    });
+
+    // Log auto-save status changes
+    useEffect(() => {
+        const enabled = isDescriptionFocused && !!selectedNote && !!onEdit && autoSaveInterval > 0;
+        console.log('[NoteSelection] Auto-save enabled:', enabled, {
+            isDescriptionFocused,
+            hasSelectedNote: !!selectedNote,
+            hasOnEdit: !!onEdit,
+            autoSaveInterval,
+        });
+    }, [isDescriptionFocused, selectedNote, onEdit, autoSaveInterval]);
+
+    // Log description value changes
+    useEffect(() => {
+        if (selectedNote && isDescriptionFocused) {
+            console.log('[NoteSelection] Description value changed while focused');
+        }
+    }, [descriptionValue, selectedNote, isDescriptionFocused]);
+
     // Track the note ID to detect when we switch to a different note
     const selectedNoteIdRef = useRef<string | null>(null);
 
@@ -33,15 +70,17 @@ export function useNoteSelection({
         const noteIdChanged = selectedNoteIdRef.current !== newNoteId;
         selectedNoteIdRef.current = newNoteId;
 
-        setDescriptionValue(selectedNote?.description || '');
-        setTitleValue(selectedNote?.content || '');
-
-        // Only close panel if we switched to a different note (or null)
-        // This prevents closing when the same note is updated (e.g., deadline change)
+        // Only sync values if note changed or we're not editing
         if (noteIdChanged) {
+            setDescriptionValue(selectedNote?.description || '');
+            setTitleValue(selectedNote?.content || '');
             setShowDescriptionPanel(false);
+        } else if (!isDescriptionFocused) {
+            // Sync description only if not focused (to avoid overwriting while typing)
+            setDescriptionValue(selectedNote?.description || '');
+            setTitleValue(selectedNote?.content || '');
         }
-    }, [selectedNote]);
+    }, [selectedNote, isDescriptionFocused]);
 
     // Handle Focus Target
     useEffect(() => {
@@ -123,6 +162,7 @@ export function useNoteSelection({
         handleNavigateToDescription,
         getColumnPosition,
         restoreDescriptionCaret,
-        // Refs exposed for usage in other hooks
+        // Auto-save flush handler for description
+        flushDescriptionAutoSave: descriptionAutoSave.handleBlur,
     };
 }

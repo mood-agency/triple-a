@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Home, Users, BarChart3, Moon, Sun, Languages, LogOut, User, Cloud, CloudOff, RefreshCw, AlertCircle, Check, CloudUpload, CloudDownload, Download, Upload, Loader2, Tag, FolderKanban, Calendar } from 'lucide-react';
+import { Home, Users, BarChart3, Moon, Sun, Languages, LogOut, User, Cloud, CloudOff, RefreshCw, AlertCircle, Check, CloudUpload, CloudDownload, Download, Upload, Loader2, Tag, FolderKanban, Calendar, Smartphone } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -37,6 +37,7 @@ import {
   readFileAsJson,
   validateImportData,
 } from '@/utils/dataExport';
+import { usePWAInstall } from '@/hooks/usePWAInstall';
 
 export function AppSidebar() {
   const { t, i18n } = useTranslation();
@@ -45,6 +46,7 @@ export function AppSidebar() {
   const { user, signOut } = useAuth();
   const { connectionStatus, syncState, lastSyncedAt, pendingCount, error: syncError, syncNow, pushAllToSupabase, pullAllFromSupabase, isPushingAll, isPullingAll } = useSync();
   const { store } = useTinyBase();
+  const { canInstall, promptInstall } = usePWAInstall();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Dialog states
@@ -353,6 +355,14 @@ export function AppSidebar() {
               <span>{theme === 'dark' ? t('theme.light', 'Light Mode') : t('theme.dark', 'Dark Mode')}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {canInstall && (
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={promptInstall} size="sm">
+                <Smartphone className="text-green-600" />
+                <span>{t('pwa.installApp')}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={location.pathname === '/settings/calendar'} size="sm">
               <Link to="/settings/calendar">
