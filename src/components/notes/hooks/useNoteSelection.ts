@@ -74,7 +74,8 @@ export function useNoteSelection({
         if (noteIdChanged) {
             setDescriptionValue(selectedNote?.description || '');
             setTitleValue(selectedNote?.content || '');
-            setShowDescriptionPanel(false);
+            // Show description panel when a note is selected (e.g., from URL or user click)
+            setShowDescriptionPanel(!!selectedNote);
         } else if (!isDescriptionFocused) {
             // Sync description only if not focused (to avoid overwriting while typing)
             setDescriptionValue(selectedNote?.description || '');

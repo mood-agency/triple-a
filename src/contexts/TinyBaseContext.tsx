@@ -83,10 +83,50 @@ export function TinyBaseProvider({ children }: TinyBaseProviderProps) {
                 labels: Object.keys(appStore.getTable('labels')).length,
                 contacts: Object.keys(appStore.getTable('contacts')).length,
                 projects: Object.keys(appStore.getTable('projects')).length,
+                note_history: Object.keys(appStore.getTable('note_history')).length,
               }),
+              getHistory: (noteId?: string) => {
+                const history = appStore.getTable('note_history');
+                const entries = Object.entries(history);
+
+                if (noteId) {
+                  const filtered = entries.filter(([, h]) => h.note_id === noteId);
+                  console.table(filtered.map(([id, h]) => ({
+                    id,
+                    action_type: h.action_type,
+                    reason: h.reason,
+                    previous_date: h.previous_date,
+                    changed_at: h.changed_at,
+                    sync_status: h.sync_status,
+                  })));
+                  return Object.fromEntries(filtered);
+                }
+
+                console.log('Total history entries:', entries.length);
+                console.log('By action_type:');
+                const byType = entries.reduce((acc, [, h]) => {
+                  const type = h.action_type as string;
+                  acc[type] = (acc[type] || 0) + 1;
+                  return acc;
+                }, {} as Record<string, number>);
+                console.table(byType);
+
+                const postponed = entries.filter(([, h]) => h.action_type === 'postponed');
+                console.log(`\nPostponed entries (${postponed.length}):`);
+                console.table(postponed.map(([id, h]) => ({
+                  id,
+                  note_id: h.note_id,
+                  reason: h.reason,
+                  previous_date: h.previous_date,
+                  changed_at: h.changed_at,
+                  sync_status: h.sync_status,
+                })));
+
+                return history;
+              },
             };
             console.log('TinyBase debug available: window.__tinybase_debug__');
-            console.log('Commands: getNotes(), getMeetings(), getNote(id), getAllTables()');
+            console.log('Commands: getNotes(), getMeetings(), getNote(id), getAllTables(), getHistory(noteId?)');
           }
         }
       } catch (err) {
