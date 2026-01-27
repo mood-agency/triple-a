@@ -80,10 +80,11 @@ export async function importData(
       }
     }
 
-    // Import note history
-    for (const history of data.noteHistory) {
-      try {
-        const existing = store.getRow('note_history', history.id);
+    // Import note history (legacy support)
+    if (data.noteHistory && data.noteHistory.length > 0) {
+      for (const history of data.noteHistory) {
+        try {
+          const existing = store.getRow('note_history', history.id);
 
         if (!existing || Object.keys(existing).length === 0) {
           // Handle old format migration where description contains category and category contains completed
@@ -121,6 +122,7 @@ export async function importData(
         }
       } catch (error) {
         result.errors.push(`Error importing history ${history.id}: ${error}`);
+      }
       }
     }
 

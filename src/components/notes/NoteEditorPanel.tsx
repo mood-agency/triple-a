@@ -19,7 +19,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { EditableDescription, type EditableDescriptionHandle } from '@/components/ui/EditableDescription';
 import { AssigneePicker } from '@/components/notes/AssigneePicker';
 import { EditableTitle } from '@/components/notes/EditableTitle';
-import type { Note, NoteCategory, Label, NoteHistory } from '@/types/note';
+import type { Note, NoteCategory, Label, NoteVersion, NoteAction } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { NoteMetaRow } from './editor/NoteMetaRow';
@@ -32,7 +32,8 @@ interface NoteEditorPanelProps {
   titleValue?: string;
   showPostponeHistory: boolean;
   showVersionHistory: boolean;
-  history: NoteHistory[];
+  versions: NoteVersion[];
+  actions: NoteAction[];
   labelDropdownOpen: boolean;
   categoryDropdownOpen: boolean;
   deadlinePickerOpen: boolean;
@@ -47,7 +48,7 @@ interface NoteEditorPanelProps {
   onDescriptionKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   onTogglePostponeHistory: () => void;
   onToggleVersionHistory: () => void;
-  onRestoreVersion?: (historyEntry: NoteHistory) => void;
+  onRestoreVersion?: (historyEntry: NoteVersion) => void;
   onAddLabel: (labelId: string) => void;
   onRemoveLabel: (labelId: string) => void;
   onEditLabel: (label: Label) => void;
@@ -95,7 +96,8 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
   titleValue,
   showPostponeHistory,
   showVersionHistory,
-  history,
+  versions,
+  actions,
   labelDropdownOpen,
   categoryDropdownOpen,
   deadlinePickerOpen,
@@ -346,14 +348,20 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
           {note.last_postpone_reason && (
             <button
               type="button"
-              onClick={onTogglePostponeHistory}
+              onClick={() => {
+                console.log('[NoteEditorPanel] Postpone history button clicked');
+                console.log('[NoteEditorPanel] Current showPostponeHistory:', showPostponeHistory);
+                console.log('[NoteEditorPanel] Total versions:', versions.length, 'actions:', actions.length);
+                console.log('[NoteEditorPanel] Postponed entries:', actions.length);
+                onTogglePostponeHistory();
+              }}
               className="flex items-center gap-2 text-xs font-normal text-muted-foreground/70 italic hover:text-muted-foreground transition-colors text-left w-full"
             >
               <CalendarClock className="h-3 w-3 shrink-0" />
               <span className="flex-1 truncate">{note.last_postpone_reason}</span>
-              {history.filter(h => h.action_type === 'postponed').length > 0 && (
+              {actions.length > 0 && (
                 <span className="text-[10px] text-muted-foreground/50 bg-muted px-1.5 py-0.5 rounded-full shrink-0">
-                  {history.filter(h => h.action_type === 'postponed').length}
+                  {actions.length}
                 </span>
               )}
             </button>
@@ -365,7 +373,7 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
             </p>
           )}
           {/* Version history toggle */}
-          {history.filter(h => h.action_type === 'edit').length > 0 && (
+          {versions.length > 0 && (
             <button
               type="button"
               onClick={onToggleVersionHistory}
@@ -374,7 +382,7 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
               <History className="h-3 w-3 shrink-0" />
               <span className="flex-1">{t('versionHistory')}</span>
               <span className="text-[10px] text-muted-foreground/50 bg-muted px-1.5 py-0.5 rounded-full shrink-0">
-                {history.filter(h => h.action_type === 'edit').length}
+                {versions.length}
               </span>
             </button>
           )}
@@ -388,13 +396,12 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
             <CalendarClock className="h-3 w-3" />
             <span>{t('postponeReasons')}</span>
             <span className="text-muted-foreground/50">
-              ({history.filter(h => h.action_type === 'postponed').length})
+              ({actions.length})
             </span>
           </div>
           <div className="space-y-2 overflow-y-auto">
-            {history.filter(h => h.action_type === 'postponed').length > 0 ? (
-              history
-                .filter(h => h.action_type === 'postponed')
+            {actions.length > 0 ? (
+              actions
                 .map((entry) => (
                 <div
                   key={entry.id}
@@ -433,7 +440,7 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <span className="text-xs text-muted-foreground/60 whitespace-nowrap">
-                      {new Date(entry.changed_at).toLocaleDateString(i18n.language, {
+                      {new Date(entry.created_at).toLocaleDateString(i18n.language, {
                         day: 'numeric',
                         month: 'short',
                         year: 'numeric',
@@ -470,18 +477,17 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
       )}
 
       {/* Version history section */}
-      {showVersionHistory && history.filter(h => h.action_type === 'edit').length > 0 && (
+      {showVersionHistory && versions.length > 0 && (
         <div className="border-t border-dashed border-muted-foreground/20 pt-3 mt-3 max-h-[25%] flex flex-col shrink-0">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70 mb-2 shrink-0">
             <History className="h-3 w-3" />
             <span>{t('versionHistory')}</span>
             <span className="text-muted-foreground/50">
-              ({history.filter(h => h.action_type === 'edit').length})
+              ({versions.length})
             </span>
           </div>
           <div className="space-y-2 overflow-y-auto">
-            {history
-              .filter(h => h.action_type === 'edit')
+            {versions
               .map((entry) => (
                 <div
                   key={entry.id}
@@ -501,7 +507,7 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <span className="text-xs text-muted-foreground/60 whitespace-nowrap">
-                        {new Date(entry.changed_at).toLocaleDateString(i18n.language, {
+                        {new Date(entry.created_at).toLocaleDateString(i18n.language, {
                           day: 'numeric',
                           month: 'short',
                           year: 'numeric',

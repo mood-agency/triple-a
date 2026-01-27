@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import type { SyncStatus } from '@/store/schema';
 import { generateId, now } from '@/store/schema';
 
-export type SyncTable = 'notes' | 'labels' | 'contacts' | 'note_history' | 'note_labels' | 'projects';
+export type SyncTable = 'notes' | 'labels' | 'contacts' | 'note_versions' | 'note_actions' | 'note_labels' | 'projects';
 
 interface SyncProgress {
   table: string;
@@ -70,7 +70,7 @@ export class SupabaseDataSync {
   async pushChanges(): Promise<void> {
     if (!supabase) return;
 
-    const tables: SyncTable[] = ['contacts', 'labels', 'projects', 'notes', 'note_labels', 'note_history'];
+    const tables: SyncTable[] = ['contacts', 'labels', 'projects', 'notes', 'note_labels', 'note_versions', 'note_actions'];
 
     for (const tableName of tables) {
       try {
@@ -120,6 +120,35 @@ export class SupabaseDataSync {
     // Prepare data for Supabase (remove local-only fields)
     const supabaseData = await this.prepareForSupabase(tableName, localId, row);
 
+    // Special handling for note_labels (junction table with composite primary key)
+    if (tableName === 'note_labels') {
+      // note_labels uses composite key (note_id, label_id), no separate id field
+      // Check if exists by matching both keys
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const existing = await (client as any)
+        .from(tableName)
+        .select('*')
+        .eq('note_id', supabaseData.note_id as string)
+        .eq('label_id', supabaseData.label_id as string)
+        .eq('user_id', this.userId)
+        .maybeSingle();
+
+      if (existing.data) {
+        // Already exists, just mark as synced
+        this.markSynced(tableName, localId);
+      } else {
+        // Insert new record
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (client as any)
+          .from(tableName)
+          .insert({ ...supabaseData, user_id: this.userId });
+
+        if (error) throw error;
+        this.markSynced(tableName, localId);
+      }
+      return; // Exit early for note_labels
+    }
+
     if (deletedAt) {
       // Soft delete - update with deleted_at timestamp
       if (remoteId) {
@@ -134,7 +163,7 @@ export class SupabaseDataSync {
     } else if (remoteId) {
       // Update existing record
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (client.from(tableName) as any).update(supabaseData).eq('id', remoteId);
+      const { error} = await (client.from(tableName) as any).update(supabaseData).eq('id', remoteId);
 
       if (error) throw error;
       this.markSynced(tableName, localId);
@@ -201,9 +230,12 @@ export class SupabaseDataSync {
       if (label?.remote_id) data.label_id = label.remote_id;
     }
 
-    if (tableName === 'note_history') {
+    // Map foreign keys for new history tables
+    if (tableName === 'note_versions' || tableName === 'note_actions') {
       const note = this.store.getRow('notes', data.note_id as string);
-      if (note?.remote_id) data.note_id = note.remote_id;
+      if (note?.remote_id) {
+        data.note_id = note.remote_id;
+      }
     }
 
     return data;
@@ -233,7 +265,8 @@ export class SupabaseDataSync {
     await this.pullTable('projects', lastSyncedAt);
     await this.pullTable('notes', lastSyncedAt);
     await this.pullTable('note_labels', lastSyncedAt);
-    await this.pullTable('note_history', lastSyncedAt);
+    await this.pullTable('note_versions', lastSyncedAt);
+    await this.pullTable('note_actions', lastSyncedAt);
   }
 
   /**
@@ -248,7 +281,11 @@ export class SupabaseDataSync {
       // Incremental sync if we have a last sync timestamp
       // Use gte (greater than or equal) to include changes at the exact same timestamp
       if (lastSyncedAt) {
-        query = query.gte('updated_at', lastSyncedAt);
+        // note_versions and note_actions only have created_at, not updated_at
+        const timestampField = (tableName === 'note_versions' || tableName === 'note_actions')
+          ? 'created_at'
+          : 'updated_at';
+        query = query.gte(timestampField, lastSyncedAt);
       }
 
       const { data, error } = await query;
@@ -347,9 +384,12 @@ export class SupabaseDataSync {
       data.label_id = localLabelId || data.label_id;
     }
 
-    if (tableName === 'note_history') {
+    // Reverse map foreign keys for new history tables
+    if (tableName === 'note_versions' || tableName === 'note_actions') {
       const localNoteId = this.findLocalIdByRemoteId('notes', data.note_id as string);
-      data.note_id = localNoteId || data.note_id;
+      if (localNoteId) {
+        data.note_id = localNoteId;
+      }
     }
 
     return data;
@@ -376,7 +416,7 @@ export class SupabaseDataSync {
 
     this.isSyncing = true;
     try {
-      const tables: SyncTable[] = ['contacts', 'labels', 'projects', 'notes', 'note_labels', 'note_history'];
+      const tables: SyncTable[] = ['contacts', 'labels', 'projects', 'notes', 'note_labels', 'note_versions', 'note_actions'];
 
       for (const tableName of tables) {
         const { data, error } = await supabase
@@ -414,7 +454,7 @@ export class SupabaseDataSync {
 
     this.isSyncing = true;
     try {
-      const tables: SyncTable[] = ['contacts', 'labels', 'projects', 'notes', 'note_labels', 'note_history'];
+      const tables: SyncTable[] = ['contacts', 'labels', 'projects', 'notes', 'note_labels', 'note_versions', 'note_actions'];
 
       for (const tableName of tables) {
         const table = this.store.getTable(tableName) || {};

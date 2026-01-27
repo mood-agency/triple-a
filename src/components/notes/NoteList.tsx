@@ -26,10 +26,10 @@ import { Button } from '@/components/ui/button';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { useSettings } from '@/hooks/useSettings';
 import { useContacts } from '@/hooks/useContacts';
-import type { Note, NoteCategory, Label, NoteHistory } from '@/types/note';
+import type { Note, NoteCategory, Label, NoteVersion } from '@/types/note';
 import { EMPTY_LABELS } from '@/constants/notes';
 import { useLabels } from '@/hooks/useLabels';
-import { useNoteHistory } from '@/hooks/useNoteHistory';
+import { useNoteVersionsAndActions } from '@/hooks/useNoteVersionsAndActions';
 import { useDeletedNotes } from '@/hooks/useDeletedNotes';
 import { NoteEditorPanel } from './NoteEditorPanel';
 import { PostponeDialog } from './PostponeDialog';
@@ -241,13 +241,13 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     }
   }, [fixedNoteId, setFixedNoteId, setShowSidebar]);
 
-  // History
+  // History (versions and actions)
   const noteForSidebar = fixedNote ?? selectedNote;
-  const { history, deleteHistoryEntry, updateHistoryReason, reload: reloadHistory } = useNoteHistory(noteForSidebar?.id ?? null);
+  const { versions, actions, deleteAction, updateReason, reload: reloadHistory } = useNoteVersionsAndActions(noteForSidebar?.id ?? null);
   const [historyEntryToDelete, setHistoryEntryToDelete] = useState<string | null>(null);
   const [editingHistoryEntry, setEditingHistoryEntry] = useState<{ id: string; reason: string } | null>(null);
 
-  const { history: fixedNoteHistory, deleteHistoryEntry: deleteFixedNoteHistoryEntry, updateHistoryReason: updateFixedNoteHistoryReason } = useNoteHistory(fixedNote?.id ?? null);
+  const { versions: fixedNoteVersions, actions: fixedNoteActions, deleteAction: deleteFixedNoteAction, updateReason: updateFixedNoteReason } = useNoteVersionsAndActions(fixedNote?.id ?? null);
   const [fixedNoteHistoryEntryToDelete, setFixedNoteHistoryEntryToDelete] = useState<string | null>(null);
   const [editingFixedNoteHistoryEntry, setEditingFixedNoteHistoryEntry] = useState<{ id: string; reason: string } | null>(null);
 
@@ -367,7 +367,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   }, [createLabel, addLabelToNote]);
 
   // Version history restore handlers
-  const handleRestoreVersion = useCallback((entry: NoteHistory) => {
+  const handleRestoreVersion = useCallback((entry: NoteVersion) => {
     if (selectedNote) {
       selection.setDescriptionValue(entry.description || '');
       onEdit(selectedNote.id, selectedNote.content, selectedNote.category, entry.description);
@@ -375,7 +375,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     }
   }, [selectedNote, selection, onEdit]);
 
-  const handleFixedNoteRestoreVersion = useCallback((entry: NoteHistory) => {
+  const handleFixedNoteRestoreVersion = useCallback((entry: NoteVersion) => {
     if (fixedNote) {
       setFixedNoteDescriptionValue(entry.description || '');
       onEdit(fixedNote.id, fixedNote.content, fixedNote.category, entry.description);
@@ -766,7 +766,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               titleValue={selection.titleValue}
               showPostponeHistory={showPostponeHistory}
               showVersionHistory={showVersionHistory}
-              history={history}
+              versions={versions}
+              actions={actions}
               labelDropdownOpen={labelDropdownOpen}
               categoryDropdownOpen={categoryDropdownOpen}
               deadlinePickerOpen={deadlinePickerOpen}
@@ -794,7 +795,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onDeadlinePickerOpenChange={handleDeadlinePickerOpenChange}
               onAssigneePickerOpenChange={handleAssigneePickerOpenChange}
               onEditHistoryEntry={(entry) => setEditingHistoryEntry(entry)}
-              onUpdateHistoryReason={updateHistoryReason}
+              onUpdateHistoryReason={updateReason}
               onDeleteHistoryEntry={(id) => setHistoryEntryToDelete(id)}
               onSetEditingHistoryEntry={setEditingHistoryEntry}
               onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !selectedNote.completed)}
@@ -815,7 +816,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 descriptionValue={fixedNoteDescriptionValue}
                 showPostponeHistory={fixedNoteShowPostponeHistory}
                 showVersionHistory={fixedNoteShowVersionHistory}
-                history={fixedNoteHistory}
+                versions={fixedNoteVersions}
+                actions={fixedNoteActions}
                 labelDropdownOpen={fixedNoteLabelDropdownOpen}
                 categoryDropdownOpen={fixedNoteCategoryDropdownOpen}
                 deadlinePickerOpen={fixedNoteDeadlinePickerOpen}
@@ -842,7 +844,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 onDeadlinePickerOpenChange={handleFixedNoteDeadlinePickerOpenChange}
                 onAssigneePickerOpenChange={setFixedNoteAssigneePickerOpen}
                 onEditHistoryEntry={(entry) => setEditingFixedNoteHistoryEntry(entry)}
-                onUpdateHistoryReason={updateFixedNoteHistoryReason}
+                onUpdateHistoryReason={updateFixedNoteReason}
                 onDeleteHistoryEntry={(id) => setFixedNoteHistoryEntryToDelete(id)}
                 onSetEditingHistoryEntry={setEditingFixedNoteHistoryEntry}
                 onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !fixedNote.completed)}
@@ -962,7 +964,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               variant="destructive"
               onClick={() => {
                 if (historyEntryToDelete) {
-                  deleteHistoryEntry(historyEntryToDelete);
+                  deleteAction(historyEntryToDelete);
                   setHistoryEntryToDelete(null);
                 }
               }}
@@ -987,7 +989,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               variant="destructive"
               onClick={() => {
                 if (fixedNoteHistoryEntryToDelete) {
-                  deleteFixedNoteHistoryEntry(fixedNoteHistoryEntryToDelete);
+                  deleteFixedNoteAction(fixedNoteHistoryEntryToDelete);
                   setFixedNoteHistoryEntryToDelete(null);
                 }
               }}
