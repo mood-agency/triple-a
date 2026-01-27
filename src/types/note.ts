@@ -33,6 +33,7 @@ export interface Note {
   gcal_event_id?: string | null;
 }
 
+// Legacy interface for backward compatibility
 export interface NoteHistory {
   id: string;
   note_id: string;
@@ -44,6 +45,28 @@ export interface NoteHistory {
   action_type: ChangelogActionType;
   reason: string | null;
   previous_date: string | null;
+}
+
+// New interfaces for separated history system
+export interface NoteVersion {
+  id: string;
+  note_id: string;
+  content: string;
+  description: string | null;
+  category: NoteCategory;
+  completed: boolean;
+  version_number: number;
+  created_at: string;
+}
+
+export interface NoteAction {
+  id: string;
+  note_id: string;
+  action_type: 'postponed';
+  reason: string | null;
+  previous_date: string | null;
+  new_date: string | null;
+  created_at: string;
 }
 
 export interface Label {
@@ -69,7 +92,9 @@ export interface ExportData {
   version: string;
   exportedAt: string;
   notes: Note[];
-  noteHistory: NoteHistory[];
+  noteHistory?: NoteHistory[]; // Legacy field for backward compatibility
+  noteVersions?: NoteVersion[];
+  noteActions?: NoteAction[];
   labels?: Label[];
   noteLabels?: NoteLabel[];
 }
@@ -78,5 +103,7 @@ export interface ImportResult {
   success: boolean;
   notesImported: number;
   historyImported: number;
+  versionsImported?: number;
+  actionsImported?: number;
   errors: string[];
 }

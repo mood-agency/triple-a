@@ -51,6 +51,7 @@ export interface NoteLabelRow {
   created_at: string;
 }
 
+// Legacy interface for backward compatibility
 export interface NoteHistoryRow {
   note_id: string;
   content: string;
@@ -61,6 +62,32 @@ export interface NoteHistoryRow {
   action_type: ChangelogActionType;
   reason: string | null;
   previous_date: string | null;
+}
+
+// New interfaces for separated history system
+export interface NoteVersionRow {
+  note_id: string;
+  content: string;
+  description: string | null;
+  category: NoteCategory;
+  completed: boolean;
+  version_number: number;
+  created_at: string;
+  remote_id: string | null;
+  sync_status: SyncStatus;
+  last_synced_at: string | null;
+}
+
+export interface NoteActionRow {
+  note_id: string;
+  action_type: 'postponed';
+  reason: string | null;
+  previous_date: string | null;
+  new_date: string | null;
+  created_at: string;
+  remote_id: string | null;
+  sync_status: SyncStatus;
+  last_synced_at: string | null;
 }
 
 export interface ContactRow {
@@ -110,7 +137,9 @@ export interface AppTables {
   notes: Record<string, NoteRow>;
   labels: Record<string, LabelRow>;
   note_labels: Record<string, NoteLabelRow>;
-  note_history: Record<string, NoteHistoryRow>;
+  note_history: Record<string, NoteHistoryRow>; // Legacy, kept for backward compatibility
+  note_versions: Record<string, NoteVersionRow>; // New: content snapshots
+  note_actions: Record<string, NoteActionRow>; // New: action metadata
   contacts: Record<string, ContactRow>;
   projects: Record<string, ProjectRow>;
   pending_sync: Record<string, PendingSyncRow>;

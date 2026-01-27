@@ -3,6 +3,32 @@ import { useTinyBase } from '@/contexts/TinyBaseContext';
 import type { Note, NoteCategory } from '@/types/note';
 import { generateId, now } from '@/store/schema';
 import { formatLocalDate } from '@/utils/dateUtils';
+import type { MergeableStore } from 'tinybase';
+
+/**
+ * Cleanup old versions to maintain storage efficiency
+ * Keeps only the most recent maxVersions for each note
+ */
+function cleanupOldVersions(store: MergeableStore, noteId: string, maxVersions = 50): void {
+  const versionsTable = store.getTable('note_versions') || {};
+
+  // Get all versions for this note
+  const versions = Object.entries(versionsTable)
+    .filter(([, v]) => (v as Record<string, unknown>).note_id === noteId)
+    .map(([id, v]) => ({
+      id,
+      version_number: (v as Record<string, unknown>).version_number as number,
+    }))
+    .sort((a, b) => b.version_number - a.version_number); // DESC
+
+  // Delete versions beyond maxVersions
+  if (versions.length > maxVersions) {
+    const toDelete = versions.slice(maxVersions);
+    toDelete.forEach(({ id }) => {
+      store.delRow('note_versions', id);
+    });
+  }
+}
 
 interface UseNotesStoreOptions {
   date?: string;
@@ -43,7 +69,7 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
     console.log('[useNotesStore] loadNotes called with projectId:', projectId);
 
     const notesTable = store.getTable('notes') || {};
-    const historyTable = store.getTable('note_history') || {};
+    const actionsTable = store.getTable('note_actions') || {};
 
     // Convert to array and filter
     const notesList: Note[] = Object.entries(notesTable)
@@ -60,21 +86,21 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
       .map(([id, noteRow]) => {
         const row = noteRow as Record<string, unknown>;
 
-        // Find last postpone reason from history
+        // Find last postpone reason from actions table
         let lastPostponeReason: string | null = null;
-        const noteHistoryEntries = Object.values(historyTable)
-          .filter((h) => {
-            const histRow = h as Record<string, unknown>;
-            return histRow.note_id === id && histRow.action_type === 'postponed';
+        const postponeActions = Object.values(actionsTable)
+          .filter((a) => {
+            const action = a as Record<string, unknown>;
+            return action.note_id === id && action.action_type === 'postponed';
           })
           .sort((a, b) => {
-            const aTime = (a as Record<string, unknown>).changed_at as string;
-            const bTime = (b as Record<string, unknown>).changed_at as string;
+            const aTime = (a as Record<string, unknown>).created_at as string;
+            const bTime = (b as Record<string, unknown>).created_at as string;
             return bTime.localeCompare(aTime);
           });
 
-        if (noteHistoryEntries.length > 0) {
-          lastPostponeReason = (noteHistoryEntries[0] as Record<string, unknown>).reason as string | null;
+        if (postponeActions.length > 0) {
+          lastPostponeReason = (postponeActions[0] as Record<string, unknown>).reason as string | null;
         }
 
         return {
@@ -175,18 +201,15 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         last_synced_at: null,
       });
 
-      // Save initial history entry
-      const historyId = generateId();
-      store.setRow('note_history', historyId, {
+      // Save initial version entry
+      const versionId = generateId();
+      store.setRow('note_versions', versionId, {
         note_id: id,
         content,
         description: description || null,
         category,
         completed: false,
-        changed_at: timestamp,
-        action_type: 'created',
-        reason: null,
-        previous_date: null,
+        version_number: 1, // First version
         created_at: timestamp,
         remote_id: null,
         sync_status: 'local',
@@ -296,18 +319,15 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         });
       }
 
-      // Save initial history entry
-      const historyId = generateId();
-      store.setRow('note_history', historyId, {
+      // Save initial version entry
+      const versionId = generateId();
+      store.setRow('note_versions', versionId, {
         note_id: id,
         content: '',
         description: null,
         category,
         completed: false,
-        changed_at: timestamp,
-        action_type: 'created',
-        reason: null,
-        previous_date: null,
+        version_number: 1, // First version
         created_at: timestamp,
         remote_id: null,
         sync_status: 'local',
@@ -368,23 +388,32 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
 
       store.setPartialRow('notes', id, updates as Record<string, string | number | boolean>);
 
-      // Save history entry
-      const historyId = generateId();
-      store.setRow('note_history', historyId, {
+      // Calculate next version number
+      const versionsTable = store.getTable('note_versions') || {};
+      const existingVersions = Object.values(versionsTable)
+        .filter((v) => (v as Record<string, unknown>).note_id === id);
+      const maxVersion = existingVersions.reduce(
+        (max, v) => Math.max(max, (v as Record<string, unknown>).version_number as number),
+        0
+      );
+
+      // Save version entry
+      const versionId = generateId();
+      store.setRow('note_versions', versionId, {
         note_id: id,
         content,
         description: description ?? (existingNote.description as string | null),
         category: category ?? (existingNote.category as NoteCategory),
         completed: existingNote.completed as boolean,
-        changed_at: timestamp,
-        action_type: 'edit',
-        reason: null,
-        previous_date: null,
+        version_number: maxVersion + 1,
         created_at: timestamp,
         remote_id: null,
         sync_status: 'local',
         last_synced_at: null,
       });
+
+      // Cleanup old versions (keep max 50)
+      cleanupOldVersions(store, id, 50);
     },
     [store]
   );
@@ -443,23 +472,7 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         sync_status: 'pending',
       });
 
-      // Save history entry
-      const historyId = generateId();
-      store.setRow('note_history', historyId, {
-        note_id: id,
-        content: existingNote.content as string,
-        description: existingNote.description as string | null,
-        category: existingNote.category as NoteCategory,
-        completed,
-        changed_at: timestamp,
-        action_type: completed ? 'completed' : 'uncompleted',
-        reason: null,
-        previous_date: null,
-        created_at: timestamp,
-        remote_id: null,
-        sync_status: 'local',
-        last_synced_at: null,
-      });
+      // No history entry for completed/uncompleted actions (optimization)
     },
     [store]
   );
@@ -553,29 +566,25 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         sync_status: 'pending',
       });
 
-      // Save history entry with postpone info
-      const historyId = generateId();
-      const historyEntry = {
+      // Save lightweight action entry (no content/description for efficiency)
+      const actionId = generateId();
+      const actionEntry = {
         note_id: id,
-        content: existingNote.content as string,
-        description: existingNote.description as string | null,
-        category: existingNote.category as NoteCategory,
-        completed: existingNote.completed as boolean,
-        changed_at: timestamp,
-        action_type: 'postponed',
+        action_type: 'postponed' as const,
         reason: reason || null,
         previous_date: previousDeadline,
+        new_date: newDeadline,
         created_at: timestamp,
         remote_id: null,
-        sync_status: 'local',
+        sync_status: 'local' as const,
         last_synced_at: null,
       };
-      console.log('[postponeNote] Saving history entry:', historyEntry);
-      store.setRow('note_history', historyId, historyEntry);
+      console.log('[postponeNote] Saving action entry:', actionEntry);
+      store.setRow('note_actions', actionId, actionEntry);
 
       // Verify it was saved
-      const saved = store.getRow('note_history', historyId);
-      console.log('[postponeNote] Saved history entry:', saved);
+      const saved = store.getRow('note_actions', actionId);
+      console.log('[postponeNote] Saved action entry:', saved);
     },
     [store]
   );

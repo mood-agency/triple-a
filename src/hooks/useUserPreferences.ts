@@ -196,8 +196,8 @@ export function useUserPreferences(
               beeperToken: newData.beeper_token,
             });
             updateSettings({
-              showSidebar: newData.show_sidebar,
-              autoSync: newData.auto_sync,
+              showSidebar: newData.show_sidebar ?? undefined,
+              autoSync: newData.auto_sync ?? undefined,
               fixedNoteId: newData.fixed_note_id,
               beeperToken: newData.beeper_token,
             });
