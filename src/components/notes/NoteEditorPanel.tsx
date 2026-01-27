@@ -1,7 +1,7 @@
 import { forwardRef, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus, Calendar, Layers, PanelRightClose } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus, Calendar, Layers, PanelRightClose, History, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
@@ -31,6 +31,7 @@ interface NoteEditorPanelProps {
   descriptionValue: string;
   titleValue?: string;
   showPostponeHistory: boolean;
+  showVersionHistory: boolean;
   history: NoteHistory[];
   labelDropdownOpen: boolean;
   categoryDropdownOpen: boolean;
@@ -45,6 +46,8 @@ interface NoteEditorPanelProps {
   onDescriptionFocus?: () => void;
   onDescriptionKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   onTogglePostponeHistory: () => void;
+  onToggleVersionHistory: () => void;
+  onRestoreVersion?: (historyEntry: NoteHistory) => void;
   onAddLabel: (labelId: string) => void;
   onRemoveLabel: (labelId: string) => void;
   onEditLabel: (label: Label) => void;
@@ -65,6 +68,24 @@ interface NoteEditorPanelProps {
   onClose?: () => void;
 }
 
+// Helper to parse description preview from TipTap JSON or plain text
+const parseDescriptionPreview = (description: string): string => {
+  if (!description) return '';
+  try {
+    const parsed = JSON.parse(description);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const extractText = (node: any): string => {
+      if (typeof node === 'string') return node;
+      if (node.text) return node.text;
+      if (node.content) return node.content.map(extractText).join(' ');
+      return '';
+    };
+    return extractText(parsed).trim().substring(0, 200);
+  } catch {
+    return description.substring(0, 200);
+  }
+};
+
 export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEditorPanelProps>(function NoteEditorPanel({
   note,
   noteLabels,
@@ -72,6 +93,7 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
   descriptionValue,
   titleValue,
   showPostponeHistory,
+  showVersionHistory,
   history,
   labelDropdownOpen,
   categoryDropdownOpen,
@@ -85,6 +107,8 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
   onDescriptionFocus,
   onDescriptionKeyDown,
   onTogglePostponeHistory,
+  onToggleVersionHistory,
+  onRestoreVersion,
   onAddLabel,
   onRemoveLabel,
   onEditLabel,
@@ -337,6 +361,20 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
               {new Date(note.created_at).toLocaleString()}
             </p>
           )}
+          {/* Version history toggle */}
+          {history.filter(h => h.action_type === 'edit').length > 0 && (
+            <button
+              type="button"
+              onClick={onToggleVersionHistory}
+              className="flex items-center gap-2 text-xs font-normal text-muted-foreground/70 hover:text-muted-foreground transition-colors text-left w-full"
+            >
+              <History className="h-3 w-3 shrink-0" />
+              <span className="flex-1">{t('versionHistory')}</span>
+              <span className="text-[10px] text-muted-foreground/50 bg-muted px-1.5 py-0.5 rounded-full shrink-0">
+                {history.filter(h => h.action_type === 'edit').length}
+              </span>
+            </button>
+          )}
         </div>
       )}
 
@@ -415,6 +453,64 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Version history section */}
+      {showVersionHistory && history.filter(h => h.action_type === 'edit').length > 0 && (
+        <div className="border-t border-dashed border-muted-foreground/20 pt-3 mt-3 max-h-[25%] flex flex-col shrink-0">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70 mb-2 shrink-0">
+            <History className="h-3 w-3" />
+            <span>{t('versionHistory')}</span>
+            <span className="text-muted-foreground/50">
+              ({history.filter(h => h.action_type === 'edit').length})
+            </span>
+          </div>
+          <div className="space-y-2 overflow-y-auto">
+            {history
+              .filter(h => h.action_type === 'edit')
+              .map((entry) => (
+                <div
+                  key={entry.id}
+                  className="group text-sm text-muted-foreground bg-muted/30 rounded-md px-3 py-2 relative"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      {entry.description ? (
+                        <p className="text-xs text-muted-foreground/80 line-clamp-3 whitespace-pre-wrap">
+                          {parseDescriptionPreview(entry.description)}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground/50 italic">
+                          {t('noDescription')}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="text-xs text-muted-foreground/60 whitespace-nowrap">
+                        {new Date(entry.changed_at).toLocaleDateString(i18n.language, {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                      {onRestoreVersion && (
+                        <button
+                          type="button"
+                          onClick={() => onRestoreVersion(entry)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded text-muted-foreground/60 hover:text-foreground"
+                          title={t('restoreVersion')}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/button';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { useSettings } from '@/hooks/useSettings';
 import { useContacts } from '@/hooks/useContacts';
-import type { Note, NoteCategory, Label } from '@/types/note';
+import type { Note, NoteCategory, Label, NoteHistory } from '@/types/note';
 import { EMPTY_LABELS } from '@/constants/notes';
 import { useLabels } from '@/hooks/useLabels';
 import { useNoteHistory } from '@/hooks/useNoteHistory';
@@ -265,6 +265,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [pendingPostponeDate, setPendingPostponeDate] = useState<Date | null>(null);
   const [showEditorDeleteDialog, setShowEditorDeleteDialog] = useState(false);
   const [showPostponeHistory, setShowPostponeHistory] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [deadlinePickerOpen, setDeadlinePickerOpen] = useState(false);
   const originalDeadlineRef = useRef<string | null>(null);
   const [assigneePickerOpen, setAssigneePickerOpen] = useState(false);
@@ -278,6 +279,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const [fixedNoteAssigneePickerOpen, setFixedNoteAssigneePickerOpen] = useState(false);
   const [fixedNoteDescriptionValue, setFixedNoteDescriptionValue] = useState('');
   const [fixedNoteShowPostponeHistory, setFixedNoteShowPostponeHistory] = useState(false);
+  const [fixedNoteShowVersionHistory, setFixedNoteShowVersionHistory] = useState(false);
   const fixedNoteDescriptionRef = useRef<any>(null);
   const [showFixedNoteDeleteDialog, setShowFixedNoteDeleteDialog] = useState(false);
 
@@ -294,11 +296,13 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
   useEffect(() => {
     setShowPostponeHistory(false);
+    setShowVersionHistory(false);
   }, [selectedNote]);
 
   useEffect(() => {
     setFixedNoteDescriptionValue(fixedNote?.description || '');
     setFixedNoteShowPostponeHistory(false);
+    setFixedNoteShowVersionHistory(false);
   }, [fixedNote]);
 
   // Label Handlers
@@ -359,6 +363,23 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     const newLabel = await createLabel(labelName);
     if (newLabel) await addLabelToNote(noteId, newLabel.id);
   }, [createLabel, addLabelToNote]);
+
+  // Version history restore handlers
+  const handleRestoreVersion = useCallback((entry: NoteHistory) => {
+    if (selectedNote) {
+      selection.setDescriptionValue(entry.description || '');
+      onEdit(selectedNote.id, selectedNote.content, selectedNote.category, entry.description);
+      setShowVersionHistory(false);
+    }
+  }, [selectedNote, selection, onEdit]);
+
+  const handleFixedNoteRestoreVersion = useCallback((entry: NoteHistory) => {
+    if (fixedNote) {
+      setFixedNoteDescriptionValue(entry.description || '');
+      onEdit(fixedNote.id, fixedNote.content, fixedNote.category, entry.description);
+      setFixedNoteShowVersionHistory(false);
+    }
+  }, [fixedNote, onEdit]);
 
   // PERFORMANCE: Stabilized callbacks for NoteListContent
   const handleSelectNoteById = useCallback((id: string) => {
@@ -732,6 +753,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               descriptionValue={selection.descriptionValue}
               titleValue={selection.titleValue}
               showPostponeHistory={showPostponeHistory}
+              showVersionHistory={showVersionHistory}
               history={history}
               labelDropdownOpen={labelDropdownOpen}
               categoryDropdownOpen={categoryDropdownOpen}
@@ -745,6 +767,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onDescriptionFocus={handleDescriptionFocus}
               onDescriptionKeyDown={handleDescriptionKeyDown}
               onTogglePostponeHistory={() => setShowPostponeHistory(!showPostponeHistory)}
+              onToggleVersionHistory={() => setShowVersionHistory(!showVersionHistory)}
+              onRestoreVersion={handleRestoreVersion}
               onAddLabel={handleAddLabel}
               onRemoveLabel={handleRemoveLabel}
               onEditLabel={handleEditLabel}
@@ -777,6 +801,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 allLabels={labels}
                 descriptionValue={fixedNoteDescriptionValue}
                 showPostponeHistory={fixedNoteShowPostponeHistory}
+                showVersionHistory={fixedNoteShowVersionHistory}
                 history={fixedNoteHistory}
                 labelDropdownOpen={fixedNoteLabelDropdownOpen}
                 categoryDropdownOpen={fixedNoteCategoryDropdownOpen}
@@ -789,6 +814,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 onDescriptionBlur={handleFixedNoteDescriptionBlur}
                 onDescriptionKeyDown={handleFixedNoteDescriptionKeyDown}
                 onTogglePostponeHistory={() => setFixedNoteShowPostponeHistory(!fixedNoteShowPostponeHistory)}
+                onToggleVersionHistory={() => setFixedNoteShowVersionHistory(!fixedNoteShowVersionHistory)}
+                onRestoreVersion={handleFixedNoteRestoreVersion}
                 onAddLabel={handleFixedNoteAddLabel}
                 onRemoveLabel={handleFixedNoteRemoveLabel}
                 onEditLabel={handleEditLabel}

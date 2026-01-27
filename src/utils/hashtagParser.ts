@@ -6,6 +6,10 @@ import type { Contact } from '@/types/contact';
 // Requiere espacio o inicio de string antes del #
 const HASHTAG_REGEX = /(?:^|\s)#([\p{L}\p{N}_-]+)/gu;
 
+// Regex para extraer @mentions (para responsables/contactos)
+// Requiere espacio o inicio de string antes del @
+const MENTION_REGEX = /(?:^|\s)@([\p{L}\p{N}_-]+)/gu;
+
 const VALID_CATEGORIES: NoteCategory[] = ['todo', 'followup', 'notes', 'meeting'];
 
 // Fuse.js base options
@@ -42,6 +46,14 @@ export interface HashtagParseResult {
  */
 export function extractHashtags(content: string): string[] {
   const matches = content.matchAll(HASHTAG_REGEX);
+  return Array.from(matches, m => m[1]);
+}
+
+/**
+ * Extrae todas las @mentions de un string de contenido
+ */
+export function extractMentions(content: string): string[] {
+  const matches = content.matchAll(MENTION_REGEX);
   return Array.from(matches, m => m[1]);
 }
 
@@ -86,19 +98,24 @@ function findLabelMatch(query: string, labels: Label[]): Label | null {
 }
 
 /**
- * Parsea hashtags del contenido y los resuelve a categorías, contactos y labels
+ * Parsea hashtags y @mentions del contenido y los resuelve a categorías, contactos y labels
  *
- * Orden de prioridad:
- * 1. Categorías (todo, followup, notes, meeting)
- * 2. Contactos (por nombre o apellido, fuzzy match)
- * 3. Labels existentes (por nombre, fuzzy match)
- * 4. Crear nuevo label si no hay match
+ * Sintaxis:
+ * - @mention → Responsable (contacto por nombre o apellido, fuzzy match)
+ * - #hashtag → Categoría, label existente, o nuevo label
+ *
+ * Orden de procesamiento:
+ * 1. @mentions → Contactos (solo el primero se asigna como responsable)
+ * 2. #hashtags → Categorías (todo, followup, notes, meeting)
+ * 3. #hashtags → Labels existentes (por nombre, fuzzy match)
+ * 4. #hashtags → Crear nuevo label si no hay match
  */
 export function parseHashtags(
   content: string,
   context: HashtagParseContext
 ): HashtagParseResult {
   const hashtags = extractHashtags(content);
+  const mentions = extractMentions(content);
 
   const result: HashtagParseResult = {
     cleanedContent: content,
@@ -110,79 +127,98 @@ export function parseHashtags(
     parsedHashtags: [],
   };
 
-  if (hashtags.length === 0) {
+  if (hashtags.length === 0 && mentions.length === 0) {
     return result;
   }
 
   const processedTags = new Set<string>();
-  const tagsToRemove = new Set<string>();
+  const hashtagsToRemove = new Set<string>();
+  const mentionsToRemove = new Set<string>();
 
-  for (const tag of hashtags) {
-    // Evitar procesar el mismo tag múltiples veces
-    const normalizedTag = tag.toLowerCase();
-    if (processedTags.has(normalizedTag)) {
-      tagsToRemove.add(tag);
+  // 1. Procesar @mentions para contactos
+  for (const mention of mentions) {
+    const normalizedMention = mention.toLowerCase();
+    if (processedTags.has(`@${normalizedMention}`)) {
+      mentionsToRemove.add(mention);
       continue;
     }
-    processedTags.add(normalizedTag);
+    processedTags.add(`@${normalizedMention}`);
 
-    // 1. Verificar si es una categoría (fuzzy match)
+    const contactMatch = findContactMatch(normalizedMention, context.contacts);
+    if (contactMatch && !result.assigneeId) {
+      result.assigneeId = contactMatch.id;
+      result.parsedHashtags.push({ tag: mention, type: 'contact', matchedId: contactMatch.id });
+    }
+    mentionsToRemove.add(mention);
+  }
+
+  // 2. Procesar #hashtags para categorías y labels
+  for (const tag of hashtags) {
+    const normalizedTag = tag.toLowerCase();
+    if (processedTags.has(`#${normalizedTag}`)) {
+      hashtagsToRemove.add(tag);
+      continue;
+    }
+    processedTags.add(`#${normalizedTag}`);
+
+    // 2a. Verificar si es una categoría (fuzzy match)
     const categoryMatch = findCategoryMatch(normalizedTag);
     if (categoryMatch) {
       result.category = categoryMatch;
       result.parsedHashtags.push({ tag, type: 'category' });
-      tagsToRemove.add(tag);
+      hashtagsToRemove.add(tag);
       continue;
     }
 
-    // 2. Verificar si es un contacto (fuzzy match por nombre o apellido)
-    const contactMatch = findContactMatch(normalizedTag, context.contacts);
-    if (contactMatch && !result.assigneeId) {
-      result.assigneeId = contactMatch.id;
-      result.parsedHashtags.push({ tag, type: 'contact', matchedId: contactMatch.id });
-      tagsToRemove.add(tag);
-      continue;
-    }
-
-    // 3. Verificar si es un label existente (fuzzy match)
+    // 2b. Verificar si es un label existente (fuzzy match)
     const labelMatch = findLabelMatch(normalizedTag, context.labels);
     if (labelMatch) {
       if (!result.labelIds.includes(labelMatch.id)) {
         result.labelIds.push(labelMatch.id);
         result.parsedHashtags.push({ tag, type: 'label', matchedId: labelMatch.id });
       }
-      tagsToRemove.add(tag);
+      hashtagsToRemove.add(tag);
       continue;
     }
 
-    // 4. No hay match - crear nuevo label
+    // 2c. No hay match - crear nuevo label
     if (!result.newLabelNames.includes(tag)) {
       result.newLabelNames.push(tag);
       result.parsedHashtags.push({ tag, type: 'new_label' });
     }
-    tagsToRemove.add(tag);
+    hashtagsToRemove.add(tag);
   }
 
-  // Eliminar los hashtags procesados del contenido
-  if (tagsToRemove.size > 0) {
-    result.cleanedContent = removeHashtagsFromContent(content, tagsToRemove);
+  // Eliminar los hashtags y mentions procesados del contenido
+  if (hashtagsToRemove.size > 0 || mentionsToRemove.size > 0) {
+    result.cleanedContent = removeTagsFromContent(content, hashtagsToRemove, mentionsToRemove);
   }
 
   return result;
 }
 
 /**
- * Elimina los hashtags especificados del contenido
+ * Elimina los hashtags y mentions especificados del contenido
  */
-function removeHashtagsFromContent(content: string, tagsToRemove: Set<string>): string {
+function removeTagsFromContent(
+  content: string,
+  hashtagsToRemove: Set<string>,
+  mentionsToRemove: Set<string>
+): string {
   let cleaned = content;
 
-  for (const tag of tagsToRemove) {
-    // Escapar caracteres especiales de regex en el tag
+  // Remover #hashtags
+  for (const tag of hashtagsToRemove) {
     const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Matchear el hashtag con posible espacio antes
     const tagRegex = new RegExp(`(^|\\s)#${escapedTag}(?=\\s|$)`, 'gi');
     cleaned = cleaned.replace(tagRegex, '$1');
+  }
+
+  // Remover @mentions
+  for (const mention of mentionsToRemove) {
+    const escapedMention = mention.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const mentionRegex = new RegExp(`(^|\\s)@${escapedMention}(?=\\s|$)`, 'gi');
+    cleaned = cleaned.replace(mentionRegex, '$1');
   }
 
   // Limpiar espacios múltiples y trim
