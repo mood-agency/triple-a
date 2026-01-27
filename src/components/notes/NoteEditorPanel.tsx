@@ -1,4 +1,4 @@
-import { forwardRef, useMemo } from 'react';
+import { forwardRef, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus, Calendar, Layers, PanelRightClose } from 'lucide-react';
@@ -65,7 +65,7 @@ interface NoteEditorPanelProps {
   onClose?: () => void;
 }
 
-export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorPanelProps>(function NoteEditorPanel({
+export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEditorPanelProps>(function NoteEditorPanel({
   note,
   noteLabels,
   allLabels,
@@ -127,24 +127,25 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
 
   return (
     <>
-      <EditableTitle
-        noteId={note.id}
-        content={note.content}
-        completed={note.completed}
-        onEdit={handleTitleEdit}
-        onToggleComplete={onToggleComplete}
-        onDelete={onDelete}
-        titleValue={titleValue}
-      />
-
-      {onClose && (
-        <div className="flex justify-end -mt-1 mb-1">
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <EditableTitle
+            noteId={note.id}
+            content={note.content}
+            completed={note.completed}
+            onEdit={handleTitleEdit}
+            onToggleComplete={onToggleComplete}
+            onDelete={onDelete}
+            titleValue={titleValue}
+          />
+        </div>
+        {onClose && (
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors"
+                className="p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors mt-1"
               >
                 <PanelRightClose className="h-4 w-4" />
               </button>
@@ -153,8 +154,8 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
               <p>{t('hideSidebar')}</p>
             </TooltipContent>
           </Tooltip>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Category row */}
       <NoteMetaRow icon={Layers}>
@@ -422,4 +423,4 @@ export const NoteEditorPanel = forwardRef<EditableDescriptionHandle, NoteEditorP
       )}
     </>
   );
-});
+}));
