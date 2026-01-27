@@ -1,9 +1,10 @@
 import { useState, useMemo, useRef } from 'react';
 import type { Note, NoteCategory, Label } from '@/types/note';
-import { parseLocalDate, startOfDay, endOfDay, getLocalDateKey } from '@/utils/dateUtils';
+import { parseLocalDate, startOfDay, endOfDay, getLocalDateKey, formatLocalDate } from '@/utils/dateUtils';
 import { sortNotes, sortCompletedNotes, type NoteSortConfig } from '@/utils/noteUtils';
 import { useContacts } from '@/hooks/useContacts';
-import { getInitials } from '@/lib/utils'; // Assuming this utility exists
+import { getInitials } from '@/lib/utils';
+import { EMPTY_LABELS } from '@/constants/notes';
 
 type SortConfigType = { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null };
 
@@ -157,10 +158,14 @@ export function useNoteFilters({
     };
 
 
-    // Helpers
-    const EMPTY_LABELS: Label[] = useMemo(() => [], []);
+    // PERFORMANCE: Cache searchQuery lowercase to avoid repeated toLowerCase() calls
+    const searchQueryLower = useMemo(() => searchQuery.toLowerCase(), [searchQuery]);
 
-    // Use refs for stable access in callbacks if needed (omitted here unless necessary for specific performance)
+    // PERFORMANCE: Pre-compute calendar date key once instead of 3 times
+    const calendarDateKey = useMemo(() => {
+        if (!calendarSelectedDate) return null;
+        return formatLocalDate(calendarSelectedDate);
+    }, [calendarSelectedDate]);
 
     // PERFORMANCE: Pre-compute assignee names
     const assigneeIdsKey = notes.map(n => n.assignee_id ?? '').join(',');
@@ -187,9 +192,8 @@ export function useNoteFilters({
                 return true;
             }
             // Cuando hay búsqueda, buscar en el contenido sin filtrar por categoría
-            const query = searchQuery.toLowerCase();
-            const titleMatch = note.content.toLowerCase().includes(query);
-            const descriptionMatch = note.description?.toLowerCase().includes(query) ?? false;
+            const titleMatch = note.content.toLowerCase().includes(searchQueryLower);
+            const descriptionMatch = note.description?.toLowerCase().includes(searchQueryLower) ?? false;
             return titleMatch || descriptionMatch;
         }
 
@@ -235,11 +239,10 @@ export function useNoteFilters({
         }
 
         if (!searchQuery.trim()) return true;
-        const query = searchQuery.toLowerCase();
-        const titleMatch = note.content.toLowerCase().includes(query);
-        const descriptionMatch = note.description?.toLowerCase().includes(query) ?? false;
+        const titleMatch = note.content.toLowerCase().includes(searchQueryLower);
+        const descriptionMatch = note.description?.toLowerCase().includes(searchQueryLower) ?? false;
         return titleMatch || descriptionMatch;
-    }), [notes, categoryFilter, labelFilter, assigneeFilter, showOverdueOnly, dateRangeFilter, searchQuery, noteLabelsCache, EMPTY_LABELS]);
+    }), [notes, categoryFilter, labelFilter, assigneeFilter, showOverdueOnly, dateRangeFilter, searchQuery, searchQueryLower, noteLabelsCache]);
 
 
     // Active & Completed
@@ -260,16 +263,12 @@ export function useNoteFilters({
 
     // Calendar Logic
     const calendarFilteredNotes = useMemo(() => {
-        if (!calendarSelectedDate) return [];
-        const year = calendarSelectedDate.getFullYear();
-        const month = String(calendarSelectedDate.getMonth() + 1).padStart(2, '0');
-        const day = String(calendarSelectedDate.getDate()).padStart(2, '0');
-        const dateKey = `${year}-${month}-${day}`;
+        if (!calendarDateKey) return [];
         return notes.filter((note) => {
             if (note.completed) return false;
             if (!note.deadline) return false;
             const noteDeadline = getLocalDateKey(note.deadline);
-            if (noteDeadline !== dateKey) return false;
+            if (noteDeadline !== calendarDateKey) return false;
             if (note.category !== 'todo' && note.category !== 'followup' && note.category !== 'meeting') return false;
             if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
             if (labelFilter.length > 0) {
@@ -280,26 +279,21 @@ export function useNoteFilters({
                 if (!note.assignee_id || !assigneeFilter.includes(note.assignee_id)) return false;
             }
             if (searchQuery.trim()) {
-                const query = searchQuery.toLowerCase();
-                const titleMatch = note.content.toLowerCase().includes(query);
-                const descriptionMatch = note.description?.toLowerCase().includes(query) ?? false;
+                const titleMatch = note.content.toLowerCase().includes(searchQueryLower);
+                const descriptionMatch = note.description?.toLowerCase().includes(searchQueryLower) ?? false;
                 if (!titleMatch && !descriptionMatch) return false;
             }
             return true;
         });
-    }, [notes, calendarSelectedDate, categoryFilter, labelFilter, assigneeFilter, searchQuery, noteLabelsCache, EMPTY_LABELS]);
+    }, [notes, calendarDateKey, categoryFilter, labelFilter, assigneeFilter, searchQuery, searchQueryLower, noteLabelsCache]);
 
     const calendarCompletedNotes = useMemo(() => {
-        if (!calendarSelectedDate) return [];
-        const year = calendarSelectedDate.getFullYear();
-        const month = String(calendarSelectedDate.getMonth() + 1).padStart(2, '0');
-        const day = String(calendarSelectedDate.getDate()).padStart(2, '0');
-        const dateKey = `${year}-${month}-${day}`;
+        if (!calendarDateKey) return [];
         return notes.filter((note) => {
             if (!note.completed) return false;
             if (!note.deadline) return false;
             const noteDeadline = getLocalDateKey(note.deadline);
-            if (noteDeadline !== dateKey) return false;
+            if (noteDeadline !== calendarDateKey) return false;
             if (note.category !== 'todo' && note.category !== 'followup' && note.category !== 'meeting') return false;
             if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
             if (labelFilter.length > 0) {
@@ -310,9 +304,8 @@ export function useNoteFilters({
                 if (!note.assignee_id || !assigneeFilter.includes(note.assignee_id)) return false;
             }
             if (searchQuery.trim()) {
-                const query = searchQuery.toLowerCase();
-                const titleMatch = note.content.toLowerCase().includes(query);
-                const descriptionMatch = note.description?.toLowerCase().includes(query) ?? false;
+                const titleMatch = note.content.toLowerCase().includes(searchQueryLower);
+                const descriptionMatch = note.description?.toLowerCase().includes(searchQueryLower) ?? false;
                 if (!titleMatch && !descriptionMatch) return false;
             }
             return true;
@@ -321,18 +314,14 @@ export function useNoteFilters({
             const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
             return bTime - aTime;
         });
-    }, [notes, calendarSelectedDate, categoryFilter, labelFilter, assigneeFilter, searchQuery, noteLabelsCache, EMPTY_LABELS]);
+    }, [notes, calendarDateKey, categoryFilter, labelFilter, assigneeFilter, searchQuery, searchQueryLower, noteLabelsCache]);
 
     const calendarDeletedNotes = useMemo(() => {
-        if (!calendarSelectedDate) return [];
-        const year = calendarSelectedDate.getFullYear();
-        const month = String(calendarSelectedDate.getMonth() + 1).padStart(2, '0');
-        const day = String(calendarSelectedDate.getDate()).padStart(2, '0');
-        const dateKey = `${year}-${month}-${day}`;
+        if (!calendarDateKey) return [];
         return deletedNotes.filter((note) => {
             if (!note.deadline) return false;
             const noteDeadline = getLocalDateKey(note.deadline);
-            if (noteDeadline !== dateKey) return false;
+            if (noteDeadline !== calendarDateKey) return false;
             if (note.category !== 'todo' && note.category !== 'followup' && note.category !== 'meeting') return false;
             if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
             if (labelFilter.length > 0) {
@@ -343,14 +332,13 @@ export function useNoteFilters({
                 if (!note.assignee_id || !assigneeFilter.includes(note.assignee_id)) return false;
             }
             if (searchQuery.trim()) {
-                const query = searchQuery.toLowerCase();
-                const titleMatch = note.content.toLowerCase().includes(query);
-                const descriptionMatch = note.description?.toLowerCase().includes(query) ?? false;
+                const titleMatch = note.content.toLowerCase().includes(searchQueryLower);
+                const descriptionMatch = note.description?.toLowerCase().includes(searchQueryLower) ?? false;
                 if (!titleMatch && !descriptionMatch) return false;
             }
             return true;
         });
-    }, [deletedNotes, calendarSelectedDate, categoryFilter, labelFilter, assigneeFilter, searchQuery, noteLabelsCache, EMPTY_LABELS]);
+    }, [deletedNotes, calendarDateKey, categoryFilter, labelFilter, assigneeFilter, searchQuery, searchQueryLower, noteLabelsCache]);
 
     filteredNotesRef.current = viewMode === 'calendar'
         ? [...calendarFilteredNotes, ...calendarCompletedNotes]

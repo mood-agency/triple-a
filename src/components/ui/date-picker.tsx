@@ -165,7 +165,7 @@ export function DatePicker({
           variant="ghost"
           size={iconOnly ? "icon" : "sm"}
           className={cn(
-            iconOnly ? "h-8 w-8 shadow-none" : "justify-start text-left font-normal gap-1.5",
+            iconOnly ? "h-8 w-8 shadow-none" : "justify-start text-left font-normal gap-1.5 px-1.5",
             !date && "text-muted-foreground",
             className
           )}

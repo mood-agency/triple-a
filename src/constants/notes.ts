@@ -1,4 +1,4 @@
-import type { NoteCategory } from '@/types/note';
+import type { NoteCategory, Label } from '@/types/note';
 
 /**
  * Category order for sorting notes.
@@ -20,4 +20,4 @@ export const DEFAULT_CATEGORY_ORDER = 99;
  * Empty array constant to avoid creating new array references.
  * Use this when you need an empty labels array to maintain referential equality.
  */
-export const EMPTY_LABELS: never[] = [];
+export const EMPTY_LABELS: Label[] = [];
