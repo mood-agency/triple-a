@@ -62,7 +62,11 @@
     "pullAllConfirm": "Are you sure? This will download all notes and labels from the cloud to your local device.",
     "pulling": "Pulling...",
     "pullSuccess": "Pulled {{notes}} notes, {{labels}} labels, {{noteLabels}} relations and {{contacts}} contacts",
-    "pullError": "Error pulling data"
+    "pullError": "Error pulling data",
+    "offlineBanner": "You're offline. Changes are saved locally.",
+    "backOnline": "Back online. Syncing...",
+    "nowOffline": "You're offline. Changes will be saved locally.",
+    "pendingChanges": "{{count}} pending change(s)"
   },
   "searchNotes": "Search notes...",
   "welcome": "Welcome",
@@ -89,6 +93,8 @@
   "settings": "Settings",
   "settingsMenu": {
     "autoSync": "Automatic sync",
+    "autoSave": "Auto-save",
+    "autoSaveOff": "Off",
     "beeperConfig": "Configure Beeper",
     "beeperDescription": "Configure your Beeper Desktop token to send WhatsApp messages from the app.",
     "beeperToken": "Beeper Token",
@@ -250,6 +256,7 @@
   "selectDate": "Select date",
   "postponeReason": "Reason",
   "postponeReasonPlaceholder": "Why are you postponing this task?",
+  "skipPostponeReason": "I don't need to specify a reason",
   "actionPostponed": "Postponed",
   "postponeReasons": "Postponement reasons",
   "noPostponeReasons": "No reasons recorded",
@@ -581,5 +588,54 @@
     "createTask": "Create Task",
     "errorEmptyTitle": "Title cannot be empty",
     "errorCreating": "Error creating task"
+  },
+  "pwa": {
+    "installApp": "Install app",
+    "installDescription": "Install Triple A on your device for quick access"
+  },
+  "apiKeys": {
+    "title": "API Keys",
+    "description": "Manage API keys for external applications to access your notes",
+    "createNew": "Create New API Key",
+    "empty": {
+      "title": "No API Keys",
+      "description": "Create an API key to allow external applications to access your notes via REST API",
+      "createFirst": "Create API Key"
+    },
+    "never": "Never",
+    "expired": "Expired",
+    "lastUsed": "Last used",
+    "expires": "Expires",
+    "rateLimit": "Rate limit",
+    "requestsPerMinute": "req/min",
+    "scopes": {
+      "read": "Read",
+      "write": "Write",
+      "delete": "Delete",
+      "readDescription": "View notes, labels, projects",
+      "writeDescription": "Create and update notes",
+      "deleteDescription": "Delete notes"
+    },
+    "revokeDialog": {
+      "title": "Revoke API Key?",
+      "description": "This action cannot be undone. Applications using this key will immediately lose access."
+    },
+    "create": {
+      "title": "Create API Key",
+      "description": "Configure permissions and settings for the new API key",
+      "name": "Name",
+      "namePlaceholder": "My Application",
+      "scopes": "Permissions",
+      "rateLimit": "Rate Limit (requests per minute)",
+      "rateLimitHelp": "Maximum number of API requests per minute",
+      "expiresAt": "Expiration Date (optional)",
+      "noExpiration": "No expiration",
+      "createButton": "Create Key",
+      "success": "API Key Created",
+      "saveWarning": "Make sure to copy your API key now. You won't be able to see it again!",
+      "onlyOnce": "This key will only be shown once. Make sure to save it securely.",
+      "keyName": "Name",
+      "apiKey": "API Key"
+    }
   }
 }
