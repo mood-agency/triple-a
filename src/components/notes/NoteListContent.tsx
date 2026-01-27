@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import {
     DndContext,
     closestCenter,
@@ -96,7 +97,7 @@ interface NoteListContentProps {
     onClearAllFilters: () => void;
 }
 
-export function NoteListContent({
+export const NoteListContent = memo(function NoteListContent({
     isMobile,
     notes,
     viewMode,
@@ -428,4 +429,4 @@ export function NoteListContent({
             )}
         </div>
     );
-}
+});

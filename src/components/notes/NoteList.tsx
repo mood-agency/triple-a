@@ -27,6 +27,7 @@ import { ColorPicker } from '@/components/ui/color-picker';
 import { useSettings } from '@/hooks/useSettings';
 import { useContacts } from '@/hooks/useContacts';
 import type { Note, NoteCategory, Label } from '@/types/note';
+import { EMPTY_LABELS } from '@/constants/notes';
 import { useLabels } from '@/hooks/useLabels';
 import { useNoteHistory } from '@/hooks/useNoteHistory';
 import { useDeletedNotes } from '@/hooks/useDeletedNotes';
@@ -98,7 +99,6 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const { labels: rawLabels, getLabelsForNote, addLabelToNote, removeLabelFromNote, createLabel, updateLabel, noteLabelVersion } = useLabels();
   const labelsKey = rawLabels.map(l => l.id).join(',');
   const labels = useMemo(() => rawLabels, [labelsKey]);
-  const EMPTY_LABELS: Label[] = useMemo(() => [], []);
 
   const LABEL_COLORS = [
     '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6',
@@ -117,7 +117,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       cache.set(note.id, noteLabels.length > 0 ? noteLabels : EMPTY_LABELS);
     }
     return cache;
-  }, [noteIdsKey, getLabelsForNote, noteLabelVersion, EMPTY_LABELS]);
+  }, [noteIdsKey, getLabelsForNote, noteLabelVersion]);
 
   // --- Hooks ---
   const filters = useNoteFilters({
@@ -360,6 +360,50 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     if (newLabel) await addLabelToNote(noteId, newLabel.id);
   }, [createLabel, addLabelToNote]);
 
+  // PERFORMANCE: Stabilized callbacks for NoteListContent
+  const handleSelectNoteById = useCallback((id: string) => {
+    const n = notes.find(n => n.id === id);
+    if (n) onSelectNote(n);
+  }, [notes, onSelectNote]);
+
+  const handleContentChange = useCallback((c: string) => {
+    selection.setTitleValue(c);
+  }, [selection]);
+
+  const handleClearCategory = useCallback(() => {
+    filters.setCategoryFilter('all');
+  }, [filters]);
+
+  const handleClearLabel = useCallback((labelId: string) => {
+    filters.setLabelFilter(prev => prev.filter(id => id !== labelId));
+  }, [filters]);
+
+  const handleClearAssignee = useCallback((assigneeId: string) => {
+    filters.setAssigneeFilter(prev => prev.filter(id => id !== assigneeId));
+  }, [filters]);
+
+  const handleClearSearch = useCallback(() => {
+    filters.setSearchQuery('');
+  }, [filters]);
+
+  const handleClearAllFilters = useCallback(() => {
+    filters.setCategoryFilter('all');
+    filters.setLabelFilter([]);
+    filters.setAssigneeFilter([]);
+    filters.setSearchQuery('');
+  }, [filters]);
+
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown' && filters.filteredNotes.length > 0) {
+      e.preventDefault();
+      onSelectNote(filters.filteredNotes[0]);
+      selection.setDesiredColumn(0);
+      selection.setFocusTarget('title');
+    } else if (e.key === 'Escape') {
+      filters.setSearchQuery('');
+      searchInputRef.current?.blur();
+    }
+  }, [filters, onSelectNote, selection]);
 
   // Postpone Handlers
   const handleOpenPostponeDialog = (noteId: string, newDate?: Date) => {
@@ -599,17 +643,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         setTaskStatusFilter={filters.setTaskStatusFilter}
         hasCompletedTasks={filters.completedNotes.length > 0}
         hasDeletedTasks={deletedNotes.length > 0}
-        onSearchKeyDown={(e) => {
-          if (e.key === 'ArrowDown' && filters.filteredNotes.length > 0) {
-            e.preventDefault();
-            onSelectNote(filters.filteredNotes[0]);
-            selection.setDesiredColumn(0);
-            selection.setFocusTarget('title');
-          } else if (e.key === 'Escape') {
-            filters.setSearchQuery('');
-            searchInputRef.current?.blur();
-          }
-        }}
+        onSearchKeyDown={handleSearchKeyDown}
       />
 
       <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
@@ -633,7 +667,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           hasActiveFilters={filters.searchQuery.trim() !== '' || filters.categoryFilter !== 'all' || filters.labelFilter.length > 0 || filters.assigneeFilter.length > 0 || filters.showOverdueOnly}
           shouldShowNoResultsWithPinnedVisible={filters.notesMatchingFilters === 0 && filters.activeNotes.length > 0}
 
-          handleSelectNoteById={(id) => { const n = notes.find(n => n.id === id); if (n) onSelectNote(n); }}
+          handleSelectNoteById={handleSelectNoteById}
           handleDeleteWithToast={operations.handleDeleteWithToast}
           handleToggleCompletedWithNavigation={operations.handleToggleCompletedWithNavigation}
           onTogglePinned={onTogglePinned}
@@ -662,7 +696,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           onUpdateAssignee={onUpdateAssignee}
           fixedNoteId={fixedNoteId}
           handleToggleFixInSidebarById={handleToggleFixInSidebarById}
-          handleContentChange={(c) => selection.setTitleValue(c)}
+          handleContentChange={handleContentChange}
           compactTaskView={compactTaskView}
           isDescriptionFocused={selection.isDescriptionFocused}
           onRestore={onRestore}
@@ -670,16 +704,11 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           labelFilter={filters.labelFilter}
           assigneeFilter={filters.assigneeFilter}
           showOverdueOnly={filters.showOverdueOnly}
-          onClearCategory={() => filters.setCategoryFilter('all')}
-          onClearLabel={(labelId) => filters.setLabelFilter(prev => prev.filter(id => id !== labelId))}
-          onClearAssignee={(assigneeId) => filters.setAssigneeFilter(prev => prev.filter(id => id !== assigneeId))}
-          onClearSearch={() => filters.setSearchQuery('')}
-          onClearAllFilters={() => {
-            filters.setCategoryFilter('all');
-            filters.setLabelFilter([]);
-            filters.setAssigneeFilter([]);
-            filters.setSearchQuery('');
-          }}
+          onClearCategory={handleClearCategory}
+          onClearLabel={handleClearLabel}
+          onClearAssignee={handleClearAssignee}
+          onClearSearch={handleClearSearch}
+          onClearAllFilters={handleClearAllFilters}
         />
 
         {selectedNote && selection.showDescriptionPanel && (
