@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface PostponeDialogProps {
   open: boolean;
@@ -31,6 +32,7 @@ export const PostponeDialog = memo(function PostponeDialog({
 }: PostponeDialogProps) {
   const { t, i18n } = useTranslation();
   const [reason, setReason] = React.useState('');
+  const [skipReason, setSkipReason] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   // Focus textarea when dialog opens
@@ -41,14 +43,17 @@ export const PostponeDialog = memo(function PostponeDialog({
   }, [open]);
 
   const handlePostpone = () => {
-    if (!initialDate || !reason.trim()) return;
+    if (!initialDate) return;
+    // Allow empty reason if skipReason is checked
+    if (!skipReason && !reason.trim()) return;
     // Use ISO string to preserve both date and time
-    onPostpone(initialDate.toISOString(), reason.trim());
+    onPostpone(initialDate.toISOString(), skipReason ? '' : reason.trim());
     handleClose();
   };
 
   const handleClose = () => {
     setReason('');
+    setSkipReason(false);
     onOpenChange(false);
   };
 
@@ -98,7 +103,23 @@ export const PostponeDialog = memo(function PostponeDialog({
               placeholder={t('postponeReasonPlaceholder')}
               className="mt-1 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground caret-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               rows={3}
+              disabled={skipReason}
             />
+          </div>
+
+          {/* Checkbox to skip reason */}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="skip-reason"
+              checked={skipReason}
+              onCheckedChange={(checked) => setSkipReason(checked === true)}
+            />
+            <label
+              htmlFor="skip-reason"
+              className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+            >
+              {t('skipPostponeReason')}
+            </label>
           </div>
         </div>
 
@@ -106,7 +127,7 @@ export const PostponeDialog = memo(function PostponeDialog({
           <Button variant="outline" onClick={handleClose}>
             {t('cancel')}
           </Button>
-          <Button onClick={handlePostpone} disabled={!initialDate || !reason.trim()}>
+          <Button onClick={handlePostpone} disabled={!initialDate || (!skipReason && !reason.trim())}>
             {t('save')}
           </Button>
         </DialogFooter>

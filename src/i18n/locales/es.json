@@ -62,7 +62,11 @@
     "pullAllConfirm": "¿Estás seguro? Esto descargará todas las notas y etiquetas de la nube a tu dispositivo local.",
     "pulling": "Descargando...",
     "pullSuccess": "Se descargaron {{notes}} notas, {{labels}} etiquetas, {{noteLabels}} relaciones y {{contacts}} contactos",
-    "pullError": "Error al descargar datos"
+    "pullError": "Error al descargar datos",
+    "offlineBanner": "Sin conexión. Los cambios se guardan localmente.",
+    "backOnline": "Conexión restaurada. Sincronizando...",
+    "nowOffline": "Sin conexión. Los cambios se guardarán localmente.",
+    "pendingChanges": "{{count}} cambio(s) pendiente(s)"
   },
   "searchNotes": "Buscar notas...",
   "welcome": "Bienvenido",
@@ -89,6 +93,8 @@
   "settings": "Configuración",
   "settingsMenu": {
     "autoSync": "Sincronización automática",
+    "autoSave": "Autoguardado",
+    "autoSaveOff": "Off",
     "beeperConfig": "Configurar Beeper",
     "beeperDescription": "Configura tu token de Beeper Desktop para enviar mensajes por WhatsApp desde la app.",
     "beeperToken": "Token de Beeper",
@@ -250,6 +256,7 @@
   "selectDate": "Seleccionar fecha",
   "postponeReason": "Motivo",
   "postponeReasonPlaceholder": "¿Por qué pospones esta tarea?",
+  "skipPostponeReason": "No necesito especificar una razón",
   "actionPostponed": "Pospuesto",
   "postponeReasons": "Motivos de aplazamiento",
   "noPostponeReasons": "Sin motivos registrados",
@@ -581,5 +588,54 @@
     "createTask": "Crear Tarea",
     "errorEmptyTitle": "El título no puede estar vacío",
     "errorCreating": "Error al crear la tarea"
+  },
+  "pwa": {
+    "installApp": "Instalar aplicación",
+    "installDescription": "Instala Triple A en tu dispositivo para acceso rápido"
+  },
+  "apiKeys": {
+    "title": "API Keys",
+    "description": "Gestiona claves API para permitir que aplicaciones externas accedan a tus notas",
+    "createNew": "Crear Nueva API Key",
+    "empty": {
+      "title": "Sin API Keys",
+      "description": "Crea una API key para permitir que aplicaciones externas accedan a tus notas mediante API REST",
+      "createFirst": "Crear API Key"
+    },
+    "never": "Nunca",
+    "expired": "Expirada",
+    "lastUsed": "Último uso",
+    "expires": "Expira",
+    "rateLimit": "Límite de tasa",
+    "requestsPerMinute": "req/min",
+    "scopes": {
+      "read": "Lectura",
+      "write": "Escritura",
+      "delete": "Eliminación",
+      "readDescription": "Ver notas, etiquetas, proyectos",
+      "writeDescription": "Crear y actualizar notas",
+      "deleteDescription": "Eliminar notas"
+    },
+    "revokeDialog": {
+      "title": "¿Revocar API Key?",
+      "description": "Esta acción no se puede deshacer. Las aplicaciones que usen esta clave perderán el acceso inmediatamente."
+    },
+    "create": {
+      "title": "Crear API Key",
+      "description": "Configura los permisos y ajustes para la nueva API key",
+      "name": "Nombre",
+      "namePlaceholder": "Mi Aplicación",
+      "scopes": "Permisos",
+      "rateLimit": "Límite de Tasa (peticiones por minuto)",
+      "rateLimitHelp": "Número máximo de peticiones API por minuto",
+      "expiresAt": "Fecha de Expiración (opcional)",
+      "noExpiration": "Sin expiración",
+      "createButton": "Crear Clave",
+      "success": "API Key Creada",
+      "saveWarning": "Asegúrate de copiar tu API key ahora. ¡No podrás verla de nuevo!",
+      "onlyOnce": "Esta clave solo se mostrará una vez. Asegúrate de guardarla de forma segura.",
+      "keyName": "Nombre",
+      "apiKey": "API Key"
+    }
   }
 }
