@@ -273,19 +273,19 @@ export function useNoteRow({
             setShowDeleteDialog(true);
             return;
         }
-        if (e.key === 'Enter' && !e.shiftKey) {
+        if (e.key === 'Enter' && !e.shiftKey && !e.repeat) {
             e.preventDefault();
             if (contentValue.trim() && contentValue !== note.content) {
                 saveContentWithHashtagParsing();
             }
             setIsEditingContent(false);
-            if (!note.completed) {
+            if (!note.completed && contentValue.trim()) {
                 onCreateNoteAfter?.(note.id);
             }
         } else if (e.key === 'Backspace' && contentValue === '') {
             e.preventDefault();
             setIsEditingContent(false);
-            setShowDeleteDialog(true);
+            onDeleteWithToast(note, 'empty');
         } else if (e.key === 'ArrowDown') {
             const column = contentInputRef.current?.selectionStart ?? 0;
             const didNavigate = onNavigateDown(note.id, column);

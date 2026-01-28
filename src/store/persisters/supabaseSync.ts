@@ -59,6 +59,8 @@ export class SupabaseDataSync {
       this.buildRemoteIdCache();
       // Push local pending changes first
       await this.pushChanges();
+      // Rebuild cache after push so pull sees newly assigned remote_ids
+      this.buildRemoteIdCache();
       // Then pull remote changes
       await this.pullChanges();
       // Update last synced timestamp
@@ -193,6 +195,9 @@ export class SupabaseDataSync {
           .eq('id', remoteId);
 
         if (error) throw error;
+        this.markSynced(tableName, localId);
+      } else {
+        // Deleted locally before ever being pushed — nothing to delete remotely
         this.markSynced(tableName, localId);
       }
     } else if (remoteId) {
