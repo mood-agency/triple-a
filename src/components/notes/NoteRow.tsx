@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Calendar, StickyNote, Users, Pickaxe, Forward } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
@@ -7,6 +7,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DeleteTaskDialog } from './DeleteTaskDialog';
 import { useDebugNavigation } from '@/hooks/useDebugNavigation';
+import { useAssignees } from '@/hooks/useAssignees';
+import { useTinyBase } from '@/contexts/TinyBaseContext';
+import { getInitials } from '@/lib/utils';
 
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
@@ -67,13 +70,25 @@ function NoteRow(props: NoteRowProps) {
     isDeleted = false,
     onRestore,
     labels = [],
-    assigneeName,
     contacts = [],
     hideDeadline = false,
   } = props;
 
   const { t, i18n } = useTranslation();
   const { debugMode, debugSelectedClass } = useDebugNavigation();
+  const { getAssigneesForNote } = useAssignees();
+  const { store } = useTinyBase();
+
+  // Track assignees reactively via store listener
+  const [noteAssignees, setNoteAssignees] = useState(() => getAssigneesForNote(note.id));
+  useEffect(() => {
+    setNoteAssignees(getAssigneesForNote(note.id));
+    if (!store) return;
+    const listenerId = store.addTableListener('note_assignees', () => {
+      setNoteAssignees(getAssigneesForNote(note.id));
+    });
+    return () => { store.delListener(listenerId); };
+  }, [note.id, store, getAssigneesForNote]);
 
   const {
     contentValue,
@@ -275,17 +290,17 @@ function NoteRow(props: NoteRowProps) {
 
         {/* Assignee column */}
         {!compactView && (
-          <div className="shrink-0 flex justify-end px-1">
-            {assigneeName && (() => {
-              const contact = contacts.find(c => c.id === note.assignee_id);
-              const fullName = contact ? `${contact.name} ${contact.lastname}`.trim() : assigneeName;
+          <div className="shrink-0 flex justify-end px-1 gap-0.5">
+            {noteAssignees.map((contact) => {
+              const initials = getInitials(contact.name, contact.lastname);
+              const fullName = `${contact.name} ${contact.lastname}`.trim();
               return (
-                <Tooltip>
+                <Tooltip key={contact.id}>
                   <TooltipTrigger asChild>
                     <span
                       className="px-1.5 py-0.5 text-[10px] rounded-full bg-background border border-border text-muted-foreground leading-none truncate max-w-[90px] cursor-default"
                     >
-                      {assigneeName}
+                      {initials}
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -293,7 +308,7 @@ function NoteRow(props: NoteRowProps) {
                   </TooltipContent>
                 </Tooltip>
               );
-            })()}
+            })}
           </div>
         )}
       </div>
