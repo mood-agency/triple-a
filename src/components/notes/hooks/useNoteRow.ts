@@ -73,6 +73,7 @@ export function useNoteRow({
     const clickXRef = useRef<number | null>(null);
     const focusFromNavigationRef = useRef(false);
     const hasAutoFocusedRef = useRef(false);
+    const isDeletingRef = useRef(false);
 
     // Auto-save hook for periodic saving while editing
     const autoSave = useAutoSave({
@@ -240,6 +241,7 @@ export function useNoteRow({
     }, [contentValue, note.content, note.category, note.description, note.id, allLabels, contacts, onEdit, onAddAssignee, onAddLabel, onCreateLabelAndAdd, t]);
 
     const handleContentBlur = useCallback(() => {
+        if (isDeletingRef.current) return;
         if (isCommandPaletteOpen) return;
 
         if (showLabelDropdown || showCategoryDropdown || showAssigneeDropdown) return;
@@ -275,16 +277,30 @@ export function useNoteRow({
         }
         if (e.key === 'Enter' && !e.shiftKey && !e.repeat) {
             e.preventDefault();
-            if (contentValue.trim() && contentValue !== note.content) {
-                saveContentWithHashtagParsing();
-            }
-            setIsEditingContent(false);
             if (!note.completed && contentValue.trim()) {
+                // Hide the caret instantly so it doesn't visibly jump
+                // during the transition to the new row.
+                if (contentInputRef.current) {
+                    contentInputRef.current.style.caretColor = 'transparent';
+                }
+                // Don't save or setIsEditingContent(false) here — the blur
+                // from the new row's input taking focus handles both, avoiding
+                // a cursor-reset flash and input→span→input blink.
                 onCreateNoteAfter?.(note.id);
+            } else {
+                if (contentValue.trim() && contentValue !== note.content) {
+                    saveContentWithHashtagParsing();
+                }
+                setIsEditingContent(false);
             }
         } else if (e.key === 'Backspace' && contentValue === '') {
             e.preventDefault();
-            setIsEditingContent(false);
+            // Mark as deleting so the blur handler doesn't switch to
+            // the span (which would flash the placeholder text).
+            isDeletingRef.current = true;
+            // Blur the input so focus doesn't get lost to <body> when
+            // the row unmounts. handleDeleteWithToast handles navigation.
+            contentInputRef.current?.blur();
             onDeleteWithToast(note, 'empty');
         } else if (e.key === 'ArrowDown') {
             const column = contentInputRef.current?.selectionStart ?? 0;

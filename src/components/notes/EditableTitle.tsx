@@ -182,7 +182,7 @@ export function EditableTitle({
             }}
             onKeyDown={handleKeyDown}
             onFocus={handleInputFocus}
-            placeholder={t('newTaskPlaceholder')}
+
             className={`w-full text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-muted-foreground/50 ${completed ? 'line-through text-muted-foreground' : ''}`}
           />
         ) : (

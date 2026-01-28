@@ -101,7 +101,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
   // Labels logic
   const { labels: rawLabels, getLabelsForNote, addLabelToNote, removeLabelFromNote, createLabel, updateLabel, noteLabelVersion } = useLabels();
-  const labelsKey = rawLabels.map(l => l.id).join(',');
+  const labelsKey = rawLabels.map(l => `${l.id}:${l.name}:${l.color}`).join(',');
   const labels = useMemo(() => rawLabels, [labelsKey]);
 
   const LABEL_COLORS = [
@@ -574,12 +574,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   }, { ...hotkeyOptions, enableOnFormTags: false }, [onSelectNote]);
   useHotkeys('tab', () => {
     if (selectedNote) {
-      if (!selection.showDescriptionPanel) {
-        selection.handleNavigateToDescription();
-      }
-      // When panel is already shown, Tab does nothing (preventDefault still applies)
+      // Always navigate to description - opens panel if closed, focuses if open
+      selection.handleNavigateToDescription();
     }
-  }, { ...hotkeyOptions, enableOnFormTags: ['INPUT'], enableOnContentEditable: true }, [selectedNote, selection.showDescriptionPanel]);
+  }, { ...hotkeyOptions, enableOnFormTags: ['INPUT'], enableOnContentEditable: true }, [selectedNote]);
   useHotkeys('alt+t', () => { if (selectedNote) setDeadlinePickerOpen(true); }, { ...hotkeyOptions, enableOnContentEditable: true }, [selectedNote]);
   useHotkeys('alt+v', () => { filters.setViewMode(filters.viewMode === 'list' ? 'calendar' : 'list'); }, hotkeyOptions, [filters.viewMode]);
   useHotkeys('alt+f', () => { setCompactTaskView(!compactTaskView); }, hotkeyOptions, [compactTaskView]);

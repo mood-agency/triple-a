@@ -113,7 +113,7 @@ export function NoteRowContent({
                             // Prevent the input from auto-scrolling when focused
                             e.target.scrollLeft = 0;
                         }}
-                        placeholder={t('newTaskPlaceholder')}
+        
                         className={`flex-1 min-w-0 text-sm leading-4 bg-transparent border-none outline-none p-0 m-0 text-foreground caret-foreground placeholder:text-muted-foreground/50 cursor-text ${debugMode ? debugTitleFocusClass : ''}`}
                     />
 

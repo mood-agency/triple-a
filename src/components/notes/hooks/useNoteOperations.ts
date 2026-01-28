@@ -123,7 +123,7 @@ export function useNoteOperations({
         }
     }, [onToggleCompleted, onSelectNote, t, activeNotesRef, setDesiredColumn, setFocusTarget]);
 
-    const handleCreateNoteAfterById = useCallback((noteId: string) => {
+    const handleCreateNoteAfterById = useCallback(async (noteId: string) => {
         if (!onCreateNoteAfter) return;
         const currentFilteredNotes = filteredNotesRef.current;
         const afterNote = currentFilteredNotes.find((n) => n.id === noteId);
@@ -147,18 +147,15 @@ export function useNoteOperations({
         // Pass filters so new task is visible with current filters
         // If exactly one assignee in filter, use it so the task appears
         const assigneeId = assigneeFilter.length === 1 ? assigneeFilter[0] : null;
-        const result = onCreateNoteAfter(noteId, afterNote.category, deadline, labelFilter, assigneeId);
-        // Handle both Promise and synchronous returns
-        Promise.resolve(result).then((newNoteOrId) => {
-            if (newNoteOrId) {
-                const newNote: Note = typeof newNoteOrId === 'string'
-                    ? { id: newNoteOrId } as unknown as Note
-                    : newNoteOrId;
-                onSelectNote(newNote);
-                setDesiredColumn(0);
-                setFocusTarget('title');
-            }
-        });
+        const newNoteOrId = await onCreateNoteAfter(noteId, afterNote.category, deadline, labelFilter, assigneeId);
+        if (newNoteOrId) {
+            const newNote: Note = typeof newNoteOrId === 'string'
+                ? { id: newNoteOrId } as unknown as Note
+                : newNoteOrId;
+            onSelectNote(newNote);
+            setDesiredColumn(0);
+            setFocusTarget('title');
+        }
     }, [onCreateNoteAfter, onSelectNote, viewMode, calendarSelectedDate, labelFilter, assigneeFilter, filteredNotesRef, setDesiredColumn, setFocusTarget]);
 
     // Handler to create a task at a specific hour in timeline view
