@@ -761,6 +761,14 @@ body {
   --tw-exit-translate-x: 0.5rem;
 }
 
+@utility slide-in-from-right-full {
+  --tw-enter-translate-x: 100%;
+}
+
+@utility slide-out-to-right-full {
+  --tw-exit-translate-x: 100%;
+}
+
 /* Special animation utilities with special characters - using regular CSS */
 .slide-in-from-left-1\/2 {
   --tw-enter-translate-x: -50%;
