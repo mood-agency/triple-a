@@ -2,11 +2,18 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { parseHashtags } from '@/utils/hashtagParser';
+import { parseHashtags, extractHashtags, extractMentions } from '@/utils/hashtagParser';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { getCursorPosition, getFontString } from '@/utils/cursorUtils';
+
+/**
+ * Check if content has hashtags or mentions that need to be parsed
+ */
+function hasUnparsedTags(content: string): boolean {
+    return extractHashtags(content).length > 0 || extractMentions(content).length > 0;
+}
 
 interface UseNoteRowProps {
     note: Note;
@@ -175,16 +182,29 @@ export function useNoteRow({
         }
     }, { enableOnFormTags: ['INPUT'] }, [isEditingContent, note.content]);
 
-    const saveContentWithHashtagParsing = useCallback((): string | null => {
-        if (!contentValue.trim() || contentValue === note.content) {
+    const saveContentWithHashtagParsing = useCallback((forceParseEvenIfUnchanged = false): string | null => {
+        const trimmedValue = contentValue.trim();
+
+        // Skip if empty
+        if (!trimmedValue) {
             return null;
         }
 
-        const trimmedValue = contentValue.trim();
+        // Skip if unchanged AND not forced AND no tags to parse
+        if (!forceParseEvenIfUnchanged && contentValue === note.content && !hasUnparsedTags(trimmedValue)) {
+            return null;
+        }
 
         const parseResult = parseHashtags(trimmedValue, {
             labels: allLabels,
             contacts: contacts,
+        });
+
+        console.log('[useNoteRow] parseHashtags result:', {
+            trimmedValue,
+            contactsCount: contacts.length,
+            parseResult,
+            hasOnAddAssignee: !!onAddAssignee,
         });
 
         if (parseResult.parsedHashtags.length === 0) {
@@ -196,6 +216,7 @@ export function useNoteRow({
         const finalCategory = parseResult.category || note.category;
 
         if (parseResult.assigneeId) {
+            console.log('[useNoteRow] Calling onAddAssignee:', note.id, parseResult.assigneeId);
             onAddAssignee?.(note.id, parseResult.assigneeId);
         }
 
@@ -249,21 +270,36 @@ export function useNoteRow({
         // Flush any pending auto-save
         autoSave.handleBlur();
 
-        if (contentValue.trim() && contentValue !== note.content) {
-            saveContentWithHashtagParsing();
-        } else if (!contentValue.trim()) {
+        const trimmed = contentValue.trim();
+        const hasTags = hasUnparsedTags(trimmed);
+        const contentChanged = contentValue !== note.content;
+
+        console.log('[useNoteRow] handleContentBlur:', {
+            contentValue,
+            noteContent: note.content,
+            contentChanged,
+            hasTags,
+            willParse: !!(trimmed && (contentChanged || hasTags)),
+            contactsLength: contacts.length,
+        });
+
+        if (trimmed && (contentChanged || hasTags)) {
+            // Force parse if content has tags, even if autoSave already saved raw content
+            saveContentWithHashtagParsing(hasTags);
+        } else if (!trimmed) {
             setContentValue(note.content);
         }
         setIsEditingContent(false);
-    }, [contentValue, note.content, isCommandPaletteOpen, saveContentWithHashtagParsing, showLabelDropdown, showCategoryDropdown, showAssigneeDropdown, autoSave]);
+    }, [contentValue, note.content, isCommandPaletteOpen, saveContentWithHashtagParsing, showLabelDropdown, showCategoryDropdown, showAssigneeDropdown, autoSave, contacts]);
 
 
     const handleContentKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'd' && e.ctrlKey && note.category !== 'notes' && note.category !== 'meeting') {
             e.preventDefault();
             e.stopPropagation();
-            if (contentValue.trim() && contentValue !== note.content) {
-                saveContentWithHashtagParsing();
+            const trimmed = contentValue.trim();
+            if (trimmed && (contentValue !== note.content || hasUnparsedTags(trimmed))) {
+                saveContentWithHashtagParsing(hasUnparsedTags(trimmed));
             }
             onToggleCompleted(note.id, !note.completed);
             return;
@@ -288,8 +324,9 @@ export function useNoteRow({
                 // a cursor-reset flash and input→span→input blink.
                 onCreateNoteAfter?.(note.id);
             } else {
-                if (contentValue.trim() && contentValue !== note.content) {
-                    saveContentWithHashtagParsing();
+                const trimmed = contentValue.trim();
+                if (trimmed && (contentValue !== note.content || hasUnparsedTags(trimmed))) {
+                    saveContentWithHashtagParsing(hasUnparsedTags(trimmed));
                 }
                 setIsEditingContent(false);
             }
