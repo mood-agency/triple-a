@@ -871,7 +871,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
         {/* Fixed sidebar */}
         {showSidebar && !isMobile && (
-          <div className="flex-1 max-w-[35%] min-w-0 ml-auto overflow-hidden flex flex-col">
+          <div className="flex-1 max-w-[35%] min-w-0 ml-auto overflow-hidden flex flex-col rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30 p-4">
             {fixedNote ? (
               <NoteEditorPanel
                 ref={fixedNoteDescriptionRef}
