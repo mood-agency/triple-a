@@ -263,9 +263,15 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     let count = 0
     tables.forEach((tableName) => {
       const table = tinybaseStore.getTable(tableName) || {}
-      count += Object.values(table).filter(
-        (row) => (row as Record<string, unknown>).sync_status === 'pending'
-      ).length
+      const pendingRows = Object.entries(table).filter(
+        ([, row]) => (row as Record<string, unknown>).sync_status === 'pending'
+      )
+      if (pendingRows.length > 0) {
+        console.warn(`[SyncContext] ${tableName} has ${pendingRows.length} pending rows:`,
+          pendingRows.map(([id, row]) => ({ id, ...(row as Record<string, unknown>) }))
+        )
+      }
+      count += pendingRows.length
     })
     return count
   }, [tinybaseStore])

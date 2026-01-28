@@ -86,15 +86,20 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
       }
     }
 
+    // Repair corrupt notes missing required 'date' field
+    for (const [id, noteRow] of Object.entries(notesTable)) {
+      const row = noteRow as Record<string, unknown>;
+      if (!row.date) {
+        const repairDate = (row.created_at as string)?.slice(0, 10) || defaultDate;
+        console.warn(`[useNotesStore] Repairing corrupt note ${id}: setting date to ${repairDate}`);
+        store.setPartialRow('notes', id, { date: repairDate });
+      }
+    }
+
     // Convert to array and filter
     const notesList: Note[] = Object.entries(notesTable)
-      .filter(([id, noteRow]) => {
+      .filter(([, noteRow]) => {
         const row = noteRow as Record<string, unknown>;
-        // Skip corrupt notes missing required 'date' field
-        if (!row.date) {
-          console.warn(`[useNotesStore] Skipping corrupt note ${id} with missing date`);
-          return false;
-        }
         // Filter out soft-deleted notes
         if (row.deleted_at) return false;
         // Filter by date if provided
