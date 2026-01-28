@@ -26,6 +26,7 @@ interface UseNoteRowProps {
     allLabels?: Label[];
     contacts?: Contact[];
     onUpdateAssignee?: (noteId: string, assigneeId: string | null) => void;
+    onAddAssignee?: (noteId: string, contactId: string) => void;
     onAddLabel?: (noteId: string, labelId: string) => void;
     onCreateLabelAndAdd?: (noteId: string, labelName: string) => void;
     isCommandPaletteOpen?: boolean;
@@ -49,7 +50,8 @@ export function useNoteRow({
     onTitleFocused,
     allLabels = [],
     contacts = [],
-    onUpdateAssignee,
+    onUpdateAssignee: _onUpdateAssignee,
+    onAddAssignee,
     onAddLabel,
     onCreateLabelAndAdd,
     isCommandPaletteOpen,
@@ -192,8 +194,8 @@ export function useNoteRow({
 
         const finalCategory = parseResult.category || note.category;
 
-        if (parseResult.assigneeId && parseResult.assigneeId !== note.assignee_id) {
-            onUpdateAssignee?.(note.id, parseResult.assigneeId);
+        if (parseResult.assigneeId) {
+            onAddAssignee?.(note.id, parseResult.assigneeId);
         }
 
         for (const labelId of parseResult.labelIds) {
@@ -235,7 +237,7 @@ export function useNoteRow({
         }
 
         return parseResult.cleanedContent;
-    }, [contentValue, note.content, note.category, note.description, note.id, note.assignee_id, allLabels, contacts, onEdit, onUpdateAssignee, onAddLabel, onCreateLabelAndAdd, t]);
+    }, [contentValue, note.content, note.category, note.description, note.id, allLabels, contacts, onEdit, onAddAssignee, onAddLabel, onCreateLabelAndAdd, t]);
 
     const handleContentBlur = useCallback(() => {
         if (isCommandPaletteOpen) return;

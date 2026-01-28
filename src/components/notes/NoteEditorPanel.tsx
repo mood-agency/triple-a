@@ -124,7 +124,7 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
   onDeadlineSave,
   onAddAssignee,
   onRemoveAssignee,
-  onUpdateAssignee,
+  onUpdateAssignee: _onUpdateAssignee,
   onDelete,
   onLabelDropdownOpenChange,
   onCategoryDropdownOpenChange,
@@ -329,24 +329,11 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
           contacts={contacts}
           value={noteAssignees.map(a => a.id)}
           onChange={(contactIds) => {
-            // If onUpdateAssignee is provided and we want to set exactly one or clear
-            if (onUpdateAssignee) {
-              if (contactIds.length <= 1) {
-                onUpdateAssignee(note.id, contactIds[0] || null);
-                return;
-              }
-            }
-
-            // Fallback to multi-assignee logic if available
-            // Determine which contacts were added or removed
             const currentIds = noteAssignees.map(a => a.id);
             const added = contactIds.filter(id => !currentIds.includes(id));
             const removed = currentIds.filter(id => !contactIds.includes(id));
 
-            // Handle additions
             added.forEach(contactId => onAddAssignee(note.id, contactId));
-
-            // Handle removals
             removed.forEach(contactId => onRemoveAssignee(note.id, contactId));
           }}
           open={assigneePickerOpen}
