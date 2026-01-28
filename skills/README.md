@@ -195,6 +195,24 @@ For issues or questions:
 - Server code: ../server.js
 - Type definitions: ../src/types/note.ts
 
+## Packing the Skill
+
+To package the skill for distribution via clawdbot/molt.bot:
+
+```bash
+cd skills
+npx @anthropic-ai/clawdbot pack
+```
+
+This produces a `.clawdbot` file you can publish or share. The pack command bundles:
+
+- `SKILL.md` (skill definition with frontmatter metadata)
+- `lib/` (client, config, formatters)
+- `scripts/` (CLI and example scripts)
+- `package.json`
+
+Make sure `SKILL.md` frontmatter is up to date before packing — it defines the skill name, description, required environment variables, and binary dependencies.
+
 ## License
 
 MIT
