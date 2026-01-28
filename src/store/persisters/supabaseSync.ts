@@ -144,10 +144,12 @@ export class SupabaseDataSync {
     // Prepare data for Supabase (remove local-only fields)
     const supabaseData = await this.prepareForSupabase(tableName, localId, row);
 
-    // Skip notes with missing required 'date' field (corrupt data)
+    // Repair notes with missing required 'date' field (corrupt data)
     if (tableName === 'notes' && !supabaseData.date) {
-      console.warn(`[SupabaseSync] Skipping note ${localId} with missing date`);
-      return;
+      const repairDate = (row.created_at as string)?.slice(0, 10) || new Date().toISOString().slice(0, 10);
+      console.warn(`[SupabaseSync] Repairing note ${localId}: setting date to ${repairDate}`);
+      this.store.setPartialRow('notes', localId, { date: repairDate });
+      supabaseData.date = repairDate;
     }
 
     // Special handling for note_labels and note_assignees (junction tables with composite primary key)
