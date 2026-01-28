@@ -95,7 +95,8 @@
       "Bash(pnpm --filter @triple-a/client build:*)",
       "Bash(pnpm build:*)",
       "Bash(pnpm --filter @triple-a/web build:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(pnpm --filter @triple-a/web type-check:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\argen\\Documents\\GitHub\\triple-a"

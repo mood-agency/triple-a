@@ -178,7 +178,7 @@ export const NoteListContent = memo(function NoteListContent({
     };
 
     return (
-        <div className={`${isMobile ? 'w-full' : 'w-[30%]'} ${isMobile && selectedNote ? 'hidden' : ''} shrink-0 flex flex-col overflow-hidden`}>
+        <div className={`${isMobile ? 'w-full' : 'w-[30%] border-r border-muted-foreground/30 pr-4'} ${isMobile && selectedNote ? 'hidden' : ''} shrink-0 flex flex-col overflow-hidden`}>
             <ActiveFiltersBar
                 categoryFilter={categoryFilter}
                 labelFilter={labelFilter}
