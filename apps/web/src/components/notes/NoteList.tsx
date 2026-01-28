@@ -193,6 +193,24 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     autoSaveInterval: settings.autoSaveInterval,
   });
 
+  // Auto-create empty note when no active notes exist (notepad behavior - always have a caret ready)
+  const autoCreateInProgressRef = useRef(false);
+
+  useEffect(() => {
+    const hasActiveNotes = notes.some(n => !n.completed);
+    if (hasActiveNotes) {
+      autoCreateInProgressRef.current = false;
+      return;
+    }
+
+    if (autoCreateInProgressRef.current || !onCreateTask) return;
+
+    autoCreateInProgressRef.current = true;
+    onCreateTask();
+    selection.setDesiredColumn(0);
+    selection.setFocusTarget('title');
+  }, [notes, onCreateTask, selection]);
+
   // Track previous filter values to detect changes and auto-select first task
   // Note: searchQuery is excluded - user should press Down arrow after typing to navigate to results
   const prevFiltersRef = useRef({
@@ -790,7 +808,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         />
 
         {selectedNote && selection.showDescriptionPanel && (
-          <div className={`${isMobile ? 'w-full' : 'flex-1'} min-w-0 ${isMobile ? '' : 'border-l border-muted-foreground/20 pl-4'} overflow-hidden flex flex-col`}>
+          <div className={`${isMobile ? 'w-full' : 'flex-1'} min-w-0 overflow-hidden flex flex-col`}>
             {isMobile && (
               <Button
                 variant="ghost"
@@ -853,7 +871,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
         {/* Fixed sidebar */}
         {showSidebar && !isMobile && (
-          <div className="flex-1 max-w-[35%] min-w-0 ml-auto border-l border-muted-foreground/20 pl-4 overflow-hidden flex flex-col">
+          <div className="flex-1 max-w-[35%] min-w-0 ml-auto overflow-hidden flex flex-col">
             {fixedNote ? (
               <NoteEditorPanel
                 ref={fixedNoteDescriptionRef}

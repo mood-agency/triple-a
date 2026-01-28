@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
-import { Separator } from '@/components/ui/separator';
 import { Plus, List, Calendar, AlignJustify, Copy, Check } from 'lucide-react';
 import { NoteFilters } from './NoteFilters';
 import { Logo } from '@/components/Logo';
@@ -257,7 +256,6 @@ export function NoteListToolbar({
             />
             </div>
         </div>
-        <Separator className="mb-3" />
         </div>
     );
 }

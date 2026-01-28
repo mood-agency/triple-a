@@ -53,7 +53,7 @@ export function ActiveFiltersBar({
   const selectedAssignees = contacts.filter(c => assigneeFilter.includes(c.id));
 
   return (
-    <div className="flex items-center gap-2 px-1 py-2 flex-wrap">
+    <div className="flex items-center gap-2 py-1.5 px-3 flex-wrap mr-auto mb-2 rounded-lg border border-muted-foreground/30 bg-muted/50">
       <span className="text-xs text-muted-foreground font-medium">
         {t('activeFilters')}:
       </span>
