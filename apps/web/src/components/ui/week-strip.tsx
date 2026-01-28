@@ -126,7 +126,7 @@ function WeekStrip({
               type="button"
               onClick={() => onSelectDate?.(day)}
               className={cn(
-                "relative flex w-[50px] shrink-0 flex-col items-center gap-0.5 rounded-md py-1.5 text-sm transition-colors",
+                "relative flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-sm transition-colors",
                 "hover:bg-accent hover:text-accent-foreground",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 isSelected && "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",

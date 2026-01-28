@@ -65,7 +65,9 @@ export function useNoteRow({
     autoSaveInterval = 3,
 }: UseNoteRowProps) {
     const { t } = useTranslation();
-    const [isEditingContent, setIsEditingContent] = useState(false);
+    // Start in editing mode for newly created empty notes to avoid a
+    // span→input flash that briefly shows "Nueva tarea..." placeholder.
+    const [isEditingContent, setIsEditingContent] = useState(isSelected && note.content === '');
     const [contentValue, setContentValue] = useState(note.content);
 
     // Dropdown states
@@ -317,14 +319,19 @@ export function useNoteRow({
         if (e.key === 'Enter' && !e.shiftKey && !e.repeat) {
             e.preventDefault();
             if (!note.completed && contentValue.trim()) {
+                // Save content to store immediately before creating the new note.
+                // This prevents a flash of "Nueva tarea..." placeholder when the
+                // old note switches from input→span, because note.content would
+                // otherwise still be stale (empty) due to the debounced loadNotes.
+                const trimmed = contentValue.trim();
+                if (trimmed !== note.content || hasUnparsedTags(trimmed)) {
+                    saveContentWithHashtagParsing(hasUnparsedTags(trimmed));
+                }
                 // Hide the caret instantly so it doesn't visibly jump
                 // during the transition to the new row.
                 if (contentInputRef.current) {
                     contentInputRef.current.style.caretColor = 'transparent';
                 }
-                // Don't save or setIsEditingContent(false) here — the blur
-                // from the new row's input taking focus handles both, avoiding
-                // a cursor-reset flash and input→span→input blink.
                 onCreateNoteAfter?.(note.id);
             } else {
                 const trimmed = contentValue.trim();
