@@ -241,6 +241,9 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         }
       }
 
+      // Immediately update state to bypass the debounced listener
+      loadNotes();
+
       // Return the created note
       return {
         id,
@@ -261,7 +264,7 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         deleted_reason: null,
       };
     },
-    [store, effectiveDate, projectId]
+    [store, effectiveDate, projectId, loadNotes]
   );
 
   /**
@@ -347,6 +350,11 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         last_synced_at: null,
       });
 
+      // Immediately update the notes state to bypass the debounced listener.
+      // This prevents a ~100ms gap where the new note isn't visible in the list,
+      // which causes flickering (the old note loses selection and flashes placeholder).
+      loadNotes();
+
       // Return the created note
       return {
         id,
@@ -367,7 +375,7 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         deleted_reason: null,
       };
     },
-    [store, effectiveDate, projectId]
+    [store, effectiveDate, projectId, loadNotes]
   );
 
   /**

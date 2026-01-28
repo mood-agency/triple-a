@@ -295,13 +295,6 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const fixedNoteId = settings.fixedNoteId;
   const setFixedNoteId = (value: string | null) => updateSettings({ fixedNoteId: value });
 
-  const handleSidebarAnimationEnd = useCallback(() => {
-    if (sidebarClosing) {
-      setSidebarClosing(false);
-      setFixedNoteId(null);
-      setShowSidebar(false);
-    }
-  }, [sidebarClosing, setFixedNoteId, setShowSidebar]);
   const fixedNote = useMemo(() => {
     if (!fixedNoteId) return null;
     return notes.find(n => n.id === fixedNoteId) ?? null;
@@ -752,7 +745,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         onSearchKeyDown={handleSearchKeyDown}
       />
 
-      <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
+      <div className="flex gap-4 flex-1 min-h-0">
         <NoteListContent
           isMobile={isMobile}
           notes={notes}
@@ -883,12 +876,22 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         )}
 
         {/* Fixed sidebar */}
-        {(showSidebar || sidebarClosing) && !isMobile && (
+        {!isMobile && (
           <div
-            onAnimationEnd={handleSidebarAnimationEnd}
-            className={`flex-1 max-w-[35%] min-w-0 ml-auto overflow-hidden flex flex-col rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30 p-4 [animation-duration:300ms] [animation-timing-function:cubic-bezier(0.16,1,0.3,1)] ${sidebarClosing ? 'animate-out slide-out-to-right-full [animation-fill-mode:forwards]' : 'animate-in slide-in-from-right-full'}`}
+            onTransitionEnd={(e) => {
+              if (e.target === e.currentTarget && e.propertyName === 'max-width' && sidebarClosing) {
+                setSidebarClosing(false);
+                setFixedNoteId(null);
+                setShowSidebar(false);
+              }
+            }}
+            className={`min-w-0 ml-auto overflow-hidden flex flex-col transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              showSidebar && !sidebarClosing
+                ? 'flex-1 max-w-[35%] py-4 pl-4 pr-8 -mr-8 opacity-100 rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30'
+                : 'max-w-0 p-0 mr-0 opacity-0'
+            }`}
           >
-            {fixedNote ? (
+            {showSidebar && (fixedNote ? (
               <NoteEditorPanel
                 ref={fixedNoteDescriptionRef}
                 note={fixedNote}
@@ -936,7 +939,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               />
             ) : (
               <p className="text-sm text-muted-foreground/50 italic">{t('selectNoteToEdit')}</p>
-            )}
+            ))}
           </div>
         )}
       </div>
