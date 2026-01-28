@@ -85,7 +85,8 @@
       "WebFetch(domain:clawdhub.com)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:block.github.io)",
-      "WebFetch(domain:composio.dev)"
+      "WebFetch(domain:composio.dev)",
+      "Bash(cat:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\argen\\Documents\\GitHub\\triple-a"
