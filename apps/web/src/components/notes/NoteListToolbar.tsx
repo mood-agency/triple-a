@@ -1,13 +1,15 @@
+import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
 import { Separator } from '@/components/ui/separator';
-import { Plus, List, Calendar, AlignJustify } from 'lucide-react';
+import { Plus, List, Calendar, AlignJustify, Copy, Check } from 'lucide-react';
 import { NoteFilters } from './NoteFilters';
 import { Logo } from '@/components/Logo';
 import { useTranslation } from 'react-i18next';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
+import { formatLocalDate, parseLocalDate } from '@/utils/dateUtils';
 
 interface NoteListToolbarProps {
     isMobile: boolean;
@@ -18,6 +20,8 @@ interface NoteListToolbarProps {
     setViewMode: (mode: 'list' | 'calendar') => void;
     compactTaskView: boolean;
     setCompactTaskView: (compact: boolean) => void;
+    // Active notes for copy functionality
+    activeNotes: Note[];
 
     // NoteFilters props
     searchQuery: string;
@@ -63,6 +67,7 @@ export function NoteListToolbar({
     setViewMode,
     compactTaskView,
     setCompactTaskView,
+    activeNotes,
     searchQuery,
     setSearchQuery,
     searchInputRef,
@@ -95,6 +100,46 @@ export function NoteListToolbar({
     onSearchKeyDown,
 }: NoteListToolbarProps) {
     const { t } = useTranslation();
+    const [copied, setCopied] = useState(false);
+
+    const handleCopyTasks = useCallback(async () => {
+        if (activeNotes.length === 0) return;
+
+        const formattedTasks = activeNotes.map((note) => {
+            const parts: string[] = [];
+
+            // Title
+            parts.push(`- ${note.content}`);
+
+            // Deadline
+            if (note.deadline) {
+                const date = parseLocalDate(note.deadline);
+                const formattedDate = formatLocalDate(date);
+                parts.push(`  ${t('deadline')}: ${formattedDate}`);
+            }
+
+            // Assignee
+            if (note.assignee_id) {
+                const contact = contacts.find(c => c.id === note.assignee_id);
+                if (contact) {
+                    const name = contact.lastname
+                        ? `${contact.name} ${contact.lastname}`
+                        : contact.name;
+                    parts.push(`  ${t('assignee.placeholder')}: ${name}`);
+                }
+            }
+
+            return parts.join('\n');
+        }).join('\n\n');
+
+        try {
+            await navigator.clipboard.writeText(formattedTasks);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy tasks:', err);
+        }
+    }, [activeNotes, contacts, t]);
 
     return (
         <div className={`flex-shrink-0 group ${isMobile && selectedNote ? 'hidden' : ''}`}>
@@ -159,6 +204,24 @@ export function NoteListToolbar({
                     </TooltipContent>
                 </Tooltip>
             )}
+            {/* Copy active tasks button */}
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleCopyTasks}
+                        className="h-8 w-8 shadow-none"
+                        aria-label={t('copyActiveTasks')}
+                        disabled={activeNotes.length === 0}
+                    >
+                        {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>{t('copyActiveTasks')} ({activeNotes.length})</p>
+                </TooltipContent>
+            </Tooltip>
             <NoteFilters
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}

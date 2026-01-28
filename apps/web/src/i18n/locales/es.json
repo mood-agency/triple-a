@@ -321,6 +321,7 @@
   "compactView": "Vista compacta",
   "compactViewTooltip": "Cambiar a vista compacta",
   "fullViewTooltip": "Cambiar a vista completa",
+  "copyActiveTasks": "Copiar tareas activas",
   "hotkeys": {
     "title": "Atajos de Teclado",
     "global": "Globales",

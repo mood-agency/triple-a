@@ -688,6 +688,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         setViewMode={filters.setViewMode}
         compactTaskView={compactTaskView}
         setCompactTaskView={setCompactTaskView}
+        activeNotes={filters.viewMode === 'calendar' ? filters.calendarFilteredNotes : filters.activeNotes}
         searchQuery={filters.searchQuery}
         setSearchQuery={filters.setSearchQuery}
         searchInputRef={searchInputRef}
