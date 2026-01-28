@@ -59,10 +59,13 @@ export function useNoteSelection({
             setTitleValue(selectedNote?.content || '');
             // Don't auto-show description panel on click; user opens it with Tab
             setShowDescriptionPanel(false);
-        } else if (!isDescriptionFocused) {
-            // Sync description only if not focused (to avoid overwriting while typing)
-            setDescriptionValue(selectedNote?.description || '');
+        } else {
+            // Always sync title when it changes (it's edited in a different component)
             setTitleValue(selectedNote?.content || '');
+            // Only sync description if not focused (to avoid overwriting while typing)
+            if (!isDescriptionFocused) {
+                setDescriptionValue(selectedNote?.description || '');
+            }
         }
     }, [selectedNote?.id, selectedNote?.description, selectedNote?.content, isDescriptionFocused]);
 
