@@ -1,0 +1,20 @@
+{
+  "name": "@triple-a/skill",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Molt.bot/Clawdbot skill for Triple-A API",
+  "scripts": {
+    "test": "node scripts/examples/list-today.js"
+  },
+  "dependencies": {
+    "@triple-a/client": "workspace:*"
+  },
+  "keywords": [
+    "molt.bot",
+    "clawdbot",
+    "skill",
+    "triple-a",
+    "api"
+  ],
+  "license": "MIT"
+}
