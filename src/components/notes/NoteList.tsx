@@ -54,7 +54,8 @@ interface NoteListProps {
   onToggleCompleted: (id: string, completed: boolean) => void;
   onTogglePinned: (id: string, pinned: boolean) => void;
   onUpdateDeadline: (id: string, deadline: string | null) => void;
-  onUpdateAssignee: (id: string, assigneeId: string | null) => void;
+  onAddAssignee: (id: string, contactId: string) => void;
+  onRemoveAssignee: (id: string, contactId: string) => void;
   onReorderNotes: (orderedIds: string[]) => void;
   onPostponeNote: (id: string, newDeadline: string, reason: string) => Promise<void>;
   selectedNote: Note | null;
@@ -86,7 +87,7 @@ interface NoteListProps {
   sidebarTrigger?: React.ReactNode;
 }
 
-export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onUpdateAssignee, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, externalSortConfig, onSortConfigChange, externalTaskStatusFilter, onTaskStatusFilterChange, externalShowOverdueOnly, onShowOverdueOnlyChange, sidebarTrigger }, ref) {
+export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onAddAssignee, onRemoveAssignee, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, externalSortConfig, onSortConfigChange, externalTaskStatusFilter, onTaskStatusFilterChange, externalShowOverdueOnly, onShowOverdueOnlyChange, sidebarTrigger }, ref) {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { contacts } = useContacts();
@@ -241,9 +242,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     }
   }, [fixedNoteId, setFixedNoteId, setShowSidebar]);
 
-  // History (versions and actions)
-  const noteForSidebar = fixedNote ?? selectedNote;
-  const { versions, actions, deleteAction, updateReason, reload: reloadHistory } = useNoteVersionsAndActions(noteForSidebar?.id ?? null);
+  // History (versions and actions) - always use selectedNote to show history for the note being edited
+  const { versions, actions, deleteAction, updateReason, reload: reloadHistory } = useNoteVersionsAndActions(selectedNote?.id ?? null);
   const [historyEntryToDelete, setHistoryEntryToDelete] = useState<string | null>(null);
   const [editingHistoryEntry, setEditingHistoryEntry] = useState<{ id: string; reason: string } | null>(null);
 
@@ -725,7 +725,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           handleEditLabel={handleEditLabel}
           contacts={contacts}
           assigneeNamesCache={filters.assigneeNamesCache}
-          onUpdateAssignee={onUpdateAssignee}
+          onAddAssignee={onAddAssignee}
+          onRemoveAssignee={onRemoveAssignee}
           fixedNoteId={fixedNoteId}
           handleToggleFixInSidebarById={handleToggleFixInSidebarById}
           handleContentChange={handleContentChange}
@@ -788,7 +789,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onCreateLabel={() => setShowCreateLabelDialog(true)}
               onDeadlineChange={handleDeadlineChange}
               onDeadlineSave={handleDeadlineSave}
-              onUpdateAssignee={onUpdateAssignee}
+              onAddAssignee={onAddAssignee}
+              onRemoveAssignee={onRemoveAssignee}
               onDelete={() => setShowEditorDeleteDialog(true)}
               onLabelDropdownOpenChange={handleLabelDropdownOpenChange}
               onCategoryDropdownOpenChange={handleCategoryDropdownOpenChange}
@@ -837,7 +839,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 onCreateLabel={() => setShowCreateLabelDialog(true)}
                 onDeadlineChange={handleFixedNoteDeadlineChange}
                 onDeadlineSave={handleFixedNoteDeadlineSave}
-                onUpdateAssignee={onUpdateAssignee}
+                onAddAssignee={onAddAssignee}
+                onRemoveAssignee={onRemoveAssignee}
                 onDelete={() => setShowFixedNoteDeleteDialog(true)}
                 onLabelDropdownOpenChange={setFixedNoteLabelDropdownOpen}
                 onCategoryDropdownOpenChange={setFixedNoteCategoryDropdownOpen}

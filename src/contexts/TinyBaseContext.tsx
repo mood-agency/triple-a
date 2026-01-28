@@ -84,49 +84,71 @@ export function TinyBaseProvider({ children }: TinyBaseProviderProps) {
                 contacts: Object.keys(appStore.getTable('contacts')).length,
                 projects: Object.keys(appStore.getTable('projects')).length,
                 note_history: Object.keys(appStore.getTable('note_history')).length,
+                note_versions: Object.keys(appStore.getTable('note_versions')).length,
+                note_actions: Object.keys(appStore.getTable('note_actions')).length,
               }),
               getHistory: (noteId?: string) => {
+                console.warn('⚠️ getHistory is deprecated. Use getActions() or getVersions() instead.');
                 const history = appStore.getTable('note_history');
-                const entries = Object.entries(history);
+                return history;
+              },
+              getActions: (noteId?: string) => {
+                const actions = appStore.getTable('note_actions');
+                const entries = Object.entries(actions);
 
                 if (noteId) {
-                  const filtered = entries.filter(([, h]) => h.note_id === noteId);
-                  console.table(filtered.map(([id, h]) => ({
+                  const filtered = entries.filter(([, a]) => a.note_id === noteId);
+                  console.table(filtered.map(([id, a]) => ({
                     id,
-                    action_type: h.action_type,
-                    reason: h.reason,
-                    previous_date: h.previous_date,
-                    changed_at: h.changed_at,
-                    sync_status: h.sync_status,
+                    action_type: a.action_type,
+                    reason: a.reason,
+                    previous_date: a.previous_date,
+                    new_date: a.new_date,
+                    created_at: a.created_at,
+                    sync_status: a.sync_status,
                   })));
                   return Object.fromEntries(filtered);
                 }
 
-                console.log('Total history entries:', entries.length);
-                console.log('By action_type:');
-                const byType = entries.reduce((acc, [, h]) => {
-                  const type = h.action_type as string;
-                  acc[type] = (acc[type] || 0) + 1;
-                  return acc;
-                }, {} as Record<string, number>);
-                console.table(byType);
-
-                const postponed = entries.filter(([, h]) => h.action_type === 'postponed');
-                console.log(`\nPostponed entries (${postponed.length}):`);
-                console.table(postponed.map(([id, h]) => ({
-                  id,
-                  note_id: h.note_id,
-                  reason: h.reason,
-                  previous_date: h.previous_date,
-                  changed_at: h.changed_at,
-                  sync_status: h.sync_status,
+                console.log('Total action entries:', entries.length);
+                console.table(entries.slice(0, 50).map(([id, a]) => ({
+                  id: id.slice(0, 8),
+                  note_id: typeof a.note_id === 'string' ? a.note_id.slice(0, 8) : a.note_id,
+                  action_type: a.action_type,
+                  reason: a.reason,
+                  created_at: a.created_at,
                 })));
+                return actions;
+              },
+              getVersions: (noteId?: string) => {
+                const versions = appStore.getTable('note_versions');
+                const entries = Object.entries(versions);
 
-                return history;
+                if (noteId) {
+                  const filtered = entries.filter(([, v]) => v.note_id === noteId);
+                  console.table(filtered.map(([id, v]) => ({
+                    id,
+                    version_number: v.version_number,
+                    content: typeof v.content === 'string' ? v.content.slice(0, 30) + '...' : v.content,
+                    category: v.category,
+                    created_at: v.created_at,
+                    sync_status: v.sync_status,
+                  })));
+                  return Object.fromEntries(filtered);
+                }
+
+                console.log('Total version entries:', entries.length);
+                console.table(entries.slice(0, 50).map(([id, v]) => ({
+                  id: id.slice(0, 8),
+                  note_id: typeof v.note_id === 'string' ? v.note_id.slice(0, 8) : v.note_id,
+                  version_number: v.version_number,
+                  created_at: v.created_at,
+                })));
+                return versions;
               },
             };
             console.log('TinyBase debug available: window.__tinybase_debug__');
-            console.log('Commands: getNotes(), getMeetings(), getNote(id), getAllTables(), getHistory(noteId?)');
+            console.log('Commands: getNotes(), getMeetings(), getNote(id), getAllTables(), getActions(noteId?), getVersions(noteId?)');
           }
         }
       } catch (err) {
