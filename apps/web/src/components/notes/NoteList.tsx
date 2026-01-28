@@ -282,6 +282,11 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   // --- UI State ---
   const showSidebar = settings.showSidebar;
   const setShowSidebar = (value: boolean) => updateSettings({ showSidebar: value });
+  const [sidebarClosing, setSidebarClosing] = useState(false);
+
+  const closeSidebar = useCallback(() => {
+    setSidebarClosing(true);
+  }, []);
 
   const compactTaskView = settings.compactTaskView;
   const setCompactTaskView = (value: boolean) => updateSettings({ compactTaskView: value });
@@ -289,6 +294,14 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   // Fixed Note State
   const fixedNoteId = settings.fixedNoteId;
   const setFixedNoteId = (value: string | null) => updateSettings({ fixedNoteId: value });
+
+  const handleSidebarAnimationEnd = useCallback(() => {
+    if (sidebarClosing) {
+      setSidebarClosing(false);
+      setFixedNoteId(null);
+      setShowSidebar(false);
+    }
+  }, [sidebarClosing, setFixedNoteId, setShowSidebar]);
   const fixedNote = useMemo(() => {
     if (!fixedNoteId) return null;
     return notes.find(n => n.id === fixedNoteId) ?? null;
@@ -296,13 +309,13 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
   const handleToggleFixInSidebarById = useCallback((noteId: string) => {
     if (fixedNoteId === noteId) {
-      setFixedNoteId(null);
-      setShowSidebar(false);
+      closeSidebar();
     } else {
       setFixedNoteId(noteId);
       setShowSidebar(true);
+      setSidebarClosing(false);
     }
-  }, [fixedNoteId, setFixedNoteId, setShowSidebar]);
+  }, [fixedNoteId, setFixedNoteId, setShowSidebar, closeSidebar]);
 
   // History (versions and actions) - always use selectedNote to show history for the note being edited
   const { versions, actions, deleteAction, updateReason, reload: reloadHistory } = useNoteVersionsAndActions(selectedNote?.id ?? null);
@@ -870,8 +883,11 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         )}
 
         {/* Fixed sidebar */}
-        {showSidebar && !isMobile && (
-          <div className="flex-1 max-w-[35%] min-w-0 ml-auto overflow-hidden flex flex-col rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30 p-4">
+        {(showSidebar || sidebarClosing) && !isMobile && (
+          <div
+            onAnimationEnd={handleSidebarAnimationEnd}
+            className={`flex-1 max-w-[35%] min-w-0 ml-auto overflow-hidden flex flex-col rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30 p-4 [animation-duration:300ms] [animation-timing-function:cubic-bezier(0.16,1,0.3,1)] ${sidebarClosing ? 'animate-out slide-out-to-right-full [animation-fill-mode:forwards]' : 'animate-in slide-in-from-right-full'}`}
+          >
             {fixedNote ? (
               <NoteEditorPanel
                 ref={fixedNoteDescriptionRef}
@@ -915,10 +931,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 onDeleteHistoryEntry={(id) => setFixedNoteHistoryEntryToDelete(id)}
                 onSetEditingHistoryEntry={setEditingFixedNoteHistoryEntry}
                 onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !fixedNote.completed)}
-                onClose={() => {
-                  setFixedNoteId(null);
-                  setShowSidebar(false);
-                }}
+                onClose={closeSidebar}
                 autoSaveInterval={settings.autoSaveInterval}
               />
             ) : (
