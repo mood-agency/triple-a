@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Pickaxe, Forward, StickyNote, Users, Plus, Pencil } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -14,6 +15,7 @@ import { type DraggableSyntheticListeners } from '@dnd-kit/core';
 import type { Note, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { useDebugNavigation } from '@/hooks/useDebugNavigation';
+import { useAssignees } from '@/hooks/useAssignees';
 
 interface NoteRowContentProps {
     note: Note;
@@ -48,7 +50,8 @@ interface NoteRowContentProps {
     onEditLabel?: (label: Label) => void;
     onCreateLabel?: () => void;
     onEdit: (id: string, content: string, category?: any, description?: string | null) => void;
-    onUpdateAssignee?: (noteId: string, assigneeId: string | null) => void;
+    onAddAssignee?: (noteId: string, contactId: string) => void;
+    onRemoveAssignee?: (noteId: string, contactId: string) => void;
 }
 
 export function NoteRowContent({
@@ -81,10 +84,15 @@ export function NoteRowContent({
     onEditLabel,
     onCreateLabel,
     onEdit,
-    onUpdateAssignee,
+    onAddAssignee,
+    onRemoveAssignee,
 }: NoteRowContentProps) {
     const { t } = useTranslation();
     const { debugMode, debugTitleFocusClass } = useDebugNavigation();
+    const { getAssigneesForNote, noteAssigneeVersion } = useAssignees();
+
+    // Get assignees for this note (will re-compute when noteAssigneeVersion changes)
+    const noteAssignees = useMemo(() => getAssigneesForNote(note.id), [note.id, getAssigneesForNote, noteAssigneeVersion]);
 
     return (
         <div className={`group/title relative select-none flex items-center gap-1.5 flex-1 min-w-0 ${!compactView ? 'pl-1.5' : ''} overflow-hidden`} onClick={onContentClick}>
@@ -221,18 +229,23 @@ export function NoteRowContent({
                                     <CommandGroup>
                                         {contacts.map((contact) => {
                                             const fullName = `${contact.name} ${contact.lastname}`.trim();
+                                            const isSelected = noteAssignees.some((a) => a.id === contact.id);
                                             return (
                                                 <CommandItem
                                                     key={contact.id}
                                                     value={fullName}
                                                     onSelect={() => {
-                                                        onUpdateAssignee?.(note.id, contact.id === note.assignee_id ? null : contact.id);
-                                                        onAssigneeDropdownOpenChange(false);
+                                                        if (isSelected) {
+                                                            onRemoveAssignee?.(note.id, contact.id);
+                                                        } else {
+                                                            onAddAssignee?.(note.id, contact.id);
+                                                        }
+                                                        // Don't close for multi-select
                                                     }}
                                                     className="flex items-center justify-between"
                                                 >
                                                     <span className="truncate">{fullName}</span>
-                                                    {note.assignee_id === contact.id && <Check className="h-4 w-4" />}
+                                                    {isSelected && <Check className="h-4 w-4" />}
                                                 </CommandItem>
                                             );
                                         })}

@@ -325,6 +325,8 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
 
         // Process each event - all Google Calendar events become meetings
         for (const event of events) {
+          // Skip events already processed by another project in this sync
+          if (seenEventIds.has(event.id)) continue;
           seenEventIds.add(event.id);
           const existingMapping = mappingByGCalId.get(event.id);
           // Fallback: check if note already exists in TinyBase with this gcal_event_id
@@ -365,7 +367,7 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
             } else {
               // Create new meeting from event with project assignment
               const noteId = await createNoteFromEvent(store, event, project.id);
-              await googleCalendarService.saveEventMapping({
+              const mappingData = {
                 user_id: user!.id,
                 gcal_event_id: event.id,
                 gcal_calendar_id: calendarId,
@@ -373,7 +375,11 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
                 etag: event.etag,
                 event_status: event.status,
                 last_synced_at: new Date().toISOString(),
-              });
+              };
+              await googleCalendarService.saveEventMapping(mappingData);
+              // Update in-memory maps to prevent duplicates within this sync
+              noteByGCalId.set(event.id, { id: noteId });
+              mappingByGCalId.set(event.id, mappingData as typeof mappings[0]);
               result.eventsImported++;
             }
           } catch (err) {

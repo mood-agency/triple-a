@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import type { SyncStatus } from '@/store/schema';
 import { generateId, now } from '@/store/schema';
 
-export type SyncTable = 'notes' | 'labels' | 'contacts' | 'note_versions' | 'note_actions' | 'note_labels' | 'projects';
+export type SyncTable = 'notes' | 'labels' | 'contacts' | 'note_versions' | 'note_actions' | 'note_labels' | 'note_assignees' | 'projects' | 'user_preferences';
 
 interface SyncProgress {
   table: string;
@@ -30,6 +30,8 @@ export class SupabaseDataSync {
   private onProgress?: (progress: SyncProgress) => void;
   private onError?: (error: Error, table: string) => void;
   private isSyncing = false;
+  // Cache: tableName -> Map<remoteId, localId> — rebuilt per sync cycle
+  private remoteIdCache: Map<string, Map<string, string>> = new Map();
 
   constructor(store: MergeableStore, options: SupabaseSyncOptions) {
     this.store = store;
@@ -53,6 +55,8 @@ export class SupabaseDataSync {
 
     this.isSyncing = true;
     try {
+      // Build remote_id lookup cache for O(1) lookups during sync
+      this.buildRemoteIdCache();
       // Push local pending changes first
       await this.pushChanges();
       // Then pull remote changes
@@ -60,7 +64,27 @@ export class SupabaseDataSync {
       // Update last synced timestamp
       this.store.setValue('last_synced_at', now());
     } finally {
+      this.remoteIdCache.clear();
       this.isSyncing = false;
+    }
+  }
+
+  /**
+   * Build a cache of remote_id -> local_id for all tables, enabling O(1) lookups
+   */
+  private buildRemoteIdCache(): void {
+    this.remoteIdCache.clear();
+    const tableNames: SyncTable[] = ['notes', 'labels', 'contacts', 'note_versions', 'note_actions', 'note_labels', 'note_assignees', 'projects'];
+    for (const tableName of tableNames) {
+      const table = this.store.getTable(tableName) || {};
+      const cache = new Map<string, string>();
+      for (const [localId, row] of Object.entries(table)) {
+        const remoteId = (row as Record<string, unknown>).remote_id as string | undefined;
+        if (remoteId) {
+          cache.set(remoteId, localId);
+        }
+      }
+      this.remoteIdCache.set(tableName, cache);
     }
   }
 
@@ -70,14 +94,14 @@ export class SupabaseDataSync {
   async pushChanges(): Promise<void> {
     if (!supabase) return;
 
-    const tables: SyncTable[] = ['contacts', 'labels', 'projects', 'notes', 'note_labels', 'note_versions', 'note_actions'];
+    const tables: SyncTable[] = ['contacts', 'labels', 'projects', 'notes', 'note_labels', 'note_assignees', 'note_versions', 'note_actions'];
 
     for (const tableName of tables) {
       try {
         await this.pushTable(tableName);
       } catch (error) {
         console.error(`[SupabaseSync] Error pushing ${tableName}:`, error);
-        this.onError?.(error instanceof Error ? error : new Error(String(error)), tableName);
+        this.onError?.(error instanceof Error ? error : new Error(JSON.stringify(error)), tableName);
       }
     }
   }
@@ -120,16 +144,25 @@ export class SupabaseDataSync {
     // Prepare data for Supabase (remove local-only fields)
     const supabaseData = await this.prepareForSupabase(tableName, localId, row);
 
-    // Special handling for note_labels (junction table with composite primary key)
-    if (tableName === 'note_labels') {
+    // Skip notes with missing required 'date' field (corrupt data)
+    if (tableName === 'notes' && !supabaseData.date) {
+      console.warn(`[SupabaseSync] Skipping note ${localId} with missing date`);
+      return;
+    }
+
+    // Special handling for note_labels and note_assignees (junction tables with composite primary key)
+    if (tableName === 'note_labels' || tableName === 'note_assignees') {
       // note_labels uses composite key (note_id, label_id), no separate id field
+      // note_assignees uses composite key (note_id, contact_id), no separate id field
+      const secondKey = tableName === 'note_labels' ? 'label_id' : 'contact_id';
+      
       // Check if exists by matching both keys
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const existing = await (client as any)
         .from(tableName)
         .select('*')
         .eq('note_id', supabaseData.note_id as string)
-        .eq('label_id', supabaseData.label_id as string)
+        .eq(secondKey, supabaseData[secondKey] as string)
         .eq('user_id', this.userId)
         .maybeSingle();
 
@@ -146,14 +179,14 @@ export class SupabaseDataSync {
         if (error) throw error;
         this.markSynced(tableName, localId);
       }
-      return; // Exit early for note_labels
+      return; // Exit early for junction tables
     }
 
     if (deletedAt) {
       // Soft delete - update with deleted_at timestamp
       if (remoteId) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (client.from(tableName) as any)
+        const { error } = await (client.from(tableName as any) as any)
           .update({ deleted_at: deletedAt, updated_at: now() })
           .eq('id', remoteId);
 
@@ -163,7 +196,7 @@ export class SupabaseDataSync {
     } else if (remoteId) {
       // Update existing record
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error} = await (client.from(tableName) as any).update(supabaseData).eq('id', remoteId);
+      const { error} = await (client.from(tableName as any) as any).update(supabaseData).eq('id', remoteId);
 
       if (error) throw error;
       this.markSynced(tableName, localId);
@@ -230,6 +263,13 @@ export class SupabaseDataSync {
       if (label?.remote_id) data.label_id = label.remote_id;
     }
 
+    if (tableName === 'note_assignees') {
+      const note = this.store.getRow('notes', data.note_id as string);
+      const contact = this.store.getRow('contacts', data.contact_id as string);
+      if (note?.remote_id) data.note_id = note.remote_id;
+      if (contact?.remote_id) data.contact_id = contact.remote_id;
+    }
+
     // Map foreign keys for new history tables
     if (tableName === 'note_versions' || tableName === 'note_actions') {
       const note = this.store.getRow('notes', data.note_id as string);
@@ -265,6 +305,7 @@ export class SupabaseDataSync {
     await this.pullTable('projects', lastSyncedAt);
     await this.pullTable('notes', lastSyncedAt);
     await this.pullTable('note_labels', lastSyncedAt);
+    await this.pullTable('note_assignees', lastSyncedAt);
     await this.pullTable('note_versions', lastSyncedAt);
     await this.pullTable('note_actions', lastSyncedAt);
   }
@@ -276,28 +317,33 @@ export class SupabaseDataSync {
     if (!supabase) return;
 
     try {
-      let query = supabase.from(tableName).select('*').eq('user_id', this.userId);
+      let query = (supabase.from(tableName as any) as any).select('*').eq('user_id', this.userId);
 
       // Incremental sync if we have a last sync timestamp
       // Use gte (greater than or equal) to include changes at the exact same timestamp
       if (lastSyncedAt) {
-        // note_versions and note_actions only have created_at, not updated_at
-        const timestampField = (tableName === 'note_versions' || tableName === 'note_actions')
-          ? 'created_at'
-          : 'updated_at';
-        query = query.gte(timestampField, lastSyncedAt);
+        // Check if table uses created_at instead of updated_at (junction tables usually)
+        const useCreatedAt = ['note_versions', 'note_actions', 'note_labels', 'note_assignees'].includes(tableName);
+        
+        query = query.gte(useCreatedAt ? 'created_at' : 'updated_at', lastSyncedAt);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      for (const remoteRow of data || []) {
-        await this.mergeRemoteRow(tableName, remoteRow);
+      // Batch all store updates in a transaction so listeners fire once, not per-row
+      this.store.startTransaction();
+      try {
+        for (const remoteRow of data || []) {
+          await this.mergeRemoteRow(tableName, remoteRow);
+        }
+      } finally {
+        this.store.finishTransaction();
       }
     } catch (error) {
       console.error(`[SupabaseSync] Error pulling ${tableName}:`, error);
-      this.onError?.(error instanceof Error ? error : new Error(String(error)), tableName);
+      this.onError?.(error instanceof Error ? error : new Error(JSON.stringify(error)), tableName);
     }
   }
 
@@ -310,16 +356,13 @@ export class SupabaseDataSync {
   ): Promise<void> {
     const remoteId = remoteRow.id as string;
 
-    // Find existing local row by remote_id
-    const localRows = this.store.getTable(tableName) || {};
-    let existingLocalId: string | null = null;
-
-    for (const [localId, row] of Object.entries(localRows)) {
-      if ((row as Record<string, unknown>).remote_id === remoteId) {
-        existingLocalId = localId;
-        break;
-      }
+    // Handle junction tables which might not have an 'id' or we need to look up by composite key
+    if (!remoteId && (tableName === 'note_labels' || tableName === 'note_assignees')) {
+        return this.mergeJoinTableRow(tableName, remoteRow);
     }
+
+    // Find existing local row by remote_id (O(1) via cache)
+    const existingLocalId = this.findLocalIdByRemoteId(tableName, remoteId);
 
     // Map foreign keys from remote to local IDs
     const localData = await this.mapFromSupabase(tableName, remoteRow);
@@ -349,7 +392,35 @@ export class SupabaseDataSync {
         sync_status: 'synced',
         last_synced_at: now(),
       });
+      // Update cache with new mapping
+      this.remoteIdCache.get(tableName)?.set(remoteId, localId);
     }
+  }
+
+  private async mergeJoinTableRow(tableName: SyncTable, remoteRow: Record<string, unknown>): Promise<void> {
+      // Specialized merge for tables without ID (note_labels, note_assignees)
+      const localData = await this.mapFromSupabase(tableName, remoteRow);
+      
+      const secondKey = tableName === 'note_labels' ? 'label_id' : 'contact_id';
+      const secondVal = localData[secondKey];
+      const noteId = localData.note_id;
+      
+      if (!noteId || !secondVal) return; // Can't map foreign keys yet
+      
+      // Check if exists locally
+      const table = this.store.getTable(tableName) || {};
+      const exists = Object.values(table).some((row) => 
+          (row as Record<string, unknown>).note_id === noteId && (row as Record<string, unknown>)[secondKey] === secondVal
+      );
+      
+      if (!exists) {
+           const localId = `${noteId}-${secondVal}`; // Consistent ID generation for join tables
+           this.store.setRow(tableName, localId, {
+               ...localData,
+               sync_status: 'synced',
+               last_synced_at: now()
+           });
+      }
   }
 
   /**
@@ -384,6 +455,13 @@ export class SupabaseDataSync {
       data.label_id = localLabelId || data.label_id;
     }
 
+    if (tableName === 'note_assignees') {
+      const localNoteId = this.findLocalIdByRemoteId('notes', data.note_id as string);
+      const localContactId = this.findLocalIdByRemoteId('contacts', data.contact_id as string);
+      data.note_id = localNoteId || data.note_id;
+      data.contact_id = localContactId || data.contact_id;
+    }
+
     // Reverse map foreign keys for new history tables
     if (tableName === 'note_versions' || tableName === 'note_actions') {
       const localNoteId = this.findLocalIdByRemoteId('notes', data.note_id as string);
@@ -399,6 +477,11 @@ export class SupabaseDataSync {
    * Find local ID by remote ID
    */
   private findLocalIdByRemoteId(tableName: string, remoteId: string): string | null {
+    const cache = this.remoteIdCache.get(tableName);
+    if (cache) {
+      return cache.get(remoteId) ?? null;
+    }
+    // Fallback: linear scan if cache not built
     const table = this.store.getTable(tableName) || {};
     for (const [localId, row] of Object.entries(table)) {
       if ((row as Record<string, unknown>).remote_id === remoteId) {
@@ -416,11 +499,11 @@ export class SupabaseDataSync {
 
     this.isSyncing = true;
     try {
-      const tables: SyncTable[] = ['contacts', 'labels', 'projects', 'notes', 'note_labels', 'note_versions', 'note_actions'];
+      const tables: SyncTable[] = ['contacts', 'labels', 'projects', 'notes', 'note_labels', 'note_assignees', 'note_versions', 'note_actions'];
 
       for (const tableName of tables) {
-        const { data, error } = await supabase
-          .from(tableName)
+        const { data, error } = await (supabase
+          .from(tableName as any) as any)
           .select('*')
           .eq('user_id', this.userId)
           .is('deleted_at', null);
@@ -454,7 +537,7 @@ export class SupabaseDataSync {
 
     this.isSyncing = true;
     try {
-      const tables: SyncTable[] = ['contacts', 'labels', 'projects', 'notes', 'note_labels', 'note_versions', 'note_actions'];
+      const tables: SyncTable[] = ['contacts', 'labels', 'projects', 'notes', 'note_labels', 'note_assignees', 'note_versions', 'note_actions'];
 
       for (const tableName of tables) {
         const table = this.store.getTable(tableName) || {};

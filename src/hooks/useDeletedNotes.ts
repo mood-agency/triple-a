@@ -54,15 +54,18 @@ export function useDeletedNotes() {
     loadDeletedNotes();
   }, [loadDeletedNotes]);
 
-  // Listen to TinyBase store changes
+  // Listen to TinyBase store changes (debounced to avoid blocking main thread)
   useEffect(() => {
     if (!store) return;
 
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const listenerId = store.addTableListener('notes', () => {
-      loadDeletedNotes();
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => loadDeletedNotes(), 200);
     });
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       store.delListener(listenerId);
     };
   }, [store, loadDeletedNotes]);

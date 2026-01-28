@@ -71,7 +71,9 @@ interface NoteListContentProps {
     handleEditLabel: (label: Label) => void;
     contacts: Contact[];
     assigneeNamesCache: Map<string, string | null>;
-    onUpdateAssignee: (id: string, assigneeId: string | null) => void;
+    onAddAssignee: (id: string, contactId: string) => void;
+    onRemoveAssignee: (id: string, contactId: string) => void;
+    onUpdateAssignee?: (id: string, contactId: string | null) => void;
 
     // Fixed Note
     fixedNoteId: string | null;
@@ -145,6 +147,8 @@ export const NoteListContent = memo(function NoteListContent({
     handleEditLabel,
     contacts,
     assigneeNamesCache,
+    onAddAssignee,
+    onRemoveAssignee,
     onUpdateAssignee,
     fixedNoteId,
     handleToggleFixInSidebarById,
@@ -244,6 +248,8 @@ export const NoteListContent = memo(function NoteListContent({
                             compactView={compactTaskView}
                             isDescriptionFocused={isDescriptionFocused}
                             contacts={contacts}
+                            onAddAssignee={onAddAssignee}
+                            onRemoveAssignee={onRemoveAssignee}
                             onUpdateAssignee={onUpdateAssignee}
                             taskStatusFilter={taskStatusFilter}
                             onRestoreNote={(noteId) => {
@@ -314,6 +320,8 @@ export const NoteListContent = memo(function NoteListContent({
                                                     compactView={compactTaskView}
                                                     isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
                                                     contacts={contacts}
+                                                    onAddAssignee={onAddAssignee}
+                                                    onRemoveAssignee={onRemoveAssignee}
                                                     onUpdateAssignee={onUpdateAssignee}
                                                     autoSaveInterval={autoSaveInterval}
                                                 />
@@ -365,10 +373,9 @@ export const NoteListContent = memo(function NoteListContent({
                                             isFixedInSidebar={fixedNoteId === note.id}
                                             onToggleFixInSidebar={handleToggleFixInSidebarById}
                                             onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
-                                            assigneeName={assigneeNamesCache.get(note.id)}
-                                            compactView={compactTaskView}
-                                            isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
                                             contacts={contacts}
+                                            onAddAssignee={onAddAssignee}
+                                            onRemoveAssignee={onRemoveAssignee}
                                             onUpdateAssignee={onUpdateAssignee}
                                             autoSaveInterval={autoSaveInterval}
                                         />
@@ -421,11 +428,12 @@ export const NoteListContent = memo(function NoteListContent({
                                             onRestore={() => onRestore(note)}
                                             compactView={compactTaskView}
                                             isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
-                                            contacts={contacts}
-                                            onUpdateAssignee={onUpdateAssignee}
-                                            autoSaveInterval={autoSaveInterval}
-                                        />
-                                    ))}
+                                                                                        contacts={contacts}
+                                                                                        onAddAssignee={onAddAssignee}
+                                                                                        onRemoveAssignee={onRemoveAssignee}
+                                                                                        onUpdateAssignee={onUpdateAssignee}
+                                                                                        autoSaveInterval={autoSaveInterval}
+                                                                                    />                                    ))}
                                 </div>
                             </div>
                         ) : hasActiveFilters ? (

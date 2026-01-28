@@ -35,7 +35,9 @@ export interface NoteRowBaseProps {
 
   // Assignee
   contacts: Contact[];
-  onUpdateAssignee: (noteId: string, assigneeId: string | null) => void;
+  onAddAssignee: (noteId: string, contactId: string) => void;
+  onRemoveAssignee: (noteId: string, contactId: string) => void;
+  onUpdateAssignee: (noteId: string, contactId: string | null) => void;
 
   // Caches
   noteLabelsCache: Map<string, Label[]>;
@@ -105,6 +107,8 @@ export function useNoteRowProps(baseProps: NoteRowBaseProps) {
     fixedNoteId,
     onToggleFixInSidebar,
     contacts,
+    onAddAssignee,
+    onRemoveAssignee,
     onUpdateAssignee,
     noteLabelsCache,
     assigneeNamesCache,
@@ -153,6 +157,8 @@ export function useNoteRowProps(baseProps: NoteRowBaseProps) {
         compactView,
         isDescriptionFocused: isDescriptionFocused && isSelected,
         contacts,
+        onAddAssignee,
+        onRemoveAssignee,
         onUpdateAssignee,
         isDeleted: extraProps?.isDeleted,
         onRestore: extraProps?.onRestore,
@@ -187,7 +193,8 @@ export function useNoteRowProps(baseProps: NoteRowBaseProps) {
       compactView,
       isDescriptionFocused,
       contacts,
-      onUpdateAssignee,
+      onAddAssignee,
+      onRemoveAssignee,
     ]
   );
 

@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import type { Note, NoteCategory, Label } from '@/types/note';
+import type { Contact } from '@/types/contact';
 import { parseLocalDate, startOfDay, endOfDay, getLocalDateKey, formatLocalDate } from '@/utils/dateUtils';
 import { sortNotes, sortCompletedNotes, type NoteSortConfig } from '@/utils/noteUtils';
 import { useContacts } from '@/hooks/useContacts';
@@ -171,9 +172,14 @@ export function useNoteFilters({
     const assigneeIdsKey = notes.map(n => n.assignee_id ?? '').join(',');
     const assigneeNamesCache = useMemo(() => {
         const cache = new Map<string, string | null>();
+        
+        // Build contact map for faster lookup
+        const contactMap = new Map<string, Contact>();
+        contacts.forEach(c => contactMap.set(c.id, c));
+        
         for (const note of notes) {
             if (note.assignee_id) {
-                const contact = contacts.find(c => c.id === note.assignee_id);
+                const contact = contactMap.get(note.assignee_id);
                 cache.set(note.id, contact ? getInitials(contact.name, contact.lastname) : null);
             } else {
                 cache.set(note.id, null);
@@ -371,7 +377,7 @@ export function useNoteFilters({
     }, [activeNotes, labelFilter, assigneeFilter, showOverdueOnly, noteLabelsCache]);
 
 
-    return {
+    return useMemo(() => ({
         // State
         searchQuery,
         setSearchQuery,
@@ -419,5 +425,12 @@ export function useNoteFilters({
 
         // Helper
         assigneeNamesCache
-    };
+    }), [
+        searchQuery, taskStatusFilter, sortByDeadline, sortByAssignee, sortByCategory, sortConfig, showOverdueOnly, dateRangeFilter,
+        labelFilter, categoryFilter, assigneeFilter, viewMode, calendarSelectedDate,
+        activeNotes, completedNotes, filteredNotes, calendarFilteredNotes, calendarCompletedNotes, calendarDeletedNotes, notesMatchingFilters,
+        assigneeNamesCache,
+        setLabelFilter, setCategoryFilter, setAssigneeFilter, setViewMode, setCalendarSelectedDate,
+        setTaskStatusFilter, setShowOverdueOnly, setSortConfig
+    ]);
 }

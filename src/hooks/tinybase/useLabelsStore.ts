@@ -207,6 +207,7 @@ export function useLabelsStore() {
         note_id: noteId,
         label_id: labelId,
         created_at: timestamp,
+        sync_status: 'pending',
       });
 
       setNoteLabelVersion((v) => v + 1);
@@ -255,6 +256,7 @@ export function useLabelsStore() {
           note_id: noteId,
           label_id: labelId,
           created_at: timestamp,
+          sync_status: 'pending',
         });
       }
 

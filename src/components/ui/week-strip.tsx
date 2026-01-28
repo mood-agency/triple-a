@@ -29,22 +29,43 @@ function WeekStrip({
 }: WeekStripProps) {
   const today = startOfDay(new Date())
   const [centerDate, setCenterDate] = React.useState(today)
+  const daysContainerRef = React.useRef<HTMLDivElement>(null)
+  const [visibleDays, setVisibleDays] = React.useState(7)
 
-  // Generate 9 days: 4 before center, center, 4 after center
+  const DAY_WIDTH = 50 // px per day cell
+  const GAP = 4 // gap between cells
+
+  React.useEffect(() => {
+    const el = daysContainerRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0].contentRect.width
+      // Each day takes DAY_WIDTH + GAP, minus one gap
+      const count = Math.max(1, Math.floor((width + GAP) / (DAY_WIDTH + GAP)))
+      // Keep it odd so center date stays centered
+      const odd = count % 2 === 0 ? count - 1 : count
+      setVisibleDays(odd)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  const half = Math.floor(visibleDays / 2)
+
   const days = React.useMemo(() => {
     const result: Date[] = []
-    for (let i = -4; i <= 4; i++) {
+    for (let i = -half; i <= half; i++) {
       result.push(addDays(centerDate, i))
     }
     return result
-  }, [centerDate])
+  }, [centerDate, half])
 
   const handlePrevious = () => {
-    setCenterDate((prev) => addDays(prev, -7))
+    setCenterDate((prev) => addDays(prev, -visibleDays))
   }
 
   const handleNext = () => {
-    setCenterDate((prev) => addDays(prev, 7))
+    setCenterDate((prev) => addDays(prev, visibleDays))
   }
 
   const handleToday = () => {
@@ -79,7 +100,7 @@ function WeekStrip({
       </Button>
 
       {/* Days */}
-      <div className="flex items-center gap-1">
+      <div ref={daysContainerRef} className="flex min-w-0 flex-1 items-center gap-1">
         {days.map((day) => {
           const isSelected = selectedDate && isSameDay(day, selectedDate)
           const isToday = isSameDay(day, today)
@@ -94,7 +115,7 @@ function WeekStrip({
               type="button"
               onClick={() => onSelectDate?.(day)}
               className={cn(
-                "relative flex min-w-[3rem] flex-col items-center gap-0.5 rounded-md px-2 py-1.5 text-sm transition-colors",
+                "relative flex w-[50px] shrink-0 flex-col items-center gap-0.5 rounded-md py-1.5 text-sm transition-colors",
                 "hover:bg-accent hover:text-accent-foreground",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 isSelected && "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",

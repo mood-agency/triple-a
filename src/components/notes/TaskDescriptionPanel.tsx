@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useState } from 'react';
+import { forwardRef, useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { X, Pickaxe, Forward, StickyNote, Users, CalendarClock, Plus, Pencil, Trash2, Tag, ChevronDown, Check } from 'lucide-react';
@@ -22,6 +22,7 @@ import { AssigneePicker } from '@/components/notes/AssigneePicker';
 import type { Note, NoteCategory, Label, NoteHistory } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { parseLocalDate, formatLocalDate } from '@/utils/dateUtils';
+import { useAssignees } from '@/hooks/useAssignees';
 
 interface TaskDescriptionPanelProps {
   note: Note;
@@ -42,7 +43,8 @@ interface TaskDescriptionPanelProps {
   onUpdateDeadline: (id: string, deadline: string | null) => void;
   // Assignee
   contacts: Contact[];
-  onUpdateAssignee: (id: string, assigneeId: string | null) => void;
+  onAddAssignee: (id: string, contactId: string) => void;
+  onRemoveAssignee: (id: string, contactId: string) => void;
   // Postpone history (optional - only main panel needs full history editing)
   history?: NoteHistory[];
   onUpdateHistoryReason?: (historyId: string, reason: string) => void;
@@ -74,7 +76,8 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
       onEditLabel,
       onUpdateDeadline,
       contacts,
-      onUpdateAssignee,
+      onAddAssignee,
+      onRemoveAssignee,
       history,
       onUpdateHistoryReason,
       onDeleteHistoryEntry,
@@ -82,12 +85,16 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
     ref
   ) {
     const { t, i18n } = useTranslation();
+    const { getAssigneesForNote, noteAssigneeVersion } = useAssignees();
     const [descriptionValue, setDescriptionValue] = useState(note.description ?? '');
     const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
     const [labelDropdownOpen, setLabelDropdownOpen] = useState(false);
     const [showPostponeHistory, setShowPostponeHistory] = useState(false);
     const [editingHistoryEntry, setEditingHistoryEntry] = useState<{ id: string; reason: string } | null>(null);
     const descriptionRef = { current: null as EditableDescriptionHandle | null };
+
+    // Get assignees for this note (re-compute when noteAssigneeVersion changes)
+    const noteAssignees = useMemo(() => getAssigneesForNote(note.id), [note.id, getAssigneesForNote, noteAssigneeVersion]);
 
     // Filter postponed history entries
     const postponedHistory = history?.filter(h => h.action_type === 'postponed') ?? [];
@@ -385,13 +392,32 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
           />
 
           {/* Assignee picker */}
-          <AssigneePicker
-            contacts={contacts}
-            value={note.assignee_id}
-            onChange={(assigneeId) => onUpdateAssignee(note.id, assigneeId)}
-            compact
-            className="h-7 text-xs"
-          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <AssigneePicker
+              contacts={contacts}
+              value={noteAssignees.map(a => a.id)}
+              onChange={(contactIds) => {
+                // Determine which contacts were added or removed
+                const currentIds = noteAssignees.map(a => a.id);
+                const added = contactIds.filter(id => !currentIds.includes(id));
+                const removed = currentIds.filter(id => !contactIds.includes(id));
+
+                // Handle additions
+                added.forEach(contactId => onAddAssignee(note.id, contactId));
+
+                // Handle removals
+                removed.forEach(contactId => onRemoveAssignee(note.id, contactId));
+              }}
+            />
+            {noteAssignees.map((assignee) => (
+              <span key={assignee.id} className="px-2 py-0.5 text-xs font-normal rounded-full border border-input bg-background text-foreground leading-none flex items-center gap-1">
+                {`${assignee.name} ${assignee.lastname}`.trim()}
+                <button type="button" onClick={() => onRemoveAssignee(note.id, assignee.id)} className="hover:bg-muted rounded-full p-0.5">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
         </div>
 
         {/* Description editor */}

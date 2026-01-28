@@ -1,4 +1,4 @@
-import { forwardRef, memo, useMemo } from 'react';
+import { forwardRef, memo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus, Calendar, Layers, PanelRightClose, History, RotateCcw } from 'lucide-react';
@@ -23,6 +23,8 @@ import type { Note, NoteCategory, Label, NoteVersion, NoteAction } from '@/types
 import type { Contact } from '@/types/contact';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { NoteMetaRow } from './editor/NoteMetaRow';
+import { useAssignees } from '@/hooks/useAssignees';
+import { useTinyBase } from '@/contexts/TinyBaseContext';
 
 interface NoteEditorPanelProps {
   note: Note;
@@ -55,7 +57,9 @@ interface NoteEditorPanelProps {
   onCreateLabel: () => void;
   onDeadlineChange: (date: Date | undefined) => void;
   onDeadlineSave?: (date: Date) => void;
-  onUpdateAssignee: (id: string, assigneeId: string | null) => void;
+  onAddAssignee: (id: string, contactId: string) => void;
+  onRemoveAssignee: (id: string, contactId: string) => void;
+  onUpdateAssignee?: (id: string, contactId: string | null) => void;
   onDelete: () => void;
   onLabelDropdownOpenChange: (open: boolean) => void;
   onCategoryDropdownOpenChange: (open: boolean) => void;
@@ -118,6 +122,8 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
   onCreateLabel,
   onDeadlineChange,
   onDeadlineSave,
+  onAddAssignee,
+  onRemoveAssignee,
   onUpdateAssignee,
   onDelete,
   onLabelDropdownOpenChange,
@@ -133,14 +139,26 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
   autoSaveInterval = 3,
 }, ref) {
   const { t, i18n } = useTranslation();
+  const { store } = useTinyBase();
+  const { getAssigneesForNote } = useAssignees();
+  const [noteAssignees, setNoteAssignees] = useState<Contact[]>([]);
 
-  // Get assignee full name (e.g., "Liliana Ferro")
-  const assigneeFullName = useMemo(() => {
-    if (!note.assignee_id) return null;
-    const contact = contacts.find(c => c.id === note.assignee_id);
-    if (!contact) return null;
-    return `${contact.name} ${contact.lastname}`.trim();
-  }, [note.assignee_id, contacts]);
+  // Load assignees initially and listen for changes
+  useEffect(() => {
+    if (!store) return;
+
+    // Load initial assignees
+    setNoteAssignees(getAssigneesForNote(note.id));
+
+    // Listen for changes to note_assignees table
+    const listenerId = store.addTableListener('note_assignees', () => {
+      setNoteAssignees(getAssigneesForNote(note.id));
+    });
+
+    return () => {
+      store.delListener(listenerId);
+    };
+  }, [store, note.id, getAssigneesForNote]);
 
   // Ctrl+D to toggle task completion (only for non-notes categories)
   useHotkeys('ctrl+d, meta+d', () => {
@@ -309,23 +327,39 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
       <NoteMetaRow icon={User}>
         <AssigneePicker
           contacts={contacts}
-          value={note.assignee_id}
-          onChange={(assigneeId) => onUpdateAssignee(note.id, assigneeId)}
-          compact
-          iconOnly
+          value={noteAssignees.map(a => a.id)}
+          onChange={(contactIds) => {
+            // If onUpdateAssignee is provided and we want to set exactly one or clear
+            if (onUpdateAssignee) {
+              if (contactIds.length <= 1) {
+                onUpdateAssignee(note.id, contactIds[0] || null);
+                return;
+              }
+            }
+
+            // Fallback to multi-assignee logic if available
+            // Determine which contacts were added or removed
+            const currentIds = noteAssignees.map(a => a.id);
+            const added = contactIds.filter(id => !currentIds.includes(id));
+            const removed = currentIds.filter(id => !contactIds.includes(id));
+
+            // Handle additions
+            added.forEach(contactId => onAddAssignee(note.id, contactId));
+
+            // Handle removals
+            removed.forEach(contactId => onRemoveAssignee(note.id, contactId));
+          }}
           open={assigneePickerOpen}
           onOpenChange={onAssigneePickerOpenChange}
-          className="h-6 w-6"
-          hideIcon
         />
-        {assigneeFullName && (
-          <span className="px-2 py-0.5 text-xs font-normal rounded-full border border-input bg-background text-foreground leading-none flex items-center gap-1">
-            {assigneeFullName}
-            <button type="button" onClick={() => onUpdateAssignee(note.id, null)} className="hover:bg-muted rounded-full p-0.5">
+        {noteAssignees.map((assignee) => (
+          <span key={assignee.id} className="px-2 py-0.5 text-xs font-normal rounded-full border border-input bg-background text-foreground leading-none flex items-center gap-1">
+            {`${assignee.name} ${assignee.lastname}`.trim()}
+            <button type="button" onClick={() => onRemoveAssignee(note.id, assignee.id)} className="hover:bg-muted rounded-full p-0.5">
               <X className="h-3 w-3" />
             </button>
           </span>
-        )}
+        ))}
       </NoteMetaRow>
 
       {/* Separator */}

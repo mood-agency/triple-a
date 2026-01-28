@@ -40,7 +40,9 @@ interface TimelineViewProps {
   compactView: boolean;
   isDescriptionFocused: boolean;
   contacts: Contact[];
-  onUpdateAssignee: (noteId: string, assigneeId: string | null) => void;
+  onAddAssignee: (noteId: string, contactId: string) => void;
+  onRemoveAssignee: (noteId: string, contactId: string) => void;
+  onUpdateAssignee?: (noteId: string, contactId: string | null) => void;
   taskStatusFilter: 'active' | 'completed' | 'deleted';
   onRestoreNote?: (noteId: string) => void;
   hasActiveFilters: boolean;
@@ -85,6 +87,8 @@ export function TimelineView({
   compactView,
   isDescriptionFocused,
   contacts,
+  onAddAssignee,
+  onRemoveAssignee,
   onUpdateAssignee,
   taskStatusFilter,
   onRestoreNote,
@@ -116,7 +120,9 @@ export function TimelineView({
     fixedNoteId,
     onToggleFixInSidebar,
     contacts,
-    onUpdateAssignee,
+    onAddAssignee,
+    onRemoveAssignee,
+    onUpdateAssignee: onUpdateAssignee || (() => {}),
     noteLabelsCache,
     assigneeNamesCache,
     selectedNote,

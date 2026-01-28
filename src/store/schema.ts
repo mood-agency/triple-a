@@ -51,6 +51,12 @@ export interface NoteLabelRow {
   created_at: string;
 }
 
+export interface NoteAssigneeRow {
+  note_id: string;
+  contact_id: string;
+  created_at: string;
+}
+
 // Legacy interface for backward compatibility
 export interface NoteHistoryRow {
   note_id: string;
@@ -137,6 +143,7 @@ export interface AppTables {
   notes: Record<string, NoteRow>;
   labels: Record<string, LabelRow>;
   note_labels: Record<string, NoteLabelRow>;
+  note_assignees: Record<string, NoteAssigneeRow>;
   note_history: Record<string, NoteHistoryRow>; // Legacy, kept for backward compatibility
   note_versions: Record<string, NoteVersionRow>; // New: content snapshots
   note_actions: Record<string, NoteActionRow>; // New: action metadata

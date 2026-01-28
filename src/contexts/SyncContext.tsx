@@ -312,16 +312,23 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     // Initial count calculation
     setPendingCount(calculatePendingCount())
 
-    // Listen for changes to all sync-relevant tables
+    // Listen for changes to all sync-relevant tables (debounced to avoid blocking main thread)
+    let checkAndSyncTimer: ReturnType<typeof setTimeout> | null = null
+    const debouncedCheckAndSync = () => {
+      if (checkAndSyncTimer) clearTimeout(checkAndSyncTimer)
+      checkAndSyncTimer = setTimeout(() => checkAndSync(), 150)
+    }
+
     const listenerIds = [
-      tinybaseStore.addTableListener('notes', checkAndSync),
-      tinybaseStore.addTableListener('labels', checkAndSync),
-      tinybaseStore.addTableListener('contacts', checkAndSync),
-      tinybaseStore.addTableListener('note_labels', checkAndSync),
-      tinybaseStore.addTableListener('note_history', checkAndSync),
+      tinybaseStore.addTableListener('notes', debouncedCheckAndSync),
+      tinybaseStore.addTableListener('labels', debouncedCheckAndSync),
+      tinybaseStore.addTableListener('contacts', debouncedCheckAndSync),
+      tinybaseStore.addTableListener('note_labels', debouncedCheckAndSync),
+      tinybaseStore.addTableListener('note_history', debouncedCheckAndSync),
     ]
 
     return () => {
+      if (checkAndSyncTimer) clearTimeout(checkAndSyncTimer)
       listenerIds.forEach((id) => tinybaseStore.delListener(id))
     }
   }, [tinybaseStore, settings.autoSync, isSyncServiceReady, calculatePendingCount])

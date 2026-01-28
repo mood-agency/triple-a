@@ -31,6 +31,7 @@ import { EMPTY_LABELS } from '@/constants/notes';
 import { useLabels } from '@/hooks/useLabels';
 import { useNoteVersionsAndActions } from '@/hooks/useNoteVersionsAndActions';
 import { useDeletedNotes } from '@/hooks/useDeletedNotes';
+import { useTinyBase } from '@/contexts/TinyBaseContext';
 import { NoteEditorPanel } from './NoteEditorPanel';
 import { PostponeDialog } from './PostponeDialog';
 import { DeleteTaskDialog } from './DeleteTaskDialog';
@@ -56,6 +57,7 @@ interface NoteListProps {
   onUpdateDeadline: (id: string, deadline: string | null) => void;
   onAddAssignee: (id: string, contactId: string) => void;
   onRemoveAssignee: (id: string, contactId: string) => void;
+  onUpdateAssignee: (id: string, contactId: string | null) => void;
   onReorderNotes: (orderedIds: string[]) => void;
   onPostponeNote: (id: string, newDeadline: string, reason: string) => Promise<void>;
   selectedNote: Note | null;
@@ -87,11 +89,12 @@ interface NoteListProps {
   sidebarTrigger?: React.ReactNode;
 }
 
-export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onAddAssignee, onRemoveAssignee, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, externalSortConfig, onSortConfigChange, externalTaskStatusFilter, onTaskStatusFilterChange, externalShowOverdueOnly, onShowOverdueOnlyChange, sidebarTrigger }, ref) {
+export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onAddAssignee, onRemoveAssignee, onUpdateAssignee, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, externalSortConfig, onSortConfigChange, externalTaskStatusFilter, onTaskStatusFilterChange, externalShowOverdueOnly, onShowOverdueOnlyChange, sidebarTrigger }, ref) {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { contacts } = useContacts();
   const { deletedNotes } = useDeletedNotes();
+  const { store } = useTinyBase();
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -113,12 +116,53 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
   const noteLabelsCache = useMemo(() => {
     const cache = new Map<string, Label[]>();
-    for (const note of notesRef.current) {
-      const noteLabels = getLabelsForNote(note.id);
-      cache.set(note.id, noteLabels.length > 0 ? noteLabels : EMPTY_LABELS);
+    
+    // PERFORMANCE: If store is available, build the cache in one pass instead of N passes
+    if (store) {
+      const noteLabelsTable = store.getTable('note_labels') || {};
+      const labelsTable = store.getTable('labels') || {};
+      
+      // Group label IDs by note ID
+      const labelIdsByNote = new Map<string, string[]>();
+      Object.values(noteLabelsTable).forEach(row => {
+        const noteId = (row as any).note_id;
+        const labelId = (row as any).label_id;
+        if (noteId && labelId) {
+          const existing = labelIdsByNote.get(noteId) || [];
+          labelIdsByNote.set(noteId, [...existing, labelId]);
+        }
+      });
+      
+      // Build the final cache
+      for (const note of notesRef.current) {
+        const labelIds = labelIdsByNote.get(note.id) || [];
+        const noteLabels = labelIds
+          .map(labelId => {
+            const labelRow = labelsTable[labelId] as any;
+            if (!labelRow || labelRow.deleted_at) return null;
+            return {
+              id: labelId,
+              name: labelRow.name as string,
+              color: (labelRow.color as string) || '#6b7280',
+              created_at: labelRow.created_at as string,
+              updated_at: labelRow.updated_at as string,
+            };
+          })
+          .filter((l): l is Label => l !== null)
+          .sort((a, b) => a.name.localeCompare(b.name));
+          
+        cache.set(note.id, noteLabels.length > 0 ? noteLabels : EMPTY_LABELS);
+      }
+    } else {
+      // Fallback to slower per-note lookup if store not ready
+      for (const note of notesRef.current) {
+        const noteLabels = getLabelsForNote(note.id);
+        cache.set(note.id, noteLabels.length > 0 ? noteLabels : EMPTY_LABELS);
+      }
     }
+    
     return cache;
-  }, [noteIdsKey, getLabelsForNote, noteLabelVersion]);
+  }, [noteIdsKey, store, getLabelsForNote, noteLabelVersion]);
 
   // --- Hooks ---
   const filters = useNoteFilters({
@@ -727,6 +771,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           assigneeNamesCache={filters.assigneeNamesCache}
           onAddAssignee={onAddAssignee}
           onRemoveAssignee={onRemoveAssignee}
+          onUpdateAssignee={onUpdateAssignee}
           fixedNoteId={fixedNoteId}
           handleToggleFixInSidebarById={handleToggleFixInSidebarById}
           handleContentChange={handleContentChange}
@@ -791,6 +836,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onDeadlineSave={handleDeadlineSave}
               onAddAssignee={onAddAssignee}
               onRemoveAssignee={onRemoveAssignee}
+              onUpdateAssignee={onUpdateAssignee}
               onDelete={() => setShowEditorDeleteDialog(true)}
               onLabelDropdownOpenChange={handleLabelDropdownOpenChange}
               onCategoryDropdownOpenChange={handleCategoryDropdownOpenChange}
@@ -841,6 +887,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 onDeadlineSave={handleFixedNoteDeadlineSave}
                 onAddAssignee={onAddAssignee}
                 onRemoveAssignee={onRemoveAssignee}
+                onUpdateAssignee={onUpdateAssignee}
                 onDelete={() => setShowFixedNoteDeleteDialog(true)}
                 onLabelDropdownOpenChange={setFixedNoteLabelDropdownOpen}
                 onCategoryDropdownOpenChange={setFixedNoteCategoryDropdownOpen}

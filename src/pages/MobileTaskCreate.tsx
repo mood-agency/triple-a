@@ -9,6 +9,7 @@ import {
   StickyNote,
   Users,
   Circle,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +44,7 @@ import { cn } from '@/lib/utils';
 import { useNotesWithCalendarSync } from '@/hooks/useNotesWithCalendarSync';
 import { useLabels } from '@/hooks/useLabels';
 import { useContacts } from '@/hooks/useContacts';
+import { useAssignees } from '@/hooks/useAssignees';
 import { formatLocalDate, getLocalDateKey } from '@/utils/dateUtils';
 import type { NoteCategory, Note, Label as LabelType } from '@/types/note';
 import type { Contact } from '@/types/contact';
@@ -63,9 +65,10 @@ export function MobileTaskCreate() {
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   // Get ALL notes (no date filter) - we'll filter by deadline client-side like CalendarView does
-  const { notes, createNote, updateAssignee, toggleCompleted, updateDeadline } = useNotesWithCalendarSync();
+  const { notes, createNote, toggleCompleted, updateDeadline } = useNotesWithCalendarSync();
   const { labels, getLabelsForNote } = useLabels();
   const { contacts } = useContacts();
+  const { setAssigneesForNote } = useAssignees();
 
   // Category filter state (like CalendarView)
   const [categoryFilter, setCategoryFilter] = useState<NoteCategory | 'all'>('all');
@@ -76,7 +79,7 @@ export function MobileTaskCreate() {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<NoteCategory>('todo');
   const [selectedLabels, setSelectedLabels] = useState<LabelType[]>([]);
-  const [selectedAssigneeState, setSelectedAssigneeState] = useState<Contact | null>(null);
+  const [selectedAssignees, setSelectedAssignees] = useState<Contact[]>([]);
   const [labelsOpen, setLabelsOpen] = useState(false);
   const [assigneeOpen, setAssigneeOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,9 +99,19 @@ export function MobileTaskCreate() {
     setSelectedLabels((prev) => prev.filter((l) => l.id !== labelId));
   };
 
-  const handleSelectAssignee = (contact: Contact) => {
-    setSelectedAssigneeState(contact.id === selectedAssigneeState?.id ? null : contact);
-    setAssigneeOpen(false);
+  const handleToggleAssignee = (contact: Contact) => {
+    setSelectedAssignees((prev) => {
+      const isSelected = prev.some((c) => c.id === contact.id);
+      if (isSelected) {
+        return prev.filter((c) => c.id !== contact.id);
+      }
+      return [...prev, contact];
+    });
+    // Don't close the popover for multi-select
+  };
+
+  const handleRemoveAssignee = (contactId: string) => {
+    setSelectedAssignees((prev) => prev.filter((c) => c.id !== contactId));
   };
 
   const resetForm = () => {
@@ -106,7 +119,7 @@ export function MobileTaskCreate() {
     setDescription('');
     setCategory('todo');
     setSelectedLabels([]);
-    setSelectedAssigneeState(null);
+    setSelectedAssignees([]);
   };
 
   const handleSubmit = async () => {
@@ -121,8 +134,10 @@ export function MobileTaskCreate() {
       const deadlineDate = formatLocalDate(selectedDate);
       await updateDeadline(note.id, deadlineDate);
 
-      if (selectedAssigneeState) {
-        await updateAssignee(note.id, selectedAssigneeState.id);
+      // Set assignees if any selected
+      if (selectedAssignees.length > 0) {
+        const assigneeIds = selectedAssignees.map((a) => a.id);
+        await setAssigneesForNote(note.id, assigneeIds);
       }
 
       resetForm();
@@ -551,7 +566,7 @@ export function MobileTaskCreate() {
 
             {/* Assignee */}
             <div className="space-y-2">
-              <Label>{t('assignee.placeholder')}</Label>
+              <Label>{t('assignees')}</Label>
               <Popover open={assigneeOpen} onOpenChange={setAssigneeOpen}>
                 <PopoverTrigger asChild>
                   <Button
@@ -560,29 +575,29 @@ export function MobileTaskCreate() {
                     aria-expanded={assigneeOpen}
                     className="w-full justify-between"
                   >
-                    {selectedAssigneeState ? (
+                    {selectedAssignees.length > 0 ? (
                       <span>
-                        {selectedAssigneeState.name} {selectedAssigneeState.lastname}
+                        {selectedAssignees.length} {t('selectAssignees')}
                       </span>
                     ) : (
-                      <span className="text-muted-foreground">{t('mobile.selectAssignee')}</span>
+                      <span className="text-muted-foreground">{t('selectAssignees')}</span>
                     )}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
                   <Command>
-                    <CommandInput placeholder={t('assignee.search')} />
+                    <CommandInput placeholder={t('searchAssignees')} />
                     <CommandList>
-                      <CommandEmpty>{t('assignee.noResults')}</CommandEmpty>
+                      <CommandEmpty>{t('noAssigneesFound')}</CommandEmpty>
                       <CommandGroup>
                         {contacts.map((contact) => {
                           const fullName = `${contact.name} ${contact.lastname}`.trim();
-                          const isContactSelected = selectedAssigneeState?.id === contact.id;
+                          const isContactSelected = selectedAssignees.some((c) => c.id === contact.id);
                           return (
                             <CommandItem
                               key={contact.id}
                               value={fullName}
-                              onSelect={() => handleSelectAssignee(contact)}
+                              onSelect={() => handleToggleAssignee(contact)}
                             >
                               <Check
                                 className={cn(
@@ -599,6 +614,24 @@ export function MobileTaskCreate() {
                   </Command>
                 </PopoverContent>
               </Popover>
+
+              {/* Display selected assignees as badges */}
+              {selectedAssignees.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {selectedAssignees.map((assignee) => (
+                    <Badge key={assignee.id} variant="outline" className="flex items-center gap-1">
+                      {`${assignee.name} ${assignee.lastname}`.trim()}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAssignee(assignee.id)}
+                        className="hover:bg-muted rounded-full p-0.5 ml-1"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Submit Button */}

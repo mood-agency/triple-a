@@ -114,6 +114,8 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev);
       newParams.set('project', id);
+      // Clear note selection when switching projects as the note ID belongs to the previous project
+      newParams.delete('note');
       return newParams;
     }, { replace: true });
   }, [updateSettings, setSearchParams]);

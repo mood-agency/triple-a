@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, ChevronsUpDown, User, X, Plus } from 'lucide-react';
+import { Check, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,15 +18,12 @@ import type { Contact } from '@/types/contact';
 
 interface AssigneePickerProps {
   contacts: Contact[];
-  value: string | null;
-  onChange: (contactId: string | null) => void;
+  value: string[];
+  onChange: (contactIds: string[]) => void;
   disabled?: boolean;
-  compact?: boolean;
-  iconOnly?: boolean;
   className?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  hideIcon?: boolean;
 }
 
 export function AssigneePicker({
@@ -34,12 +31,9 @@ export function AssigneePicker({
   value,
   onChange,
   disabled = false,
-  compact = false,
-  iconOnly = false,
   className,
   open: controlledOpen,
   onOpenChange,
-  hideIcon = false,
 }: AssigneePickerProps) {
   const { t } = useTranslation();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -48,19 +42,16 @@ export function AssigneePicker({
   const open = controlledOpen ?? internalOpen;
   const setOpen = onOpenChange ?? setInternalOpen;
 
-  const selectedContact = contacts.find((c) => c.id === value);
-  const displayName = selectedContact
-    ? `${selectedContact.name} ${selectedContact.lastname}`.trim()
-    : null;
-
   const handleSelect = (contactId: string) => {
-    onChange(contactId === value ? null : contactId);
-    setOpen(false);
-  };
-
-  const handleClear = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onChange(null);
+    // Toggle selection for multi-select
+    if (value.includes(contactId)) {
+      // Remove from selection
+      onChange(value.filter(id => id !== contactId));
+    } else {
+      // Add to selection
+      onChange([...value, contactId]);
+    }
+    // Don't close popover for multi-select (keep it open like labels)
   };
 
   return (
@@ -73,60 +64,31 @@ export function AssigneePicker({
               role="combobox"
               aria-expanded={open}
               disabled={disabled}
-              size={iconOnly ? 'sm' : 'default'}
-              className={cn(
-                iconOnly ? 'shadow-none' : 'justify-between',
-                !iconOnly && compact ? 'h-7 px-2 text-xs' : !iconOnly && 'h-9 px-3',
-                !iconOnly && !selectedContact && 'text-muted-foreground',
-                className
-              )}
+              size="icon"
+              className={cn('h-6 w-6', className)}
             >
-              {iconOnly ? (
-                <Plus className="h-3.5 w-3.5" />
-              ) : (
-                <>
-                  <div className="flex items-center gap-2 min-w-0">
-                    {!hideIcon && <User className={cn('shrink-0', compact ? 'h-3 w-3' : 'h-4 w-4')} />}
-                    <span className="truncate">
-                      {displayName || t('assignee.placeholder')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {selectedContact && (
-                      <X
-                        className={cn(
-                          'shrink-0 opacity-50 hover:opacity-100',
-                          compact ? 'h-3 w-3' : 'h-4 w-4'
-                        )}
-                        onClick={handleClear}
-                      />
-                    )}
-                    <ChevronsUpDown
-                      className={cn('shrink-0 opacity-50', compact ? 'h-3 w-3' : 'h-4 w-4')}
-                    />
-                  </div>
-                </>
-              )}
+              <Plus className="h-3 w-3" />
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
         <TooltipContent className="flex items-center gap-2">
-          <p>{t('assignee.setAssignee')}</p>
+          <p>{t('addAssignee')}</p>
           <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>P</Kbd></span>
         </TooltipContent>
       </Tooltip>
       <PopoverContent className="w-56 p-0" align="start">
         <Command>
-          <CommandInput placeholder={t('assignee.search')} />
+          <CommandInput placeholder={t('searchAssignees')} />
           <CommandList>
             <CommandEmpty>
               <span className="text-muted-foreground">
-                {t('assignee.noResults')}
+                {t('noAssigneesFound')}
               </span>
             </CommandEmpty>
             <CommandGroup>
               {contacts.map((contact) => {
                 const fullName = `${contact.name} ${contact.lastname}`.trim();
+                const isSelected = value.includes(contact.id);
                 return (
                   <CommandItem
                     key={contact.id}
@@ -135,7 +97,7 @@ export function AssigneePicker({
                     className="flex items-center justify-between"
                   >
                     <span className="truncate">{fullName}</span>
-                    {value === contact.id && <Check className="h-4 w-4" />}
+                    {isSelected && <Check className="h-4 w-4" />}
                   </CommandItem>
                 );
               })}

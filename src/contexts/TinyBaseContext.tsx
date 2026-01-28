@@ -87,7 +87,7 @@ export function TinyBaseProvider({ children }: TinyBaseProviderProps) {
                 note_versions: Object.keys(appStore.getTable('note_versions')).length,
                 note_actions: Object.keys(appStore.getTable('note_actions')).length,
               }),
-              getHistory: (noteId?: string) => {
+              getHistory: () => {
                 console.warn('⚠️ getHistory is deprecated. Use getActions() or getVersions() instead.');
                 const history = appStore.getTable('note_history');
                 return history;
