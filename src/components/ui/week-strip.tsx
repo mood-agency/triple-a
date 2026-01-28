@@ -82,9 +82,20 @@ function WeekStrip({
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      {/* Month and Year header */}
-      <div className="text-center text-sm font-medium capitalize">
-        {format(centerDate, "MMMM yyyy", { locale })}
+      {/* Month and Year header with Today link */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium capitalize text-muted-foreground">
+          {format(centerDate, "MMMM yyyy", { locale })}
+        </span>
+        {!isSameDay(centerDate, today) && (
+          <button
+            type="button"
+            onClick={handleToday}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            Hoy
+          </button>
+        )}
       </div>
 
       {/* Week navigation */}
@@ -152,18 +163,6 @@ function WeekStrip({
       >
         <ChevronRightIcon className="h-4 w-4" />
       </Button>
-
-      {/* Today button - only show if not centered on today */}
-      {!isSameDay(centerDate, today) && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="ml-1 h-8 text-xs"
-          onClick={handleToday}
-        >
-          Hoy
-        </Button>
-      )}
       </div>
     </div>
   )

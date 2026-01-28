@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Home, Users, BarChart3, Moon, Sun, Languages, LogOut, User, Cloud, CloudOff, RefreshCw, AlertCircle, Check, CloudUpload, CloudDownload, Download, Upload, Loader2, Tag, FolderKanban, Calendar, Smartphone } from 'lucide-react';
+import { Home, Users, BarChart3, Moon, Sun, Languages, LogOut, User, Cloud, CloudOff, RefreshCw, AlertCircle, Check, CloudUpload, CloudDownload, Download, Upload, Loader2, Tag, FolderKanban, Calendar, Smartphone, Key } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -38,6 +38,7 @@ import {
   validateImportData,
 } from '@/utils/dataExport';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
+import { APIKeysDialog } from '@/components/settings/APIKeysDialog';
 
 export function AppSidebar() {
   const { t, i18n } = useTranslation();
@@ -53,6 +54,9 @@ export function AppSidebar() {
   const [showPushConfirmDialog, setShowPushConfirmDialog] = useState(false);
   const [showPullConfirmDialog, setShowPullConfirmDialog] = useState(false);
   const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; item: string } | null>(null);
+
+  // API Keys dialog state
+  const [apiKeysDialogOpen, setApiKeysDialogOpen] = useState(false);
 
   // Diagnostic state
   const [showDiagnostics, setShowDiagnostics] = useState(false);
@@ -397,6 +401,12 @@ export function AppSidebar() {
             </SidebarMenuItem>
           )}
           <SidebarMenuItem>
+            <SidebarMenuButton onClick={() => setApiKeysDialogOpen(true)} size="sm">
+              <Key className="text-amber-600" />
+              <span>{t('apiKeys.title')}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={location.pathname === '/settings/calendar'} size="sm">
               <Link to="/settings/calendar">
                 <Calendar className="text-blue-600" />
@@ -565,6 +575,8 @@ export function AppSidebar() {
         </DialogContent>
       </Dialog>
 
+      {/* API Keys dialog */}
+      <APIKeysDialog open={apiKeysDialogOpen} onOpenChange={setApiKeysDialogOpen} />
     </Sidebar>
   );
 }
