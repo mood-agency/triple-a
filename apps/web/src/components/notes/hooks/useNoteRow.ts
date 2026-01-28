@@ -215,9 +215,12 @@ export function useNoteRow({
 
         const finalCategory = parseResult.category || note.category;
 
-        if (parseResult.assigneeId) {
-            console.log('[useNoteRow] Calling onAddAssignee:', note.id, parseResult.assigneeId);
-            onAddAssignee?.(note.id, parseResult.assigneeId);
+        // Agregar todos los contactos mencionados como assignees
+        for (const parsed of parseResult.parsedHashtags) {
+            if (parsed.type === 'contact' && parsed.matchedId) {
+                console.log('[useNoteRow] Calling onAddAssignee:', note.id, parsed.matchedId);
+                onAddAssignee?.(note.id, parsed.matchedId);
+            }
         }
 
         for (const labelId of parseResult.labelIds) {

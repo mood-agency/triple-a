@@ -105,7 +105,7 @@ function findLabelMatch(query: string, labels: Label[]): Label | null {
  * - #hashtag → Categoría, label existente, o nuevo label
  *
  * Orden de procesamiento:
- * 1. @mentions → Contactos (solo el primero se asigna como responsable)
+ * 1. @mentions → Contactos (todos se agregan como responsables)
  * 2. #hashtags → Categorías (todo, followup, notes, meeting)
  * 3. #hashtags → Labels existentes (por nombre, fuzzy match)
  * 4. #hashtags → Crear nuevo label si no hay match
@@ -145,8 +145,12 @@ export function parseHashtags(
     processedTags.add(`@${normalizedMention}`);
 
     const contactMatch = findContactMatch(normalizedMention, context.contacts);
-    if (contactMatch && !result.assigneeId) {
-      result.assigneeId = contactMatch.id;
+    if (contactMatch) {
+      // El primer contacto se asigna como assigneeId principal (para compatibilidad)
+      if (!result.assigneeId) {
+        result.assigneeId = contactMatch.id;
+      }
+      // Todos los contactos se agregan a parsedHashtags para ser procesados
       result.parsedHashtags.push({ tag: mention, type: 'contact', matchedId: contactMatch.id });
     }
     mentionsToRemove.add(mention);

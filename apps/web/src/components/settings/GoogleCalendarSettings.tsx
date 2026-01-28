@@ -140,7 +140,7 @@ export function GoogleCalendarSettings() {
           {error && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{error.message}</AlertDescription>
             </Alert>
           )}
           <Button onClick={connect} className="w-full sm:w-auto">
@@ -176,7 +176,7 @@ export function GoogleCalendarSettings() {
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{error.message}</AlertDescription>
             </Alert>
           )}
 

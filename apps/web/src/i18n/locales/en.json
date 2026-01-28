@@ -321,6 +321,7 @@
   "compactView": "Compact view",
   "compactViewTooltip": "Switch to compact view",
   "fullViewTooltip": "Switch to full view",
+  "copyActiveTasks": "Copy active tasks",
   "hotkeys": {
     "title": "Keyboard Shortcuts",
     "global": "Global",
