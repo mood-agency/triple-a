@@ -1,0 +1,26 @@
+{
+  "name": "@triple-a/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "lint": "eslint .",
+    "type-check": "echo 'TypeScript migration pending'"
+  },
+  "dependencies": {
+    "@triple-a/types": "workspace:*",
+    "@hono/node-server": "^1.19.9",
+    "@supabase/supabase-js": "^2.91.0",
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.2.3",
+    "hono": "^4.11.6",
+    "hono-rate-limiter": "^0.5.3"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/node": "^24.10.9",
+    "typescript": "~5.9.3"
+  }
+}

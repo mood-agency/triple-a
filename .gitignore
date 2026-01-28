@@ -23,8 +23,23 @@ dist-ssr
 *.sln
 *.sw?
 
-# Tauri
-src-tauri/target/
-src-tauri/Cargo.lock
+# Tauri (Rust build artifacts)
+**/src-tauri/target/
+**/src-tauri/gen/schemas/
+
+# Capacitor
+**/android/.gradle/
+**/android/app/build/
+**/android/build/
+**/android/.idea/
+**/android/local.properties
+
+# Environment
 .env
+.env.local
+.env.*.local
+
+# Misc
 TODO.md
+/.turbo
+.turbo/

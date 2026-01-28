@@ -86,7 +86,16 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:block.github.io)",
       "WebFetch(domain:composio.dev)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(wc:*)",
+      "Bash(find:*)",
+      "Bash(git mv:*)",
+      "Bash(xcopy:*)",
+      "Bash(pnpm --filter @triple-a/types build:*)",
+      "Bash(pnpm --filter @triple-a/client build:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm --filter @triple-a/web build:*)",
+      "Bash(git reset:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\argen\\Documents\\GitHub\\triple-a"
