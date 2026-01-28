@@ -49,12 +49,18 @@ export interface NoteLabelRow {
   note_id: string;
   label_id: string;
   created_at: string;
+  remote_id: string | null;
+  sync_status: SyncStatus;
+  last_synced_at: string | null;
 }
 
 export interface NoteAssigneeRow {
   note_id: string;
   contact_id: string;
   created_at: string;
+  remote_id: string | null;
+  sync_status: SyncStatus;
+  last_synced_at: string | null;
 }
 
 // Legacy interface for backward compatibility
