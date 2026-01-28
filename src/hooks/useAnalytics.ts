@@ -274,19 +274,21 @@ export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
     loadAnalytics();
   }, [loadAnalytics]);
 
-  // Listen to store changes to refresh analytics
+  // Listen to store changes to refresh analytics (debounced to avoid blocking main thread)
   useEffect(() => {
     if (!store) return;
 
-    const notesListenerId = store.addTableListener('notes', () => {
-      loadAnalytics();
-    });
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const debouncedLoad = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => loadAnalytics(), 300);
+    };
 
-    const historyListenerId = store.addTableListener('note_history', () => {
-      loadAnalytics();
-    });
+    const notesListenerId = store.addTableListener('notes', debouncedLoad);
+    const historyListenerId = store.addTableListener('note_history', debouncedLoad);
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       store.delListener(notesListenerId);
       store.delListener(historyListenerId);
     };

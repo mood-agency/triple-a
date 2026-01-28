@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { Note, NoteCategory } from '@/types/note';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -220,12 +220,19 @@ export function useNoteOperations({
     }, [onSelectNote, filteredNotesRef, setDesiredColumn, setFocusTarget]);
 
 
-    return {
+    return useMemo(() => ({
         handleDeleteWithToast,
         handleToggleCompletedWithNavigation,
         handleCreateNoteAfterById,
         handleCreateTaskAtTime,
         handleNavigateDownById,
         handleNavigateUpById
-    };
+    }), [
+        handleDeleteWithToast,
+        handleToggleCompletedWithNavigation,
+        handleCreateNoteAfterById,
+        handleCreateTaskAtTime,
+        handleNavigateDownById,
+        handleNavigateUpById
+    ]);
 }

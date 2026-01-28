@@ -164,19 +164,21 @@ export function createIndexedDbPersister(store: MergeableStore): AppPersister {
     },
 
     startAutoSave: async () => {
-      // Listen to all table changes
-      autoSaveListenerId = store.addTablesListener(() => {
-        setPersisted(() => [store.getTables(), store.getValues()]).catch((err) => {
-          console.error('[IndexedDbPersister] Auto-save failed:', err);
-        });
-      });
+      let saveTimer: ReturnType<typeof setTimeout> | null = null;
+      const debouncedSave = () => {
+        if (saveTimer) clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+          setPersisted(() => [store.getTables(), store.getValues()]).catch((err) => {
+            console.error('[IndexedDbPersister] Auto-save failed:', err);
+          });
+        }, 200);
+      };
 
-      // Also listen to values changes
-      store.addValuesListener(() => {
-        setPersisted(() => [store.getTables(), store.getValues()]).catch((err) => {
-          console.error('[IndexedDbPersister] Auto-save failed:', err);
-        });
-      });
+      // Listen to all table changes (debounced)
+      autoSaveListenerId = store.addTablesListener(debouncedSave);
+
+      // Also listen to values changes (debounced)
+      store.addValuesListener(debouncedSave);
     },
 
     stopAutoSave: () => {

@@ -12,6 +12,7 @@ import { useTinyBase } from '@/contexts/TinyBaseContext';
 import { useLabels } from '@/hooks/useLabels';
 import { useSettings } from '@/hooks/useSettings';
 import { useContacts } from '@/hooks/useContacts';
+import { useAssignees } from '@/hooks/useAssignees';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useActiveProject } from '@/contexts/ProjectContext';
 import type { Note, NoteCategory } from '@/types/note';
@@ -36,6 +37,7 @@ export function Home() {
   const noteListRef = useRef<NoteListHandle>(null);
   const { labels } = useLabels();
   const { contacts } = useContacts();
+  const { addAssigneeToNote, removeAssigneeFromNote } = useAssignees();
   const { settings, updateSettings } = useSettings();
 
   // View mode from URL (fallback to settings)
@@ -288,11 +290,6 @@ export function Home() {
     // Note: selectedNote will automatically update via useMemo when notes array changes
   }, [updateNote]);
 
-  const handleUpdateDeadline = useCallback(async (id: string, deadline: string | null) => {
-    await updateDeadline(id, deadline);
-    // Note: selectedNote will automatically update via useMemo when notes array changes
-  }, [updateDeadline]);
-
   const handlePostponeNote = useCallback(async (id: string, newDeadline: string, reason: string) => {
     await postponeNote(id, newDeadline, reason);
     // Note: selectedNote will automatically update via useMemo when notes array changes
@@ -320,7 +317,9 @@ export function Home() {
         onRestore={restoreNote}
         onToggleCompleted={toggleCompleted}
         onTogglePinned={togglePinned}
-        onUpdateDeadline={handleUpdateDeadline}
+        onUpdateDeadline={updateDeadline}
+        onAddAssignee={addAssigneeToNote}
+        onRemoveAssignee={removeAssigneeFromNote}
         onUpdateAssignee={updateAssignee}
         onReorderNotes={reorderNotes}
         onPostponeNote={handlePostponeNote}

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { Note, NoteCategory } from '@/types/note';
 import type { EditableDescriptionHandle } from '@/components/ui/EditableDescription';
 import { useAutoSave } from '@/hooks/useAutoSave';
@@ -43,23 +43,6 @@ export function useNoteSelection({
         enabled: isDescriptionFocused && !!selectedNote && !!onEdit && autoSaveInterval > 0,
     });
 
-    // Log auto-save status changes
-    useEffect(() => {
-        const enabled = isDescriptionFocused && !!selectedNote && !!onEdit && autoSaveInterval > 0;
-        console.log('[NoteSelection] Auto-save enabled:', enabled, {
-            isDescriptionFocused,
-            hasSelectedNote: !!selectedNote,
-            hasOnEdit: !!onEdit,
-            autoSaveInterval,
-        });
-    }, [isDescriptionFocused, selectedNote, onEdit, autoSaveInterval]);
-
-    // Log description value changes
-    useEffect(() => {
-        if (selectedNote && isDescriptionFocused) {
-            console.log('[NoteSelection] Description value changed while focused');
-        }
-    }, [descriptionValue, selectedNote, isDescriptionFocused]);
 
     // Track the note ID to detect when we switch to a different note
     const selectedNoteIdRef = useRef<string | null>(null);
@@ -74,14 +57,14 @@ export function useNoteSelection({
         if (noteIdChanged) {
             setDescriptionValue(selectedNote?.description || '');
             setTitleValue(selectedNote?.content || '');
-            // Show description panel when a note is selected (e.g., from URL or user click)
-            setShowDescriptionPanel(!!selectedNote);
+            // Don't auto-show description panel on click; user opens it with Tab
+            setShowDescriptionPanel(false);
         } else if (!isDescriptionFocused) {
             // Sync description only if not focused (to avoid overwriting while typing)
             setDescriptionValue(selectedNote?.description || '');
             setTitleValue(selectedNote?.content || '');
         }
-    }, [selectedNote, isDescriptionFocused]);
+    }, [selectedNote?.id, selectedNote?.description, selectedNote?.content, isDescriptionFocused]);
 
     // Handle Focus Target
     useEffect(() => {
@@ -110,7 +93,7 @@ export function useNoteSelection({
             }, 0);
         }
         // 'title' is handled via prop shouldFocusTitle in NoteRow (or MemoizedNoteRow)
-    }, [focusTarget, selectedNote, desiredColumn, descriptionValue]);
+    }, [focusTarget, selectedNote?.id, desiredColumn, descriptionValue]);
 
     const handleTitleFocused = useCallback(() => {
         if (focusTargetRef.current === 'title') {
@@ -144,7 +127,7 @@ export function useNoteSelection({
         }
     }, []);
 
-    return {
+    return useMemo(() => ({
         descriptionRef,
         descriptionCaretPositionRef,
         focusTarget,
@@ -165,5 +148,8 @@ export function useNoteSelection({
         restoreDescriptionCaret,
         // Auto-save flush handler for description
         flushDescriptionAutoSave: descriptionAutoSave.handleBlur,
-    };
+    }), [
+        focusTarget, desiredColumn, descriptionValue, titleValue, isDescriptionFocused, showDescriptionPanel,
+        handleTitleFocused, handleNavigateToDescription, restoreDescriptionCaret, descriptionAutoSave.handleBlur
+    ]);
 }

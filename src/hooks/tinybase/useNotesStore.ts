@@ -71,10 +71,30 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
     const notesTable = store.getTable('notes') || {};
     const actionsTable = store.getTable('note_actions') || {};
 
+    // Pre-build a map of noteId -> latest postpone reason (O(m) instead of O(n*m))
+    const postponeReasonMap = new Map<string, string | null>();
+    const postponeTimeMap = new Map<string, string>();
+    for (const action of Object.values(actionsTable)) {
+      const a = action as Record<string, unknown>;
+      if (a.action_type !== 'postponed') continue;
+      const noteId_ = a.note_id as string;
+      const createdAt = a.created_at as string;
+      const existing = postponeTimeMap.get(noteId_);
+      if (!existing || createdAt > existing) {
+        postponeTimeMap.set(noteId_, createdAt);
+        postponeReasonMap.set(noteId_, (a.reason as string) || null);
+      }
+    }
+
     // Convert to array and filter
     const notesList: Note[] = Object.entries(notesTable)
-      .filter(([_, noteRow]) => {
+      .filter(([id, noteRow]) => {
         const row = noteRow as Record<string, unknown>;
+        // Skip corrupt notes missing required 'date' field
+        if (!row.date) {
+          console.warn(`[useNotesStore] Skipping corrupt note ${id} with missing date`);
+          return false;
+        }
         // Filter out soft-deleted notes
         if (row.deleted_at) return false;
         // Filter by date if provided
@@ -86,22 +106,7 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
       .map(([id, noteRow]) => {
         const row = noteRow as Record<string, unknown>;
 
-        // Find last postpone reason from actions table
-        let lastPostponeReason: string | null = null;
-        const postponeActions = Object.values(actionsTable)
-          .filter((a) => {
-            const action = a as Record<string, unknown>;
-            return action.note_id === id && action.action_type === 'postponed';
-          })
-          .sort((a, b) => {
-            const aTime = (a as Record<string, unknown>).created_at as string;
-            const bTime = (b as Record<string, unknown>).created_at as string;
-            return bTime.localeCompare(aTime);
-          });
-
-        if (postponeActions.length > 0) {
-          lastPostponeReason = (postponeActions[0] as Record<string, unknown>).reason as string | null;
-        }
+        const lastPostponeReason = postponeReasonMap.get(id) ?? null;
 
         return {
           id,
@@ -142,15 +147,18 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
     loadNotes();
   }, [loadNotes]);
 
-  // Listen to store changes
+  // Listen to store changes (debounced to avoid blocking main thread)
   useEffect(() => {
     if (!store) return;
 
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const listenerId = store.addTableListener('notes', () => {
-      loadNotes();
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => loadNotes(), 100);
     });
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       store.delListener(listenerId);
     };
   }, [store, loadNotes]);

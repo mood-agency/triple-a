@@ -121,7 +121,8 @@ export interface CreateNoteInput {
   date: string; // YYYY-MM-DD
   deadline?: string | null;
   project_id?: string | null;
-  assignee_id?: string | null;
+  assignee_id?: string | null; // Deprecated: use assignee_ids instead
+  assignee_ids?: string[]; // Array of contact IDs (assignees)
   labels?: string[]; // Array of label IDs
 }
 
@@ -134,7 +135,8 @@ export interface UpdateNoteInput {
   completed?: boolean;
   pinned?: boolean;
   project_id?: string | null;
-  assignee_id?: string | null;
+  assignee_id?: string | null; // Deprecated: use assignee_ids instead
+  assignee_ids?: string[]; // Array of contact IDs (assignees)
   labels?: string[];
 }
 

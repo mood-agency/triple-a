@@ -49,7 +49,9 @@ export interface NoteRowProps {
   compactView?: boolean;
   isDescriptionFocused?: boolean;
   contacts?: Contact[];
-  onUpdateAssignee?: (noteId: string, assigneeId: string | null) => void;
+  onAddAssignee?: (noteId: string, contactId: string) => void;
+  onRemoveAssignee?: (noteId: string, contactId: string) => void;
+  onUpdateAssignee?: (noteId: string, contactId: string | null) => void;
   hideDeadline?: boolean;
   autoSaveInterval?: number; // in seconds, 0 = disabled
 }
@@ -185,7 +187,8 @@ function NoteRow(props: NoteRowProps) {
             onEditLabel={props.onEditLabel}
             onCreateLabel={props.onCreateLabel}
             onEdit={props.onEdit}
-            onUpdateAssignee={props.onUpdateAssignee}
+            onAddAssignee={props.onAddAssignee}
+            onRemoveAssignee={props.onRemoveAssignee}
           />
 
           {/* Actions - positioned right of content */}

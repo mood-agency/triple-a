@@ -87,6 +87,12 @@ export interface NoteLabel {
   created_at: string;
 }
 
+export interface NoteAssignee {
+  note_id: string;
+  contact_id: string;
+  created_at: string;
+}
+
 // Export/Import types
 export interface ExportData {
   version: string;

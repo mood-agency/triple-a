@@ -19,19 +19,14 @@ export function useNoteVersionsAndActions(noteId: string | null) {
    */
   const loadVersions = useCallback(() => {
     if (!store || !storeReady || !noteId) {
-      setVersions([]);
+      setVersions(prev => prev.length > 0 ? [] : prev);
       return;
     }
 
     const versionsTable = store.getTable('note_versions') || {};
-    console.log('[useNoteVersionsAndActions] Total versions in note_versions:', Object.keys(versionsTable).length);
-
-    const filteredVersions = Object.entries(versionsTable)
-      .filter(([, v]) => (v as Record<string, unknown>).note_id === noteId);
-
-    console.log('[useNoteVersionsAndActions] Versions for noteId', noteId, ':', filteredVersions.length);
-
-    const versionsList: NoteVersion[] = filteredVersions
+    
+    const versionsList: NoteVersion[] = Object.entries(versionsTable)
+      .filter(([, v]) => (v as Record<string, unknown>).note_id === noteId)
       .map(([id, v]) => {
         const row = v as Record<string, unknown>;
         return {
@@ -47,8 +42,14 @@ export function useNoteVersionsAndActions(noteId: string | null) {
       })
       .sort((a, b) => b.version_number - a.version_number); // Newest first
 
-    console.log('[useNoteVersionsAndActions] Loaded versions:', versionsList.length);
-    setVersions(versionsList);
+    setVersions(prev => {
+      // Simple equality check to avoid unnecessary re-renders
+      if (prev.length === versionsList.length && 
+          prev.every((v, i) => v.id === versionsList[i].id && v.version_number === versionsList[i].version_number)) {
+        return prev;
+      }
+      return versionsList;
+    });
   }, [store, storeReady, noteId]);
 
   /**
@@ -56,19 +57,14 @@ export function useNoteVersionsAndActions(noteId: string | null) {
    */
   const loadActions = useCallback(() => {
     if (!store || !storeReady || !noteId) {
-      setActions([]);
+      setActions(prev => prev.length > 0 ? [] : prev);
       return;
     }
 
     const actionsTable = store.getTable('note_actions') || {};
-    console.log('[useNoteVersionsAndActions] Total actions in note_actions:', Object.keys(actionsTable).length);
 
-    const filteredActions = Object.entries(actionsTable)
-      .filter(([, a]) => (a as Record<string, unknown>).note_id === noteId);
-
-    console.log('[useNoteVersionsAndActions] Actions for noteId', noteId, ':', filteredActions.length);
-
-    const actionsList: NoteAction[] = filteredActions
+    const actionsList: NoteAction[] = Object.entries(actionsTable)
+      .filter(([, a]) => (a as Record<string, unknown>).note_id === noteId)
       .map(([id, a]) => {
         const row = a as Record<string, unknown>;
         const action: NoteAction = {
@@ -80,14 +76,18 @@ export function useNoteVersionsAndActions(noteId: string | null) {
           new_date: (row.new_date as string) || null,
           created_at: row.created_at as string,
         };
-        console.log('[useNoteVersionsAndActions] Action:', action.id, 'type:', action.action_type, 'reason:', action.reason);
         return action;
       })
       .sort((a, b) => b.created_at.localeCompare(a.created_at)); // Newest first
 
-    console.log('[useNoteVersionsAndActions] Loaded actions:', actionsList.length);
-    console.log('[useNoteVersionsAndActions] Postpone actions:', actionsList.filter(a => a.action_type === 'postponed').length);
-    setActions(actionsList);
+    setActions(prev => {
+      // Simple equality check to avoid unnecessary re-renders
+      if (prev.length === actionsList.length && 
+          prev.every((a, i) => a.id === actionsList[i].id && a.created_at === actionsList[i].created_at)) {
+        return prev;
+      }
+      return actionsList;
+    });
   }, [store, storeReady, noteId]);
 
   /**
@@ -141,19 +141,26 @@ export function useNoteVersionsAndActions(noteId: string | null) {
     };
   }, [noteId, loadVersions, loadActions]);
 
-  // Listen for TinyBase store changes to both tables
+  // Listen for TinyBase store changes to both tables (debounced to avoid blocking main thread)
   useEffect(() => {
     if (!store || !noteId) return;
 
+    let versionsTimer: ReturnType<typeof setTimeout> | null = null;
+    let actionsTimer: ReturnType<typeof setTimeout> | null = null;
+
     const listener1 = store.addTableListener('note_versions', () => {
-      loadVersions();
+      if (versionsTimer) clearTimeout(versionsTimer);
+      versionsTimer = setTimeout(() => loadVersions(), 200);
     });
 
     const listener2 = store.addTableListener('note_actions', () => {
-      loadActions();
+      if (actionsTimer) clearTimeout(actionsTimer);
+      actionsTimer = setTimeout(() => loadActions(), 200);
     });
 
     return () => {
+      if (versionsTimer) clearTimeout(versionsTimer);
+      if (actionsTimer) clearTimeout(actionsTimer);
       store.delListener(listener1);
       store.delListener(listener2);
     };

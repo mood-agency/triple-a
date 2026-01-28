@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { useNotes } from './useNotes';
 import { useGoogleCalendar } from './useGoogleCalendar';
 import type { Note, NoteCategory } from '@/types/note';
@@ -13,7 +13,19 @@ interface UseNotesWithCalendarSyncOptions {
  * if the integration is enabled.
  */
 export function useNotesWithCalendarSync(options: UseNotesWithCalendarSyncOptions = {}) {
-  const notesHook = useNotes(options);
+  const {
+    notes,
+    createNote,
+    updateNote,
+    updateDeadline,
+    ...rest
+  } = useNotes(options);
+
+  const notesRef = useRef(notes);
+  useEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
+
   const {
     isConnected,
     config,
@@ -22,6 +34,14 @@ export function useNotesWithCalendarSync(options: UseNotesWithCalendarSyncOption
   } = useGoogleCalendar();
 
   const isSyncEnabled = isConnected && config?.enabled && (config?.calendars_to_sync?.length ?? 0) > 0;
+
+  // Use refs to keep callbacks stable regardless of sync state changes
+  const isSyncEnabledRef = useRef(isSyncEnabled);
+  useEffect(() => { isSyncEnabledRef.current = isSyncEnabled; }, [isSyncEnabled]);
+  const createCalendarEventRef = useRef(createCalendarEvent);
+  useEffect(() => { createCalendarEventRef.current = createCalendarEvent; }, [createCalendarEvent]);
+  const updateCalendarEventRef = useRef(updateCalendarEvent);
+  useEffect(() => { updateCalendarEventRef.current = updateCalendarEvent; }, [updateCalendarEvent]);
 
   /**
    * Create a note and sync to Google Calendar if it's a meeting
@@ -32,18 +52,18 @@ export function useNotesWithCalendarSync(options: UseNotesWithCalendarSyncOption
     description?: string | null,
     labelIds?: string[]
   ): Promise<Note> => {
-    const note = await notesHook.createNote(content, category, description, labelIds);
+    const note = await createNote(content, category, description, labelIds);
 
     // If it's a meeting and sync is enabled, create calendar event
-    if (category === 'meeting' && isSyncEnabled && content.trim()) {
+    if (category === 'meeting' && isSyncEnabledRef.current && content.trim()) {
       // Run sync in background - don't block the UI
-      createCalendarEvent(note.id, content, description || null, null).catch(err => {
+      createCalendarEventRef.current(note.id, content, description || null, null).catch(err => {
         console.error('Failed to sync meeting to Google Calendar:', err);
       });
     }
 
     return note;
-  }, [notesHook, isSyncEnabled, createCalendarEvent]);
+  }, [createNote]);
 
   /**
    * Update a note and sync to Google Calendar if it's a meeting
@@ -54,19 +74,19 @@ export function useNotesWithCalendarSync(options: UseNotesWithCalendarSyncOption
     category?: NoteCategory,
     description?: string | null
   ): void => {
-    notesHook.updateNote(id, content, category, description);
+    updateNote(id, content, category, description);
 
     // Find the note to check if it's a meeting
-    const note = notesHook.notes.find(n => n.id === id);
+    const note = notesRef.current.find(n => n.id === id);
     const finalCategory = category ?? note?.category;
 
-    if (finalCategory === 'meeting' && isSyncEnabled && content.trim()) {
+    if (finalCategory === 'meeting' && isSyncEnabledRef.current && content.trim()) {
       // Get gcal_event_id from the note if it exists
       const gcalEventId = (note as Note & { gcal_event_id?: string })?.gcal_event_id;
 
       if (gcalEventId) {
         // Update existing calendar event
-        updateCalendarEvent(
+        updateCalendarEventRef.current(
           gcalEventId,
           content,
           description ?? note?.description ?? null,
@@ -76,7 +96,7 @@ export function useNotesWithCalendarSync(options: UseNotesWithCalendarSyncOption
         });
       } else {
         // Create new calendar event (category changed to meeting)
-        createCalendarEvent(
+        createCalendarEventRef.current(
           id,
           content,
           description ?? note?.description ?? null,
@@ -86,7 +106,7 @@ export function useNotesWithCalendarSync(options: UseNotesWithCalendarSyncOption
         });
       }
     }
-  }, [notesHook, isSyncEnabled, createCalendarEvent, updateCalendarEvent]);
+  }, [updateNote]);
 
   /**
    * Update deadline and sync to Google Calendar if it's a meeting
@@ -95,14 +115,14 @@ export function useNotesWithCalendarSync(options: UseNotesWithCalendarSyncOption
     id: string,
     deadline: string | null
   ): void => {
-    notesHook.updateDeadline(id, deadline);
+    updateDeadline(id, deadline);
 
-    const note = notesHook.notes.find(n => n.id === id);
-    if (note?.category === 'meeting' && isSyncEnabled) {
+    const note = notesRef.current.find(n => n.id === id);
+    if (note?.category === 'meeting' && isSyncEnabledRef.current) {
       const gcalEventId = (note as Note & { gcal_event_id?: string })?.gcal_event_id;
 
       if (gcalEventId) {
-        updateCalendarEvent(
+        updateCalendarEventRef.current(
           gcalEventId,
           note.content,
           note.description,
@@ -112,14 +132,14 @@ export function useNotesWithCalendarSync(options: UseNotesWithCalendarSyncOption
         });
       }
     }
-  }, [notesHook, isSyncEnabled, updateCalendarEvent]);
+  }, [updateDeadline]);
 
   return {
-    ...notesHook,
-    // Override with sync-enabled versions
+    notes,
     createNote: createNoteWithSync,
     updateNote: updateNoteWithSync,
     updateDeadline: updateDeadlineWithSync,
+    ...rest,
     // Expose sync status
     isCalendarSyncEnabled: isSyncEnabled,
   };
