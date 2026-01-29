@@ -17,6 +17,23 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('[UnhandledRejection]', event.reason)
 })
 
+// Clean up old service worker caches that may contain stale offline pages
+async function cleanupOldCaches() {
+  if ('caches' in window) {
+    const cacheNames = await caches.keys()
+    for (const name of cacheNames) {
+      // Delete old workbox caches that might have stale content
+      if (name.includes('workbox') || name.includes('offline')) {
+        const cache = await caches.open(name)
+        // Remove any cached offline.html or pages that shouldn't be cached
+        await cache.delete('/offline.html').catch(() => {})
+        await cache.delete('/offline').catch(() => {})
+      }
+    }
+  }
+}
+cleanupOldCaches()
+
 // Handle shared content from other apps (Android/iOS)
 async function handleSharedContent() {
   if (!Capacitor.isNativePlatform()) return
