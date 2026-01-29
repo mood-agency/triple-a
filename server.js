@@ -32,6 +32,9 @@ import { authenticateApiKey } from './middleware/auth.js';
 import { logApiRequest } from './middleware/audit.js';
 import { rateLimitKeyExtractor, apiLimiter } from './middleware/rateLimit.js';
 
+// Import shared helpers
+import { decodeHtmlEntities, parseJsonResponse, extractEmail } from './lib/server-helpers.js';
+
 // Environment variables
 const PORT = process.env.PORT || 3000;
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -58,55 +61,7 @@ app.use('*', corsMiddleware);
 // HELPER FUNCTIONS
 // ============================================================================
 
-/**
- * Decode HTML entities in transcript text
- */
-function decodeHtmlEntities(text) {
-  return text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec));
-}
-
-/**
- * Parse JSON from AI response (handles markdown code blocks)
- */
-function parseJsonResponse(content) {
-  try {
-    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    const jsonStr = jsonMatch ? jsonMatch[1].trim() : content.trim();
-    return JSON.parse(jsonStr);
-  } catch {
-    return {
-      summary: content,
-      keyPoints: [],
-      topics: [],
-    };
-  }
-}
-
-/**
- * Extract email address from 'from' field
- */
-function extractEmail(from) {
-  if (!from) return null;
-
-  const bracketMatch = from.match(/<([^>]+@[^>]+)>/);
-  if (bracketMatch) {
-    return bracketMatch[1].toLowerCase().trim();
-  }
-
-  const emailMatch = from.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
-  if (emailMatch) {
-    return from.toLowerCase().trim();
-  }
-
-  return null;
-}
+// decodeHtmlEntities, parseJsonResponse, extractEmail are imported from lib/server-helpers.js
 
 /**
  * Verify user from Authorization header
