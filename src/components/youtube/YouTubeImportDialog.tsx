@@ -79,8 +79,8 @@ export function YouTubeImportDialog({
     try {
       const text = await navigator.clipboard.readText()
       setUrl(text)
-    } catch {
-      // Clipboard access denied
+    } catch (error) {
+      console.warn('[Clipboard] Access denied or unavailable:', error)
     }
   }
 
