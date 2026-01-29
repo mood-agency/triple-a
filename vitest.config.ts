@@ -5,11 +5,11 @@ import path from 'path'
 export default defineConfig({
   test: {
     globals: true,
-    environment: 'node',
+    environment: 'jsdom',
     include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.{ts,js}'],
     coverage: {
       provider: 'v8',
-      include: ['src/utils/**', 'src/store/**'],
+      include: ['src/utils/**', 'src/store/**', 'src/lib/**', 'src/config/**'],
     },
   },
   resolve: {
