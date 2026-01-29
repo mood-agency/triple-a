@@ -96,7 +96,9 @@
       "Bash(pnpm build:*)",
       "Bash(pnpm --filter @triple-a/web build:*)",
       "Bash(git reset:*)",
-      "Bash(pnpm --filter @triple-a/web type-check:*)"
+      "Bash(pnpm --filter @triple-a/web type-check:*)",
+      "Bash(xxd:*)",
+      "Bash(iconv:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\argen\\Documents\\GitHub\\triple-a"

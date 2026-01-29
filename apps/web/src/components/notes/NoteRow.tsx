@@ -1,4 +1,4 @@
-import { memo, useState, useEffect } from 'react';
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Calendar, StickyNote, Users, Pickaxe, Forward } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
@@ -7,8 +7,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DeleteTaskDialog } from './DeleteTaskDialog';
 import { useDebugNavigation } from '@/hooks/useDebugNavigation';
-import { useAssignees } from '@/hooks/useAssignees';
-import { useTinyBase } from '@/contexts/TinyBaseContext';
 import { getInitials } from '@/lib/utils';
 
 import type { Note, NoteCategory, Label } from '@/types/note';
@@ -56,6 +54,7 @@ export interface NoteRowProps {
   onRemoveAssignee?: (noteId: string, contactId: string) => void;
   onUpdateAssignee?: (noteId: string, contactId: string | null) => void;
   hideDeadline?: boolean;
+  assignees?: Contact[];
   autoSaveInterval?: number; // in seconds, 0 = disabled
 }
 
@@ -76,19 +75,9 @@ function NoteRow(props: NoteRowProps) {
 
   const { t, i18n } = useTranslation();
   const { debugMode, debugSelectedClass } = useDebugNavigation();
-  const { getAssigneesForNote } = useAssignees();
-  const { store } = useTinyBase();
 
-  // Track assignees reactively via store listener
-  const [noteAssignees, setNoteAssignees] = useState(() => getAssigneesForNote(note.id));
-  useEffect(() => {
-    setNoteAssignees(getAssigneesForNote(note.id));
-    if (!store) return;
-    const listenerId = store.addTableListener('note_assignees', () => {
-      setNoteAssignees(getAssigneesForNote(note.id));
-    });
-    return () => { store.delListener(listenerId); };
-  }, [note.id, store, getAssigneesForNote]);
+  // Assignees are passed from parent (pre-computed in NoteList)
+  const noteAssignees = props.assignees ?? [];
 
   const {
     contentValue,
@@ -299,7 +288,7 @@ function NoteRow(props: NoteRowProps) {
                 <Tooltip key={contact.id}>
                   <TooltipTrigger asChild>
                     <span
-                      className="px-1.5 py-0.5 text-[10px] rounded-full bg-background border border-neutral-900 text-muted-foreground leading-none truncate max-w-[90px] cursor-default"
+                      className="px-1.5 py-0.5 text-[10px] rounded-full bg-background border chip-black-border text-foreground leading-none truncate max-w-[90px] cursor-default"
                     >
                       {initials}
                     </span>

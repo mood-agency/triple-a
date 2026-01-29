@@ -4,16 +4,21 @@ import { BrowserRouter } from 'react-router-dom'
 import { Capacitor } from '@capacitor/core'
 import { SendIntent } from 'send-intent'
 import { AuthProvider } from './contexts/AuthContext'
-import { TinyBaseProvider } from './contexts/TinyBaseContext'
 import { SyncProvider } from './contexts/SyncContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { ProjectProvider } from './contexts/ProjectContext'
 import { GoogleCalendarProvider } from './contexts/GoogleCalendarContext'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Toaster } from './components/ui/sonner'
 import './index.css'
 import './i18n'
 import App from './App.tsx'
+
+// Global handler for unhandled promise rejections
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('[UnhandledRejection]', event.reason)
+})
 
 // Handle shared content from other apps (Android/iOS)
 async function handleSharedContent() {
@@ -43,11 +48,11 @@ handleSharedContent()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-      <ThemeProvider defaultTheme="system" storageKey="app-theme">
-        <TooltipProvider delayDuration={500} disableHoverableContent>
-          <AuthProvider>
-            <TinyBaseProvider>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <ThemeProvider defaultTheme="system" storageKey="app-theme">
+          <TooltipProvider delayDuration={500} disableHoverableContent>
+            <AuthProvider>
               <SyncProvider>
                 <ProjectProvider>
                   <GoogleCalendarProvider>
@@ -56,10 +61,10 @@ createRoot(document.getElementById('root')!).render(
                   </GoogleCalendarProvider>
                 </ProjectProvider>
               </SyncProvider>
-            </TinyBaseProvider>
-          </AuthProvider>
-        </TooltipProvider>
-      </ThemeProvider>
-    </BrowserRouter>
+            </AuthProvider>
+          </TooltipProvider>
+        </ThemeProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   </StrictMode>,
 )

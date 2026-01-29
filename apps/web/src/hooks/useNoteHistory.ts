@@ -1,68 +1,91 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useTinyBase } from '@/contexts/TinyBaseContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import type { NoteHistory, NoteCategory, ChangelogActionType } from '@/types/note';
 
 export function useNoteHistory(noteId: string | null) {
-  const { store, isReady: storeReady } = useTinyBase();
+  const { user } = useAuth();
 
   const [history, setHistory] = useState<NoteHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadHistory = useCallback(() => {
-    if (!store || !storeReady || !noteId) {
+  const loadHistory = useCallback(async () => {
+    if (!supabase || !user || !noteId) {
       setHistory([]);
       setLoading(false);
       return;
     }
 
-    const historyTable = store.getTable('note_history') || {};
-    console.log('[useNoteHistory] Total entries in note_history:', Object.keys(historyTable).length);
+    try {
+      // Use 'as any' since note_history table may not be in generated types
+      const { data, error } = await (supabase as any)
+        .from('note_history')
+        .select('*')
+        .eq('note_id', noteId)
+        .order('changed_at', { ascending: false });
 
-    const filteredEntries = Object.entries(historyTable)
-      .filter(([, h]) => (h as Record<string, unknown>).note_id === noteId);
+      if (error) {
+        console.error('[useNoteHistory] Error loading history:', error);
+        setHistory([]);
+        return;
+      }
 
-    console.log('[useNoteHistory] Entries for noteId', noteId, ':', filteredEntries.length);
+      const rows: NoteHistory[] = (data || []).map((row: any) => ({
+        id: row.id,
+        note_id: row.note_id,
+        content: row.content,
+        description: row.description || null,
+        category: row.category as NoteCategory,
+        completed: Boolean(row.completed),
+        changed_at: row.changed_at,
+        action_type: (row.action_type as ChangelogActionType) || 'edit',
+        reason: row.reason || null,
+        previous_date: row.previous_date || null,
+      }));
 
-    const rows: NoteHistory[] = filteredEntries
-      .map(([id, h]) => {
-        const row = h as Record<string, unknown>;
-        const entry = {
-          id,
-          note_id: row.note_id as string,
-          content: row.content as string,
-          description: (row.description as string) || null,
-          category: row.category as NoteCategory,
-          completed: Boolean(row.completed),
-          changed_at: row.changed_at as string,
-          action_type: (row.action_type as ChangelogActionType) || 'edit',
-          reason: (row.reason as string) || null,
-          previous_date: (row.previous_date as string) || null,
-        };
-        console.log('[useNoteHistory] Entry:', entry.id, 'action_type:', entry.action_type, 'reason:', entry.reason);
-        return entry;
-      })
-      .sort((a, b) => b.changed_at.localeCompare(a.changed_at));
-
-    console.log('[useNoteHistory] Final rows count:', rows.length);
-    console.log('[useNoteHistory] Postponed entries:', rows.filter(r => r.action_type === 'postponed').length);
-    setHistory(rows);
-    setLoading(false);
-  }, [store, storeReady, noteId]);
+      setHistory(rows);
+    } catch (err) {
+      console.error('[useNoteHistory] Unexpected error:', err);
+      setHistory([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, noteId]);
 
   const deleteHistoryEntry = useCallback(async (historyId: string) => {
-    if (!store || !storeReady) return;
-    store.delRow('note_history', historyId);
+    if (!supabase || !user) return;
+
+    const { error } = await (supabase as any)
+      .from('note_history')
+      .delete()
+      .eq('id', historyId);
+
+    if (error) {
+      console.error('[useNoteHistory] Error deleting history entry:', error);
+      return;
+    }
+
     loadHistory();
-  }, [store, storeReady, loadHistory]);
+  }, [user, loadHistory]);
 
   const updateHistoryReason = useCallback(async (historyId: string, newReason: string) => {
-    if (!store || !storeReady) return;
-    store.setPartialRow('note_history', historyId, { reason: newReason });
-    loadHistory();
-  }, [store, storeReady, loadHistory]);
+    if (!supabase || !user) return;
 
-  // PERFORMANCE: Debounce history loading to avoid blocking click interactions
+    const { error } = await (supabase as any)
+      .from('note_history')
+      .update({ reason: newReason })
+      .eq('id', historyId);
+
+    if (error) {
+      console.error('[useNoteHistory] Error updating history reason:', error);
+      return;
+    }
+
+    loadHistory();
+  }, [user, loadHistory]);
+
+  // Debounce history loading
   useEffect(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -86,18 +109,32 @@ export function useNoteHistory(noteId: string | null) {
     };
   }, [noteId, loadHistory]);
 
-  // Listen for TinyBase store changes to note_history table
+  // Realtime subscription for note_history changes
   useEffect(() => {
-    if (!store || !noteId) return;
+    if (!supabase || !user || !noteId) return;
 
-    const listenerId = store.addTableListener('note_history', () => {
-      loadHistory();
-    });
+    const channel = supabase
+      .channel(`note-history-${noteId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'note_history',
+          filter: `note_id=eq.${noteId}`,
+        },
+        () => {
+          loadHistory();
+        }
+      )
+      .subscribe();
 
     return () => {
-      store.delListener(listenerId);
+      if (supabase) {
+        supabase.removeChannel(channel);
+      }
     };
-  }, [store, noteId, loadHistory]);
+  }, [user, noteId, loadHistory]);
 
   return {
     history,

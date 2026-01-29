@@ -95,6 +95,13 @@
     "autoSync": "Automatic sync",
     "autoSave": "Auto-save",
     "autoSaveOff": "Off",
+    "syncMode": "Data mode",
+    "syncModeDescription": "Choose how your data is stored and synchronized",
+    "syncModeOfflineFirst": "Offline First",
+    "syncModeOfflineFirstDescription": "Data stored locally with sync to cloud. Works offline.",
+    "syncModeSupabaseOnly": "Cloud Only",
+    "syncModeSupabaseOnlyDescription": "Data stored only in cloud. Requires internet.",
+    "syncModeWarning": "Changing mode will reload the app",
     "beeperConfig": "Configure Beeper",
     "beeperDescription": "Configure your Beeper Desktop token to send WhatsApp messages from the app.",
     "beeperToken": "Beeper Token",
@@ -193,7 +200,12 @@
     "imageCopied": "Image copied to clipboard",
     "imageCopyFailed": "Failed to copy image",
     "imageDelete": "Delete image",
-    "imageDownload": "Download image"
+    "imageDownload": "Download image",
+    "fileUnsupportedFormat": "Unsupported file format",
+    "fileUnsupportedFormatDescription": "{{type}} files are not supported",
+    "fileTooLarge": "File too large",
+    "fileTooLargeDescription": "Maximum file size is {{maxSize}}MB. Your file is {{fileSize}}MB",
+    "uploadFailed": "Upload failed"
   },
   "importExport": {
     "title": "Import / Export",
@@ -659,5 +671,21 @@
     "noteNotFound": "Note not found",
     "noteNotFoundDescription": "This note does not exist, was deleted, or is no longer public.",
     "poweredBy": "Shared with Triple-A"
+  },
+  "comments": {
+    "comment": "comment",
+    "comments": "comments",
+    "addComment": "Add comment",
+    "writeComment": "Write a comment...",
+    "writeReply": "Write a reply...",
+    "reply": "Reply",
+    "addReply": "Add reply",
+    "resolve": "Resolve",
+    "unresolve": "Reopen",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "pressCtrlEnterToSubmit": "Press Ctrl+Enter to submit"
   }
 }

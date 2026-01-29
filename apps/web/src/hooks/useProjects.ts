@@ -1,8 +1,8 @@
-import { useProjectsStore } from './tinybase/useProjectsStore';
+import { useProjectsSupabase } from './supabase/useProjectsSupabase';
 
 /**
  * Main hook for managing projects
  */
 export function useProjects() {
-  return useProjectsStore();
+  return useProjectsSupabase();
 }

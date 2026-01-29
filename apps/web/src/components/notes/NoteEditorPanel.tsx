@@ -17,7 +17,7 @@ import {
   CommandSeparator,
 } from '@/components/ui/command';
 import { DatePicker } from '@/components/ui/date-picker';
-import { EditableDescription, type EditableDescriptionHandle } from '@/components/ui/EditableDescription';
+import { BlockNoteEditor, type BlockNoteEditorHandle } from '@/components/ui/BlockNoteEditor';
 import { AssigneePicker } from '@/components/notes/AssigneePicker';
 import { EditableTitle } from '@/components/notes/EditableTitle';
 import type { Note, NoteCategory, Label, NoteVersion, NoteAction } from '@/types/note';
@@ -25,7 +25,6 @@ import type { Contact } from '@/types/contact';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { NoteMetaRow } from './editor/NoteMetaRow';
 import { useAssignees } from '@/hooks/useAssignees';
-import { useTinyBase } from '@/contexts/TinyBaseContext';
 
 interface NoteEditorPanelProps {
   note: Note;
@@ -73,7 +72,7 @@ interface NoteEditorPanelProps {
   onToggleComplete: (id: string) => void;
   onClose?: () => void;
   autoSaveInterval?: number; // in seconds, 0 = disabled
-  onTogglePublic?: (id: string, makePublic: boolean) => string | null;
+  onTogglePublic?: (id: string, makePublic: boolean) => string | null | Promise<string | null>;
 }
 
 // Helper to parse description preview from TipTap JSON or plain text
@@ -94,7 +93,7 @@ const parseDescriptionPreview = (description: string): string => {
   }
 };
 
-export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEditorPanelProps>(function NoteEditorPanel({
+export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditorPanelProps>(function NoteEditorPanel({
   note,
   noteLabels,
   allLabels,
@@ -142,26 +141,13 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
   onTogglePublic,
 }, ref) {
   const { t, i18n } = useTranslation();
-  const { store } = useTinyBase();
-  const { getAssigneesForNote } = useAssignees();
+  const { getAssigneesForNote, noteAssigneeVersion } = useAssignees();
   const [noteAssignees, setNoteAssignees] = useState<Contact[]>([]);
 
-  // Load assignees initially and listen for changes
+  // Load assignees when note or assignee version changes
   useEffect(() => {
-    if (!store) return;
-
-    // Load initial assignees
     setNoteAssignees(getAssigneesForNote(note.id));
-
-    // Listen for changes to note_assignees table
-    const listenerId = store.addTableListener('note_assignees', () => {
-      setNoteAssignees(getAssigneesForNote(note.id));
-    });
-
-    return () => {
-      store.delListener(listenerId);
-    };
-  }, [store, note.id, getAssigneesForNote]);
+  }, [note.id, noteAssigneeVersion, getAssigneesForNote]);
 
   // Ctrl+D to toggle task completion (only for non-notes categories)
   useHotkeys('ctrl+d, meta+d', () => {
@@ -370,8 +356,8 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
             variant="ghost"
             size="sm"
             className={`h-6 px-1.5 text-xs font-normal gap-1 ${note.is_public ? 'text-green-600' : ''}`}
-            onClick={() => {
-              const slug = onTogglePublic(note.id, !note.is_public);
+            onClick={async () => {
+              const slug = await onTogglePublic(note.id, !note.is_public);
               if (slug) {
                 const url = `${window.location.origin}/p/${slug}`;
                 navigator.clipboard.writeText(url);
@@ -414,7 +400,7 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
       {/* Separator */}
       <div className="border-t border-muted-foreground/20 my-1.5" />
 
-      <EditableDescription
+      <BlockNoteEditor
         ref={ref}
         value={descriptionValue}
         onChange={onDescriptionChange}
@@ -423,6 +409,7 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
         onKeyDown={onDescriptionKeyDown}
         placeholder={t('writeDescription')}
         className="flex-1 min-h-0 w-full text-base bg-transparent text-muted-foreground overflow-y-auto"
+        noteId={note.id}
       />
 
       {/* Footer: Postpone reason and version history */}

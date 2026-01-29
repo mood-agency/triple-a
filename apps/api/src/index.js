@@ -61,6 +61,17 @@ app.use('*', corsMiddleware);
 // HELPER FUNCTIONS
 // ============================================================================
 
+/**
+ * Sanitize error details for API responses.
+ * In production, internal error messages are hidden to prevent information leakage.
+ */
+function sanitizeErrorDetails(error) {
+  if (process.env.NODE_ENV === 'production') {
+    return undefined;
+  }
+  return error?.message || String(error);
+}
+
 // decodeHtmlEntities, parseJsonResponse, extractEmail are imported from lib/server-helpers.js
 
 /**
@@ -152,7 +163,7 @@ app.post('/api/youtube-metadata', async (c) => {
     return c.json({
       error: 'Failed to fetch video metadata',
       code: 'NETWORK_ERROR',
-      details: error.message,
+      details: sanitizeErrorDetails(error),
     }, 500);
   }
 });
@@ -236,7 +247,7 @@ app.post('/api/youtube-captions', async (c) => {
     return c.json({
       error: 'Failed to process captions request',
       code: 'PROCESSING_FAILED',
-      details: error.message,
+      details: sanitizeErrorDetails(error),
     }, 500);
   }
 });
@@ -371,7 +382,7 @@ Respond in JSON format:
     return c.json({
       error: 'Failed to summarize text',
       code: 'PROCESSING_FAILED',
-      details: error.message,
+      details: sanitizeErrorDetails(error),
     }, 500);
   }
 });
@@ -455,7 +466,7 @@ app.post('/api/email-webhook', async (c) => {
       return c.json({
         error: 'Failed to create note',
         code: 'INSERT_FAILED',
-        details: insertError.message,
+        details: sanitizeErrorDetails(insertError),
       }, 500);
     }
 
@@ -471,7 +482,7 @@ app.post('/api/email-webhook', async (c) => {
     return c.json({
       error: 'Failed to process email',
       code: 'PROCESSING_FAILED',
-      details: error.message,
+      details: sanitizeErrorDetails(error),
     }, 500);
   }
 });
@@ -681,7 +692,8 @@ async function refreshGoogleToken(refreshToken, supabase, userId) {
       .eq('user_id', userId);
 
     return { success: true, accessToken: tokens.access_token };
-  } catch {
+  } catch (error) {
+    console.warn('[refreshGoogleToken] Failed to refresh token:', error);
     return { success: false };
   }
 }
@@ -1246,7 +1258,8 @@ app.get('/api/v1/notes', async (c) => {
     const completed = c.req.query('completed');
     const category = c.req.query('category');
     const pinned = c.req.query('pinned');
-    const assignee_id = c.req.query('assignee_id');
+    const assignee_id = c.req.query('assignee_id'); // Legacy single assignee filter
+    const assignee_ids = c.req.queries('assignee_ids'); // New: multiple assignees filter
     const limit = parseInt(c.req.query('limit') || '100', 10);
     const offset = parseInt(c.req.query('offset') || '0', 10);
     const sort = c.req.query('sort') || 'created_at';
@@ -1254,7 +1267,7 @@ app.get('/api/v1/notes', async (c) => {
 
     let query = supabase
       .from('notes')
-      .select('*, note_labels!inner(label_id)')
+      .select('*, note_labels(label_id), note_assignees(contact_id)')
       .eq('user_id', userId)
       .is('deleted_at', null);
 
@@ -1263,7 +1276,42 @@ app.get('/api/v1/notes', async (c) => {
     if (completed !== undefined) query = query.eq('completed', completed === 'true');
     if (category) query = query.eq('category', category);
     if (pinned !== undefined) query = query.eq('pinned', pinned === 'true');
-    if (assignee_id) query = query.eq('assignee_id', assignee_id);
+
+    // Filter by assignees via note_assignees junction table
+    if (assignee_ids && assignee_ids.length > 0) {
+      // Filter notes that have any of the specified assignees
+      const { data: noteIdsWithAssignees } = await supabase
+        .from('note_assignees')
+        .select('note_id')
+        .in('contact_id', assignee_ids);
+
+      if (noteIdsWithAssignees && noteIdsWithAssignees.length > 0) {
+        const noteIds = noteIdsWithAssignees.map(n => n.note_id);
+        query = query.in('id', noteIds);
+      } else {
+        // No notes match, return empty result
+        return c.json({
+          data: [],
+          pagination: { total: 0, limit, offset, has_more: false },
+        }, 200);
+      }
+    } else if (assignee_id) {
+      // Legacy: single assignee filter via note_assignees
+      const { data: noteIdsWithAssignee } = await supabase
+        .from('note_assignees')
+        .select('note_id')
+        .eq('contact_id', assignee_id);
+
+      if (noteIdsWithAssignee && noteIdsWithAssignee.length > 0) {
+        const noteIds = noteIdsWithAssignee.map(n => n.note_id);
+        query = query.in('id', noteIds);
+      } else {
+        return c.json({
+          data: [],
+          pagination: { total: 0, limit, offset, has_more: false },
+        }, 200);
+      }
+    }
 
     const { count, error: countError } = await supabase
       .from('notes')
@@ -1284,14 +1332,15 @@ app.get('/api/v1/notes', async (c) => {
       return c.json({ error: 'Failed to fetch notes' }, 500);
     }
 
-    const notesWithLabels = notes.map((note) => {
+    const notesWithRelations = notes.map((note) => {
       const labels = note.note_labels ? note.note_labels.map((nl) => nl.label_id) : [];
-      const { note_labels, ...noteData } = note;
-      return { ...noteData, labels };
+      const assignee_ids = note.note_assignees ? note.note_assignees.map((na) => na.contact_id) : [];
+      const { note_labels, note_assignees, ...noteData } = note;
+      return { ...noteData, labels, assignee_ids };
     });
 
     return c.json({
-      data: notesWithLabels,
+      data: notesWithRelations,
       pagination: {
         total: count || 0,
         limit,
@@ -1317,7 +1366,7 @@ app.get('/api/v1/notes/:id', async (c) => {
 
     const { data: note, error } = await supabase
       .from('notes')
-      .select('*, note_labels(label_id)')
+      .select('*, note_labels(label_id), note_assignees(contact_id)')
       .eq('id', id)
       .eq('user_id', userId)
       .is('deleted_at', null)
@@ -1328,9 +1377,10 @@ app.get('/api/v1/notes/:id', async (c) => {
     }
 
     const labels = note.note_labels ? note.note_labels.map((nl) => nl.label_id) : [];
-    const { note_labels, ...noteData } = note;
+    const assignee_ids = note.note_assignees ? note.note_assignees.map((na) => na.contact_id) : [];
+    const { note_labels, note_assignees, ...noteData } = note;
 
-    return c.json({ data: { ...noteData, labels } }, 200);
+    return c.json({ data: { ...noteData, labels, assignee_ids } }, 200);
   } catch (error) {
     console.error('Error in GET /api/v1/notes/:id:', error);
     return c.json({ error: 'Internal server error' }, 500);
@@ -1343,7 +1393,7 @@ app.get('/api/v1/notes/:id', async (c) => {
  */
 app.post('/api/v1/notes', async (c) => {
   try {
-    const { content, description, category, date, deadline, project_id, assignee_id, labels } =
+    const { content, description, category, date, deadline, project_id, assignee_ids, labels } =
       await c.req.json();
 
     if (!content || !category || !date) {
@@ -1380,7 +1430,6 @@ app.post('/api/v1/notes', async (c) => {
         pinned: false,
         sort_order: sortOrder,
         project_id: project_id || null,
-        assignee_id: assignee_id || null,
         created_at: now,
         updated_at: now,
       })
@@ -1392,6 +1441,7 @@ app.post('/api/v1/notes', async (c) => {
       return c.json({ error: 'Failed to create note' }, 500);
     }
 
+    // Insert labels into note_labels junction table
     if (labels && labels.length > 0) {
       const labelInserts = labels.map((labelId) => ({
         note_id: note.id,
@@ -1402,9 +1452,20 @@ app.post('/api/v1/notes', async (c) => {
       await supabase.from('note_labels').insert(labelInserts);
     }
 
+    // Insert assignees into note_assignees junction table
+    if (assignee_ids && assignee_ids.length > 0) {
+      const assigneeInserts = assignee_ids.map((contactId) => ({
+        note_id: note.id,
+        contact_id: contactId,
+        created_at: now,
+      }));
+
+      await supabase.from('note_assignees').insert(assigneeInserts);
+    }
+
     await broadcastApiMutation(supabase, userId, 'notes', 'insert', note.id);
 
-    return c.json({ data: { ...note, labels: labels || [] } }, 201);
+    return c.json({ data: { ...note, labels: labels || [], assignee_ids: assignee_ids || [] } }, 201);
   } catch (error) {
     console.error('Error in POST /api/v1/notes:', error);
     return c.json({ error: 'Internal server error' }, 500);
@@ -1418,7 +1479,7 @@ app.post('/api/v1/notes', async (c) => {
 app.put('/api/v1/notes/:id', async (c) => {
   try {
     const id = c.req.param('id');
-    const { content, description, category, date, deadline, completed, pinned, project_id, assignee_id, labels } =
+    const { content, description, category, date, deadline, completed, pinned, project_id, assignee_ids, labels } =
       await c.req.json();
 
     const userId = c.get('user').id;
@@ -1448,7 +1509,6 @@ app.put('/api/v1/notes/:id', async (c) => {
         completed: completed !== undefined ? completed : false,
         pinned: pinned !== undefined ? pinned : false,
         project_id: project_id !== undefined ? project_id : null,
-        assignee_id: assignee_id !== undefined ? assignee_id : null,
         updated_at: now,
       })
       .eq('id', id)
@@ -1460,6 +1520,7 @@ app.put('/api/v1/notes/:id', async (c) => {
       return c.json({ error: 'Failed to update note' }, 500);
     }
 
+    // Update labels in note_labels junction table
     if (labels !== undefined) {
       await supabase.from('note_labels').delete().eq('note_id', id);
 
@@ -1474,9 +1535,24 @@ app.put('/api/v1/notes/:id', async (c) => {
       }
     }
 
+    // Update assignees in note_assignees junction table
+    if (assignee_ids !== undefined) {
+      await supabase.from('note_assignees').delete().eq('note_id', id);
+
+      if (assignee_ids.length > 0) {
+        const assigneeInserts = assignee_ids.map((contactId) => ({
+          note_id: id,
+          contact_id: contactId,
+          created_at: now,
+        }));
+
+        await supabase.from('note_assignees').insert(assigneeInserts);
+      }
+    }
+
     await broadcastApiMutation(supabase, userId, 'notes', 'update', id);
 
-    return c.json({ data: { ...note, labels: labels || [] } }, 200);
+    return c.json({ data: { ...note, labels: labels || [], assignee_ids: assignee_ids || [] } }, 200);
   } catch (error) {
     console.error('Error in PUT /api/v1/notes/:id:', error);
     return c.json({ error: 'Internal server error' }, 500);
@@ -1508,7 +1584,7 @@ app.patch('/api/v1/notes/:id', async (c) => {
       return c.json({ error: 'Note not found', code: 'NOT_FOUND' }, 404);
     }
 
-    const { labels, ...noteFields } = updateFields;
+    const { labels, assignee_ids, ...noteFields } = updateFields;
 
     if (Object.keys(noteFields).length > 0) {
       const { error: updateError } = await supabase
@@ -1522,6 +1598,7 @@ app.patch('/api/v1/notes/:id', async (c) => {
       }
     }
 
+    // Update labels in note_labels junction table
     if (labels !== undefined) {
       await supabase.from('note_labels').delete().eq('note_id', id);
 
@@ -1536,18 +1613,34 @@ app.patch('/api/v1/notes/:id', async (c) => {
       }
     }
 
+    // Update assignees in note_assignees junction table
+    if (assignee_ids !== undefined) {
+      await supabase.from('note_assignees').delete().eq('note_id', id);
+
+      if (assignee_ids.length > 0) {
+        const assigneeInserts = assignee_ids.map((contactId) => ({
+          note_id: id,
+          contact_id: contactId,
+          created_at: now,
+        }));
+
+        await supabase.from('note_assignees').insert(assigneeInserts);
+      }
+    }
+
     const { data: note } = await supabase
       .from('notes')
-      .select('*, note_labels(label_id)')
+      .select('*, note_labels(label_id), note_assignees(contact_id)')
       .eq('id', id)
       .single();
 
     const noteLabels = note.note_labels ? note.note_labels.map((nl) => nl.label_id) : [];
-    const { note_labels: _, ...noteData } = note;
+    const noteAssignees = note.note_assignees ? note.note_assignees.map((na) => na.contact_id) : [];
+    const { note_labels: _, note_assignees: __, ...noteData } = note;
 
     await broadcastApiMutation(supabase, userId, 'notes', 'update', id);
 
-    return c.json({ data: { ...noteData, labels: noteLabels } }, 200);
+    return c.json({ data: { ...noteData, labels: noteLabels, assignee_ids: noteAssignees } }, 200);
   } catch (error) {
     console.error('Error in PATCH /api/v1/notes/:id:', error);
     return c.json({ error: 'Internal server error' }, 500);
@@ -1604,7 +1697,7 @@ app.post('/api/v1/notes/search', async (c) => {
 
     let dbQuery = supabase
       .from('notes')
-      .select('*, note_labels(label_id)')
+      .select('*, note_labels(label_id), note_assignees(contact_id)')
       .eq('user_id', userId)
       .is('deleted_at', null);
 
@@ -1627,18 +1720,19 @@ app.post('/api/v1/notes/search', async (c) => {
       return c.json({ error: 'Failed to search notes' }, 500);
     }
 
-    const notesWithLabels = notes.map((note) => {
+    const notesWithRelations = notes.map((note) => {
       const labels = note.note_labels ? note.note_labels.map((nl) => nl.label_id) : [];
-      const { note_labels, ...noteData } = note;
-      return { ...noteData, labels };
+      const assignee_ids = note.note_assignees ? note.note_assignees.map((na) => na.contact_id) : [];
+      const { note_labels, note_assignees, ...noteData } = note;
+      return { ...noteData, labels, assignee_ids };
     });
 
     return c.json({
-      data: notesWithLabels,
+      data: notesWithRelations,
       pagination: {
         limit,
         offset,
-        has_more: notesWithLabels.length === limit,
+        has_more: notesWithRelations.length === limit,
       },
     }, 200);
   } catch (error) {
@@ -1870,7 +1964,7 @@ app.get('/api/v1/labels/:id/notes', async (c) => {
 
     const { data: noteLabels, error } = await supabase
       .from('note_labels')
-      .select('note_id, notes!inner(*)')
+      .select('note_id, notes!inner(*, note_labels(label_id), note_assignees(contact_id))')
       .eq('label_id', id)
       .eq('notes.user_id', userId)
       .is('notes.deleted_at', null);
@@ -1880,7 +1974,13 @@ app.get('/api/v1/labels/:id/notes', async (c) => {
       return c.json({ error: 'Failed to fetch notes' }, 500);
     }
 
-    const notes = noteLabels ? noteLabels.map((nl) => nl.notes) : [];
+    const notes = (noteLabels || []).map((nl) => {
+      const note = nl.notes;
+      const labels = note.note_labels ? note.note_labels.map((l) => l.label_id) : [];
+      const assignee_ids = note.note_assignees ? note.note_assignees.map((na) => na.contact_id) : [];
+      const { note_labels: _, note_assignees: __, ...noteData } = note;
+      return { ...noteData, labels, assignee_ids };
+    });
 
     return c.json({ data: notes }, 200);
   } catch (error) {
@@ -2077,7 +2177,7 @@ app.get('/api/v1/projects/:id/notes', async (c) => {
 
     const { data: notes, error } = await supabase
       .from('notes')
-      .select('*')
+      .select('*, note_labels(label_id), note_assignees(contact_id)')
       .eq('user_id', userId)
       .eq('project_id', id)
       .is('deleted_at', null)
@@ -2088,7 +2188,14 @@ app.get('/api/v1/projects/:id/notes', async (c) => {
       return c.json({ error: 'Failed to fetch notes' }, 500);
     }
 
-    return c.json({ data: notes || [] }, 200);
+    const notesWithRelations = (notes || []).map((note) => {
+      const labels = note.note_labels ? note.note_labels.map((nl) => nl.label_id) : [];
+      const assignee_ids = note.note_assignees ? note.note_assignees.map((na) => na.contact_id) : [];
+      const { note_labels, note_assignees, ...noteData } = note;
+      return { ...noteData, labels, assignee_ids };
+    });
+
+    return c.json({ data: notesWithRelations }, 200);
   } catch (error) {
     console.error('Error in GET /api/v1/projects/:id/notes:', error);
     return c.json({ error: 'Internal server error' }, 500);
@@ -2246,7 +2353,9 @@ app.delete('/api/v1/contacts/:id', async (c) => {
     const userId = c.get('user').id;
     const supabase = c.get('supabase');
 
-    await supabase.from('notes').update({ assignee_id: null }).eq('assignee_id', id).eq('user_id', userId);
+    // Remove all assignee references for this contact from note_assignees
+    // The CASCADE on the FK will handle this automatically, but we do it explicitly for clarity
+    await supabase.from('note_assignees').delete().eq('contact_id', id);
 
     const { data: contact, error } = await supabase
       .from('contacts')
@@ -2279,20 +2388,32 @@ app.get('/api/v1/contacts/:id/notes', async (c) => {
     const userId = c.get('user').id;
     const supabase = c.get('supabase');
 
-    const { data: notes, error } = await supabase
-      .from('notes')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('assignee_id', id)
-      .is('deleted_at', null)
-      .order('date', { ascending: false });
+    // Query notes via note_assignees junction table
+    const { data: noteAssignees, error } = await supabase
+      .from('note_assignees')
+      .select('note_id, notes!inner(*, note_labels(label_id), note_assignees(contact_id))')
+      .eq('contact_id', id)
+      .eq('notes.user_id', userId)
+      .is('notes.deleted_at', null);
 
     if (error) {
       console.error('Error fetching notes for contact:', error);
       return c.json({ error: 'Failed to fetch notes' }, 500);
     }
 
-    return c.json({ data: notes || [] }, 200);
+    // Transform the result to include labels and assignee_ids
+    const notes = (noteAssignees || []).map((na) => {
+      const note = na.notes;
+      const labels = note.note_labels ? note.note_labels.map((nl) => nl.label_id) : [];
+      const assignee_ids = note.note_assignees ? note.note_assignees.map((na) => na.contact_id) : [];
+      const { note_labels, note_assignees: _, ...noteData } = note;
+      return { ...noteData, labels, assignee_ids };
+    });
+
+    // Sort by date descending
+    notes.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    return c.json({ data: notes }, 200);
   } catch (error) {
     console.error('Error in GET /api/v1/contacts/:id/notes:', error);
     return c.json({ error: 'Internal server error' }, 500);

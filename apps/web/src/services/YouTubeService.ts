@@ -7,6 +7,7 @@ import type {
   YouTubeImportErrorCode,
 } from '@/types/youtube'
 import { extractVideoId, isValidYouTubeUrl } from '@/utils/youtubeUtils'
+import { fetchWithRetry } from '@/lib/fetchWithRetry'
 
 /**
  * Get the API base URL (same origin in production, or configurable for dev)
@@ -47,7 +48,7 @@ async function callApi<T>(
   const url = `${baseUrl}/api/${endpoint}`
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

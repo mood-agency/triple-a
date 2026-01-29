@@ -37,6 +37,7 @@ interface TimelineViewProps {
   onToggleFixInSidebar: (noteId: string) => void;
   onContentChange?: (content: string) => void;
   assigneeNamesCache: Map<string, string | null>;
+  noteAssigneesCache: Map<string, Contact[]>;
   compactView: boolean;
   isDescriptionFocused: boolean;
   contacts: Contact[];
@@ -84,6 +85,7 @@ export function TimelineView({
   onToggleFixInSidebar,
   onContentChange,
   assigneeNamesCache,
+  noteAssigneesCache,
   compactView,
   isDescriptionFocused,
   contacts,
@@ -125,6 +127,7 @@ export function TimelineView({
     onUpdateAssignee: onUpdateAssignee || (() => {}),
     noteLabelsCache,
     assigneeNamesCache,
+    noteAssigneesCache,
     selectedNote,
     focusTarget,
     desiredColumn,

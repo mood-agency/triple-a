@@ -51,6 +51,13 @@ export type {
 
 export { initialYouTubeImportState } from './youtube';
 
+// Comment types
+export type {
+  NoteComment,
+  NoteCommentInput,
+  NoteCommentThread,
+} from './comment';
+
 // Google Calendar types
 export type {
   GCalEvent,

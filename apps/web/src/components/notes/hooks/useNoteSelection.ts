@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { Note, NoteCategory } from '@/types/note';
-import type { EditableDescriptionHandle } from '@/components/ui/EditableDescription';
+import type { BlockNoteEditorHandle } from '@/components/ui/BlockNoteEditor';
 import { useAutoSave } from '@/hooks/useAutoSave';
 
 type FocusTarget = 'title' | 'description-start' | 'description-end' | null;
@@ -16,7 +16,7 @@ export function useNoteSelection({
     onEdit,
     autoSaveInterval = 3,
 }: UseNoteSelectionProps) {
-    const descriptionRef = useRef<EditableDescriptionHandle>(null);
+    const descriptionRef = useRef<BlockNoteEditorHandle>(null);
     const descriptionCaretPositionRef = useRef<number | null>(null);
 
     const [focusTarget, setFocusTarget] = useState<FocusTarget>(null);

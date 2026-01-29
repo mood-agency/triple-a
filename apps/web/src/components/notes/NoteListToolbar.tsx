@@ -43,6 +43,7 @@ interface NoteListToolbarProps {
     sortByCategory: boolean;
     setSortByCategory: (sort: boolean) => void;
     contacts: Contact[];
+    noteAssigneesCache: Map<string, Contact[]>;
     assigneeFilter: string[];
     setAssigneeFilter: (assignees: string[] | ((prev: string[]) => string[])) => void;
     assigneePopoverOpen?: boolean;
@@ -86,6 +87,7 @@ export function NoteListToolbar({
     sortByCategory,
     setSortByCategory,
     contacts,
+    noteAssigneesCache,
     assigneeFilter,
     setAssigneeFilter,
     assigneePopoverOpen,
@@ -116,14 +118,13 @@ export function NoteListToolbar({
             }
 
             // Assignee
-            if (note.assignee_id) {
-                const contact = contacts.find(c => c.id === note.assignee_id);
-                if (contact) {
-                    const name = contact.lastname
-                        ? `${contact.name} ${contact.lastname}`
-                        : contact.name;
-                    parts.push(`  ${t('assignee.placeholder')}: ${name}`);
-                }
+            const assignees = noteAssigneesCache.get(note.id) ?? [];
+            if (assignees.length > 0) {
+                const contact = assignees[0];
+                const name = contact.lastname
+                    ? `${contact.name} ${contact.lastname}`
+                    : contact.name;
+                parts.push(`  ${t('assignee.placeholder')}: ${name}`);
             }
 
             return parts.join('\n');
@@ -136,7 +137,7 @@ export function NoteListToolbar({
         } catch (err) {
             console.error('Failed to copy tasks:', err);
         }
-    }, [activeNotes, contacts, t]);
+    }, [activeNotes, contacts, noteAssigneesCache, t]);
 
     return (
         <div className={`flex-shrink-0 group ${isMobile && selectedNote ? 'hidden' : ''}`}>

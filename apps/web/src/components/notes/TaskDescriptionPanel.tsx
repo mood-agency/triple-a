@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
-import { EditableDescription, type EditableDescriptionHandle } from '@/components/ui/EditableDescription';
+import { BlockNoteEditor, type BlockNoteEditorHandle } from '@/components/ui/BlockNoteEditor';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Command,
@@ -91,7 +91,7 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
     const [labelDropdownOpen, setLabelDropdownOpen] = useState(false);
     const [showPostponeHistory, setShowPostponeHistory] = useState(false);
     const [editingHistoryEntry, setEditingHistoryEntry] = useState<{ id: string; reason: string } | null>(null);
-    const descriptionRef = { current: null as EditableDescriptionHandle | null };
+    const descriptionRef = { current: null as BlockNoteEditorHandle | null };
 
     // Get assignees for this note (re-compute when noteAssigneeVersion changes)
     const noteAssignees = useMemo(() => getAssigneesForNote(note.id), [note.id, getAssigneesForNote, noteAssigneeVersion]);
@@ -421,14 +421,15 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
         </div>
 
         {/* Description editor */}
-        <EditableDescription
-          ref={(el) => { descriptionRef.current = el; }}
+        <BlockNoteEditor
+          ref={(el: BlockNoteEditorHandle | null) => { descriptionRef.current = el; }}
           value={descriptionValue}
           onChange={setDescriptionValue}
           onBlur={handleDescriptionBlur}
           onKeyDown={handleKeyDown}
           placeholder={t('writeDescription')}
           className="flex-1 min-h-0 w-full text-base bg-transparent text-muted-foreground overflow-y-auto"
+          noteId={note.id}
         />
 
         {/* Postpone history section */}
