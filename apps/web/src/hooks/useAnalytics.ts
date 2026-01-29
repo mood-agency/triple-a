@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useTinyBase } from '@/contexts/TinyBaseContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 export type DateRange = '7d' | '30d' | '90d';
 
@@ -66,7 +67,7 @@ function getTodayString(): string {
 }
 
 export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
-  const { store, isReady } = useTinyBase();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [kpis, setKpis] = useState<KPIs>({
     completionRate: 0,
@@ -86,36 +87,50 @@ export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
 
   const startDate = useMemo(() => getStartDate(dateRange), [dateRange]);
 
-  const loadAnalytics = useCallback(() => {
-    if (!store || !isReady) return;
+  const loadAnalytics = useCallback(async () => {
+    if (!supabase || !user) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
 
     try {
-      const notesTable = store.getTable('notes') || {};
-      const historyTable = store.getTable('note_history') || {};
       const today = getTodayString();
 
-      // Filter notes - exclude deleted, include only those created after startDate
-      const notes = Object.entries(notesTable)
-        .filter(([_, note]) => {
-          const n = note as Record<string, unknown>;
-          if (n.deleted_at) return false;
-          const createdDate = new Date(n.created_at as string);
-          return createdDate >= startDate;
-        })
-        .map(([id, note]) => {
-          const n = note as Record<string, unknown>;
-          return {
-            id,
-            content: n.content as string,
-            completed: Boolean(n.completed),
-            completed_at: n.completed_at as string | null,
-            deadline: n.deadline as string | null,
-            deleted_at: n.deleted_at as string | null,
-            created_at: n.created_at as string,
-          };
-        });
+      // Fetch all notes (non-deleted) for the user
+      const { data: allNotesData, error: notesError } = await supabase
+        .from('notes')
+        .select('id, content, completed, completed_at, deadline, deleted_at, created_at, category')
+        .eq('user_id', user.id)
+        .is('deleted_at', null);
+
+      if (notesError) {
+        console.error('[useAnalytics] Error fetching notes:', notesError);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch note_history for postponed actions (table not in generated types)
+      const { data: historyData, error: historyError } = await (supabase as any)
+        .from('note_history')
+        .select('id, note_id, changed_at, action_type')
+        .eq('action_type', 'postponed');
+
+      if (historyError) {
+        console.error('[useAnalytics] Error fetching history:', historyError);
+        setLoading(false);
+        return;
+      }
+
+      const allNotes = allNotesData || [];
+      const allHistory: Array<{ id: string; note_id: string; changed_at: string; action_type: string }> = historyData || [];
+
+      // Filter notes created after startDate for trend analysis
+      const notes = allNotes.filter((n) => {
+        const createdDate = new Date(n.created_at);
+        return createdDate >= startDate;
+      });
 
       // 1. Completion rate
       const totalTasks = notes.length;
@@ -134,21 +149,7 @@ export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
       const completedWithDeadline = completedWithDeadlineNotes.length;
       const onTimeRate = completedWithDeadline > 0 ? (onTimeNotes.length / completedWithDeadline) * 100 : 0;
 
-      // 3. Overdue count - uncompleted tasks past deadline (all tasks, not just in date range)
-      // Meetings are excluded since they are scheduled events, not tasks with deadlines
-      const allNotes = Object.entries(notesTable)
-        .filter(([_, note]) => !(note as Record<string, unknown>).deleted_at)
-        .map(([id, note]) => {
-          const n = note as Record<string, unknown>;
-          return {
-            id,
-            content: n.content as string,
-            completed: Boolean(n.completed),
-            deadline: n.deadline as string | null,
-            category: n.category as string | null,
-          };
-        });
-
+      // 3. Overdue count - uncompleted tasks past deadline (exclude meetings)
       const overdueNotes = allNotes.filter((n) => {
         if (n.completed || !n.deadline || n.category === 'meeting') return false;
         const deadlineDate = getDateOnly(n.deadline);
@@ -156,25 +157,15 @@ export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
       });
       const overdueCount = overdueNotes.length;
 
-      // 4. Average postponements per postponed task
-      const historyEntries = Object.entries(historyTable)
-        .filter(([_, h]) => {
-          const history = h as Record<string, unknown>;
-          if (history.action_type !== 'postponed') return false;
-          const changedDate = new Date(history.changed_at as string);
-          return changedDate >= startDate;
-        })
-        .map(([id, h]) => {
-          const history = h as Record<string, unknown>;
-          return {
-            id,
-            note_id: history.note_id as string,
-          };
-        });
+      // 4. Average postponements per postponed task (within date range)
+      const historyInRange = allHistory.filter((h) => {
+        const changedDate = new Date(h.changed_at);
+        return changedDate >= startDate;
+      });
 
-      const postponedNoteIds = new Set(historyEntries.map((h) => h.note_id));
+      const postponedNoteIds = new Set(historyInRange.map((h) => h.note_id));
       const postponedTasksCount = postponedNoteIds.size;
-      const totalPostpones = historyEntries.length;
+      const totalPostpones = historyInRange.length;
       const avgPostponements = postponedTasksCount > 0 ? totalPostpones / postponedTasksCount : 0;
 
       setKpis({
@@ -217,29 +208,21 @@ export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
       setTrend(trendData);
 
       // 7. Most postponed tasks (top 5) - active tasks with postpone history
-      const allHistory = Object.entries(historyTable)
-        .filter(([_, h]) => (h as Record<string, unknown>).action_type === 'postponed')
-        .map(([id, h]) => {
-          const history = h as Record<string, unknown>;
-          return {
-            id,
-            note_id: history.note_id as string,
-          };
-        });
-
       const postponeCountByNote: Record<string, number> = {};
       allHistory.forEach((h) => {
         postponeCountByNote[h.note_id] = (postponeCountByNote[h.note_id] || 0) + 1;
       });
 
+      const notesMap = new Map(allNotes.map((n) => [n.id, n]));
+
       const mostPostponed: PostponedTask[] = Object.entries(postponeCountByNote)
         .filter(([noteId]) => {
-          const note = notesTable[noteId] as Record<string, unknown> | undefined;
-          return note && !note.deleted_at && !note.completed;
+          const note = notesMap.get(noteId);
+          return note && !note.completed;
         })
         .map(([noteId, count]) => ({
           id: noteId,
-          content: (notesTable[noteId] as Record<string, unknown>).content as string,
+          content: notesMap.get(noteId)?.content || '',
           postponeCount: count,
         }))
         .sort((a, b) => b.postponeCount - a.postponeCount)
@@ -265,18 +248,20 @@ export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
         mostPostponed,
         overdue: overdueTasks,
       });
+    } catch (err) {
+      console.error('[useAnalytics] Unexpected error:', err);
     } finally {
       setLoading(false);
     }
-  }, [store, isReady, startDate]);
+  }, [user, startDate]);
 
   useEffect(() => {
     loadAnalytics();
   }, [loadAnalytics]);
 
-  // Listen to store changes to refresh analytics (debounced to avoid blocking main thread)
+  // Realtime subscriptions for notes and note_history
   useEffect(() => {
-    if (!store) return;
+    if (!supabase || !user) return;
 
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const debouncedLoad = () => {
@@ -284,15 +269,41 @@ export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
       debounceTimer = setTimeout(() => loadAnalytics(), 300);
     };
 
-    const notesListenerId = store.addTableListener('notes', debouncedLoad);
-    const historyListenerId = store.addTableListener('note_history', debouncedLoad);
+    const notesChannel = supabase
+      .channel('analytics-notes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notes',
+          filter: `user_id=eq.${user.id}`,
+        },
+        debouncedLoad
+      )
+      .subscribe();
+
+    const historyChannel = supabase
+      .channel('analytics-history')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'note_history',
+        },
+        debouncedLoad
+      )
+      .subscribe();
 
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
-      store.delListener(notesListenerId);
-      store.delListener(historyListenerId);
+      if (supabase) {
+        supabase.removeChannel(notesChannel);
+        supabase.removeChannel(historyChannel);
+      }
     };
-  }, [store, loadAnalytics]);
+  }, [user, loadAnalytics]);
 
   return {
     kpis,

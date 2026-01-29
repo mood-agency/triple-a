@@ -8,7 +8,6 @@ import { CommandPalette } from '@/components/CommandPalette';
 import { CreateProjectDialog } from '@/components/projects/CreateProjectDialog';
 import { HotkeysHelper } from '@/components/HotkeysHelper';
 import { useNotesWithCalendarSync } from '@/hooks/useNotesWithCalendarSync';
-import { useTinyBase } from '@/contexts/TinyBaseContext';
 import { useLabels } from '@/hooks/useLabels';
 import { useSettings } from '@/hooks/useSettings';
 import { useContacts } from '@/hooks/useContacts';
@@ -25,7 +24,6 @@ interface OutletContext {
 export function Home() {
   useTranslation();
   const { sidebarTrigger } = useOutletContext<OutletContext>();
-  const { isReady } = useTinyBase();
   const { toggleSidebar } = useSidebar();
   const { projects, activeProjectId, setActiveProjectId, createProject } = useActiveProject();
 
@@ -150,7 +148,7 @@ export function Home() {
 
   // Load ALL notes without date filtering (filtered by active project)
   // Uses calendar sync enabled hook to auto-sync meetings to Google Calendar
-  const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, updateAssignee, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote, togglePublic } = useNotesWithCalendarSync();
+  const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote, togglePublic } = useNotesWithCalendarSync();
 
   // Derive the full note object from the ID (memoized)
   // This prevents re-renders when the note object reference changes but ID stays the same
@@ -266,10 +264,10 @@ export function Home() {
     const category = categoryFilter !== 'all' ? categoryFilter : 'todo';
     // Pass label filter so new task is visible with current filters
     const result = createNote('', category, null, labelFilter);
-    // Handle both Promise and synchronous returns (TinyBase returns string ID, legacy returns Promise<Note>)
+    // Handle both Promise and synchronous returns
     Promise.resolve(result).then((newNoteOrId) => {
       if (newNoteOrId) {
-        // If it's a string (ID from TinyBase), create minimal Note object; otherwise use as-is (Note from legacy)
+        // If it's a string (ID), create minimal Note object; otherwise use as-is (Note)
         const newNote: Note = typeof newNoteOrId === 'string'
           ? { id: newNoteOrId } as unknown as Note
           : newNoteOrId;
@@ -295,11 +293,9 @@ export function Home() {
     // Note: selectedNote will automatically update via useMemo when notes array changes
   }, [postponeNote]);
 
-  // Only block on TinyBase not ready - never unmount NoteList due to loading
+  // Show loading spinner only when loading and no notes yet
   // This prevents React hooks count mismatch when project changes
-  // Only block on TinyBase not ready - never unmount NoteList due to loading
-  // This prevents React hooks count mismatch when project changes
-  if (!isReady || (loading && !notes.length)) {
+  if (loading && !notes.length) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -320,7 +316,6 @@ export function Home() {
         onUpdateDeadline={updateDeadline}
         onAddAssignee={addAssigneeToNote}
         onRemoveAssignee={removeAssigneeFromNote}
-        onUpdateAssignee={updateAssignee}
         onReorderNotes={reorderNotes}
         onPostponeNote={handlePostponeNote}
         onTogglePublic={togglePublic}
