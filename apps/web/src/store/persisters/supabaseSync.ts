@@ -123,7 +123,12 @@ export class SupabaseDataSync {
 
     let processed = 0;
     for (const [localId, row] of pendingRows) {
-      await this.pushRow(tableName, localId, row as Record<string, unknown>);
+      try {
+        await this.pushRow(tableName, localId, row as Record<string, unknown>);
+      } catch (error) {
+        console.error(`[SupabaseSync] Error pushing row ${localId} in ${tableName}:`, error);
+        this.onError?.(error instanceof Error ? error : new Error(JSON.stringify(error)), tableName);
+      }
       processed++;
       this.onProgress?.({ table: tableName, current: processed, total: pendingRows.length });
     }
@@ -143,8 +148,11 @@ export class SupabaseDataSync {
     const remoteId = row.remote_id as string | null;
     const deletedAt = row.deleted_at as string | null;
 
-    // Prepare data for Supabase (remove local-only fields)
+    // Prepare data for Supabase (remove local-only fields, map FKs)
     const supabaseData = await this.prepareForSupabase(tableName, localId, row);
+
+    // Skip if required foreign keys couldn't be mapped (e.g., referenced note not synced yet)
+    if (!supabaseData) return;
 
     // Repair notes with missing required 'date' field (corrupt data)
     if (tableName === 'notes' && !supabaseData.date) {
@@ -235,7 +243,7 @@ export class SupabaseDataSync {
     tableName: SyncTable,
     _localId: string,
     row: Record<string, unknown>
-  ): Promise<Record<string, unknown>> {
+  ): Promise<Record<string, unknown> | null> {
     const data = { ...row };
 
     // Remove local-only fields
@@ -266,23 +274,24 @@ export class SupabaseDataSync {
     if (tableName === 'note_labels') {
       const note = this.store.getRow('notes', data.note_id as string);
       const label = this.store.getRow('labels', data.label_id as string);
-      if (note?.remote_id) data.note_id = note.remote_id;
-      if (label?.remote_id) data.label_id = label.remote_id;
+      if (!note?.remote_id || !label?.remote_id) return null; // Can't push without mapped FKs
+      data.note_id = note.remote_id;
+      data.label_id = label.remote_id;
     }
 
     if (tableName === 'note_assignees') {
       const note = this.store.getRow('notes', data.note_id as string);
       const contact = this.store.getRow('contacts', data.contact_id as string);
-      if (note?.remote_id) data.note_id = note.remote_id;
-      if (contact?.remote_id) data.contact_id = contact.remote_id;
+      if (!note?.remote_id || !contact?.remote_id) return null; // Can't push without mapped FKs
+      data.note_id = note.remote_id;
+      data.contact_id = contact.remote_id;
     }
 
-    // Map foreign keys for new history tables
+    // Map foreign keys for history tables
     if (tableName === 'note_versions' || tableName === 'note_actions') {
       const note = this.store.getRow('notes', data.note_id as string);
-      if (note?.remote_id) {
-        data.note_id = note.remote_id;
-      }
+      if (!note?.remote_id) return null; // Can't push without mapped note FK
+      data.note_id = note.remote_id;
     }
 
     return data;
@@ -506,14 +515,25 @@ export class SupabaseDataSync {
 
     this.isSyncing = true;
     try {
+      // Build cache for remote_id → local_id mapping used during merge
+      this.buildRemoteIdCache();
+
       const tables: SyncTable[] = ['contacts', 'labels', 'projects', 'notes', 'note_labels', 'note_assignees', 'note_versions', 'note_actions'];
 
+      // Tables that don't have a deleted_at column (junction/history tables)
+      const tablesWithoutDeletedAt = ['note_labels', 'note_assignees', 'note_versions', 'note_actions'];
+
       for (const tableName of tables) {
-        const { data, error } = await (supabase
-          .from(tableName as any) as any)
+        let query = (supabase.from(tableName as any) as any)
           .select('*')
-          .eq('user_id', this.userId)
-          .is('deleted_at', null);
+          .eq('user_id', this.userId);
+
+        // Only filter by deleted_at for tables that have this column
+        if (!tablesWithoutDeletedAt.includes(tableName)) {
+          query = query.is('deleted_at', null);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
           console.error(`[SupabaseSync] Error pulling all ${tableName}:`, error);
@@ -532,6 +552,7 @@ export class SupabaseDataSync {
 
       this.store.setValue('last_synced_at', now());
     } finally {
+      this.remoteIdCache.clear();
       this.isSyncing = false;
     }
   }

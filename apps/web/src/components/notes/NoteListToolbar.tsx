@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
-import { Plus, List, Calendar, AlignJustify, Copy, Check } from 'lucide-react';
+import { List, Calendar, AlignJustify, Copy, Check } from 'lucide-react';
 import { NoteFilters } from './NoteFilters';
 import { Logo } from '@/components/Logo';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +14,6 @@ interface NoteListToolbarProps {
     isMobile: boolean;
     selectedNote: Note | null;
     sidebarTrigger?: React.ReactNode;
-    onCreateTask?: () => void;
     viewMode: 'list' | 'calendar';
     setViewMode: (mode: 'list' | 'calendar') => void;
     compactTaskView: boolean;
@@ -61,7 +60,6 @@ export function NoteListToolbar({
     isMobile,
     selectedNote,
     sidebarTrigger,
-    onCreateTask,
     viewMode,
     setViewMode,
     compactTaskView,
@@ -151,20 +149,6 @@ export function NoteListToolbar({
 
             {/* Sidebar trigger */}
             {sidebarTrigger}
-
-            {/* Create task button */}
-            {onCreateTask && (
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button onClick={onCreateTask} size="icon" variant="outline" className="h-8 w-8 shadow-none">
-                            <Plus className="h-4 w-4" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>{t('newTask')}</p>
-                    </TooltipContent>
-                </Tooltip>
-            )}
 
             {/* View mode toggle */}
             <Tooltip>
