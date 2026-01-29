@@ -197,6 +197,7 @@ function NoteRow(props: NoteRowProps) {
             allLabels={props.allLabels || []}
             labels={labels}
             contacts={contacts}
+            noteAssignees={noteAssignees}
             onAddLabel={props.onAddLabel}
             onRemoveLabel={props.onRemoveLabel}
             onEditLabel={props.onEditLabel}

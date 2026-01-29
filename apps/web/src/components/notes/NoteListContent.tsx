@@ -91,11 +91,17 @@ interface NoteListContentProps {
     assigneeFilter: string[];
     showOverdueOnly: boolean;
 
+    // Sort & Status
+    sortConfig: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null };
+
     // Active Filters Bar Props
     onClearCategory: () => void;
     onClearLabel: (labelId: string) => void;
     onClearAssignee: (assigneeId: string) => void;
     onClearSearch: () => void;
+    onClearSort: () => void;
+    onClearTaskStatus: () => void;
+    onClearOverdue: () => void;
     onClearAllFilters: () => void;
 
     // Auto-save settings
@@ -160,10 +166,14 @@ export const NoteListContent = memo(function NoteListContent({
     labelFilter,
     assigneeFilter,
     showOverdueOnly,
+    sortConfig,
     onClearCategory,
     onClearLabel,
     onClearAssignee,
     onClearSearch,
+    onClearSort,
+    onClearTaskStatus,
+    onClearOverdue,
     onClearAllFilters,
     autoSaveInterval = 3,
 }: NoteListContentProps) {
@@ -186,10 +196,16 @@ export const NoteListContent = memo(function NoteListContent({
                 searchQuery={searchQuery}
                 labels={labels}
                 contacts={contacts}
+                sortConfig={sortConfig}
+                taskStatusFilter={taskStatusFilter}
+                showOverdueOnly={showOverdueOnly}
                 onClearCategory={onClearCategory}
                 onClearLabel={onClearLabel}
                 onClearAssignee={onClearAssignee}
                 onClearSearch={onClearSearch}
+                onClearSort={onClearSort}
+                onClearTaskStatus={onClearTaskStatus}
+                onClearOverdue={onClearOverdue}
                 onClearAll={onClearAllFilters}
             />
             {notes.length === 0 ? (

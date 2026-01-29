@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Pickaxe, Forward, StickyNote, Users, Plus, Pencil } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -15,7 +14,6 @@ import { type DraggableSyntheticListeners } from '@dnd-kit/core';
 import type { Note, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { useDebugNavigation } from '@/hooks/useDebugNavigation';
-import { useAssignees } from '@/hooks/useAssignees';
 
 interface NoteRowContentProps {
     note: Note;
@@ -44,6 +42,7 @@ interface NoteRowContentProps {
     allLabels: Label[];
     labels: Label[];
     contacts: Contact[];
+    noteAssignees: Contact[];
     // Handlers
     onAddLabel?: (noteId: string, labelId: string) => void;
     onRemoveLabel?: (noteId: string, labelId: string) => void;
@@ -79,6 +78,7 @@ export function NoteRowContent({
     allLabels,
     labels,
     contacts,
+    noteAssignees,
     onAddLabel,
     onRemoveLabel,
     onEditLabel,
@@ -89,10 +89,6 @@ export function NoteRowContent({
 }: NoteRowContentProps) {
     const { t } = useTranslation();
     const { debugMode, debugTitleFocusClass } = useDebugNavigation();
-    const { getAssigneesForNote, noteAssigneeVersion } = useAssignees();
-
-    // Get assignees for this note (will re-compute when noteAssigneeVersion changes)
-    const noteAssignees = useMemo(() => getAssigneesForNote(note.id), [note.id, getAssigneesForNote, noteAssigneeVersion]);
 
     return (
         <div className={`group/title relative select-none flex items-center gap-1.5 flex-1 min-w-0 ${!compactView ? 'pl-1.5' : ''} overflow-hidden`} onClick={onContentClick}>

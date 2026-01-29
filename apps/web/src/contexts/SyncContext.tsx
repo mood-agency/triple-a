@@ -259,7 +259,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   // Calculate pending changes count
   const calculatePendingCount = useCallback(() => {
     if (!tinybaseStore) return 0
-    const tables = ['notes', 'labels', 'contacts', 'note_labels'] as const
+    const tables = ['notes', 'labels', 'contacts', 'note_labels', 'note_assignees'] as const
     let count = 0
     tables.forEach((tableName) => {
       const table = tinybaseStore.getTable(tableName) || {}
@@ -282,7 +282,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
     // Helper to check for pending changes and trigger sync
     const checkAndSync = () => {
-      const tables = ['notes', 'labels', 'contacts', 'note_labels', 'note_history'] as const
+      const tables = ['notes', 'labels', 'contacts', 'note_labels', 'note_assignees', 'note_history'] as const
       const hasPending = tables.some((tableName) => {
         const table = tinybaseStore.getTable(tableName) || {}
         return Object.values(table).some(
@@ -330,6 +330,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       tinybaseStore.addTableListener('labels', debouncedCheckAndSync),
       tinybaseStore.addTableListener('contacts', debouncedCheckAndSync),
       tinybaseStore.addTableListener('note_labels', debouncedCheckAndSync),
+      tinybaseStore.addTableListener('note_assignees', debouncedCheckAndSync),
       tinybaseStore.addTableListener('note_history', debouncedCheckAndSync),
     ]
 

@@ -477,11 +477,32 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     filters.setSearchQuery('');
   }, [filters]);
 
+  const handleClearSort = useCallback(() => {
+    filters.setSortConfig({ deadline: null, assignee: null, category: null });
+    filters.setSortByDeadline(false);
+    filters.setSortByAssignee(false);
+    filters.setSortByCategory(false);
+  }, [filters]);
+
+  const handleClearTaskStatus = useCallback(() => {
+    filters.setTaskStatusFilter('active');
+  }, [filters]);
+
+  const handleClearOverdue = useCallback(() => {
+    filters.setShowOverdueOnly(false);
+  }, [filters]);
+
   const handleClearAllFilters = useCallback(() => {
     filters.setCategoryFilter('all');
     filters.setLabelFilter([]);
     filters.setAssigneeFilter([]);
     filters.setSearchQuery('');
+    filters.setSortConfig({ deadline: null, assignee: null, category: null });
+    filters.setSortByDeadline(false);
+    filters.setSortByAssignee(false);
+    filters.setSortByCategory(false);
+    filters.setTaskStatusFilter('active');
+    filters.setShowOverdueOnly(false);
   }, [filters]);
 
   const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -707,7 +728,6 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         isMobile={isMobile}
         selectedNote={selectedNote}
         sidebarTrigger={sidebarTrigger}
-        onCreateTask={onCreateTask}
         viewMode={filters.viewMode}
         setViewMode={filters.setViewMode}
         compactTaskView={compactTaskView}
@@ -805,10 +825,14 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           labelFilter={filters.labelFilter}
           assigneeFilter={filters.assigneeFilter}
           showOverdueOnly={filters.showOverdueOnly}
+          sortConfig={filters.sortConfig}
           onClearCategory={handleClearCategory}
           onClearLabel={handleClearLabel}
           onClearAssignee={handleClearAssignee}
           onClearSearch={handleClearSearch}
+          onClearSort={handleClearSort}
+          onClearTaskStatus={handleClearTaskStatus}
+          onClearOverdue={handleClearOverdue}
           onClearAllFilters={handleClearAllFilters}
           autoSaveInterval={settings.autoSaveInterval}
         />
@@ -887,7 +911,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
             }}
             className={`min-w-0 ml-auto overflow-hidden flex flex-col transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
               showSidebar && !sidebarClosing
-                ? 'flex-1 max-w-[35%] py-4 pl-4 pr-8 -mr-8 opacity-100 rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30'
+                ? 'flex-1 max-w-[35%] py-4 pl-4 pr-8 -mr-8 -my-4 opacity-100 rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30'
                 : 'max-w-0 p-0 mr-0 opacity-0'
             }`}
           >

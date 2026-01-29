@@ -204,6 +204,17 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
         )}
       </div>
 
+      {note.created_at && (
+        <div className="flex gap-1.5 flex-shrink-0 items-center mb-1">
+          <div className="w-4 flex justify-center shrink-0">
+            <CalendarPlus className="h-3.5 w-3.5 text-muted-foreground" />
+          </div>
+          <span className="text-xs font-normal text-foreground px-1.5">
+            {new Date(note.created_at).toLocaleString()}
+          </span>
+        </div>
+      )}
+
       {/* Category row */}
       <NoteMetaRow icon={Layers}>
         <Popover open={categoryDropdownOpen} onOpenChange={onCategoryDropdownOpenChange}>
@@ -363,8 +374,8 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
         className="flex-1 min-h-0 w-full text-base bg-transparent text-muted-foreground overflow-y-auto"
       />
 
-      {/* Footer: Creation time and postpone reason */}
-      {(note.created_at || note.last_postpone_reason) && (
+      {/* Footer: Postpone reason and version history */}
+      {(note.last_postpone_reason || versions.length > 0) && (
         <div className="border-t border-muted-foreground/20 pt-2 mt-2 space-y-1 shrink-0">
           {note.last_postpone_reason && (
             <button
@@ -386,12 +397,6 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
                 </span>
               )}
             </button>
-          )}
-          {note.created_at && (
-            <p className="flex items-center gap-2 text-xs font-normal text-muted-foreground/50">
-              <CalendarPlus className="h-3 w-3" />
-              {new Date(note.created_at).toLocaleString()}
-            </p>
           )}
           {/* Version history toggle */}
           {versions.length > 0 && (
