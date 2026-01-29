@@ -91,7 +91,8 @@ function parseJsonResponse(content) {
     const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
     const jsonStr = jsonMatch ? jsonMatch[1].trim() : content.trim();
     return JSON.parse(jsonStr);
-  } catch {
+  } catch (error) {
+    console.warn('[parseJsonResponse] Failed to parse AI response as JSON:', error);
     return {
       summary: content,
       keyPoints: [],
@@ -729,7 +730,8 @@ async function refreshGoogleToken(refreshToken, supabase, userId) {
       .eq('user_id', userId);
 
     return { success: true, accessToken: tokens.access_token };
-  } catch {
+  } catch (error) {
+    console.warn('[refreshGoogleToken] Failed to refresh token:', error);
     return { success: false };
   }
 }
