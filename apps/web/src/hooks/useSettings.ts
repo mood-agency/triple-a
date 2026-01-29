@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useUserPreferences } from './useUserPreferences'
 
 export interface AppSettings {
@@ -49,13 +49,13 @@ function saveSettings(settings: AppSettings): void {
 export function useSettings() {
   const [settings, setSettings] = useState<AppSettings>(loadSettings)
 
-  // Save to localStorage whenever settings change
-  useEffect(() => {
-    saveSettings(settings)
-  }, [settings])
-
   const updateSettings = (partial: Partial<AppSettings>) => {
-    setSettings((prev) => ({ ...prev, ...partial }))
+    setSettings((prev) => {
+      const newSettings = { ...prev, ...partial }
+      // Save synchronously to ensure persistence before potential page reload
+      saveSettings(newSettings)
+      return newSettings
+    })
   }
 
   // Sync with Supabase

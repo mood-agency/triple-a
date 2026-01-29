@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { nanoid } from 'nanoid';
 import { useTinyBase } from '@/contexts/TinyBaseContext';
 import type { Note, NoteCategory } from '@/types/note';
 import { generateId, now } from '@/store/schema';
@@ -135,6 +136,8 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
           sync_status: (row.sync_status as Note['sync_status']) || 'local',
           last_synced_at: (row.last_synced_at as string) || null,
           gcal_event_id: (row.gcal_event_id as string) || null,
+          is_public: Boolean(row.is_public),
+          public_slug: (row.public_slug as string) || null,
         };
       })
       // Sort: pinned first, then by sort_order
@@ -212,6 +215,8 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         remote_id: null,
         sync_status: 'local',
         last_synced_at: null,
+        is_public: false,
+        public_slug: null,
       });
 
       // Save initial version entry
@@ -262,6 +267,8 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         updated_at: timestamp,
         deleted_at: null,
         deleted_reason: null,
+        is_public: false,
+        public_slug: null,
       };
     },
     [store, effectiveDate, projectId, loadNotes]
@@ -323,6 +330,8 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         remote_id: null,
         sync_status: 'local',
         last_synced_at: null,
+        is_public: false,
+        public_slug: null,
       });
 
       // Add labels to the note if provided
@@ -373,6 +382,8 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
         updated_at: timestamp,
         deleted_at: null,
         deleted_reason: null,
+        is_public: false,
+        public_slug: null,
       };
     },
     [store, effectiveDate, projectId, loadNotes]
@@ -630,6 +641,38 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
     [store]
   );
 
+  /**
+   * Toggle note public sharing status
+   * @returns The public slug if making public, null otherwise
+   */
+  const togglePublic = useCallback(
+    (id: string, makePublic: boolean): string | null => {
+      if (!store) return null;
+
+      const timestamp = now();
+
+      if (makePublic) {
+        const slug = nanoid(12);
+        store.setPartialRow('notes', id, {
+          is_public: true,
+          public_slug: slug,
+          updated_at: timestamp,
+          sync_status: 'pending',
+        });
+        return slug;
+      } else {
+        store.setPartialRow('notes', id, {
+          is_public: false,
+          public_slug: null,
+          updated_at: timestamp,
+          sync_status: 'pending',
+        });
+        return null;
+      }
+    },
+    [store]
+  );
+
   return {
     notes,
     loading,
@@ -645,5 +688,6 @@ export function useNotesStore(options: UseNotesStoreOptions = {}) {
     restoreNote,
     reorderNotes,
     postponeNote,
+    togglePublic,
   };
 }

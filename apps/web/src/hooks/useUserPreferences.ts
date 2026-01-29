@@ -71,20 +71,30 @@ export function useUserPreferences(
           globalHasLoaded = true;
           globalLoadedUserId = user.id;
           hasLoadedRef.current = true;
-          // Track what we loaded so we don't immediately save it back
+
+          // Merge Supabase data with local settings, prioritizing local non-default values
+          // This ensures that if the user made local changes before Supabase loaded,
+          // those changes are preserved (e.g., pinning a note to the sidebar)
+          const mergedSettings = {
+            // For fixedNoteId: prefer local value if it's set (not null)
+            // This preserves sidebar pinned state across reloads
+            fixedNoteId: settings.fixedNoteId ?? data.fixed_note_id,
+            // For showSidebar: if we have a local fixedNoteId, keep sidebar open
+            showSidebar: settings.fixedNoteId ? settings.showSidebar : data.show_sidebar,
+            // For other settings, prefer Supabase (they're less time-sensitive)
+            autoSync: data.auto_sync,
+            beeperToken: data.beeper_token,
+          };
+
+          // Track what we're using so we don't immediately save it back
           lastSavedSettings = JSON.stringify({
-            showSidebar: data.show_sidebar,
-            autoSync: data.auto_sync,
-            fixedNoteId: data.fixed_note_id,
-            beeperToken: data.beeper_token,
+            showSidebar: mergedSettings.showSidebar,
+            autoSync: mergedSettings.autoSync,
+            fixedNoteId: mergedSettings.fixedNoteId,
+            beeperToken: mergedSettings.beeperToken,
           });
-          // Update local settings with remote data
-          updateSettings({
-            showSidebar: data.show_sidebar,
-            autoSync: data.auto_sync,
-            fixedNoteId: data.fixed_note_id,
-            beeperToken: data.beeper_token,
-          });
+          // Update local settings with merged data
+          updateSettings(mergedSettings);
         }
       } catch (error) {
         console.error('[UserPreferences] Failed to load preferences:', error);

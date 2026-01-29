@@ -647,5 +647,17 @@
       "keyName": "Nombre",
       "apiKey": "API Key"
     }
+  },
+  "sharing": {
+    "sharePublicly": "Compartir publicamente",
+    "stopSharing": "Dejar de compartir",
+    "makePublic": "Hacer publica",
+    "publicLink": "Enlace publico",
+    "copyLink": "Copiar enlace",
+    "linkCopied": "Enlace copiado al portapapeles",
+    "linkRemoved": "La nota ya no es publica",
+    "noteNotFound": "Nota no encontrada",
+    "noteNotFoundDescription": "Esta nota no existe, fue eliminada, o ya no es publica.",
+    "poweredBy": "Compartido con Triple-A"
   }
 }
