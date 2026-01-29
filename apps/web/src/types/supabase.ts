@@ -313,65 +313,6 @@ export type Database = {
                     },
                 ]
             }
-            note_history_legacy: {
-                Row: {
-                    action_type: string | null
-                    category: string
-                    changed_at: string
-                    completed: boolean
-                    content: string
-                    created_at: string
-                    description: string | null
-                    id: string
-                    note_id: string
-                    previous_date: string | null
-                    reason: string | null
-                    sync_status: string | null
-                    updated_at: string | null
-                    user_id: string
-                }
-                Insert: {
-                    action_type?: string | null
-                    category: string
-                    changed_at?: string
-                    completed?: boolean
-                    content: string
-                    created_at?: string
-                    description?: string | null
-                    id?: string
-                    note_id: string
-                    previous_date?: string | null
-                    reason?: string | null
-                    sync_status?: string | null
-                    updated_at?: string | null
-                    user_id: string
-                }
-                Update: {
-                    action_type?: string | null
-                    category?: string
-                    changed_at?: string
-                    completed?: boolean
-                    content?: string
-                    created_at?: string
-                    description?: string | null
-                    id?: string
-                    note_id?: string
-                    previous_date?: string | null
-                    reason?: string | null
-                    sync_status?: string | null
-                    updated_at?: string | null
-                    user_id?: string
-                }
-                Relationships: [
-                    {
-                        foreignKeyName: "note_history_note_id_fkey"
-                        columns: ["note_id"]
-                        isOneToOne: false
-                        referencedRelation: "notes"
-                        referencedColumns: ["id"]
-                    },
-                ]
-            }
             note_labels: {
                 Row: {
                     created_at: string
