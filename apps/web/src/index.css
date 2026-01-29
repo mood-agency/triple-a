@@ -517,11 +517,6 @@ body {
   background: rgb(0 0 0 / 0.8);
 }
 
-.tiptap-image-controls button.delete:hover {
-  background: hsl(var(--destructive));
-  color: white;
-}
-
 /* Legacy inline images (fallback) */
 .tiptap img:not(.tiptap-image-wrapper img),
 .tiptap-image {

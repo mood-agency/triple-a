@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CloudUpload, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,6 +30,26 @@ export function SyncDiagnosticsDialog({ open, onOpenChange }: SyncDiagnosticsDia
   const [diagnosticDetails, setDiagnosticDetails] = useState<DiagnosticDetails | null>(null);
 
   const canPush = user && connectionStatus === 'online' && !isPushingAll && !isPullingAll;
+
+  // Collect diagnostic data when dialog opens
+  useEffect(() => {
+    if (open && store) {
+      const tables = ['notes', 'labels', 'contacts', 'projects', 'note_labels', 'note_assignees', 'note_versions', 'note_actions'] as const;
+      const data: DiagnosticData = {};
+
+      tables.forEach((tableName) => {
+        const table = store.getTable(tableName) || {};
+        const rows = Object.values(table);
+        data[tableName] = {
+          total: rows.length,
+          pending: rows.filter((row) => (row as Record<string, unknown>).sync_status === 'pending').length,
+          local: rows.filter((row) => (row as Record<string, unknown>).sync_status === 'local').length,
+        };
+      });
+
+      setDiagnosticData(data);
+    }
+  }, [open, store]);
 
   const collectDiagnosticData = () => {
     if (!store) return;
@@ -66,9 +86,6 @@ export function SyncDiagnosticsDialog({ open, onOpenChange }: SyncDiagnosticsDia
   };
 
   const handleOpenChange = (newOpen: boolean) => {
-    if (newOpen && !diagnosticData) {
-      collectDiagnosticData();
-    }
     if (!newOpen) {
       setDiagnosticDetails(null);
     }
