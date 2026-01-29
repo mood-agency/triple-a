@@ -111,20 +111,25 @@ export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
         return;
       }
 
-      // Fetch note_history for postponed actions (table not in generated types)
-      const { data: historyData, error: historyError } = await (supabase as any)
-        .from('note_history')
-        .select('id, note_id, changed_at, action_type')
-        .eq('action_type', 'postponed');
+      // Fetch note_actions for postponed actions
+      const { data: actionsData, error: actionsError } = await (supabase as any)
+        .from('note_actions')
+        .select('id, note_id, created_at, action_type');
 
-      if (historyError) {
-        console.error('[useAnalytics] Error fetching history:', historyError);
+      if (actionsError) {
+        console.error('[useAnalytics] Error fetching actions:', actionsError);
         setLoading(false);
         return;
       }
 
       const allNotes = allNotesData || [];
-      const allHistory: Array<{ id: string; note_id: string; changed_at: string; action_type: string }> = historyData || [];
+      // Map note_actions to the expected format (created_at -> changed_at for compatibility)
+      const allHistory: Array<{ id: string; note_id: string; changed_at: string; action_type: string }> = (actionsData || []).map((a: any) => ({
+        id: a.id,
+        note_id: a.note_id,
+        changed_at: a.created_at,
+        action_type: a.action_type,
+      }));
 
       // Filter notes created after startDate for trend analysis
       const notes = allNotes.filter((n) => {
@@ -259,7 +264,7 @@ export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
     loadAnalytics();
   }, [loadAnalytics]);
 
-  // Realtime subscriptions for notes and note_history
+  // Realtime subscriptions for notes and note_actions
   useEffect(() => {
     if (!supabase || !user) return;
 
@@ -283,14 +288,14 @@ export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
       )
       .subscribe();
 
-    const historyChannel = supabase
-      .channel('analytics-history')
+    const actionsChannel = supabase
+      .channel('analytics-actions')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'note_history',
+          table: 'note_actions',
         },
         debouncedLoad
       )
@@ -300,7 +305,7 @@ export function useAnalytics(dateRange: DateRange = '7d'): AnalyticsData {
       if (debounceTimer) clearTimeout(debounceTimer);
       if (supabase) {
         supabase.removeChannel(notesChannel);
-        supabase.removeChannel(historyChannel);
+        supabase.removeChannel(actionsChannel);
       }
     };
   }, [user, loadAnalytics]);
