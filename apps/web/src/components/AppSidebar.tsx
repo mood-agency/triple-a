@@ -39,6 +39,7 @@ import {
 } from '@/utils/dataExport';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { APIKeysDialog } from '@/components/settings/APIKeysDialog';
+import { SyncDiagnosticsDialog } from '@/components/sync/SyncDiagnosticsDialog';
 
 export function AppSidebar() {
   const { t, i18n } = useTranslation();
@@ -60,7 +61,6 @@ export function AppSidebar() {
 
   // Diagnostic state
   const [showDiagnostics, setShowDiagnostics] = useState(false);
-  const [diagnosticData, setDiagnosticData] = useState<Record<string, { total: number; pending: number; local: number }> | null>(null);
 
   const canPush = user && connectionStatus === 'online' && !isPushingAll && !isPullingAll;
   const canPull = user && connectionStatus === 'online' && !isPushingAll && !isPullingAll;
@@ -228,26 +228,6 @@ export function AppSidebar() {
     return date.toLocaleDateString();
   };
 
-  const collectDiagnosticData = () => {
-    if (!store) return;
-
-    const tables = ['notes', 'labels', 'contacts', 'note_labels', 'note_history'] as const;
-    const data: Record<string, { total: number; pending: number; local: number }> = {};
-
-    tables.forEach((tableName) => {
-      const table = store.getTable(tableName) || {};
-      const rows = Object.values(table);
-      data[tableName] = {
-        total: rows.length,
-        pending: rows.filter((row) => (row as Record<string, unknown>).sync_status === 'pending').length,
-        local: rows.filter((row) => (row as Record<string, unknown>).sync_status === 'local').length,
-      };
-    });
-
-    setDiagnosticData(data);
-    setShowDiagnostics(true);
-  };
-
   const menuItems = [
     {
       title: t('nav.home', 'Home'),
@@ -347,7 +327,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    onClick={collectDiagnosticData}
+                    onClick={() => setShowDiagnostics(true)}
                     size="sm"
                   >
                     <BarChart3 className="h-4 w-4 text-blue-500" />
@@ -518,62 +498,7 @@ export function AppSidebar() {
       </Dialog>
 
       {/* Sync Diagnostics Dialog */}
-      <Dialog open={showDiagnostics} onOpenChange={setShowDiagnostics}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Sync Diagnostics</DialogTitle>
-            <DialogDescription>
-              Detailed sync status for all tables
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-4">
-            {diagnosticData && Object.entries(diagnosticData).map(([table, stats]) => (
-              <div key={table} className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{table}</span>
-                  <span className="text-xs text-muted-foreground">{stats.total} total</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="flex items-center justify-between px-2 py-1 bg-yellow-500/10 rounded">
-                    <span>Pending:</span>
-                    <span className={stats.pending > 0 ? 'font-semibold text-yellow-600' : ''}>{stats.pending}</span>
-                  </div>
-                  <div className="flex items-center justify-between px-2 py-1 bg-blue-500/10 rounded">
-                    <span>Local:</span>
-                    <span className={stats.local > 0 ? 'font-semibold text-blue-600' : ''}>{stats.local}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {syncError && (
-              <div className="mt-4 p-3 bg-destructive/10 text-destructive text-sm rounded">
-                <div className="font-semibold mb-1">Sync Error:</div>
-                <div className="text-xs">{syncError}</div>
-              </div>
-            )}
-          </div>
-          <DialogFooter className="flex-col gap-2 sm:flex-col">
-            <Button
-              onClick={async () => {
-                await pushAllToSupabase();
-                collectDiagnosticData();
-              }}
-              disabled={!canPush}
-              className="w-full"
-            >
-              <CloudUpload className="h-4 w-4 mr-2" />
-              Force Push All
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setShowDiagnostics(false)}
-              className="w-full"
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SyncDiagnosticsDialog open={showDiagnostics} onOpenChange={setShowDiagnostics} />
 
       {/* API Keys dialog */}
       <APIKeysDialog open={apiKeysDialogOpen} onOpenChange={setApiKeysDialogOpen} />

@@ -31,6 +31,8 @@ export function exportAllData(store: MergeableStore): ExportData {
           deleted_reason: row.deleted_reason || null,
           assignee_id: row.assignee_id,
           project_id: row.project_id,
+          is_public: row.is_public,
+          public_slug: row.public_slug,
         }))
         .sort((a, b) => {
           if (a.date !== b.date) return b.date.localeCompare(a.date);

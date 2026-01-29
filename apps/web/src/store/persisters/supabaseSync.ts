@@ -507,7 +507,7 @@ export class SupabaseDataSync {
            this.store.setRow(tableName, localId, {
                note_id: localNoteId,
                [secondKey]: localSecondId,
-               created_at: remoteRow.created_at || now(),
+               created_at: (typeof remoteRow.created_at === 'string' ? remoteRow.created_at : now()),
                sync_status: 'synced',
                last_synced_at: now()
            });

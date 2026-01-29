@@ -60,6 +60,7 @@ interface NoteListProps {
   onUpdateAssignee: (id: string, contactId: string | null) => void;
   onReorderNotes: (orderedIds: string[]) => void;
   onPostponeNote: (id: string, newDeadline: string, reason: string) => Promise<void>;
+  onTogglePublic?: (id: string, makePublic: boolean) => string | null;
   selectedNote: Note | null;
   onSelectNote: (note: Note | null) => void;
   onNavigateToEditor?: (column: number) => void;
@@ -89,7 +90,7 @@ interface NoteListProps {
   sidebarTrigger?: React.ReactNode;
 }
 
-export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onAddAssignee, onRemoveAssignee, onUpdateAssignee, onReorderNotes, onPostponeNote, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, externalSortConfig, onSortConfigChange, externalTaskStatusFilter, onTaskStatusFilterChange, externalShowOverdueOnly, onShowOverdueOnlyChange, sidebarTrigger }, ref) {
+export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onAddAssignee, onRemoveAssignee, onUpdateAssignee, onReorderNotes, onPostponeNote, onTogglePublic, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, externalSortConfig, onSortConfigChange, externalTaskStatusFilter, onTaskStatusFilterChange, externalShowOverdueOnly, onShowOverdueOnlyChange, sidebarTrigger }, ref) {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { contacts } = useContacts();
@@ -895,6 +896,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onSetEditingHistoryEntry={setEditingHistoryEntry}
               onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !selectedNote.completed)}
               autoSaveInterval={settings.autoSaveInterval}
+              onTogglePublic={onTogglePublic}
             />
           </div>
         )}
@@ -960,6 +962,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !fixedNote.completed)}
                 onClose={closeSidebar}
                 autoSaveInterval={settings.autoSaveInterval}
+                onTogglePublic={onTogglePublic}
               />
             ) : (
               <p className="text-sm text-muted-foreground/50 italic">{t('selectNoteToEdit')}</p>
