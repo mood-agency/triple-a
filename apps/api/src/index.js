@@ -1170,6 +1170,65 @@ async function broadcastApiMutation(supabase, userId, table, operation, recordId
   }
 }
 
+// ============================================
+// PUBLIC ENDPOINTS (No authentication required)
+// ============================================
+
+/**
+ * GET /api/public/notes/:slug
+ * Fetch a publicly shared note by its slug (no authentication required)
+ * Returns only safe fields: public_slug, content, description, category, deadline, created_at, labels
+ */
+app.get('/api/public/notes/:slug', async (c) => {
+  try {
+    const slug = c.req.param('slug');
+
+    // Validate slug format
+    if (!slug || slug.length < 8 || slug.length > 24) {
+      return c.json({ error: 'Invalid slug', code: 'INVALID_SLUG' }, 400);
+    }
+
+    // Fetch the note by public_slug using admin client
+    const { data: note, error: noteError } = await supabaseAdmin
+      .from('notes')
+      .select('id, public_slug, content, description, category, deadline, created_at')
+      .eq('public_slug', slug)
+      .eq('is_public', true)
+      .is('deleted_at', null)
+      .single();
+
+    if (noteError || !note) {
+      return c.json({ error: 'Note not found', code: 'NOT_FOUND' }, 404);
+    }
+
+    // Fetch labels associated with this note
+    const { data: noteLabels } = await supabaseAdmin
+      .from('note_labels')
+      .select('labels(name, color)')
+      .eq('note_id', note.id);
+
+    const labels = (noteLabels || [])
+      .map((nl) => nl.labels)
+      .filter(Boolean);
+
+    // Return only safe fields (no user_id, assignee_id, project_id, internal id)
+    return c.json({
+      data: {
+        public_slug: note.public_slug,
+        content: note.content,
+        description: note.description,
+        category: note.category,
+        deadline: note.deadline,
+        created_at: note.created_at,
+        labels,
+      },
+    }, 200);
+  } catch (error) {
+    console.error('Error in GET /api/public/notes/:slug:', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
 // Apply middleware to all /api/v1/* routes
 app.use('/api/v1/*', rateLimitKeyExtractor, apiLimiter, authenticateApiKey, logApiRequest);
 

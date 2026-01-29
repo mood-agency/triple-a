@@ -1,7 +1,8 @@
 import { forwardRef, memo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus, Calendar, Layers, PanelRightClose, History, RotateCcw } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus, Calendar, Layers, PanelRightClose, History, RotateCcw, Globe, Link } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
@@ -72,6 +73,7 @@ interface NoteEditorPanelProps {
   onToggleComplete: (id: string) => void;
   onClose?: () => void;
   autoSaveInterval?: number; // in seconds, 0 = disabled
+  onTogglePublic?: (id: string, makePublic: boolean) => string | null;
 }
 
 // Helper to parse description preview from TipTap JSON or plain text
@@ -137,6 +139,7 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
   onToggleComplete,
   onClose,
   autoSaveInterval = 3,
+  onTogglePublic,
 }, ref) {
   const { t, i18n } = useTranslation();
   const { store } = useTinyBase();
@@ -351,7 +354,7 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
           onOpenChange={onAssigneePickerOpenChange}
         />
         {noteAssignees.map((assignee) => (
-          <span key={assignee.id} className="px-2 py-0.5 text-xs font-normal rounded-full border border-input bg-background text-foreground leading-none flex items-center gap-1">
+          <span key={assignee.id} className="px-2 py-0.5 text-xs font-normal rounded-full border border-foreground bg-background text-foreground leading-none flex items-center gap-1">
             {`${assignee.name} ${assignee.lastname}`.trim()}
             <button type="button" onClick={() => onRemoveAssignee(note.id, assignee.id)} className="hover:bg-muted rounded-full p-0.5">
               <X className="h-3 w-3" />
@@ -359,6 +362,54 @@ export const NoteEditorPanel = memo(forwardRef<EditableDescriptionHandle, NoteEd
           </span>
         ))}
       </NoteMetaRow>
+
+      {/* Share row */}
+      {onTogglePublic && (
+        <NoteMetaRow icon={Globe}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`h-6 px-1.5 text-xs font-normal gap-1 ${note.is_public ? 'text-green-600' : ''}`}
+            onClick={() => {
+              const slug = onTogglePublic(note.id, !note.is_public);
+              if (slug) {
+                const url = `${window.location.origin}/p/${slug}`;
+                navigator.clipboard.writeText(url);
+                toast.success(t('sharing.linkCopied'));
+              } else {
+                toast.success(t('sharing.linkRemoved'));
+              }
+            }}
+          >
+            {note.is_public ? (
+              <>
+                <Globe className="h-3 w-3" />
+                {t('sharing.stopSharing')}
+              </>
+            ) : (
+              <>
+                <Link className="h-3 w-3" />
+                {t('sharing.makePublic')}
+              </>
+            )}
+          </Button>
+          {note.is_public && note.public_slug && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 px-1.5 text-xs font-normal gap-1"
+              onClick={() => {
+                const url = `${window.location.origin}/p/${note.public_slug}`;
+                navigator.clipboard.writeText(url);
+                toast.success(t('sharing.linkCopied'));
+              }}
+            >
+              <Link className="h-3 w-3" />
+              {t('sharing.copyLink')}
+            </Button>
+          )}
+        </NoteMetaRow>
+      )}
 
       {/* Separator */}
       <div className="border-t border-muted-foreground/20 my-1.5" />

@@ -13,6 +13,7 @@ import { Projects } from './pages/Projects'
 import { MobileTaskCreate } from './pages/MobileTaskCreate'
 import { CalendarSettings } from './pages/CalendarSettings'
 import ShareReceiver from './pages/ShareReceiver'
+import { PublicNote } from './pages/PublicNote'
 import { MainLayout } from './components/MainLayout'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -55,6 +56,7 @@ function App() {
     <Routes>
       <Route path="/auth" element={<Auth />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/p/:slug" element={<PublicNote />} />
       <Route
         path="/mobile/create"
         element={
