@@ -4,7 +4,6 @@ import { BrowserRouter } from 'react-router-dom'
 import { Capacitor } from '@capacitor/core'
 import { SendIntent } from 'send-intent'
 import { AuthProvider } from './contexts/AuthContext'
-import { TinyBaseProvider } from './contexts/TinyBaseContext'
 import { SyncProvider } from './contexts/SyncContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { ProjectProvider } from './contexts/ProjectContext'
@@ -54,16 +53,14 @@ createRoot(document.getElementById('root')!).render(
         <ThemeProvider defaultTheme="system" storageKey="app-theme">
           <TooltipProvider delayDuration={500} disableHoverableContent>
             <AuthProvider>
-              <TinyBaseProvider>
-                <SyncProvider>
-                  <ProjectProvider>
-                    <GoogleCalendarProvider>
-                      <App />
-                      <Toaster />
-                    </GoogleCalendarProvider>
-                  </ProjectProvider>
-                </SyncProvider>
-              </TinyBaseProvider>
+              <SyncProvider>
+                <ProjectProvider>
+                  <GoogleCalendarProvider>
+                    <App />
+                    <Toaster />
+                  </GoogleCalendarProvider>
+                </ProjectProvider>
+              </SyncProvider>
             </AuthProvider>
           </TooltipProvider>
         </ThemeProvider>

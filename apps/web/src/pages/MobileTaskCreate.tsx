@@ -68,7 +68,7 @@ export function MobileTaskCreate() {
   const { notes, createNote, toggleCompleted, updateDeadline } = useNotesWithCalendarSync();
   const { labels, getLabelsForNote } = useLabels();
   const { contacts } = useContacts();
-  const { setAssigneesForNote } = useAssignees();
+  const { setAssigneesForNote, getAssigneesForNote } = useAssignees();
 
   // Category filter state (like CalendarView)
   const [categoryFilter, setCategoryFilter] = useState<NoteCategory | 'all'>('all');
@@ -287,7 +287,8 @@ export function MobileTaskCreate() {
             {activeNotes.map((note) => {
               const NoteIcon = categoryIcons[note.category];
               const noteLabels = getLabelsForNote(note.id);
-              const assignee = contacts.find((c) => c.id === note.assignee_id);
+              const noteAssignees = getAssigneesForNote(note.id);
+              const assignee = noteAssignees[0];
 
               return (
                 <div
@@ -349,7 +350,8 @@ export function MobileTaskCreate() {
                 {completedNotes.map((note) => {
                   const NoteIcon = categoryIcons[note.category];
                   const noteLabels = getLabelsForNote(note.id);
-                  const assignee = contacts.find((c) => c.id === note.assignee_id);
+                  const noteAssignees = getAssigneesForNote(note.id);
+              const assignee = noteAssignees[0];
 
                   return (
                     <div
