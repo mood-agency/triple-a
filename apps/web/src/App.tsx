@@ -15,6 +15,7 @@ import { CalendarSettings } from './pages/CalendarSettings'
 import ShareReceiver from './pages/ShareReceiver'
 import { PublicNote } from './pages/PublicNote'
 import { MainLayout } from './components/MainLayout'
+import { AuthenticatedProviders } from './components/AuthenticatedProviders'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isConfigured } = useAuth()
@@ -54,14 +55,19 @@ function MobileRedirect({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <Routes>
+      {/* Public routes - no data fetching providers */}
       <Route path="/auth" element={<Auth />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/p/:slug" element={<PublicNote />} />
+
+      {/* Protected routes - wrapped with data providers */}
       <Route
         path="/mobile/create"
         element={
           <ProtectedRoute>
-            <MobileTaskCreate />
+            <AuthenticatedProviders>
+              <MobileTaskCreate />
+            </AuthenticatedProviders>
           </ProtectedRoute>
         }
       />
@@ -69,7 +75,9 @@ function App() {
         path="/share"
         element={
           <ProtectedRoute>
-            <ShareReceiver />
+            <AuthenticatedProviders>
+              <ShareReceiver />
+            </AuthenticatedProviders>
           </ProtectedRoute>
         }
       />
@@ -77,9 +85,11 @@ function App() {
       <Route
         element={
           <ProtectedRoute>
-            <MobileRedirect>
-              <MainLayout />
-            </MobileRedirect>
+            <AuthenticatedProviders>
+              <MobileRedirect>
+                <MainLayout />
+              </MobileRedirect>
+            </AuthenticatedProviders>
           </ProtectedRoute>
         }
       >
