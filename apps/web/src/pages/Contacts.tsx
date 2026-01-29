@@ -243,7 +243,10 @@ export function Contacts() {
       );
 
       if (!createChatResponse.ok) {
-        const errorData = await createChatResponse.json().catch(() => ({}));
+        const errorData = await createChatResponse.json().catch((e: unknown) => {
+          console.warn('[Contacts] Failed to parse chat error response:', e);
+          return {};
+        });
         throw new Error(errorData.message || 'Failed to create chat');
       }
 
@@ -272,7 +275,10 @@ export function Contacts() {
       );
 
       if (!sendResponse.ok) {
-        const errorData = await sendResponse.json().catch(() => ({}));
+        const errorData = await sendResponse.json().catch((e: unknown) => {
+          console.warn('[Contacts] Failed to parse send error response:', e);
+          return {};
+        });
         throw new Error(errorData.message || 'Failed to send message');
       }
 

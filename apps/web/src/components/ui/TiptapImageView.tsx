@@ -57,7 +57,8 @@ export function TiptapImageView({ node, deleteNode }: NodeViewProps) {
       ]);
 
       toast.success(t('toast.imageCopied'));
-    } catch {
+    } catch (error) {
+      console.warn('[TiptapImageView] Failed to copy image:', error);
       toast.error(t('toast.imageCopyFailed'));
     }
   }, [src, t]);
