@@ -34,7 +34,8 @@ export function getFlag(key: keyof FeatureFlags): boolean {
       return DEFAULT_FLAGS[key];
     }
     return stored === 'true';
-  } catch {
+  } catch (error) {
+    console.warn(`[FeatureFlags] Failed to read ${key}, using default:`, error);
     return DEFAULT_FLAGS[key];
   }
 }
