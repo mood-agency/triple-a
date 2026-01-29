@@ -78,13 +78,7 @@ export function AppSidebar() {
 
     if (result.success) {
       toast.success(t('sync.pushAll'), {
-        description: t('sync.pushSuccess', {
-          notes: result.pushed.notes,
-          labels: result.pushed.labels,
-          noteLabels: result.pushed.noteLabels,
-          history: result.pushed.noteHistory,
-          contacts: result.pushed.contacts,
-        }),
+        description: t('sync.syncComplete'),
       });
     } else {
       toast.error(t('sync.pushError'), {
@@ -105,12 +99,7 @@ export function AppSidebar() {
 
     if (result.success) {
       toast.success(t('sync.pullAll'), {
-        description: t('sync.pullSuccess', {
-          notes: result.pulled.notes,
-          labels: result.pulled.labels,
-          noteLabels: result.pulled.noteLabels,
-          contacts: result.pulled.contacts,
-        }),
+        description: t('sync.syncComplete'),
       });
       setTimeout(() => window.location.reload(), 1500);
     } else {

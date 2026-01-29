@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CloudUpload } from 'lucide-react';
+import { CloudUpload, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -24,7 +24,7 @@ type DiagnosticDetails = { table: string; type: 'pending' | 'local'; items: Reco
 export function SyncDiagnosticsDialog({ open, onOpenChange }: SyncDiagnosticsDialogProps) {
   const { store } = useTinyBase();
   const { user } = useAuth();
-  const { connectionStatus, error: syncError, pushAllToSupabase, isPushingAll, isPullingAll } = useSync();
+  const { connectionStatus, error: syncError, pushAllToSupabase, isPushingAll, isPullingAll, retryQueueLength, conflicts, syncNow } = useSync();
 
   const [diagnosticData, setDiagnosticData] = useState<DiagnosticData | null>(null);
   const [diagnosticDetails, setDiagnosticDetails] = useState<DiagnosticDetails | null>(null);
@@ -34,7 +34,7 @@ export function SyncDiagnosticsDialog({ open, onOpenChange }: SyncDiagnosticsDia
   const collectDiagnosticData = () => {
     if (!store) return;
 
-    const tables = ['notes', 'labels', 'contacts', 'note_labels', 'note_history', 'note_assignees'] as const;
+    const tables = ['notes', 'labels', 'contacts', 'projects', 'note_labels', 'note_assignees', 'note_versions', 'note_actions'] as const;
     const data: DiagnosticData = {};
 
     tables.forEach((tableName) => {
@@ -115,6 +115,32 @@ export function SyncDiagnosticsDialog({ open, onOpenChange }: SyncDiagnosticsDia
               </div>
             </div>
           ))}
+          {/* Retry Queue */}
+          {retryQueueLength > 0 && (
+            <div className="mt-4 p-3 bg-orange-500/10 text-orange-700 dark:text-orange-400 text-sm rounded">
+              <div className="flex items-center gap-2 font-semibold mb-1">
+                <RefreshCw className="h-4 w-4" />
+                Retry Queue: {retryQueueLength} items
+              </div>
+              <div className="text-xs">
+                These items will be retried automatically with exponential backoff.
+              </div>
+            </div>
+          )}
+
+          {/* Conflicts */}
+          {conflicts.length > 0 && (
+            <div className="mt-4 p-3 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 text-sm rounded">
+              <div className="flex items-center gap-2 font-semibold mb-1">
+                <AlertTriangle className="h-4 w-4" />
+                Conflicts: {conflicts.length}
+              </div>
+              <div className="text-xs">
+                Some items have conflicting changes that need to be resolved.
+              </div>
+            </div>
+          )}
+
           {syncError && (
             <div className="mt-4 p-3 bg-destructive/10 text-destructive text-sm rounded">
               <div className="font-semibold mb-1">Sync Error:</div>
@@ -149,6 +175,18 @@ export function SyncDiagnosticsDialog({ open, onOpenChange }: SyncDiagnosticsDia
           )}
         </div>
         <DialogFooter className="flex-col gap-2 sm:flex-col">
+          <Button
+            onClick={async () => {
+              await syncNow();
+              collectDiagnosticData();
+            }}
+            disabled={!canPush}
+            className="w-full"
+            variant="secondary"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Sync Now
+          </Button>
           <Button
             onClick={async () => {
               await pushAllToSupabase();
