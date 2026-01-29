@@ -1258,7 +1258,6 @@ app.get('/api/v1/notes', async (c) => {
     const completed = c.req.query('completed');
     const category = c.req.query('category');
     const pinned = c.req.query('pinned');
-    const assignee_id = c.req.query('assignee_id'); // Legacy single assignee filter
     const assignee_ids = c.req.queries('assignee_ids'); // New: multiple assignees filter
     const limit = parseInt(c.req.query('limit') || '100', 10);
     const offset = parseInt(c.req.query('offset') || '0', 10);
@@ -1743,7 +1742,7 @@ app.post('/api/v1/notes/search', async (c) => {
 
 /**
  * GET /api/v1/notes/:id/history
- * Get history for a specific note
+ * Get history for a specific note (combines note_versions and note_actions)
  */
 app.get('/api/v1/notes/:id/history', async (c) => {
   try {
@@ -1762,18 +1761,62 @@ app.get('/api/v1/notes/:id/history', async (c) => {
       return c.json({ error: 'Note not found', code: 'NOT_FOUND' }, 404);
     }
 
-    const { data: history, error } = await supabase
-      .from('note_history')
+    // Fetch from note_versions (content snapshots)
+    const { data: versions, error: versionsError } = await supabase
+      .from('note_versions')
       .select('*')
-      .eq('note_id', id)
-      .order('changed_at', { ascending: false });
+      .eq('note_id', id);
 
-    if (error) {
-      console.error('Error fetching note history:', error);
-      return c.json({ error: 'Failed to fetch history' }, 500);
+    if (versionsError) {
+      console.error('Error fetching note versions:', versionsError);
     }
 
-    return c.json({ data: history || [] }, 200);
+    // Fetch from note_actions (postponed actions)
+    const { data: actions, error: actionsError } = await supabase
+      .from('note_actions')
+      .select('*')
+      .eq('note_id', id);
+
+    if (actionsError) {
+      console.error('Error fetching note actions:', actionsError);
+    }
+
+    // Transform versions to unified history format
+    const versionsHistory = (versions || []).map((v) => ({
+      id: v.id,
+      note_id: v.note_id,
+      user_id: v.user_id,
+      content: v.content,
+      description: v.description,
+      category: v.category,
+      completed: v.completed,
+      changed_at: v.created_at,
+      action_type: v.version_number === 1 ? 'created' : 'edit',
+      reason: null,
+      previous_date: null,
+    }));
+
+    // Transform actions to unified history format
+    const actionsHistory = (actions || []).map((a) => ({
+      id: a.id,
+      note_id: a.note_id,
+      user_id: a.user_id,
+      content: null,
+      description: null,
+      category: null,
+      completed: null,
+      changed_at: a.created_at,
+      action_type: a.action_type,
+      reason: a.reason,
+      previous_date: a.previous_date,
+    }));
+
+    // Combine and sort by changed_at descending
+    const history = [...versionsHistory, ...actionsHistory].sort(
+      (a, b) => new Date(b.changed_at) - new Date(a.changed_at)
+    );
+
+    return c.json({ data: history }, 200);
   } catch (error) {
     console.error('Error in GET /api/v1/notes/:id/history:', error);
     return c.json({ error: 'Internal server error' }, 500);
@@ -2426,7 +2469,7 @@ app.get('/api/v1/contacts/:id/notes', async (c) => {
 
 /**
  * GET /api/v1/history
- * Get global history with filters
+ * Get global history with filters (combines note_versions and note_actions)
  */
 app.get('/api/v1/history', async (c) => {
   try {
@@ -2438,29 +2481,91 @@ app.get('/api/v1/history', async (c) => {
     const userId = c.get('user').id;
     const supabase = c.get('supabase');
 
-    let query = supabase
-      .from('note_history')
-      .select('*, notes!inner(user_id)')
-      .eq('notes.user_id', userId);
+    let versionsData = [];
+    let actionsData = [];
 
-    if (note_id) query = query.eq('note_id', note_id);
-    if (action_type) query = query.eq('action_type', action_type);
+    // Determine which tables to query based on action_type filter
+    const queryVersions = !action_type || action_type === 'created' || action_type === 'edit';
+    const queryActions = !action_type || action_type === 'postponed';
 
-    query = query.order('changed_at', { ascending: false }).range(offset, offset + limit - 1);
+    // Query note_versions if needed
+    if (queryVersions) {
+      let versionsQuery = supabase
+        .from('note_versions')
+        .select('*, notes!inner(user_id)')
+        .eq('notes.user_id', userId);
 
-    const { data: history, error } = await query;
+      if (note_id) versionsQuery = versionsQuery.eq('note_id', note_id);
 
-    if (error) {
-      console.error('Error fetching history:', error);
-      return c.json({ error: 'Failed to fetch history' }, 500);
+      const { data, error } = await versionsQuery;
+      if (error) {
+        console.error('Error fetching versions:', error);
+      } else {
+        versionsData = (data || []).map((v) => ({
+          id: v.id,
+          note_id: v.note_id,
+          user_id: v.user_id,
+          content: v.content,
+          description: v.description,
+          category: v.category,
+          completed: v.completed,
+          changed_at: v.created_at,
+          action_type: v.version_number === 1 ? 'created' : 'edit',
+          reason: null,
+          previous_date: null,
+        }));
+
+        // Filter by specific action_type if needed
+        if (action_type === 'created') {
+          versionsData = versionsData.filter((v) => v.action_type === 'created');
+        } else if (action_type === 'edit') {
+          versionsData = versionsData.filter((v) => v.action_type === 'edit');
+        }
+      }
     }
 
+    // Query note_actions if needed
+    if (queryActions) {
+      let actionsQuery = supabase
+        .from('note_actions')
+        .select('*, notes!inner(user_id)')
+        .eq('notes.user_id', userId);
+
+      if (note_id) actionsQuery = actionsQuery.eq('note_id', note_id);
+
+      const { data, error } = await actionsQuery;
+      if (error) {
+        console.error('Error fetching actions:', error);
+      } else {
+        actionsData = (data || []).map((a) => ({
+          id: a.id,
+          note_id: a.note_id,
+          user_id: a.user_id,
+          content: null,
+          description: null,
+          category: null,
+          completed: null,
+          changed_at: a.created_at,
+          action_type: a.action_type,
+          reason: a.reason,
+          previous_date: a.previous_date,
+        }));
+      }
+    }
+
+    // Combine, sort, and paginate
+    const combined = [...versionsData, ...actionsData].sort(
+      (a, b) => new Date(b.changed_at) - new Date(a.changed_at)
+    );
+
+    const paginated = combined.slice(offset, offset + limit);
+
     return c.json({
-      data: history || [],
+      data: paginated,
       pagination: {
         limit,
         offset,
-        has_more: history && history.length === limit,
+        has_more: combined.length > offset + limit,
       },
     }, 200);
   } catch (error) {

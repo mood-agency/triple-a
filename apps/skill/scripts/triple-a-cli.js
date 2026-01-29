@@ -157,8 +157,7 @@ async function handleNotes(action, args) {
       if (args.flags['project-id']) body.project_id = args.flags['project-id'];
       if (args.flags.labels) body.labels = args.flags.labels.split(',');
       if (args.flags.deadline) body.deadline = args.flags.deadline;
-      if (args.flags['assignee-id']) body.assignee_id = args.flags['assignee-id'];
-
+ 
       const response = await client.post('/api/v1/notes', body);
       console.log(formatSuccess('Note created!'));
       console.log(formatNote(response.data));

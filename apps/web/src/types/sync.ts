@@ -1,6 +1,6 @@
 export type SyncOperation = 'insert' | 'update' | 'delete'
 
-export type SyncTable = 'notes' | 'labels' | 'note_labels' | 'note_history' | 'contacts'
+export type SyncTable = 'notes' | 'labels' | 'note_labels' | 'note_versions' | 'note_actions' | 'contacts'
 
 export interface PendingSyncOperation {
   id: string
