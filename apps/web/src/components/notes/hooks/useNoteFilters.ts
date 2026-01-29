@@ -7,6 +7,8 @@ import { useContacts } from '@/hooks/useContacts';
 import { getInitials } from '@/lib/utils';
 import { EMPTY_LABELS } from '@/constants/notes';
 
+const EMPTY_ASSIGNEES: Contact[] = [];
+
 type SortConfigType = { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null };
 
 interface UseNoteFiltersProps {
@@ -26,6 +28,8 @@ interface UseNoteFiltersProps {
     externalSortConfig?: SortConfigType;
     onSortConfigChange?: (config: SortConfigType) => void;
     noteLabelsCache: Map<string, Label[]>;
+    // Cache mapping note_id -> array of Contact objects for assignees
+    noteAssigneesCache: Map<string, Contact[]>;
     // Task status filter (from CommandPalette)
     externalTaskStatusFilter?: 'active' | 'completed' | 'deleted';
     onTaskStatusFilterChange?: (status: 'active' | 'completed' | 'deleted') => void;
@@ -49,6 +53,7 @@ export function useNoteFilters({
     externalSortConfig,
     onSortConfigChange,
     noteLabelsCache,
+    noteAssigneesCache,
     externalTaskStatusFilter,
     onTaskStatusFilterChange,
     externalShowOverdueOnly,
@@ -168,25 +173,25 @@ export function useNoteFilters({
         return formatLocalDate(calendarSelectedDate);
     }, [calendarSelectedDate]);
 
-    // PERFORMANCE: Pre-compute assignee names
-    const assigneeIdsKey = notes.map(n => n.assignee_id ?? '').join(',');
+    // PERFORMANCE: Pre-compute assignee names (uses first assignee for sorting)
     const assigneeNamesCache = useMemo(() => {
         const cache = new Map<string, string | null>();
-        
+
         // Build contact map for faster lookup
         const contactMap = new Map<string, Contact>();
         contacts.forEach(c => contactMap.set(c.id, c));
-        
+
         for (const note of notes) {
-            if (note.assignee_id) {
-                const contact = contactMap.get(note.assignee_id);
+            const assignees = noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES;
+            if (assignees.length > 0) {
+                const contact = assignees[0];
                 cache.set(note.id, contact ? getInitials(contact.name, contact.lastname) : null);
             } else {
                 cache.set(note.id, null);
             }
         }
         return cache;
-    }, [notes, assigneeIdsKey, contacts]);
+    }, [notes, noteAssigneesCache, contacts]);
 
 
     // Filter Logic
@@ -220,9 +225,9 @@ export function useNoteFilters({
         }
 
         if (assigneeFilter.length > 0) {
-            if (!note.assignee_id || !assigneeFilter.includes(note.assignee_id)) {
-                return false;
-            }
+            const noteAssignees = noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES;
+            const hasMatchingAssignee = assigneeFilter.some(contactId => noteAssignees.some(c => c.id === contactId));
+            if (!hasMatchingAssignee) return false;
         }
 
         if (showOverdueOnly) {
@@ -248,7 +253,7 @@ export function useNoteFilters({
         const titleMatch = note.content.toLowerCase().includes(searchQueryLower);
         const descriptionMatch = note.description?.toLowerCase().includes(searchQueryLower) ?? false;
         return titleMatch || descriptionMatch;
-    }), [notes, categoryFilter, labelFilter, assigneeFilter, showOverdueOnly, dateRangeFilter, searchQuery, searchQueryLower, noteLabelsCache]);
+    }), [notes, categoryFilter, labelFilter, assigneeFilter, showOverdueOnly, dateRangeFilter, searchQuery, searchQueryLower, noteLabelsCache, noteAssigneesCache]);
 
 
     // Active & Completed
@@ -282,7 +287,8 @@ export function useNoteFilters({
                 if (!labelFilter.some(labelId => noteLabelIds.includes(labelId))) return false;
             }
             if (assigneeFilter.length > 0) {
-                if (!note.assignee_id || !assigneeFilter.includes(note.assignee_id)) return false;
+                const noteAssignees = noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES;
+                if (!assigneeFilter.some(contactId => noteAssignees.some(c => c.id === contactId))) return false;
             }
             if (searchQuery.trim()) {
                 const titleMatch = note.content.toLowerCase().includes(searchQueryLower);
@@ -291,7 +297,7 @@ export function useNoteFilters({
             }
             return true;
         });
-    }, [notes, calendarDateKey, categoryFilter, labelFilter, assigneeFilter, searchQuery, searchQueryLower, noteLabelsCache]);
+    }, [notes, calendarDateKey, categoryFilter, labelFilter, assigneeFilter, searchQuery, searchQueryLower, noteLabelsCache, noteAssigneesCache]);
 
     const calendarCompletedNotes = useMemo(() => {
         if (!calendarDateKey) return [];
@@ -307,7 +313,8 @@ export function useNoteFilters({
                 if (!labelFilter.some(labelId => noteLabelIds.includes(labelId))) return false;
             }
             if (assigneeFilter.length > 0) {
-                if (!note.assignee_id || !assigneeFilter.includes(note.assignee_id)) return false;
+                const noteAssignees = noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES;
+                if (!assigneeFilter.some(contactId => noteAssignees.some(c => c.id === contactId))) return false;
             }
             if (searchQuery.trim()) {
                 const titleMatch = note.content.toLowerCase().includes(searchQueryLower);
@@ -320,7 +327,7 @@ export function useNoteFilters({
             const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
             return bTime - aTime;
         });
-    }, [notes, calendarDateKey, categoryFilter, labelFilter, assigneeFilter, searchQuery, searchQueryLower, noteLabelsCache]);
+    }, [notes, calendarDateKey, categoryFilter, labelFilter, assigneeFilter, searchQuery, searchQueryLower, noteLabelsCache, noteAssigneesCache]);
 
     const calendarDeletedNotes = useMemo(() => {
         if (!calendarDateKey) return [];
@@ -335,7 +342,8 @@ export function useNoteFilters({
                 if (!labelFilter.some(labelId => noteLabelIds.includes(labelId))) return false;
             }
             if (assigneeFilter.length > 0) {
-                if (!note.assignee_id || !assigneeFilter.includes(note.assignee_id)) return false;
+                const noteAssignees = noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES;
+                if (!assigneeFilter.some(contactId => noteAssignees.some(c => c.id === contactId))) return false;
             }
             if (searchQuery.trim()) {
                 const titleMatch = note.content.toLowerCase().includes(searchQueryLower);
@@ -344,7 +352,7 @@ export function useNoteFilters({
             }
             return true;
         });
-    }, [deletedNotes, calendarDateKey, categoryFilter, labelFilter, assigneeFilter, searchQuery, searchQueryLower, noteLabelsCache]);
+    }, [deletedNotes, calendarDateKey, categoryFilter, labelFilter, assigneeFilter, searchQuery, searchQueryLower, noteLabelsCache, noteAssigneesCache]);
 
     filteredNotesRef.current = viewMode === 'calendar'
         ? [...calendarFilteredNotes, ...calendarCompletedNotes]
@@ -362,7 +370,8 @@ export function useNoteFilters({
                     if (!hasMatchingLabel) return false;
                 }
                 if (assigneeFilter.length > 0) {
-                    if (!note.assignee_id || !assigneeFilter.includes(note.assignee_id)) {
+                    const noteAssignees = noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES;
+                    if (!assigneeFilter.some(contactId => noteAssignees.some(c => c.id === contactId))) {
                         return false;
                     }
                 }
@@ -374,7 +383,7 @@ export function useNoteFilters({
             }
             return true;
         }).length;
-    }, [activeNotes, labelFilter, assigneeFilter, showOverdueOnly, noteLabelsCache]);
+    }, [activeNotes, labelFilter, assigneeFilter, showOverdueOnly, noteLabelsCache, noteAssigneesCache]);
 
 
     return useMemo(() => ({

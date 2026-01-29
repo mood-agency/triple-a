@@ -1,76 +1,96 @@
-import { useState, useCallback, useEffect } from 'react';
-import { useTinyBase } from '@/contexts/TinyBaseContext';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import type { Note, NoteCategory } from '@/types/note';
 
 export function useDeletedNotes() {
-  const { store, isReady: tinyBaseReady } = useTinyBase();
+  const { user } = useAuth();
   const [deletedNotes, setDeletedNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
+  const channelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null);
 
-  const loadDeletedNotes = useCallback(() => {
-    if (!store || !tinyBaseReady) return;
+  const loadDeletedNotes = useCallback(async () => {
+    if (!user || !supabase) {
+      setLoading(false);
+      return;
+    }
 
-    const notesTable = store.getTable('notes') || {};
+    setLoading(true);
 
-    const rows: Note[] = Object.entries(notesTable)
-      .filter(([, noteRow]) => {
-        const row = noteRow as Record<string, unknown>;
-        // Only include soft-deleted notes
-        return row.deleted_at != null && row.deleted_at !== '';
-      })
-      .map(([id, noteRow]) => {
-        const row = noteRow as Record<string, unknown>;
-        return {
-          id,
-          date: row.date as string,
-          content: row.content as string,
-          description: (row.description as string) || null,
-          category: (row.category as NoteCategory) || 'todo',
-          completed: Boolean(row.completed),
-          completed_at: (row.completed_at as string) || null,
-          deadline: (row.deadline as string) || null,
-          pinned: Boolean(row.pinned),
-          sort_order: (row.sort_order as number) || 0,
-          created_at: row.created_at as string,
-          updated_at: row.updated_at as string,
-          deleted_at: (row.deleted_at as string) || null,
-          deleted_reason: (row.deleted_reason as string) || null,
-          assignee_id: (row.assignee_id as string) || null,
-          project_id: (row.project_id as string) || null,
-          is_public: Boolean(row.is_public),
-          public_slug: (row.public_slug as string) || null,
-        };
-      })
-      // Sort by deleted_at descending (most recently deleted first)
-      .sort((a, b) => {
-        const aDeleted = a.deleted_at || '';
-        const bDeleted = b.deleted_at || '';
-        return bDeleted.localeCompare(aDeleted);
-      });
+    const { data, error } = await supabase
+      .from('notes')
+      .select('*')
+      .eq('user_id', user.id)
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false });
 
-    setDeletedNotes(rows);
+    if (error) {
+      console.error('[useDeletedNotes] Fetch error:', error);
+      setLoading(false);
+      return;
+    }
+
+    const notes: Note[] = (data || []).map((row: any) => ({
+      id: row.id,
+      date: row.date,
+      content: row.content,
+      description: row.description || null,
+      category: (row.category as NoteCategory) || 'todo',
+      completed: Boolean(row.completed),
+      completed_at: row.completed_at || null,
+      deadline: row.deadline || null,
+      pinned: Boolean(row.pinned),
+      sort_order: row.sort_order || 0,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      deleted_at: row.deleted_at || null,
+      deleted_reason: row.deleted_reason || null,
+      project_id: row.project_id || null,
+      is_public: Boolean(row.is_public),
+      public_slug: row.public_slug || null,
+      remote_id: row.id,
+      sync_status: 'synced' as const,
+    }));
+
+    setDeletedNotes(notes);
     setLoading(false);
-  }, [store, tinyBaseReady]);
+  }, [user]);
 
   useEffect(() => {
     loadDeletedNotes();
   }, [loadDeletedNotes]);
 
-  // Listen to TinyBase store changes (debounced to avoid blocking main thread)
+  // Realtime subscription
   useEffect(() => {
-    if (!store) return;
+    if (!user || !supabase) return;
 
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    const listenerId = store.addTableListener('notes', () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => loadDeletedNotes(), 200);
-    });
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+    }
+
+    const channel = supabase
+      .channel(`deleted-notes-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notes',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => loadDeletedNotes()
+      )
+      .subscribe();
+
+    channelRef.current = channel;
 
     return () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      store.delListener(listenerId);
+      if (channelRef.current && supabase) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
-  }, [store, loadDeletedNotes]);
+  }, [user, loadDeletedNotes]);
 
   return {
     deletedNotes,

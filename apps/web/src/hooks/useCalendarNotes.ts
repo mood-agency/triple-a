@@ -20,7 +20,8 @@ export function useCalendarNotes(
   assigneeFilter: string[] = [],
   searchQuery: string = '',
   showOverdueOnly: boolean = false,
-  noteLabelsCache?: Map<string, Label[]>
+  noteLabelsCache?: Map<string, Label[]>,
+  noteAssigneesCache?: Map<string, string[]>
 ): CalendarNotesResult {
   // Filter to only open followups and meetings with deadlines
   const calendarNotes = useMemo(() => {
@@ -44,8 +45,9 @@ export function useCalendarNotes(
       }
 
       // Apply assignee filter
-      if (assigneeFilter.length > 0) {
-        if (!note.assignee_id || !assigneeFilter.includes(note.assignee_id)) return false
+      if (assigneeFilter.length > 0 && noteAssigneesCache) {
+        const noteAssigneeIds = noteAssigneesCache.get(note.id) ?? []
+        if (!assigneeFilter.some(contactId => noteAssigneeIds.includes(contactId))) return false
       }
 
       // Apply search query filter
@@ -64,7 +66,7 @@ export function useCalendarNotes(
 
       return true
     })
-  }, [notes, categoryFilter, labelFilter, assigneeFilter, searchQuery, showOverdueOnly, noteLabelsCache])
+  }, [notes, categoryFilter, labelFilter, assigneeFilter, searchQuery, showOverdueOnly, noteLabelsCache, noteAssigneesCache])
 
   // Group notes by deadline date (YYYY-MM-DD format)
   const notesByDate = useMemo(() => {

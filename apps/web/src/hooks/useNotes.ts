@@ -1,5 +1,7 @@
-import { useNotesStore } from './tinybase/useNotesStore';
+import { useMemo } from 'react';
+import { useNotesSupabase } from './supabase/useNotesSupabase';
 import { useActiveProject } from '@/contexts/ProjectContext';
+import { useSettings } from './useSettings';
 
 interface UseNotesOptions {
   date?: string;
@@ -10,10 +12,31 @@ interface UseNotesOptions {
  * Automatically filters by the active project
  */
 export function useNotes(options: UseNotesOptions = {}) {
-  const { activeProjectId } = useActiveProject();
+  const { activeProjectId, loading: projectLoading } = useActiveProject();
+  const { settings } = useSettings();
 
-  return useNotesStore({
+  // Use a stable project ID - don't change while loading
+  // This prevents the flash of all notes before filtering by project
+  const stableProjectId = useMemo(() => {
+    // If project context is still loading, use settings as initial value
+    if (projectLoading) {
+      return settings.activeProjectId;
+    }
+    return activeProjectId;
+  }, [projectLoading, activeProjectId, settings.activeProjectId]);
+
+  const result = useNotesSupabase({
     date: options.date,
-    projectId: activeProjectId,
+    projectId: stableProjectId,
   });
+
+  // If project context is loading, return loading state
+  if (projectLoading) {
+    return {
+      ...result,
+      loading: true,
+    };
+  }
+
+  return result;
 }

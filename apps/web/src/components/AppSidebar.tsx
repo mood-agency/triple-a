@@ -1,8 +1,7 @@
-import { useRef, useState } from 'react';
-import { Home, Users, BarChart3, Moon, Sun, Languages, LogOut, User, Cloud, CloudOff, RefreshCw, AlertCircle, Check, CloudUpload, CloudDownload, Download, Upload, Loader2, Tag, FolderKanban, Calendar, Smartphone, Key } from 'lucide-react';
+import { useState } from 'react';
+import { Home, Users, BarChart3, Moon, Sun, Languages, LogOut, User, Cloud, CloudOff, Tag, FolderKanban, Calendar, Smartphone, Key } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
 import { ProjectSelector } from '@/components/projects/ProjectSelector';
 import {
   Sidebar,
@@ -17,147 +16,22 @@ import {
   SidebarFooter,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSync } from '@/contexts/SyncContext';
-import { useTinyBase } from '@/contexts/TinyBaseContext';
-import {
-  exportAllData,
-  downloadExportFile,
-  importData,
-  readFileAsJson,
-  validateImportData,
-} from '@/utils/dataExport';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { APIKeysDialog } from '@/components/settings/APIKeysDialog';
-import { SyncDiagnosticsDialog } from '@/components/sync/SyncDiagnosticsDialog';
 
 export function AppSidebar() {
   const { t, i18n } = useTranslation();
   const location = useLocation();
   const { theme, setTheme } = useTheme();
   const { user, signOut } = useAuth();
-  const { connectionStatus, syncState, lastSyncedAt, pendingCount, error: syncError, syncNow, pushAllToSupabase, pullAllFromSupabase, isPushingAll, isPullingAll } = useSync();
-  const { store } = useTinyBase();
+  const { connectionStatus } = useSync();
   const { canInstall, promptInstall } = usePWAInstall();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Dialog states
-  const [showPushConfirmDialog, setShowPushConfirmDialog] = useState(false);
-  const [showPullConfirmDialog, setShowPullConfirmDialog] = useState(false);
-  const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; item: string } | null>(null);
 
   // API Keys dialog state
   const [apiKeysDialogOpen, setApiKeysDialogOpen] = useState(false);
-
-  // Diagnostic state
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
-
-  const canPush = user && connectionStatus === 'online' && !isPushingAll && !isPullingAll;
-  const canPull = user && connectionStatus === 'online' && !isPushingAll && !isPullingAll;
-
-  // Push/Pull handlers
-  const handlePushAll = async () => {
-    setShowPushConfirmDialog(false);
-    setSyncProgress({ current: 0, total: 0, item: '' });
-
-    const result = await pushAllToSupabase((progress) => {
-      setSyncProgress(progress);
-    });
-
-    setSyncProgress(null);
-
-    if (result.success) {
-      toast.success(t('sync.pushAll'), {
-        description: t('sync.syncComplete'),
-      });
-    } else {
-      toast.error(t('sync.pushError'), {
-        description: result.error,
-      });
-    }
-  };
-
-  const handlePullAll = async () => {
-    setShowPullConfirmDialog(false);
-    setSyncProgress({ current: 0, total: 0, item: '' });
-
-    const result = await pullAllFromSupabase((progress) => {
-      setSyncProgress(progress);
-    });
-
-    setSyncProgress(null);
-
-    if (result.success) {
-      toast.success(t('sync.pullAll'), {
-        description: t('sync.syncComplete'),
-      });
-      setTimeout(() => window.location.reload(), 1500);
-    } else {
-      toast.error(t('sync.pullError'), {
-        description: result.error,
-      });
-    }
-  };
-
-  // Import/Export handlers
-  const handleExport = () => {
-    if (!store) return;
-
-    try {
-      const data = exportAllData(store);
-      downloadExportFile(data);
-      toast.success(t('toast.exportSuccess'));
-    } catch (err) {
-      console.error('Export error:', err);
-      toast.error(t('toast.exportError'));
-    }
-  };
-
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !store) return;
-
-    try {
-      const json = await readFileAsJson(file);
-
-      if (!validateImportData(json)) {
-        toast.error(t('importExport.invalidFormat'));
-        return;
-      }
-
-      const result = await importData(store, json, { useCurrentDate: true });
-
-      if (result.success) {
-        toast.success(t('importExport.importSuccess', {
-          notes: result.notesImported,
-          history: result.historyImported,
-        }));
-      } else if (result.errors.length > 0) {
-        toast.error(t('toast.importError'), { description: result.errors[0] });
-      }
-    } catch (err) {
-      toast.error(t('toast.importError'));
-      console.error('Import error:', err);
-    } finally {
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
 
   const toggleLanguage = () => {
     const newLang = i18n.language === 'es' ? 'en' : 'es';
@@ -166,55 +40,6 @@ export function AppSidebar() {
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
-  };
-
-  const getSyncIcon = () => {
-    if (connectionStatus === 'offline') {
-      return <CloudOff className="h-4 w-4" />;
-    }
-    if (syncState === 'syncing') {
-      return <RefreshCw className="h-4 w-4 animate-spin" />;
-    }
-    if (syncState === 'error' || syncError) {
-      return <AlertCircle className="h-4 w-4 text-destructive" />;
-    }
-    if (pendingCount > 0) {
-      return <Cloud className="h-4 w-4 text-yellow-500" />;
-    }
-    return <Check className="h-4 w-4 text-green-500" />;
-  };
-
-  const getSyncStatusText = () => {
-    if (connectionStatus === 'offline') {
-      return t('sync.offline');
-    }
-    if (syncState === 'syncing') {
-      return t('sync.syncing');
-    }
-    if (syncState === 'error' || syncError) {
-      return t('sync.error');
-    }
-    if (pendingCount > 0) {
-      return t('sync.pending');
-    }
-    return t('sync.synced');
-  };
-
-  const formatLastSync = () => {
-    if (!lastSyncedAt) return t('sync.never');
-
-    const date = new Date(lastSyncedAt);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m`;
-
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h`;
-
-    return date.toLocaleDateString();
   };
 
   const menuItems = [
@@ -270,82 +95,25 @@ export function AppSidebar() {
         </SidebarGroup>
         {user && (
           <SidebarGroup className="p-2 py-1">
-            <SidebarGroupLabel className="h-6 px-1">{t('sync.status', 'Sync')}</SidebarGroupLabel>
+            <SidebarGroupLabel className="h-6 px-1">{t('sync.status', 'Connection')}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="gap-0.5">
                 <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => syncNow()}
-                    disabled={syncState === 'syncing' || connectionStatus === 'offline'}
-                    size="sm"
-                  >
-                    {getSyncIcon()}
-                    <span className="flex-1">{getSyncStatusText()}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {pendingCount > 0 ? `(${pendingCount})` : formatLastSync()}
+                  <div className="flex items-center gap-2 px-2 py-1.5">
+                    {connectionStatus === 'online' ? (
+                      <Cloud className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <CloudOff className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span className="text-sm">
+                      {connectionStatus === 'online' ? t('sync.online', 'Online') : t('sync.offline', 'Offline')}
                     </span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => setShowPullConfirmDialog(true)}
-                    disabled={!canPull}
-                    size="sm"
-                  >
-                    {isPullingAll ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <CloudDownload className="h-4 w-4" />
-                    )}
-                    <span>{t('sync.pullAll')}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => setShowPushConfirmDialog(true)}
-                    disabled={!canPush}
-                    size="sm"
-                  >
-                    {isPushingAll ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <CloudUpload className="h-4 w-4" />
-                    )}
-                    <span>{t('sync.pushAll')}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => setShowDiagnostics(true)}
-                    size="sm"
-                  >
-                    <BarChart3 className="h-4 w-4 text-blue-500" />
-                    <span>Sync Diagnostics</span>
-                  </SidebarMenuButton>
+                  </div>
                 </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
-        <SidebarGroup className="p-2 py-1">
-          <SidebarGroupLabel className="h-6 px-1">{t('importExport.title', 'Data')}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">
-              <SidebarMenuItem>
-                <SidebarMenuButton onClick={handleExport} size="sm">
-                  <Download className="h-4 w-4" />
-                  <span>{t('importExport.export')}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton onClick={handleImportClick} size="sm">
-                  <Upload className="h-4 w-4" />
-                  <span>{t('importExport.import')}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border p-2">
         <SidebarMenu className="gap-0.5">
@@ -412,82 +180,6 @@ export function AppSidebar() {
           )}
         </SidebarMenu>
       </SidebarFooter>
-
-      {/* Hidden file input for import */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".json"
-        onChange={handleFileChange}
-        className="hidden"
-      />
-
-      {/* Sync progress indicator */}
-      {syncProgress && (
-        <div className="fixed bottom-4 right-4 w-64 rounded-lg border bg-background/95 backdrop-blur shadow-lg z-50 p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-sm font-medium">
-              {isPushingAll ? t('sync.pushing') : t('sync.pulling')}
-            </span>
-          </div>
-          <div className="text-xs text-muted-foreground truncate">
-            {syncProgress.item}
-          </div>
-          <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary transition-all duration-200"
-              style={{ width: `${syncProgress.total > 0 ? (syncProgress.current / syncProgress.total) * 100 : 0}%` }}
-            />
-          </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            {syncProgress.current} / {syncProgress.total}
-          </div>
-        </div>
-      )}
-
-      {/* Push confirmation dialog */}
-      <Dialog open={showPushConfirmDialog} onOpenChange={setShowPushConfirmDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('sync.pushAll')}</DialogTitle>
-            <DialogDescription>
-              {t('sync.pushAllConfirm')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPushConfirmDialog(false)}>
-              {t('cancel')}
-            </Button>
-            <Button onClick={handlePushAll}>
-              {t('sync.pushAll')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Pull confirmation dialog */}
-      <Dialog open={showPullConfirmDialog} onOpenChange={setShowPullConfirmDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('sync.pullAll')}</DialogTitle>
-            <DialogDescription>
-              {t('sync.pullAllConfirm')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPullConfirmDialog(false)}>
-              {t('cancel')}
-            </Button>
-            <Button onClick={handlePullAll}>
-              {t('sync.pullAll')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Sync Diagnostics Dialog */}
-      <SyncDiagnosticsDialog open={showDiagnostics} onOpenChange={setShowDiagnostics} />
 
       {/* API Keys dialog */}
       <APIKeysDialog open={apiKeysDialogOpen} onOpenChange={setApiKeysDialogOpen} />

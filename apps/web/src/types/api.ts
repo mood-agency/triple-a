@@ -68,7 +68,7 @@ export interface NotesQueryParams {
   completed?: boolean;
   category?: 'todo' | 'followup' | 'notes' | 'meeting';
   pinned?: boolean;
-  assignee_id?: string;
+  assignee_ids?: string[]; // Array of contact IDs to filter by
   limit?: number; // default: 100, max: 1000
   offset?: number; // default: 0
   sort?: 'created_at' | 'updated_at' | 'sort_order';
@@ -121,7 +121,6 @@ export interface CreateNoteInput {
   date: string; // YYYY-MM-DD
   deadline?: string | null;
   project_id?: string | null;
-  assignee_id?: string | null; // Deprecated: use assignee_ids instead
   assignee_ids?: string[]; // Array of contact IDs (assignees)
   labels?: string[]; // Array of label IDs
 }
@@ -135,7 +134,6 @@ export interface UpdateNoteInput {
   completed?: boolean;
   pinned?: boolean;
   project_id?: string | null;
-  assignee_id?: string | null; // Deprecated: use assignee_ids instead
   assignee_ids?: string[]; // Array of contact IDs (assignees)
   labels?: string[];
 }
