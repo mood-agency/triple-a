@@ -8,6 +8,7 @@ import { SyncProvider } from './contexts/SyncContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { ProjectProvider } from './contexts/ProjectContext'
 import { GoogleCalendarProvider } from './contexts/GoogleCalendarContext'
+import { AssigneesProvider } from './contexts/AssigneesContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Toaster } from './components/ui/sonner'
@@ -54,12 +55,14 @@ createRoot(document.getElementById('root')!).render(
           <TooltipProvider delayDuration={500} disableHoverableContent>
             <AuthProvider>
               <SyncProvider>
-                <ProjectProvider>
-                  <GoogleCalendarProvider>
-                    <App />
-                    <Toaster />
-                  </GoogleCalendarProvider>
-                </ProjectProvider>
+                <AssigneesProvider>
+                  <ProjectProvider>
+                    <GoogleCalendarProvider>
+                      <App />
+                      <Toaster />
+                    </GoogleCalendarProvider>
+                  </ProjectProvider>
+                </AssigneesProvider>
               </SyncProvider>
             </AuthProvider>
           </TooltipProvider>
