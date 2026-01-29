@@ -1189,7 +1189,7 @@ async function broadcastApiMutation(supabase, userId, table, operation, recordId
 /**
  * GET /api/public/notes/:slug
  * Fetch a publicly shared note by its slug (no authentication required)
- * Returns only safe fields: public_slug, content, description, category, deadline, created_at, labels
+ * Returns only safe fields: public_slug, content, description, category, deadline, created_at, labels, assignees
  */
 app.get('/api/public/notes/:slug', async (c) => {
   try {
@@ -1223,6 +1223,16 @@ app.get('/api/public/notes/:slug', async (c) => {
       .map((nl) => nl.labels)
       .filter(Boolean);
 
+    // Fetch assignees associated with this note
+    const { data: noteAssignees } = await supabaseAdmin
+      .from('note_assignees')
+      .select('contacts(name)')
+      .eq('note_id', note.id);
+
+    const assignees = (noteAssignees || [])
+      .map((na) => na.contacts?.name)
+      .filter(Boolean);
+
     // Return only safe fields (no user_id, assignee_id, project_id, internal id)
     return c.json({
       data: {
@@ -1233,6 +1243,7 @@ app.get('/api/public/notes/:slug', async (c) => {
         deadline: note.deadline,
         created_at: note.created_at,
         labels,
+        assignees,
       },
     }, 200);
   } catch (error) {
