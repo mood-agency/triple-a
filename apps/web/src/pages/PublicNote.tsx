@@ -16,19 +16,31 @@ interface PublicNote {
   assignees: string[];
 }
 
-// Helper to render description (could be TipTap JSON or plain text)
+// Helper to render description (could be BlockNote JSON, TipTap JSON, or plain text)
 function renderDescription(description: string) {
   try {
     const parsed = JSON.parse(description);
-    // If it's TipTap JSON, extract plain text
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const extractText = (node: any): string => {
       if (typeof node === 'string') return node;
       if (node.text) return node.text;
-      if (node.content) return node.content.map(extractText).join('\n');
+
+      // Handle BlockNote format: array of blocks with content arrays
+      if (Array.isArray(node)) {
+        return node.map(extractText).filter(Boolean).join('\n');
+      }
+
+      // BlockNote block: { type: "paragraph", content: [{ type: "text", text: "..." }] }
+      if (node.content && Array.isArray(node.content)) {
+        return node.content.map(extractText).join('');
+      }
+
       return '';
     };
-    return <p className="whitespace-pre-wrap">{extractText(parsed)}</p>;
+
+    const text = extractText(parsed);
+    return <p className="whitespace-pre-wrap">{text}</p>;
   } catch {
     return <p className="whitespace-pre-wrap">{description}</p>;
   }
