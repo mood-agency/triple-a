@@ -21,5 +21,4 @@ WORKDIR /app
 COPY --from=builder /app/apps/web/dist ./dist
 
 EXPOSE 3000
-ENV PORT=3000
-CMD ["serve", "dist", "-s", "-l", "tcp://0.0.0.0:3000"]
+CMD ["sh", "-c", "serve dist -s -l tcp://0.0.0.0:${PORT:-3000}"]
