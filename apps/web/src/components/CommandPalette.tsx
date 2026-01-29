@@ -76,7 +76,7 @@ export function CommandPalette({
   hasDeletedTasks = false,
 }: CommandPaletteProps) {
   const { t } = useTranslation();
-  const { isOpen, mode, handleOpenChange, close } = useCommandPalette();
+  const { isOpen, mode, handleOpenChange, close, closeWithoutFocusRestore } = useCommandPalette();
 
   // Notify parent of open state changes
   useEffect(() => {
@@ -89,23 +89,23 @@ export function CommandPalette({
 
   const handleSelectCategory = (category: NoteCategory | 'all') => {
     onSelectCategory(category);
-    close();
+    closeWithoutFocusRestore();
   };
 
   const handleClearFilters = () => {
     onClearLabels();
     onSelectCategory('all');
-    close();
+    closeWithoutFocusRestore();
   };
 
   const handleToggleViewMode = () => {
     onToggleViewMode();
-    close();
+    closeWithoutFocusRestore();
   };
 
   const handleSelectProject = (projectId: string) => {
     onSelectProject?.(projectId);
-    close();
+    closeWithoutFocusRestore();
   };
 
   const hasActiveFilters = selectedLabels.length > 0 || categoryFilter !== 'all' || selectedAssignees.length > 0;
@@ -120,12 +120,12 @@ export function CommandPalette({
 
   const handleSetSort = (field: 'deadline' | 'assignee' | 'category', direction: 'asc' | 'desc' | null) => {
     onSortChange?.({ ...sortConfig, [field]: direction });
-    close();
+    closeWithoutFocusRestore();
   };
 
   const handleClearSort = () => {
     onSortChange?.({ deadline: null, assignee: null, category: null });
-    close();
+    closeWithoutFocusRestore();
   };
 
   const hasActiveSort = sortConfig.deadline !== null || sortConfig.assignee !== null || sortConfig.category !== null;
@@ -303,26 +303,26 @@ export function CommandPalette({
             <CommandSeparator />
 
             <CommandGroup heading={t('taskStatus.title')}>
-              <CommandItem onSelect={() => { onTaskStatusFilterChange?.('active'); close(); }}>
+              <CommandItem onSelect={() => { onTaskStatusFilterChange?.('active'); closeWithoutFocusRestore(); }}>
                 <CircleDot />
                 {t('taskStatus.active')}
                 {taskStatusFilter === 'active' && !showOverdueOnly && <Check className="text-primary" />}
               </CommandItem>
               {hasCompletedTasks && (
-                <CommandItem onSelect={() => { onTaskStatusFilterChange?.('completed'); close(); }}>
+                <CommandItem onSelect={() => { onTaskStatusFilterChange?.('completed'); closeWithoutFocusRestore(); }}>
                   <CheckCircle2 />
                   {t('taskStatus.completed')}
                   {taskStatusFilter === 'completed' && <Check className="text-primary" />}
                 </CommandItem>
               )}
               {hasDeletedTasks && (
-                <CommandItem onSelect={() => { onTaskStatusFilterChange?.('deleted'); close(); }}>
+                <CommandItem onSelect={() => { onTaskStatusFilterChange?.('deleted'); closeWithoutFocusRestore(); }}>
                   <Trash2 />
                   {t('taskStatus.deleted')}
                   {taskStatusFilter === 'deleted' && <Check className="text-primary" />}
                 </CommandItem>
               )}
-              <CommandItem onSelect={() => { onShowOverdueOnlyChange?.(!showOverdueOnly); close(); }}>
+              <CommandItem onSelect={() => { onShowOverdueOnlyChange?.(!showOverdueOnly); closeWithoutFocusRestore(); }}>
                 <AlertTriangle />
                 {t('taskStatus.overdue')}
                 {showOverdueOnly && <Check className="text-primary" />}

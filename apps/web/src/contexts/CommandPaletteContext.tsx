@@ -18,6 +18,8 @@ interface CommandPaletteContextValue {
   open: (mode?: PaletteMode) => void;
   /** Close the command palette */
   close: () => void;
+  /** Close the command palette without restoring focus (use when applying filters) */
+  closeWithoutFocusRestore: () => void;
   /** Toggle the command palette */
   toggle: (mode?: PaletteMode) => void;
   /** Set the mode without changing open state */
@@ -100,6 +102,14 @@ export function CommandPaletteProvider({ children }: CommandPaletteProviderProps
     handleOpenChange(false);
   }, [handleOpenChange]);
 
+  const closeWithoutFocusRestore = useCallback(() => {
+    // Clear saved focus state so restoreFocusState becomes a no-op
+    savedFocusRef.current = null;
+    setIsOpen(false);
+    // Reset mode to commands when closing, but with a slight delay to avoid UI flicker
+    setTimeout(() => setModeState('commands'), 300);
+  }, []);
+
   const toggle = useCallback((targetMode: PaletteMode = 'commands') => {
     if (isOpen && mode === targetMode) {
       handleOpenChange(false);
@@ -142,10 +152,11 @@ export function CommandPaletteProvider({ children }: CommandPaletteProviderProps
     mode,
     open,
     close,
+    closeWithoutFocusRestore,
     toggle,
     setMode,
     handleOpenChange,
-  }), [isOpen, mode, open, close, toggle, setMode, handleOpenChange]);
+  }), [isOpen, mode, open, close, closeWithoutFocusRestore, toggle, setMode, handleOpenChange]);
 
   return (
     <CommandPaletteContext.Provider value={value}>
