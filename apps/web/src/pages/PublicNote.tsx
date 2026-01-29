@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Calendar, Clock, AlertTriangle } from 'lucide-react';
+import { Loader2, Calendar, Clock, AlertTriangle, User } from 'lucide-react';
 
 interface PublicNote {
   public_slug: string;
@@ -13,6 +13,7 @@ interface PublicNote {
   deadline: string | null;
   created_at: string;
   labels: { name: string; color: string }[];
+  assignees: string[];
 }
 
 // Helper to render description (could be TipTap JSON or plain text)
@@ -109,7 +110,7 @@ export function PublicNote() {
             ))}
           </div>
           <CardTitle className="text-xl">{note.content}</CardTitle>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2 flex-wrap">
             <span className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
               {new Date(note.created_at).toLocaleDateString(i18n.language)}
@@ -118,6 +119,12 @@ export function PublicNote() {
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {new Date(note.deadline).toLocaleDateString(i18n.language)}
+              </span>
+            )}
+            {note.assignees && note.assignees.length > 0 && (
+              <span className="flex items-center gap-1">
+                <User className="h-3 w-3" />
+                {note.assignees.join(', ')}
               </span>
             )}
           </div>
