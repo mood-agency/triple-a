@@ -299,7 +299,7 @@ function NoteRow(props: NoteRowProps) {
                 <Tooltip key={contact.id}>
                   <TooltipTrigger asChild>
                     <span
-                      className="px-1.5 py-0.5 text-[10px] rounded-full bg-background border border-border text-muted-foreground leading-none truncate max-w-[90px] cursor-default"
+                      className="px-1.5 py-0.5 text-[10px] rounded-full bg-background border border-neutral-900 text-muted-foreground leading-none truncate max-w-[90px] cursor-default"
                     >
                       {initials}
                     </span>

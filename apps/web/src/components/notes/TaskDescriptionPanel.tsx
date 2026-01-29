@@ -410,7 +410,7 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
               }}
             />
             {noteAssignees.map((assignee) => (
-              <span key={assignee.id} className="px-2 py-0.5 text-xs font-normal rounded-full border border-foreground bg-background text-foreground leading-none flex items-center gap-1">
+              <span key={assignee.id} className="px-2 py-0.5 text-xs font-normal rounded-full border border-neutral-900 bg-background text-foreground leading-none flex items-center gap-1">
                 {`${assignee.name} ${assignee.lastname}`.trim()}
                 <button type="button" onClick={() => onRemoveAssignee(note.id, assignee.id)} className="hover:bg-muted rounded-full p-0.5">
                   <X className="h-3 w-3" />

@@ -150,7 +150,7 @@ export function Home() {
 
   // Load ALL notes without date filtering (filtered by active project)
   // Uses calendar sync enabled hook to auto-sync meetings to Google Calendar
-  const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, updateAssignee, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote } = useNotesWithCalendarSync();
+  const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, updateAssignee, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote, togglePublic } = useNotesWithCalendarSync();
 
   // Derive the full note object from the ID (memoized)
   // This prevents re-renders when the note object reference changes but ID stays the same
@@ -323,6 +323,7 @@ export function Home() {
         onUpdateAssignee={updateAssignee}
         onReorderNotes={reorderNotes}
         onPostponeNote={handlePostponeNote}
+        onTogglePublic={togglePublic}
         selectedNote={selectedNote}
         onSelectNote={handleSelectNote}
         onCreateNoteAfter={createNoteAfter}

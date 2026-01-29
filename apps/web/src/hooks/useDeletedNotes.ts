@@ -37,6 +37,8 @@ export function useDeletedNotes() {
           deleted_reason: (row.deleted_reason as string) || null,
           assignee_id: (row.assignee_id as string) || null,
           project_id: (row.project_id as string) || null,
+          is_public: Boolean(row.is_public),
+          public_slug: (row.public_slug as string) || null,
         };
       })
       // Sort by deleted_at descending (most recently deleted first)
