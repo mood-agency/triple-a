@@ -59,6 +59,17 @@ app.use('*', corsMiddleware);
 // ============================================================================
 
 /**
+ * Sanitize error details for API responses.
+ * In production, internal error messages are hidden to prevent information leakage.
+ */
+function sanitizeErrorDetails(error) {
+  if (process.env.NODE_ENV === 'production') {
+    return undefined;
+  }
+  return error?.message || String(error);
+}
+
+/**
  * Decode HTML entities in transcript text
  */
 function decodeHtmlEntities(text) {
@@ -197,7 +208,7 @@ app.post('/api/youtube-metadata', async (c) => {
     return c.json({
       error: 'Failed to fetch video metadata',
       code: 'NETWORK_ERROR',
-      details: error.message,
+      details: sanitizeErrorDetails(error),
     }, 500);
   }
 });
@@ -281,7 +292,7 @@ app.post('/api/youtube-captions', async (c) => {
     return c.json({
       error: 'Failed to process captions request',
       code: 'PROCESSING_FAILED',
-      details: error.message,
+      details: sanitizeErrorDetails(error),
     }, 500);
   }
 });
@@ -416,7 +427,7 @@ Respond in JSON format:
     return c.json({
       error: 'Failed to summarize text',
       code: 'PROCESSING_FAILED',
-      details: error.message,
+      details: sanitizeErrorDetails(error),
     }, 500);
   }
 });
@@ -500,7 +511,7 @@ app.post('/api/email-webhook', async (c) => {
       return c.json({
         error: 'Failed to create note',
         code: 'INSERT_FAILED',
-        details: insertError.message,
+        details: sanitizeErrorDetails(insertError),
       }, 500);
     }
 
@@ -516,7 +527,7 @@ app.post('/api/email-webhook', async (c) => {
     return c.json({
       error: 'Failed to process email',
       code: 'PROCESSING_FAILED',
-      details: error.message,
+      details: sanitizeErrorDetails(error),
     }, 500);
   }
 });
