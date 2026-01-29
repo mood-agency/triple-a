@@ -594,7 +594,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   useHotkeys('alt+r', () => { filters.setCategoryFilter(filters.categoryFilter === 'notes' ? 'all' : 'notes'); }, hotkeyOptions, [filters.categoryFilter]);
   useHotkeys('alt+c', () => {
     filters.setCategoryFilter('all'); filters.setLabelFilter([]); filters.setAssigneeFilter([]); filters.setSearchQuery('');
-    filters.setSortByDeadline(false); filters.setSortByAssignee(false); filters.setSortByCategory(false); filters.setShowOverdueOnly(false);
+    filters.setSortConfig({ deadline: null, assignee: null, category: null });
+    filters.setSortByDeadline(false); filters.setSortByAssignee(false); filters.setSortByCategory(false);
+    filters.setTaskStatusFilter('active'); filters.setShowOverdueOnly(false);
   }, hotkeyOptions);
 
   useHotkeys('down', (e) => {

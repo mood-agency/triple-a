@@ -94,7 +94,11 @@ export function CommandPalette({
 
   const handleClearFilters = () => {
     onClearLabels();
+    onClearAssignees?.();
     onSelectCategory('all');
+    onSortChange?.({ deadline: null, assignee: null, category: null });
+    onTaskStatusFilterChange?.('active');
+    onShowOverdueOnlyChange?.(false);
     close();
   };
 
@@ -108,7 +112,8 @@ export function CommandPalette({
     close();
   };
 
-  const hasActiveFilters = selectedLabels.length > 0 || categoryFilter !== 'all' || selectedAssignees.length > 0;
+  const hasActiveSort = sortConfig.deadline !== null || sortConfig.assignee !== null || sortConfig.category !== null;
+  const hasActiveFilters = selectedLabels.length > 0 || categoryFilter !== 'all' || selectedAssignees.length > 0 || hasActiveSort || taskStatusFilter !== 'active' || showOverdueOnly;
 
   const handleSelectAssignee = (assigneeId: string) => {
     onSelectAssignee?.(assigneeId);
@@ -127,8 +132,6 @@ export function CommandPalette({
     onSortChange?.({ deadline: null, assignee: null, category: null });
     close();
   };
-
-  const hasActiveSort = sortConfig.deadline !== null || sortConfig.assignee !== null || sortConfig.category !== null;
 
   return (
     <CommandDialog open={isOpen} onOpenChange={handleOpenChange}>
