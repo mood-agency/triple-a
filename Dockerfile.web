@@ -5,6 +5,19 @@ RUN npm install -g pnpm@9
 
 # Build stage
 FROM base AS builder
+
+# Build arguments for Vite (Railway passes these automatically)
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+ARG VITE_API_URL
+ARG VITE_GOOGLE_CLIENT_ID
+
+# Make them available as environment variables during build
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+
 WORKDIR /app
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/types/package.json ./packages/types/
@@ -21,4 +34,4 @@ WORKDIR /app
 COPY --from=builder /app/apps/web/dist ./dist
 
 EXPOSE 3000
-CMD ["sh", "-c", "serve dist -s -l tcp://0.0.0.0:${PORT:-3000}"]
+CMD ["sh", "-c", "serve dist -s -l tcp://0.0.0.0:${PORT:-8080}"]
