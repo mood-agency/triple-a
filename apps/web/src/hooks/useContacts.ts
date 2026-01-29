@@ -1,8 +1,8 @@
-import { useContactsStore } from './tinybase/useContactsStore';
+import { useContactsSupabase } from './supabase/useContactsSupabase';
 
 /**
  * Main hook for managing contacts
  */
 export function useContacts() {
-  return useContactsStore();
+  return useContactsSupabase();
 }

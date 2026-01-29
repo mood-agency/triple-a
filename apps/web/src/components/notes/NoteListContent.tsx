@@ -20,6 +20,8 @@ import { MemoizedNoteRow } from './NoteRow';
 import { NoteListEmptyState } from './NoteListEmptyState';
 import { ActiveFiltersBar } from './ActiveFiltersBar';
 
+const EMPTY_ASSIGNEES: Contact[] = [];
+
 interface NoteListContentProps {
     isMobile: boolean;
     notes: Note[];
@@ -71,6 +73,7 @@ interface NoteListContentProps {
     handleEditLabel: (label: Label) => void;
     contacts: Contact[];
     assigneeNamesCache: Map<string, string | null>;
+    noteAssigneesCache: Map<string, Contact[]>;
     onAddAssignee: (id: string, contactId: string) => void;
     onRemoveAssignee: (id: string, contactId: string) => void;
     onUpdateAssignee?: (id: string, contactId: string | null) => void;
@@ -153,6 +156,7 @@ export const NoteListContent = memo(function NoteListContent({
     handleEditLabel,
     contacts,
     assigneeNamesCache,
+    noteAssigneesCache,
     onAddAssignee,
     onRemoveAssignee,
     onUpdateAssignee,
@@ -188,7 +192,7 @@ export const NoteListContent = memo(function NoteListContent({
     };
 
     return (
-        <div className={`${isMobile ? 'w-full' : 'w-[30%] border-r border-muted-foreground/30 pr-4'} ${isMobile && selectedNote ? 'hidden' : ''} shrink-0 flex flex-col overflow-hidden`}>
+        <div className={`${isMobile ? 'w-full' : 'w-[30%] border-r border-muted-foreground/30 pr-4'} ${isMobile && selectedNote ? 'hidden' : ''} shrink-0 flex flex-col overflow-hidden h-full`}>
             <ActiveFiltersBar
                 categoryFilter={categoryFilter}
                 labelFilter={labelFilter}
@@ -261,6 +265,7 @@ export const NoteListContent = memo(function NoteListContent({
                             onToggleFixInSidebar={handleToggleFixInSidebarById}
                             onContentChange={handleContentChange}
                             assigneeNamesCache={assigneeNamesCache}
+                            noteAssigneesCache={noteAssigneesCache}
                             compactView={compactTaskView}
                             isDescriptionFocused={isDescriptionFocused}
                             contacts={contacts}
@@ -333,6 +338,7 @@ export const NoteListContent = memo(function NoteListContent({
                                                     onToggleFixInSidebar={handleToggleFixInSidebarById}
                                                     onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                                                     assigneeName={assigneeNamesCache.get(note.id)}
+                                                    assignees={noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES}
                                                     compactView={compactTaskView}
                                                     isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
                                                     contacts={contacts}
@@ -389,6 +395,7 @@ export const NoteListContent = memo(function NoteListContent({
                                             isFixedInSidebar={fixedNoteId === note.id}
                                             onToggleFixInSidebar={handleToggleFixInSidebarById}
                                             onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
+                                            assignees={noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES}
                                             contacts={contacts}
                                             onAddAssignee={onAddAssignee}
                                             onRemoveAssignee={onRemoveAssignee}
@@ -440,6 +447,7 @@ export const NoteListContent = memo(function NoteListContent({
                                             onToggleFixInSidebar={handleToggleFixInSidebarById}
                                             onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
                                             assigneeName={assigneeNamesCache.get(note.id)}
+                                            assignees={noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES}
                                             isDeleted={true}
                                             onRestore={() => onRestore(note)}
                                             compactView={compactTaskView}

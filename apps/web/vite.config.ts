@@ -67,17 +67,6 @@ export default defineConfig({
               }
             }
           },
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24
-              }
-            }
-          }
         ],
         navigateFallback: '/offline.html',
         navigateFallbackDenylist: [/^\/api/]

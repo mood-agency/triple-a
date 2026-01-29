@@ -123,7 +123,8 @@ export function sortCompletedNotes(notes: Note[]): Note[] {
 export function filterNotes(
   notes: Note[],
   config: NoteFilterConfig,
-  noteLabelsCache?: Map<string, Label[]>
+  noteLabelsCache?: Map<string, Label[]>,
+  noteAssigneesCache?: Map<string, string[]>
 ): Note[] {
   const {
     categoryFilter = 'all',
@@ -168,8 +169,9 @@ export function filterNotes(
     }
 
     // Filter by assignee
-    if (assigneeFilter.length > 0) {
-      if (!note.assignee_id || !assigneeFilter.includes(note.assignee_id)) {
+    if (assigneeFilter.length > 0 && noteAssigneesCache) {
+      const noteAssigneeIds = noteAssigneesCache.get(note.id) ?? [];
+      if (!assigneeFilter.some((contactId) => noteAssigneeIds.includes(contactId))) {
         return false;
       }
     }

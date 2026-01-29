@@ -124,7 +124,6 @@ export function TiptapImageView({ node, deleteNode }: NodeViewProps) {
         </button>
         <button
           type="button"
-          className="delete"
           onClick={handleDelete}
           title={t('toast.imageDelete')}
         >

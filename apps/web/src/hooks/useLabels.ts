@@ -1,8 +1,8 @@
-import { useLabelsStore } from './tinybase/useLabelsStore';
+import { useLabelsSupabase } from './supabase/useLabelsSupabase';
 
 /**
  * Main hook for managing labels
  */
 export function useLabels() {
-  return useLabelsStore();
+  return useLabelsSupabase();
 }

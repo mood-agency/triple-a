@@ -38,10 +38,6 @@ export function formatNotesList(notes: Note[] | null | undefined): string {
       lines.push(`   Project: ${note.project_id}`);
     }
 
-    if (note.assignee_id) {
-      lines.push(`   Assigned to: ${note.assignee_id}`);
-    }
-
     if (note.deadline) {
       lines.push(`   Deadline: ${note.deadline}`);
     }
@@ -81,10 +77,6 @@ export function formatNote(note: Note | null | undefined): string {
 
   if (note.deadline) {
     lines.push(`Deadline: ${note.deadline}`);
-  }
-
-  if (note.assignee_id) {
-    lines.push(`Assigned to: ${note.assignee_id}`);
   }
 
   if (note.project_id) {
