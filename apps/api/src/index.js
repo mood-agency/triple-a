@@ -486,11 +486,18 @@ app.post('/api/email-webhook', async (c) => {
  */
 app.get('/api/keys', async (c) => {
   try {
-    const user = await verifyUser(c.req.header('Authorization'), supabaseAdmin);
+    console.log('[/api/keys] Request received');
+    const authHeader = c.req.header('Authorization');
+    console.log('[/api/keys] Auth header present:', !!authHeader);
+
+    const user = await verifyUser(authHeader, supabaseAdmin);
+    console.log('[/api/keys] User verified:', user?.id || 'null');
+
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
+    console.log('[/api/keys] Querying api_keys for user:', user.id);
     const { data: apiKeys, error } = await supabaseAdmin
       .from('api_keys')
       .select('id, name, key_prefix, scopes, rate_limit, last_used_at, expires_at, created_at, updated_at')
@@ -499,14 +506,15 @@ app.get('/api/keys', async (c) => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching API keys:', error);
-      return c.json({ error: 'Failed to fetch API keys' }, 500);
+      console.error('[/api/keys] Database error:', error);
+      return c.json({ error: 'Failed to fetch API keys', details: error.message }, 500);
     }
 
+    console.log('[/api/keys] Success, found', apiKeys?.length || 0, 'keys');
     return c.json({ data: apiKeys }, 200);
   } catch (error) {
-    console.error('Error in GET /api/keys:', error);
-    return c.json({ error: 'Internal server error' }, 500);
+    console.error('[/api/keys] Unexpected error:', error);
+    return c.json({ error: 'Internal server error', details: error.message }, 500);
   }
 });
 

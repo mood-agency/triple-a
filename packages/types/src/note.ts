@@ -31,6 +31,9 @@ export interface Note {
   last_synced_at?: string | null;
   // Google Calendar sync field
   gcal_event_id?: string | null;
+  // Public sharing fields
+  is_public: boolean;
+  public_slug: string | null;
 }
 
 // Legacy interface for backward compatibility
@@ -91,6 +94,17 @@ export interface NoteAssignee {
   note_id: string;
   contact_id: string;
   created_at: string;
+}
+
+// Public note interface for read-only sharing
+export interface PublicNote {
+  public_slug: string;
+  content: string;
+  description: string | null;
+  category: NoteCategory;
+  deadline: string | null;
+  created_at: string;
+  labels: { name: string; color: string }[];
 }
 
 // Export/Import types

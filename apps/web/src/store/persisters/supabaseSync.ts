@@ -51,8 +51,16 @@ export class SupabaseDataSync {
    * Full bidirectional sync
    */
   async sync(): Promise<void> {
-    if (!this.isAvailable() || this.isSyncing) return;
+    if (!this.isAvailable()) {
+      console.log('[SupabaseSync] sync() skipped - not available');
+      return;
+    }
+    if (this.isSyncing) {
+      console.log('[SupabaseSync] sync() skipped - already syncing');
+      return;
+    }
 
+    console.log('[SupabaseSync] sync() starting...');
     this.isSyncing = true;
     try {
       // Build remote_id lookup cache for O(1) lookups during sync
@@ -65,6 +73,7 @@ export class SupabaseDataSync {
       await this.pullChanges();
       // Update last synced timestamp
       this.store.setValue('last_synced_at', now());
+      console.log('[SupabaseSync] sync() completed successfully');
     } finally {
       this.remoteIdCache.clear();
       this.isSyncing = false;
@@ -121,9 +130,14 @@ export class SupabaseDataSync {
       return syncStatus === 'local' || syncStatus === 'pending';
     });
 
+    if (pendingRows.length > 0) {
+      console.log(`[SupabaseSync] pushTable(${tableName}): ${pendingRows.length} pending rows`);
+    }
+
     let processed = 0;
     for (const [localId, row] of pendingRows) {
       try {
+        console.log(`[SupabaseSync] pushRow(${tableName}, ${localId})`);
         await this.pushRow(tableName, localId, row as Record<string, unknown>);
       } catch (error) {
         console.error(`[SupabaseSync] Error pushing row ${localId} in ${tableName}:`, error);
@@ -152,7 +166,10 @@ export class SupabaseDataSync {
     const supabaseData = await this.prepareForSupabase(tableName, localId, row);
 
     // Skip if required foreign keys couldn't be mapped (e.g., referenced note not synced yet)
-    if (!supabaseData) return;
+    if (!supabaseData) {
+      console.warn(`[SupabaseSync] pushRow(${tableName}, ${localId}) skipped - prepareForSupabase returned null`);
+      return;
+    }
 
     // Repair notes with missing required 'date' field (corrupt data)
     if (tableName === 'notes' && !supabaseData.date) {
@@ -180,15 +197,21 @@ export class SupabaseDataSync {
 
       if (existing.data) {
         // Already exists, just mark as synced
+        console.log(`[SupabaseSync] ${tableName} ${localId} already exists in Supabase, marking synced`);
         this.markSynced(tableName, localId);
       } else {
         // Insert new record
+        console.log(`[SupabaseSync] ${tableName} ${localId} inserting to Supabase...`);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (client as any)
           .from(tableName)
           .insert({ ...supabaseData, user_id: this.userId });
 
-        if (error) throw error;
+        if (error) {
+          console.error(`[SupabaseSync] ${tableName} ${localId} insert error:`, error);
+          throw error;
+        }
+        console.log(`[SupabaseSync] ${tableName} ${localId} inserted successfully`);
         this.markSynced(tableName, localId);
       }
       return; // Exit early for junction tables
@@ -272,17 +295,55 @@ export class SupabaseDataSync {
     }
 
     if (tableName === 'note_labels') {
-      const note = this.store.getRow('notes', data.note_id as string);
-      const label = this.store.getRow('labels', data.label_id as string);
-      if (!note?.remote_id || !label?.remote_id) return null; // Can't push without mapped FKs
+      const noteLocalId = data.note_id as string;
+      const labelLocalId = data.label_id as string;
+      const note = this.store.getRow('notes', noteLocalId);
+      const label = this.store.getRow('labels', labelLocalId);
+
+      if (!note) {
+        console.warn(`[SupabaseSync] note_labels: note not found for local_id=${noteLocalId}`);
+        return null;
+      }
+      if (!label) {
+        console.warn(`[SupabaseSync] note_labels: label not found for local_id=${labelLocalId}`);
+        return null;
+      }
+      if (!note.remote_id) {
+        console.warn(`[SupabaseSync] note_labels: note ${noteLocalId} has no remote_id (sync_status=${note.sync_status})`);
+        return null;
+      }
+      if (!label.remote_id) {
+        console.warn(`[SupabaseSync] note_labels: label ${labelLocalId} has no remote_id (sync_status=${label.sync_status})`);
+        return null;
+      }
+
       data.note_id = note.remote_id;
       data.label_id = label.remote_id;
     }
 
     if (tableName === 'note_assignees') {
-      const note = this.store.getRow('notes', data.note_id as string);
-      const contact = this.store.getRow('contacts', data.contact_id as string);
-      if (!note?.remote_id || !contact?.remote_id) return null; // Can't push without mapped FKs
+      const noteLocalId = data.note_id as string;
+      const contactLocalId = data.contact_id as string;
+      const note = this.store.getRow('notes', noteLocalId);
+      const contact = this.store.getRow('contacts', contactLocalId);
+
+      if (!note) {
+        console.warn(`[SupabaseSync] note_assignees: note not found for local_id=${noteLocalId}`);
+        return null;
+      }
+      if (!contact) {
+        console.warn(`[SupabaseSync] note_assignees: contact not found for local_id=${contactLocalId}`);
+        return null;
+      }
+      if (!note.remote_id) {
+        console.warn(`[SupabaseSync] note_assignees: note ${noteLocalId} has no remote_id (sync_status=${note.sync_status})`);
+        return null;
+      }
+      if (!contact.remote_id) {
+        console.warn(`[SupabaseSync] note_assignees: contact ${contactLocalId} has no remote_id (sync_status=${contact.sync_status})`);
+        return null;
+      }
+
       data.note_id = note.remote_id;
       data.contact_id = contact.remote_id;
     }
@@ -415,24 +476,38 @@ export class SupabaseDataSync {
 
   private async mergeJoinTableRow(tableName: SyncTable, remoteRow: Record<string, unknown>): Promise<void> {
       // Specialized merge for tables without ID (note_labels, note_assignees)
-      const localData = await this.mapFromSupabase(tableName, remoteRow);
-      
+      const remoteNoteId = remoteRow.note_id as string;
       const secondKey = tableName === 'note_labels' ? 'label_id' : 'contact_id';
-      const secondVal = localData[secondKey];
-      const noteId = localData.note_id;
-      
-      if (!noteId || !secondVal) return; // Can't map foreign keys yet
-      
+      const secondTable = tableName === 'note_labels' ? 'labels' : 'contacts';
+      const remoteSecondId = remoteRow[secondKey] as string;
+
+      // Map remote IDs to local IDs
+      const localNoteId = this.findLocalIdByRemoteId('notes', remoteNoteId);
+      const localSecondId = this.findLocalIdByRemoteId(secondTable, remoteSecondId);
+
+      // Skip if we can't map both FKs - the referenced note/contact hasn't been synced yet
+      if (!localNoteId) {
+        console.warn(`[SupabaseSync] mergeJoinTableRow(${tableName}): note not found for remote_id=${remoteNoteId}`);
+        return;
+      }
+      if (!localSecondId) {
+        console.warn(`[SupabaseSync] mergeJoinTableRow(${tableName}): ${secondTable} not found for remote_id=${remoteSecondId}`);
+        return;
+      }
+
       // Check if exists locally
       const table = this.store.getTable(tableName) || {};
-      const exists = Object.values(table).some((row) => 
-          (row as Record<string, unknown>).note_id === noteId && (row as Record<string, unknown>)[secondKey] === secondVal
+      const exists = Object.values(table).some((row) =>
+          (row as Record<string, unknown>).note_id === localNoteId && (row as Record<string, unknown>)[secondKey] === localSecondId
       );
-      
+
       if (!exists) {
-           const localId = `${noteId}-${secondVal}`; // Consistent ID generation for join tables
+           const localId = `${localNoteId}-${localSecondId}`; // Consistent ID generation for join tables
+           console.log(`[SupabaseSync] mergeJoinTableRow(${tableName}): creating local record ${localId}`);
            this.store.setRow(tableName, localId, {
-               ...localData,
+               note_id: localNoteId,
+               [secondKey]: localSecondId,
+               created_at: remoteRow.created_at || now(),
                sync_status: 'synced',
                last_synced_at: now()
            });
@@ -464,19 +539,8 @@ export class SupabaseDataSync {
       }
     }
 
-    if (tableName === 'note_labels') {
-      const localNoteId = this.findLocalIdByRemoteId('notes', data.note_id as string);
-      const localLabelId = this.findLocalIdByRemoteId('labels', data.label_id as string);
-      data.note_id = localNoteId || data.note_id;
-      data.label_id = localLabelId || data.label_id;
-    }
-
-    if (tableName === 'note_assignees') {
-      const localNoteId = this.findLocalIdByRemoteId('notes', data.note_id as string);
-      const localContactId = this.findLocalIdByRemoteId('contacts', data.contact_id as string);
-      data.note_id = localNoteId || data.note_id;
-      data.contact_id = localContactId || data.contact_id;
-    }
+    // Note: note_labels and note_assignees are handled directly in mergeJoinTableRow
+    // which does proper FK validation before creating local records
 
     // Reverse map foreign keys for new history tables
     if (tableName === 'note_versions' || tableName === 'note_actions') {

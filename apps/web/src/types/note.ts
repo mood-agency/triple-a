@@ -31,6 +31,9 @@ export interface Note {
   last_synced_at?: string | null;
   // Google Calendar sync field
   gcal_event_id?: string | null;
+  // Public sharing fields
+  is_public: boolean;
+  public_slug: string | null;
 }
 
 // Legacy interface for backward compatibility

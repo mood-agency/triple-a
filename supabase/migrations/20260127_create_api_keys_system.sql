@@ -24,14 +24,19 @@ CREATE TABLE IF NOT EXISTS api_keys (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_api_keys_user_id ON api_keys(user_id);
-CREATE INDEX idx_api_keys_key_hash ON api_keys(key_hash) WHERE revoked_at IS NULL;
-CREATE INDEX idx_api_keys_expires_at ON api_keys(expires_at) WHERE expires_at IS NOT NULL AND revoked_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash) WHERE revoked_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_api_keys_expires_at ON api_keys(expires_at) WHERE expires_at IS NOT NULL AND revoked_at IS NULL;
 
 -- Enable Row Level Security
 ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies
+-- RLS Policies (drop first to make idempotent)
+DROP POLICY IF EXISTS "Users can view own API keys" ON api_keys;
+DROP POLICY IF EXISTS "Users can create own API keys" ON api_keys;
+DROP POLICY IF EXISTS "Users can update own API keys" ON api_keys;
+DROP POLICY IF EXISTS "Users can delete own API keys" ON api_keys;
+
 CREATE POLICY "Users can view own API keys"
   ON api_keys FOR SELECT
   USING (auth.uid() = user_id);
@@ -67,14 +72,16 @@ CREATE TABLE IF NOT EXISTS api_audit_log (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_api_audit_log_api_key_id ON api_audit_log(api_key_id);
-CREATE INDEX idx_api_audit_log_user_id ON api_audit_log(user_id);
-CREATE INDEX idx_api_audit_log_created_at ON api_audit_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_api_audit_log_api_key_id ON api_audit_log(api_key_id);
+CREATE INDEX IF NOT EXISTS idx_api_audit_log_user_id ON api_audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_api_audit_log_created_at ON api_audit_log(created_at DESC);
 
 -- Enable Row Level Security
 ALTER TABLE api_audit_log ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for audit log
+-- RLS Policies for audit log (drop first to make idempotent)
+DROP POLICY IF EXISTS "Users can view own audit logs" ON api_audit_log;
+
 CREATE POLICY "Users can view own audit logs"
   ON api_audit_log FOR SELECT
   USING (auth.uid() = user_id);
@@ -91,6 +98,8 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS api_keys_updated_at ON api_keys;
 
 CREATE TRIGGER api_keys_updated_at
   BEFORE UPDATE ON api_keys
