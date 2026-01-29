@@ -1,12 +1,11 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS",
-    "installCommand": "npm install -g pnpm && pnpm install",
-    "buildCommand": "pnpm --filter @triple-a/types build"
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "apps/api/Dockerfile",
+    "watchPatterns": ["apps/api/**", "packages/types/**"]
   },
   "deploy": {
-    "startCommand": "node src/index.js",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
