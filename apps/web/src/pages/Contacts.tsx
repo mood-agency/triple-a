@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useOutletContext } from 'react-router-dom';
 import { useContacts } from '@/hooks/useContacts';
-import { useTinyBase } from '@/contexts/TinyBaseContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -73,7 +72,6 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
 export function Contacts() {
   const { t } = useTranslation();
   const { sidebarTrigger } = useOutletContext<OutletContext>();
-  const { isReady } = useTinyBase();
   const { contacts, loading, createContact, updateContact, deleteContact } = useContacts();
   const { settings } = useSettings();
 
@@ -243,7 +241,10 @@ export function Contacts() {
       );
 
       if (!createChatResponse.ok) {
-        const errorData = await createChatResponse.json().catch(() => ({}));
+        const errorData = await createChatResponse.json().catch((e: unknown) => {
+          console.warn('[Contacts] Failed to parse chat error response:', e);
+          return {};
+        });
         throw new Error(errorData.message || 'Failed to create chat');
       }
 
@@ -272,7 +273,10 @@ export function Contacts() {
       );
 
       if (!sendResponse.ok) {
-        const errorData = await sendResponse.json().catch(() => ({}));
+        const errorData = await sendResponse.json().catch((e: unknown) => {
+          console.warn('[Contacts] Failed to parse send error response:', e);
+          return {};
+        });
         throw new Error(errorData.message || 'Failed to send message');
       }
 
@@ -298,7 +302,7 @@ export function Contacts() {
     }
   };
 
-  if (!isReady || loading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

@@ -42,6 +42,7 @@ export interface NoteRowBaseProps {
   // Caches
   noteLabelsCache: Map<string, Label[]>;
   assigneeNamesCache: Map<string, string | null>;
+  noteAssigneesCache: Map<string, Contact[]>;
 
   // State
   selectedNote: Note | null;
@@ -112,6 +113,7 @@ export function useNoteRowProps(baseProps: NoteRowBaseProps) {
     onUpdateAssignee,
     noteLabelsCache,
     assigneeNamesCache,
+    noteAssigneesCache,
     selectedNote,
     focusTarget,
     desiredColumn,
@@ -154,6 +156,7 @@ export function useNoteRowProps(baseProps: NoteRowBaseProps) {
         onToggleFixInSidebar,
         onContentChange: isSelected ? onContentChange : undefined,
         assigneeName: assigneeNamesCache.get(note.id),
+        assignees: noteAssigneesCache.get(note.id) ?? [],
         compactView,
         isDescriptionFocused: isDescriptionFocused && isSelected,
         contacts,
@@ -190,6 +193,7 @@ export function useNoteRowProps(baseProps: NoteRowBaseProps) {
       onToggleFixInSidebar,
       onContentChange,
       assigneeNamesCache,
+      noteAssigneesCache,
       compactView,
       isDescriptionFocused,
       contacts,

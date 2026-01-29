@@ -39,37 +39,55 @@ export function useNoteOperations({
     const { t } = useTranslation();
 
     const handleDeleteWithToast = useCallback((note: Note, reason: string) => {
-        const currentFilteredNotes = filteredNotesRef.current;
-        const currentIndex = currentFilteredNotes.findIndex((n) => n.id === note.id);
+        // Use activeNotesRef for navigation (same as toggle completed)
+        const currentActiveNotes = activeNotesRef.current;
+        const currentIndex = currentActiveNotes.findIndex((n) => n.id === note.id);
+
+        console.log('[Delete] activeNotes:', currentActiveNotes.map(n => n.content));
+        console.log('[Delete] deletingNote:', note.content, 'at index:', currentIndex);
 
         // Determine where to navigate after deletion
         let targetNote: Note | null = null;
         let shouldNavigateToEditor = false;
 
-        if (currentFilteredNotes.length === 1) {
-            // Last task, navigate to editor
+        if (currentActiveNotes.length <= 1) {
+            // Last task or note not found in active notes, navigate to editor
             shouldNavigateToEditor = true;
+            console.log('[Delete] Will navigate to editor (last task or not found)');
         } else if (currentIndex > 0) {
             // Has task above, navigate to it
-            targetNote = currentFilteredNotes[currentIndex - 1];
-        } else {
+            targetNote = currentActiveNotes[currentIndex - 1];
+            console.log('[Delete] Will navigate UP to:', targetNote?.content);
+        } else if (currentIndex === 0) {
             // First task (no task above), navigate to task below
-            targetNote = currentFilteredNotes[currentIndex + 1];
+            targetNote = currentActiveNotes[currentIndex + 1];
+            console.log('[Delete] Will navigate DOWN to:', targetNote?.content);
+        } else {
+            // Note not found (currentIndex === -1), navigate to first active note
+            targetNote = currentActiveNotes[0];
+            console.log('[Delete] Note not found, will navigate to first:', targetNote?.content);
         }
 
         // Delete first, then navigate
         onDelete(note.id, reason);
 
-        // Navigate after deletion
-        if (shouldNavigateToEditor) {
-            onSelectNote(null);
-            onNavigateToEditor?.(0);
-        } else if (targetNote) {
-            onSelectNote(targetNote);
-            // Position caret at end of text when navigating up, start when navigating down
-            setDesiredColumn(currentIndex > 0 ? targetNote.content.length : 0);
-            setFocusTarget('title');
-        }
+        // Navigate after deletion (use timeout to ensure dialog/toast animations have completed)
+        setTimeout(() => {
+            if (shouldNavigateToEditor) {
+                console.log('[Delete] Navigating to editor');
+                onSelectNote(null);
+                onNavigateToEditor?.(0);
+            } else if (targetNote) {
+                console.log('[Delete] Selecting note:', targetNote.id, targetNote.content);
+                onSelectNote(targetNote);
+                // Position caret at end of text when navigating up, start when navigating down
+                setDesiredColumn(currentIndex > 0 ? targetNote.content.length : 0);
+                setFocusTarget('title');
+                console.log('[Delete] Set focusTarget to title');
+            } else {
+                console.log('[Delete] No targetNote, doing nothing');
+            }
+        }, 150);
 
         toast(t('taskDeleted'), {
             action: {
@@ -77,7 +95,7 @@ export function useNoteOperations({
                 onClick: () => onRestore(note),
             },
         });
-    }, [onDelete, onSelectNote, onNavigateToEditor, onRestore, t, filteredNotesRef, setDesiredColumn, setFocusTarget]);
+    }, [onDelete, onSelectNote, onNavigateToEditor, onRestore, t, activeNotesRef, setDesiredColumn, setFocusTarget]);
 
     const handleToggleCompletedWithNavigation = useCallback((noteId: string, completed: boolean) => {
         const currentActiveNotes = activeNotesRef.current;

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { fetchWithRetry } from '@/lib/fetchWithRetry';
 import type {
   GCalCalendar,
   GCalEvent,
@@ -43,7 +44,7 @@ async function callApi<T>(endpoint: string, body: Record<string, unknown>): Prom
   const url = `${baseUrl}/api/${endpoint}`;
   const token = await getAccessToken();
 
-  const response = await fetch(url, {
+  const response = await fetchWithRetry(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

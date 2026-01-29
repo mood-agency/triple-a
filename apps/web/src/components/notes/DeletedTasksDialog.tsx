@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useDeletedNotes } from '@/hooks/useDeletedNotes';
-import { useTinyBase } from '@/contexts/TinyBaseContext';
+import { supabase } from '@/lib/supabase';
 import type { Note } from '@/types/note';
 
 interface DeletedTasksDialogProps {
@@ -39,7 +39,6 @@ export const DeletedTasksDialog = memo(function DeletedTasksDialog({
   onRestore,
 }: DeletedTasksDialogProps) {
   const { t } = useTranslation();
-  const { store } = useTinyBase();
   const { deletedNotes, refresh } = useDeletedNotes();
   const [confirmDelete, setConfirmDelete] = React.useState<string | null>(null);
   const [confirmDeleteAll, setConfirmDeleteAll] = React.useState(false);
@@ -57,21 +56,32 @@ export const DeletedTasksDialog = memo(function DeletedTasksDialog({
   };
 
   const handlePermanentDelete = async (id: string) => {
-    if (!store) return;
+    if (!supabase) return;
 
-    // Hard delete from TinyBase
-    store.delRow('notes', id);
+    // Hard delete from Supabase
+    const { error } = await supabase.from('notes').delete().eq('id', id);
+    if (error) {
+      console.error('[DeletedTasksDialog] Error permanently deleting note:', error);
+      toast.error(t('toast.permanentDeleteError'));
+      return;
+    }
+
     refresh();
     setConfirmDelete(null);
     toast.success(t('toast.permanentDeleteSuccess'));
   };
 
   const handleDeleteAll = async () => {
-    if (!store) return;
+    if (!supabase) return;
 
-    for (const note of deletedNotes) {
-      store.delRow('notes', note.id);
+    const ids = deletedNotes.map((note) => note.id);
+    const { error } = await supabase.from('notes').delete().in('id', ids);
+    if (error) {
+      console.error('[DeletedTasksDialog] Error permanently deleting all notes:', error);
+      toast.error(t('toast.permanentDeleteError'));
+      return;
     }
+
     refresh();
     setConfirmDeleteAll(false);
     toast.success(t('toast.permanentDeleteAllSuccess'));

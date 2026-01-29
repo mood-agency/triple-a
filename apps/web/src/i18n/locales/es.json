@@ -95,6 +95,13 @@
     "autoSync": "Sincronización automática",
     "autoSave": "Autoguardado",
     "autoSaveOff": "Off",
+    "syncMode": "Modo de datos",
+    "syncModeDescription": "Elige cómo se almacenan y sincronizan tus datos",
+    "syncModeOfflineFirst": "Offline First",
+    "syncModeOfflineFirstDescription": "Datos guardados localmente con sync a la nube. Funciona sin conexión.",
+    "syncModeSupabaseOnly": "Solo Nube",
+    "syncModeSupabaseOnlyDescription": "Datos guardados solo en la nube. Requiere internet.",
+    "syncModeWarning": "Cambiar el modo recargará la aplicación",
     "beeperConfig": "Configurar Beeper",
     "beeperDescription": "Configura tu token de Beeper Desktop para enviar mensajes por WhatsApp desde la app.",
     "beeperToken": "Token de Beeper",
@@ -193,7 +200,12 @@
     "imageCopied": "Imagen copiada al portapapeles",
     "imageCopyFailed": "Error al copiar imagen",
     "imageDelete": "Eliminar imagen",
-    "imageDownload": "Descargar imagen"
+    "imageDownload": "Descargar imagen",
+    "fileUnsupportedFormat": "Formato de archivo no soportado",
+    "fileUnsupportedFormatDescription": "Los archivos {{type}} no son soportados",
+    "fileTooLarge": "Archivo muy grande",
+    "fileTooLargeDescription": "El tamaño máximo es {{maxSize}}MB. Tu archivo es {{fileSize}}MB",
+    "uploadFailed": "Error al subir archivo"
   },
   "importExport": {
     "title": "Importar / Exportar",
@@ -659,5 +671,21 @@
     "noteNotFound": "Nota no encontrada",
     "noteNotFoundDescription": "Esta nota no existe, fue eliminada, o ya no es publica.",
     "poweredBy": "Compartido con Triple-A"
+  },
+  "comments": {
+    "comment": "comentario",
+    "comments": "comentarios",
+    "addComment": "Agregar comentario",
+    "writeComment": "Escribe un comentario...",
+    "writeReply": "Escribe una respuesta...",
+    "reply": "Responder",
+    "addReply": "Agregar respuesta",
+    "resolve": "Resolver",
+    "unresolve": "Reabrir",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "pressCtrlEnterToSubmit": "Presiona Ctrl+Enter para enviar"
   }
 }
