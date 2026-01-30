@@ -262,7 +262,7 @@
   "noResults": "No se encontraron resultados",
   "activeFilters": "Filtros activos",
   "clearAllFilters": "Limpiar filtros",
-  "filterByCategory": "Categoría",
+  "filterByCategory": "Filtrar: {{category}}",
   "filterByAssignee": "Filtrar por responsable",
   "clearAssigneeFilter": "Limpiar filtro de responsable",
   "filterByLabel": "Filtrar por etiqueta",
