@@ -98,38 +98,23 @@ export function ActiveFiltersBar({
         </span>
       )}
 
-      {/* Labels - colored background with white text (same style as task labels) */}
+      {/* Labels - colored background with white text */}
       {selectedLabels.map(label => (
-        <span
-          key={label.id}
-          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] rounded-full text-white leading-none"
-          style={{ backgroundColor: label.color }}
-        >
+        <span key={label.id} className="chip-label" style={{ backgroundColor: label.color }}>
           {label.name}
-          <button
-            type="button"
-            onClick={() => onClearLabel(label.id)}
-            className="rounded-full hover:bg-white/20"
-          >
+          <button type="button" onClick={() => onClearLabel(label.id)} className="chip-label-btn">
             <X className="h-2.5 w-2.5" />
           </button>
         </span>
       ))}
 
-      {/* Assignees - white/transparent background with border (same style as task assignees) */}
+      {/* Assignees - border style */}
       {selectedAssignees.map(contact => {
         const fullName = `${contact.name} ${contact.lastname}`.trim();
         return (
-          <span
-            key={contact.id}
-            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] rounded-full border border-border bg-background text-muted-foreground leading-none"
-          >
+          <span key={contact.id} className="chip-assignee">
             {fullName}
-            <button
-              type="button"
-              onClick={() => onClearAssignee(contact.id)}
-              className="rounded-full hover:bg-muted"
-            >
+            <button type="button" onClick={() => onClearAssignee(contact.id)} className="chip-assignee-btn">
               <X className="h-2.5 w-2.5" />
             </button>
           </span>

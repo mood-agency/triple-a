@@ -268,7 +268,7 @@
   "completedTasks": "Completadas",
   "deadline": "Fecha límite",
   "setDeadline": "Establecer fecha límite",
-  "naturalDatePlaceholder": "tomorrow, next friday, in 3 days",
+  "naturalDatePlaceholder": "Mañana, próximo viernes, en 3 días",
   "postpone": "Posponer",
   "postponeTask": "Registrar motivo de aplazamiento",
   "newDeadline": "Nueva fecha límite",

@@ -169,6 +169,100 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
 
   return (
     <>
+      {/* Labels row */}
+      <div className="flex gap-1.5 flex-shrink-0 items-center mb-2">
+        <Popover open={labelDropdownOpen} onOpenChange={onLabelDropdownOpenChange}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="w-4 flex justify-center shrink-0 hover:text-foreground transition-colors"
+                >
+                  <Tag className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                </button>
+              </PopoverTrigger>
+            </TooltipTrigger>
+            <TooltipContent className="flex items-center gap-2">
+              <p>{t('addLabel')}</p>
+              <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>L</Kbd></span>
+            </TooltipContent>
+          </Tooltip>
+          <PopoverContent className="w-52 p-0" align="start">
+            <Command>
+              <CommandInput placeholder={t('searchLabels')} className="h-9" />
+              <CommandList>
+                <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
+                {allLabels.filter(l => !noteLabels.some(nl => nl.id === l.id)).length > 0 && (
+                  <CommandGroup heading={t('available')}>
+                    {allLabels.filter(l => !noteLabels.some(nl => nl.id === l.id)).map((label) => (
+                      <CommandItem key={label.id} value={label.name} onSelect={() => onAddLabel(label.id)} className="group flex items-center justify-between">
+                        <div className="flex items-center">
+                          <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
+                          {label.name}
+                        </div>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); onEditLabel(label); }} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity">
+                          <Pencil className="h-3 w-3 text-muted-foreground" />
+                        </button>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem onSelect={() => { onCreateLabel(); onLabelDropdownOpenChange(false); }}>
+                    <Plus className="h-3 w-3 mr-2" />
+                    {t('createLabel')}
+                  </CommandItem>
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        {noteLabels.map((label) => (
+          <span key={label.id} className="chip-label" style={{ backgroundColor: label.color }}>
+            {label.name}
+            <button type="button" onClick={() => onRemoveLabel(label.id)} className="chip-label-btn">
+              <X className="h-2.5 w-2.5" />
+            </button>
+          </span>
+        ))}
+      </div>
+
+      {/* Assignee row */}
+      <div className="flex gap-1.5 flex-shrink-0 items-center mb-2">
+        <AssigneePicker
+          contacts={contacts}
+          value={noteAssignees.map(a => a.id)}
+          onChange={(contactIds) => {
+            const currentIds = noteAssignees.map(a => a.id);
+            const added = contactIds.filter(id => !currentIds.includes(id));
+            const removed = currentIds.filter(id => !contactIds.includes(id));
+
+            added.forEach(contactId => onAddAssignee(note.id, contactId));
+            removed.forEach(contactId => onRemoveAssignee(note.id, contactId));
+          }}
+          open={assigneePickerOpen}
+          onOpenChange={onAssigneePickerOpenChange}
+          trigger={
+            <button
+              type="button"
+              className="w-4 flex justify-center shrink-0 hover:text-foreground transition-colors"
+            >
+              <User className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+            </button>
+          }
+        />
+        {noteAssignees.map((assignee) => (
+          <span key={assignee.id} className="chip-assignee">
+            {`${assignee.name} ${assignee.lastname}`.trim()}
+            <button type="button" onClick={() => onRemoveAssignee(note.id, assignee.id)} className="chip-assignee-btn">
+              <X className="h-2.5 w-2.5" />
+            </button>
+          </span>
+        ))}
+      </div>
+
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
           <EditableTitle
@@ -206,7 +300,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             <CalendarPlus className="h-3.5 w-3.5 text-muted-foreground" />
           </div>
           <span className="text-xs font-normal text-foreground px-1.5">
-            {new Date(note.created_at).toLocaleString()}
+            {new Date(note.created_at).toLocaleDateString(i18n.language, { day: 'numeric', month: 'long', year: 'numeric' })}
           </span>
         </div>
       )}
@@ -273,90 +367,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
         />
       </NoteMetaRow>
 
-      {/* Labels row */}
-      <NoteMetaRow icon={Tag}>
-        <Popover open={labelDropdownOpen} onOpenChange={onLabelDropdownOpenChange}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6">
-                  <Plus className="h-3 w-3" />
-                </Button>
-              </PopoverTrigger>
-            </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              <p>{t('addLabel')}</p>
-              <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>L</Kbd></span>
-            </TooltipContent>
-          </Tooltip>
-          <PopoverContent className="w-52 p-0" align="start">
-            <Command>
-              <CommandInput placeholder={t('searchLabels')} className="h-9" />
-              <CommandList>
-                <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
-                {allLabels.filter(l => !noteLabels.some(nl => nl.id === l.id)).length > 0 && (
-                  <CommandGroup heading={t('available')}>
-                    {allLabels.filter(l => !noteLabels.some(nl => nl.id === l.id)).map((label) => (
-                      <CommandItem key={label.id} value={label.name} onSelect={() => onAddLabel(label.id)} className="group flex items-center justify-between">
-                        <div className="flex items-center">
-                          <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
-                          {label.name}
-                        </div>
-                        <button type="button" onClick={(e) => { e.stopPropagation(); onEditLabel(label); }} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity">
-                          <Pencil className="h-3 w-3 text-muted-foreground" />
-                        </button>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                )}
-                <CommandSeparator />
-                <CommandGroup>
-                  <CommandItem onSelect={() => { onCreateLabel(); onLabelDropdownOpenChange(false); }}>
-                    <Plus className="h-3 w-3 mr-2" />
-                    {t('createLabel')}
-                  </CommandItem>
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-        {noteLabels.map((label) => (
-          <span key={label.id} className="px-2 py-0.5 text-xs font-normal rounded-full text-white leading-none flex items-center gap-1" style={{ backgroundColor: label.color }}>
-            {label.name}
-            <button type="button" onClick={() => onRemoveLabel(label.id)} className="hover:bg-white/20 rounded-full p-0.5">
-              <X className="h-3 w-3" />
-            </button>
-          </span>
-        ))}
-      </NoteMetaRow>
-
-      {/* Assignee row */}
-      <NoteMetaRow icon={User}>
-        <AssigneePicker
-          contacts={contacts}
-          value={noteAssignees.map(a => a.id)}
-          onChange={(contactIds) => {
-            const currentIds = noteAssignees.map(a => a.id);
-            const added = contactIds.filter(id => !currentIds.includes(id));
-            const removed = currentIds.filter(id => !contactIds.includes(id));
-
-            added.forEach(contactId => onAddAssignee(note.id, contactId));
-            removed.forEach(contactId => onRemoveAssignee(note.id, contactId));
-          }}
-          open={assigneePickerOpen}
-          onOpenChange={onAssigneePickerOpenChange}
-        />
-        {noteAssignees.map((assignee) => (
-          <span key={assignee.id} className="px-2 py-0.5 text-xs font-normal rounded-full border border-neutral-900 bg-background text-foreground leading-none flex items-center gap-1">
-            {`${assignee.name} ${assignee.lastname}`.trim()}
-            <button type="button" onClick={() => onRemoveAssignee(note.id, assignee.id)} className="hover:bg-muted rounded-full p-0.5">
-              <X className="h-3 w-3" />
-            </button>
-          </span>
-        ))}
-      </NoteMetaRow>
-
-      {/* Share row */}
+{/* Share row */}
       {onTogglePublic && (
         <NoteMetaRow icon={Globe}>
           <Button

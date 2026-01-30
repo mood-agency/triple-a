@@ -217,7 +217,7 @@ function NoteRow(props: NoteRowProps) {
             {labels.map((label) => (
               <span
                 key={label.id}
-                className="px-1.5 py-0.5 text-[10px] rounded-full text-white leading-none"
+                className="chip-label"
                 style={{ backgroundColor: label.color }}
               >
                 {label.name}
@@ -287,9 +287,7 @@ function NoteRow(props: NoteRowProps) {
               return (
                 <Tooltip key={contact.id}>
                   <TooltipTrigger asChild>
-                    <span
-                      className="px-1.5 py-0.5 text-[10px] rounded-full bg-background border chip-black-border text-foreground leading-none truncate max-w-[90px] cursor-default"
-                    >
+                    <span className="chip-assignee cursor-default">
                       {initials}
                     </span>
                   </TooltipTrigger>

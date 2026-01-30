@@ -227,7 +227,7 @@ export function DatePicker({
             value={inputValue}
             onChange={handleInputChange}
             onKeyDown={handleInputKeyDown}
-            placeholder={t('naturalDatePlaceholder', 'tomorrow, next friday, in 3 days')}
+            placeholder={t('naturalDatePlaceholder')}
             className="h-8 text-sm"
           />
           {parsedDate && inputValue && (
