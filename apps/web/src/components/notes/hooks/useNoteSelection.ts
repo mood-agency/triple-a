@@ -24,12 +24,37 @@ export function useNoteSelection({
     focusTargetRef.current = focusTarget;
 
     const [desiredColumn, setDesiredColumn] = useState<number>(0);
-    const [descriptionValue, setDescriptionValue] = useState('');
+    const [descriptionValue, setDescriptionValueInternal] = useState('');
     const [titleValue, setTitleValue] = useState('');
     const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
     const [showDescriptionPanel, setShowDescriptionPanel] = useState(false);
 
-    // Auto-save for description while editing
+    // Track if there's a pending local change (e.g., checkbox click in BlockNote)
+    const hasLocalChangeRef = useRef(false);
+    // Timer for debounced save when editor is not focused
+    const unfocusedSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Wrapper to track local changes and trigger save when not focused
+    const setDescriptionValue = useCallback((value: string) => {
+        hasLocalChangeRef.current = true;
+        setDescriptionValueInternal(value);
+
+        // If editor is not focused (e.g., checkbox click), save after a short debounce
+        if (!isDescriptionFocused && selectedNote && onEdit) {
+            // Clear previous timer
+            if (unfocusedSaveTimerRef.current) {
+                clearTimeout(unfocusedSaveTimerRef.current);
+            }
+            // Save after 500ms debounce
+            unfocusedSaveTimerRef.current = setTimeout(() => {
+                console.log('[NoteSelection] Unfocused save triggered for note:', selectedNote?.id);
+                onEdit(selectedNote.id, selectedNote.content, selectedNote.category, value || null);
+                unfocusedSaveTimerRef.current = null;
+            }, 500);
+        }
+    }, [isDescriptionFocused, selectedNote, onEdit]);
+
+    // Auto-save for description while editing (when focused)
     const descriptionAutoSave = useAutoSave({
         value: descriptionValue,
         originalValue: selectedNote?.description || '',
@@ -44,6 +69,15 @@ export function useNoteSelection({
     });
 
 
+    // Cleanup unfocused save timer on unmount
+    useEffect(() => {
+        return () => {
+            if (unfocusedSaveTimerRef.current) {
+                clearTimeout(unfocusedSaveTimerRef.current);
+            }
+        };
+    }, []);
+
     // Track the note ID to detect when we switch to a different note
     const selectedNoteIdRef = useRef<string | null>(null);
 
@@ -55,19 +89,30 @@ export function useNoteSelection({
 
         // Only sync values if note changed or we're not editing
         if (noteIdChanged) {
-            setDescriptionValue(selectedNote?.description || '');
+            // Cancel any pending unfocused save and reset local change flag when switching notes
+            if (unfocusedSaveTimerRef.current) {
+                clearTimeout(unfocusedSaveTimerRef.current);
+                unfocusedSaveTimerRef.current = null;
+            }
+            hasLocalChangeRef.current = false;
+            setDescriptionValueInternal(selectedNote?.description || '');
             setTitleValue(selectedNote?.content || '');
             // Don't auto-show description panel on click; user opens it with Tab
             setShowDescriptionPanel(false);
         } else {
             // Always sync title when it changes (it's edited in a different component)
             setTitleValue(selectedNote?.content || '');
-            // Only sync description if not focused (to avoid overwriting while typing)
-            if (!isDescriptionFocused) {
-                setDescriptionValue(selectedNote?.description || '');
+            // Only sync description if not focused AND no pending local change
+            // This prevents overwriting checkbox clicks or other BlockNote interactions
+            if (!isDescriptionFocused && !hasLocalChangeRef.current) {
+                setDescriptionValueInternal(selectedNote?.description || '');
+            }
+            // Clear local change flag once the external value matches (save completed)
+            if (hasLocalChangeRef.current && selectedNote?.description === descriptionValue) {
+                hasLocalChangeRef.current = false;
             }
         }
-    }, [selectedNote?.id, selectedNote?.description, selectedNote?.content, isDescriptionFocused]);
+    }, [selectedNote?.id, selectedNote?.description, selectedNote?.content, isDescriptionFocused, descriptionValue]);
 
     // Handle Focus Target
     useEffect(() => {
@@ -152,7 +197,7 @@ export function useNoteSelection({
         // Auto-save flush handler for description
         flushDescriptionAutoSave: descriptionAutoSave.handleBlur,
     }), [
-        focusTarget, desiredColumn, descriptionValue, titleValue, isDescriptionFocused, showDescriptionPanel,
+        focusTarget, desiredColumn, descriptionValue, setDescriptionValue, titleValue, isDescriptionFocused, showDescriptionPanel,
         handleTitleFocused, handleNavigateToDescription, restoreDescriptionCaret, descriptionAutoSave.handleBlur
     ]);
 }

@@ -29,6 +29,68 @@ const schema = BlockNoteSchema.create({
   },
 })
 
+/**
+ * Detect if text is a Markdown table
+ */
+function isMarkdownTable(text: string): boolean {
+  const lines = text.trim().split('\n').filter(line => line.trim())
+  if (lines.length < 2) return false
+
+  // Check if lines start and contain pipes
+  const hasPipes = lines.every(line => line.includes('|'))
+  if (!hasPipes) return false
+
+  // Check for separator row (contains dashes between pipes)
+  const hasSeparator = lines.some(line => /^\|?[\s-:|]+\|?$/.test(line.trim()))
+  return hasSeparator
+}
+
+/**
+ * Parse Markdown table to BlockNote table content
+ */
+function parseMarkdownTable(text: string): { type: 'table'; content: { type: 'tableContent'; rows: Array<{ cells: Array<Array<{ type: 'text'; text: string; styles: Record<string, never> }>> }> } } | null {
+  const lines = text.trim().split('\n').filter(line => line.trim())
+  if (lines.length < 2) return null
+
+  const rows: Array<{ cells: Array<Array<{ type: 'text'; text: string; styles: Record<string, never> }>> }> = []
+
+  for (const line of lines) {
+    // Skip separator row
+    if (/^\|?[\s-:|]+\|?$/.test(line.trim())) continue
+
+    // Parse cells from line
+    const cellTexts = line
+      .split('|')
+      .map(cell => cell.trim())
+      .filter((_, index, arr) => {
+        // Remove empty first/last elements from lines like "| a | b |"
+        if (index === 0 && arr[0] === '') return false
+        if (index === arr.length - 1 && arr[arr.length - 1] === '') return false
+        return true
+      })
+
+    if (cellTexts.length === 0) continue
+
+    const cells = cellTexts.map(cellText => [{
+      type: 'text' as const,
+      text: cellText,
+      styles: {} as Record<string, never>,
+    }])
+
+    rows.push({ cells })
+  }
+
+  if (rows.length === 0) return null
+
+  return {
+    type: 'table',
+    content: {
+      type: 'tableContent',
+      rows,
+    },
+  }
+}
+
 interface BlockNoteEditorProps {
   value: string
   onChange: (value: string) => void
@@ -55,6 +117,7 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
     const lastExternalValueRef = useRef(value)
     const isInitializedRef = useRef(false)
     const editorRef = useRef<BlockNoteEditorCore | null>(null)
+    const containerRef = useRef<HTMLDivElement>(null)
     const { debugMode, debugDescriptionFocusClass } = useDebugNavigation()
     const [isFocused, setIsFocused] = useState(false)
     const { theme } = useTheme()
@@ -149,16 +212,53 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
       }
     }, [noteId])
 
-    // Create the BlockNote editor with code block support
+    // Create the BlockNote editor with code block support and advanced tables
     const editor = useCreateBlockNote({
       schema,
       initialContent,
       uploadFile,
+      tables: {
+        splitCells: true,
+        cellBackgroundColor: true,
+        cellTextColor: true,
+        headers: true,
+      },
     })
 
     // Store editor ref
     useEffect(() => {
       editorRef.current = editor
+    }, [editor])
+
+    // Handle paste for Markdown tables
+    useEffect(() => {
+      if (!editor || !containerRef.current) return
+
+      const handlePaste = (event: ClipboardEvent) => {
+        const text = event.clipboardData?.getData('text/plain')
+        if (!text || !isMarkdownTable(text)) return
+
+        const tableBlock = parseMarkdownTable(text)
+        if (!tableBlock) return
+
+        // Prevent default paste behavior
+        event.preventDefault()
+        event.stopPropagation()
+
+        // Insert the table block at current cursor position
+        const currentBlock = editor.getTextCursorPosition()?.block
+        if (currentBlock) {
+          editor.insertBlocks([tableBlock as Parameters<typeof editor.insertBlocks>[0][0]], currentBlock, 'after')
+        } else {
+          editor.insertBlocks([tableBlock as Parameters<typeof editor.insertBlocks>[0][0]], editor.document[0], 'before')
+        }
+      }
+
+      const container = containerRef.current
+      container.addEventListener('paste', handlePaste as EventListener, true)
+      return () => {
+        container.removeEventListener('paste', handlePaste as EventListener, true)
+      }
     }, [editor])
 
     // Handle content changes
@@ -280,6 +380,7 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
 
     return (
       <div
+        ref={containerRef}
         className={`blocknote-editor-wrapper ${className} ${debugMode && isFocused ? debugDescriptionFocusClass : ''}`}
         onKeyDown={handleKeyDown}
         onFocus={handleFocus}

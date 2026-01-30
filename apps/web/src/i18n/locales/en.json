@@ -672,6 +672,53 @@
     "noteNotFoundDescription": "This note does not exist, was deleted, or is no longer public.",
     "poweredBy": "Shared with Triple-A"
   },
+  "ai": {
+    "menuTitle": "AI Assistant",
+    "title": "Configure AI",
+    "description": "Select your preferred AI provider and configure your API key.",
+    "provider": "Provider",
+    "model": "Model",
+    "apiKey": "API Key",
+    "help": "Get your key at:",
+    "configured": "{{provider}} configured successfully",
+    "notConfigured": "Configure your AI provider to use this feature",
+    "assistant": {
+      "title": "AI Assistant",
+      "promptLabel": "What do you want to do with this note?",
+      "promptPlaceholder": "E.g., Summarize the main points...",
+      "suggestedPrompts": "Suggested prompts:",
+      "process": "Process",
+      "processing": "Processing...",
+      "result": "Result",
+      "original": "Original",
+      "generated": "Generated",
+      "apply": "Apply changes",
+      "regenerate": "Regenerate",
+      "cancel": "Cancel"
+    },
+    "presets": {
+      "summarize": "Summarize",
+      "expand": "Expand",
+      "translate": "Translate",
+      "correct": "Correct",
+      "improve": "Improve",
+      "meetingMinutes": "Minutes"
+    },
+    "prompts": {
+      "summarize": "Summarize the content of this note highlighting the most important points. Output in Markdown format.",
+      "expand": "Expand and develop the content of this note with more details and context. Output in Markdown format.",
+      "translate": "Translate this note to Spanish (or to English if it's in Spanish). Keep the original format and structure. Output in Markdown format.",
+      "correct": "Correct spelling, grammar, and punctuation errors in this note. Keep the original meaning. Output in Markdown format.",
+      "improve": "Improve the writing of this note making it clearer, more concise, and professional. Output in Markdown format.",
+      "meetingMinutes": "These are short notes taken during a meeting. Organize and structure these notes to create clear and professional meeting minutes. Include: main points discussed, decisions made, assigned tasks (if any), and next steps. Output in Markdown format with bullet points or numbering."
+    },
+    "errors": {
+      "noApiKey": "AI provider not configured",
+      "processingFailed": "Failed to process with AI",
+      "networkError": "Connection error",
+      "invalidApiKey": "Invalid API Key"
+    }
+  },
   "comments": {
     "comment": "comment",
     "comments": "comments",

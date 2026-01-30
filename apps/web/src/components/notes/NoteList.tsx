@@ -879,6 +879,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !selectedNote.completed)}
               autoSaveInterval={settings.autoSaveInterval}
               onTogglePublic={onTogglePublic}
+              aiProvider={settings.aiProvider}
             />
           </div>
         )}
@@ -945,6 +946,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 onClose={closeSidebar}
                 autoSaveInterval={settings.autoSaveInterval}
                 onTogglePublic={onTogglePublic}
+                aiProvider={settings.aiProvider}
               />
             ) : (
               <p className="text-sm text-muted-foreground/50 italic">{t('selectNoteToEdit')}</p>
