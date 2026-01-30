@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react'
 import type { User, Session, AuthError } from '@supabase/supabase-js'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
@@ -21,6 +21,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const isConfigured = isSupabaseConfigured()
+  // Track current user ID to avoid unnecessary re-renders on token refresh
+  const currentUserIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!supabase) {
@@ -30,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      currentUserIdRef.current = session?.user?.id ?? null
       setSession(session)
       setUser(session?.user ?? null)
       setIsLoading(false)
@@ -40,8 +43,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
+      const newUserId = session?.user?.id ?? null
+
+      // Only update user state if user ID actually changed
+      // This prevents cascading re-renders when Supabase refreshes the token on tab focus
+      if (newUserId !== currentUserIdRef.current) {
+        currentUserIdRef.current = newUserId
+        setSession(session)
+        setUser(session?.user ?? null)
+      }
       setIsLoading(false)
 
       // Redirect to reset password page on PASSWORD_RECOVERY event
