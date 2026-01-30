@@ -310,18 +310,6 @@ function parseInlineMarkdown(text: string): InlineContent[] {
   const result: InlineContent[] = []
   let remaining = text
 
-  // Regex patterns for inline formatting
-  const patterns = [
-    // Bold: **text** or __text__
-    { regex: /\*\*(.+?)\*\*|__(.+?)__/, style: 'bold' },
-    // Italic: *text* or _text_ (not followed by another _ or *)
-    { regex: /(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)|(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/, style: 'italic' },
-    // Code: `text`
-    { regex: /`(.+?)`/, style: 'code' },
-    // Links: [text](url)
-    { regex: /\[(.+?)\]\((.+?)\)/, type: 'link' },
-  ]
-
   while (remaining.length > 0) {
     let earliestMatch: { index: number; length: number; content: InlineContent } | null = null
 
