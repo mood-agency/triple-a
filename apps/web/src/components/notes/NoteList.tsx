@@ -880,6 +880,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               autoSaveInterval={settings.autoSaveInterval}
               onTogglePublic={onTogglePublic}
               aiProvider={settings.aiProvider}
+              onTogglePinned={onTogglePinned}
+              onToggleFixInSidebar={handleToggleFixInSidebarById}
+              isFixedInSidebar={fixedNoteId === selectedNote.id}
             />
           </div>
         )}
@@ -947,6 +950,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 autoSaveInterval={settings.autoSaveInterval}
                 onTogglePublic={onTogglePublic}
                 aiProvider={settings.aiProvider}
+                onTogglePinned={onTogglePinned}
+                onToggleFixInSidebar={handleToggleFixInSidebarById}
+                isFixedInSidebar={true}
               />
             ) : (
               <p className="text-sm text-muted-foreground/50 italic">{t('selectNoteToEdit')}</p>

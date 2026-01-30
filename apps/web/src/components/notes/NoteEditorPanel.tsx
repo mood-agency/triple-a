@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { format } from 'date-fns';
 import { es, enUS } from 'date-fns/locale';
-import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, Tag, User, Trash2, PanelRightClose, History, RotateCcw, Sparkles } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, Tag, User, Trash2, History, RotateCcw, Sparkles, Pin, PanelRightOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
@@ -77,6 +77,9 @@ interface NoteEditorPanelProps {
   autoSaveInterval?: number; // in seconds, 0 = disabled
   onTogglePublic?: (id: string, makePublic: boolean) => string | null | Promise<string | null>;
   aiProvider?: AIProviderConfig | null;
+  onTogglePinned?: (id: string, pinned: boolean) => void;
+  onToggleFixInSidebar?: (id: string) => void;
+  isFixedInSidebar?: boolean;
 }
 
 // Helper to parse description preview from BlockNote JSON or plain text
@@ -142,10 +145,13 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   onDeleteHistoryEntry,
   onSetEditingHistoryEntry,
   onToggleComplete,
-  onClose,
+  onClose: _onClose,
   autoSaveInterval = 3,
   onTogglePublic,
   aiProvider,
+  onTogglePinned,
+  onToggleFixInSidebar,
+  isFixedInSidebar = false,
 }, ref) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'es' ? es : enUS;
@@ -273,27 +279,10 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             completed={note.completed}
             onEdit={handleTitleEdit}
             onToggleComplete={onToggleComplete}
-            onDelete={onDelete}
             titleValue={titleValue}
             autoSaveInterval={autoSaveInterval}
           />
         </div>
-        {onClose && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={onClose}
-                className="p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors mt-1"
-              >
-                <PanelRightClose className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('hideSidebar')}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
       </div>
 
       {/* Category, created date, and deadline - single line */}
@@ -353,8 +342,8 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
         />
       </div>
 
-{/* Share & AI row */}
-      <div className="flex items-center gap-2 mb-2">
+{/* Actions row: Share, AI, Pin, Sidebar, Delete */}
+      <div className="flex items-center gap-1 mb-2">
         {onTogglePublic && (
           <ShareDialog
             isPublic={note.is_public ?? false}
@@ -382,6 +371,55 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             </TooltipContent>
           </Tooltip>
         )}
+        {onTogglePinned && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onTogglePinned(note.id, !note.pinned)}
+                className={`h-6 w-6 ${note.pinned ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
+              >
+                <Pin className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{note.pinned ? t('unpin') : t('pin')}</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+        {onToggleFixInSidebar && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onToggleFixInSidebar(note.id)}
+                className={`h-6 w-6 ${isFixedInSidebar ? 'text-blue-500' : 'text-muted-foreground hover:text-blue-500'}`}
+              >
+                <PanelRightOpen className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{isFixedInSidebar ? t('unfixFromSidebar') : t('fixToSidebar')}</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onDelete}
+              className="h-6 w-6 text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{t('delete')}</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       <BlockNoteEditor
