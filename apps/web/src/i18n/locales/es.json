@@ -672,6 +672,53 @@
     "noteNotFoundDescription": "Esta nota no existe, fue eliminada, o ya no es publica.",
     "poweredBy": "Compartido con Triple-A"
   },
+  "ai": {
+    "menuTitle": "AI Assistant",
+    "title": "Configurar AI",
+    "description": "Selecciona tu proveedor de AI preferido y configura tu API key.",
+    "provider": "Proveedor",
+    "model": "Modelo",
+    "apiKey": "API Key",
+    "help": "Obtén tu key en:",
+    "configured": "{{provider}} configurado correctamente",
+    "notConfigured": "Configura tu proveedor de AI para usar esta función",
+    "assistant": {
+      "title": "Asistente AI",
+      "promptLabel": "¿Qué quieres hacer con esta nota?",
+      "promptPlaceholder": "Ej: Resume los puntos principales...",
+      "suggestedPrompts": "Prompts sugeridos:",
+      "process": "Procesar",
+      "processing": "Procesando...",
+      "result": "Resultado",
+      "original": "Original",
+      "generated": "Generado",
+      "apply": "Aplicar cambios",
+      "regenerate": "Regenerar",
+      "cancel": "Cancelar"
+    },
+    "presets": {
+      "summarize": "Resumir",
+      "expand": "Expandir",
+      "translate": "Traducir",
+      "correct": "Corregir",
+      "improve": "Mejorar",
+      "meetingMinutes": "Minuta"
+    },
+    "prompts": {
+      "summarize": "Resume el contenido de esta nota destacando los puntos más importantes. Genera la salida en formato Markdown.",
+      "expand": "Expande y desarrolla el contenido de esta nota con más detalles y contexto. Genera la salida en formato Markdown.",
+      "translate": "Traduce esta nota al inglés (o al español si está en inglés). Mantén el formato y estructura original. Genera la salida en formato Markdown.",
+      "correct": "Corrige errores ortográficos, gramaticales y de puntuación en esta nota. Mantén el significado original. Genera la salida en formato Markdown.",
+      "improve": "Mejora la redacción de esta nota haciéndola más clara, concisa y profesional. Genera la salida en formato Markdown.",
+      "meetingMinutes": "Estas son anotaciones cortas tomadas durante una reunión. Organiza y estructura estas notas para crear una minuta clara y profesional. Incluye: puntos principales discutidos, decisiones tomadas, tareas asignadas (si las hay) y próximos pasos. Genera la salida en formato Markdown con viñetas o numeración."
+    },
+    "errors": {
+      "noApiKey": "Proveedor de AI no configurado",
+      "processingFailed": "Error al procesar con AI",
+      "networkError": "Error de conexión",
+      "invalidApiKey": "API Key inválida"
+    }
+  },
   "comments": {
     "comment": "comentario",
     "comments": "comentarios",

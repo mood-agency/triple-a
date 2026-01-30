@@ -36,8 +36,9 @@ export function detectContentFormat(content: string | null | undefined): Content
       return 'tiptap'
     }
 
-    // BlockNote format: array of blocks with id property
-    if (Array.isArray(parsed) && (parsed.length === 0 || parsed[0]?.id !== undefined)) {
+    // BlockNote format: array of blocks with id or type property
+    // (blocks from markdownToBlockNote may not have id yet, but have type)
+    if (Array.isArray(parsed) && (parsed.length === 0 || parsed[0]?.id !== undefined || parsed[0]?.type !== undefined)) {
       return 'blocknote'
     }
 
@@ -300,6 +301,283 @@ export function plainTextToBlockNote(text: string): PartialBlock[] {
     type: 'paragraph' as const,
     content: line ? [{ type: 'text' as const, text: line, styles: {} }] : [],
   }))
+}
+
+/**
+ * Parse inline Markdown formatting (bold, italic, code, links)
+ */
+function parseInlineMarkdown(text: string): InlineContent[] {
+  const result: InlineContent[] = []
+  let remaining = text
+
+  // Regex patterns for inline formatting
+  const patterns = [
+    // Bold: **text** or __text__
+    { regex: /\*\*(.+?)\*\*|__(.+?)__/, style: 'bold' },
+    // Italic: *text* or _text_ (not followed by another _ or *)
+    { regex: /(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)|(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/, style: 'italic' },
+    // Code: `text`
+    { regex: /`(.+?)`/, style: 'code' },
+    // Links: [text](url)
+    { regex: /\[(.+?)\]\((.+?)\)/, type: 'link' },
+  ]
+
+  while (remaining.length > 0) {
+    let earliestMatch: { index: number; length: number; content: InlineContent } | null = null
+
+    // Find bold **text**
+    const boldMatch = remaining.match(/\*\*(.+?)\*\*/)
+    if (boldMatch && boldMatch.index !== undefined) {
+      const idx = boldMatch.index
+      if (!earliestMatch || idx < earliestMatch.index) {
+        earliestMatch = {
+          index: idx,
+          length: boldMatch[0].length,
+          content: { type: 'text', text: boldMatch[1], styles: { bold: true } },
+        }
+      }
+    }
+
+    // Find italic *text* (single asterisk, not double)
+    const italicMatch = remaining.match(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/)
+    if (italicMatch && italicMatch.index !== undefined) {
+      const idx = italicMatch.index
+      if (!earliestMatch || idx < earliestMatch.index) {
+        earliestMatch = {
+          index: idx,
+          length: italicMatch[0].length,
+          content: { type: 'text', text: italicMatch[1], styles: { italic: true } },
+        }
+      }
+    }
+
+    // Find code `text`
+    const codeMatch = remaining.match(/`([^`]+)`/)
+    if (codeMatch && codeMatch.index !== undefined) {
+      const idx = codeMatch.index
+      if (!earliestMatch || idx < earliestMatch.index) {
+        earliestMatch = {
+          index: idx,
+          length: codeMatch[0].length,
+          content: { type: 'text', text: codeMatch[1], styles: { code: true } },
+        }
+      }
+    }
+
+    // Find links [text](url)
+    const linkMatch = remaining.match(/\[(.+?)\]\((.+?)\)/)
+    if (linkMatch && linkMatch.index !== undefined) {
+      const idx = linkMatch.index
+      if (!earliestMatch || idx < earliestMatch.index) {
+        earliestMatch = {
+          index: idx,
+          length: linkMatch[0].length,
+          content: {
+            type: 'link',
+            href: linkMatch[2],
+            content: [{ type: 'text', text: linkMatch[1], styles: {} }],
+          },
+        }
+      }
+    }
+
+    if (earliestMatch) {
+      // Add plain text before the match
+      if (earliestMatch.index > 0) {
+        result.push({
+          type: 'text',
+          text: remaining.slice(0, earliestMatch.index),
+          styles: {},
+        })
+      }
+
+      // Add the formatted content
+      result.push(earliestMatch.content)
+
+      // Continue with remaining text
+      remaining = remaining.slice(earliestMatch.index + earliestMatch.length)
+    } else {
+      // No more matches, add remaining as plain text
+      if (remaining) {
+        result.push({ type: 'text', text: remaining, styles: {} })
+      }
+      break
+    }
+  }
+
+  return result
+}
+
+/**
+ * Converts Markdown text to BlockNote blocks
+ */
+export function markdownToBlockNote(markdown: string): PartialBlock[] {
+  const lines = markdown.split('\n')
+  const blocks: PartialBlock[] = []
+  let i = 0
+
+  while (i < lines.length) {
+    const line = lines[i]
+    const trimmedLine = line.trim()
+
+    // Empty line - skip or create empty paragraph
+    if (!trimmedLine) {
+      i++
+      continue
+    }
+
+    // Headings: # ## ###
+    const headingMatch = trimmedLine.match(/^(#{1,3})\s+(.+)$/)
+    if (headingMatch) {
+      const level = headingMatch[1].length as 1 | 2 | 3
+      blocks.push({
+        type: 'heading',
+        props: { level },
+        content: parseInlineMarkdown(headingMatch[2]),
+      } as PartialBlock)
+      i++
+      continue
+    }
+
+    // Code block: ```
+    if (trimmedLine.startsWith('```')) {
+      const language = trimmedLine.slice(3).trim() || 'text'
+      const codeLines: string[] = []
+      i++
+
+      while (i < lines.length && !lines[i].trim().startsWith('```')) {
+        codeLines.push(lines[i])
+        i++
+      }
+
+      blocks.push({
+        type: 'codeBlock',
+        props: { language },
+        content: codeLines.join('\n'),
+      })
+
+      i++ // Skip closing ```
+      continue
+    }
+
+    // Unordered list: - or *
+    if (/^[-*]\s+/.test(trimmedLine)) {
+      const listItems: PartialBlock[] = []
+
+      while (i < lines.length) {
+        const listLine = lines[i].trim()
+        const listMatch = listLine.match(/^[-*]\s+(.+)$/)
+        if (!listMatch) break
+
+        listItems.push({
+          type: 'bulletListItem',
+          content: parseInlineMarkdown(listMatch[1]),
+        } as PartialBlock)
+        i++
+      }
+
+      blocks.push(...listItems)
+      continue
+    }
+
+    // Ordered list: 1. 2. etc
+    if (/^\d+\.\s+/.test(trimmedLine)) {
+      const listItems: PartialBlock[] = []
+
+      while (i < lines.length) {
+        const listLine = lines[i].trim()
+        const listMatch = listLine.match(/^\d+\.\s+(.+)$/)
+        if (!listMatch) break
+
+        listItems.push({
+          type: 'numberedListItem',
+          content: parseInlineMarkdown(listMatch[1]),
+        } as PartialBlock)
+        i++
+      }
+
+      blocks.push(...listItems)
+      continue
+    }
+
+    // Checkbox list: - [ ] or - [x]
+    if (/^[-*]\s+\[[ xX]\]\s+/.test(trimmedLine)) {
+      const listItems: PartialBlock[] = []
+
+      while (i < lines.length) {
+        const listLine = lines[i].trim()
+        const checkMatch = listLine.match(/^[-*]\s+\[([ xX])\]\s+(.+)$/)
+        if (!checkMatch) break
+
+        listItems.push({
+          type: 'checkListItem',
+          props: { checked: checkMatch[1].toLowerCase() === 'x' },
+          content: parseInlineMarkdown(checkMatch[2]),
+        } as PartialBlock)
+        i++
+      }
+
+      blocks.push(...listItems)
+      continue
+    }
+
+    // Table: | ... |
+    if (trimmedLine.includes('|') && lines[i + 1]?.trim().match(/^\|?[\s-:|]+\|?$/)) {
+      const tableRows: Array<{ cells: Array<Array<{ type: 'text'; text: string; styles: Record<string, never> }>> }> = []
+
+      while (i < lines.length && lines[i].includes('|')) {
+        const tableLine = lines[i].trim()
+
+        // Skip separator row
+        if (/^\|?[\s-:|]+\|?$/.test(tableLine)) {
+          i++
+          continue
+        }
+
+        const cellTexts = tableLine
+          .split('|')
+          .map(cell => cell.trim())
+          .filter((_, index, arr) => {
+            if (index === 0 && arr[0] === '') return false
+            if (index === arr.length - 1 && arr[arr.length - 1] === '') return false
+            return true
+          })
+
+        if (cellTexts.length > 0) {
+          tableRows.push({
+            cells: cellTexts.map(cellText => [{
+              type: 'text' as const,
+              text: cellText,
+              styles: {} as Record<string, never>,
+            }]),
+          })
+        }
+
+        i++
+      }
+
+      if (tableRows.length > 0) {
+        blocks.push({
+          type: 'table',
+          content: {
+            type: 'tableContent',
+            rows: tableRows,
+          },
+        } as unknown as PartialBlock)
+      }
+
+      continue
+    }
+
+    // Regular paragraph
+    blocks.push({
+      type: 'paragraph',
+      content: parseInlineMarkdown(trimmedLine),
+    } as PartialBlock)
+    i++
+  }
+
+  return blocks
 }
 
 /**

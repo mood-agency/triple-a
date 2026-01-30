@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Settings, CheckCircle, MessageCircle, Users, BarChart3, Cloud, CloudOff, MoreVertical, Calendar, Save, Key } from 'lucide-react';
+import { Settings, CheckCircle, MessageCircle, Users, BarChart3, Cloud, CloudOff, MoreVertical, Calendar, Save, Key, Sparkles } from 'lucide-react';
 import { useSync } from '@/contexts/SyncContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { useSettings } from '@/hooks/useSettings';
 import { APIKeysDialog } from '@/components/settings/APIKeysDialog';
+import { AIProviderDialog } from '@/components/settings/AIProviderDialog';
 
 export function SettingsMenu() {
   const { t } = useTranslation();
@@ -43,6 +44,9 @@ export function SettingsMenu() {
   // Beeper token dialog state
   const [beeperDialogOpen, setBeeperDialogOpen] = useState(false);
   const [beeperTokenInput, setBeeperTokenInput] = useState('');
+
+  // AI Provider dialog state
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
 
   // API Keys dialog state
   const [apiKeysDialogOpen, setApiKeysDialogOpen] = useState(false);
@@ -168,6 +172,10 @@ export function SettingsMenu() {
             <Key className="h-4 w-4 mr-2 text-amber-600" />
             {t('apiKeys.title')}
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setAiDialogOpen(true)}>
+            <Sparkles className="h-4 w-4 mr-2 text-purple-600" />
+            {t('ai.menuTitle')}
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -215,6 +223,9 @@ export function SettingsMenu() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AI Provider dialog */}
+      <AIProviderDialog open={aiDialogOpen} onOpenChange={setAiDialogOpen} />
 
       {/* API Keys dialog */}
       <APIKeysDialog

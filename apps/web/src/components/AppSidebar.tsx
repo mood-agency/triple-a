@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, Users, BarChart3, Moon, Sun, Languages, LogOut, User, Cloud, CloudOff, Tag, FolderKanban, Calendar, Smartphone, Key } from 'lucide-react';
+import { Home, Users, BarChart3, Moon, Sun, Languages, LogOut, User, Cloud, CloudOff, Tag, FolderKanban, Calendar, Smartphone, Key, Sparkles } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ProjectSelector } from '@/components/projects/ProjectSelector';
@@ -21,6 +21,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSync } from '@/contexts/SyncContext';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { APIKeysDialog } from '@/components/settings/APIKeysDialog';
+import { AIProviderDialog } from '@/components/settings/AIProviderDialog';
 
 export function AppSidebar() {
   const { t, i18n } = useTranslation();
@@ -32,6 +33,9 @@ export function AppSidebar() {
 
   // API Keys dialog state
   const [apiKeysDialogOpen, setApiKeysDialogOpen] = useState(false);
+
+  // AI Provider dialog state
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
 
   const toggleLanguage = () => {
     const newLang = i18n.language === 'es' ? 'en' : 'es';
@@ -151,6 +155,12 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={() => setAiDialogOpen(true)} size="sm">
+              <Sparkles className="text-purple-600" />
+              <span>{t('ai.menuTitle')}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           {user && (
             <>
               <SidebarSeparator />
@@ -183,6 +193,9 @@ export function AppSidebar() {
 
       {/* API Keys dialog */}
       <APIKeysDialog open={apiKeysDialogOpen} onOpenChange={setApiKeysDialogOpen} />
+
+      {/* AI Provider dialog */}
+      <AIProviderDialog open={aiDialogOpen} onOpenChange={setAiDialogOpen} />
     </Sidebar>
   );
 }

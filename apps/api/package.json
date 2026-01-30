@@ -10,9 +10,13 @@
     "type-check": "echo 'TypeScript migration pending'"
   },
   "dependencies": {
-    "@triple-a/types": "workspace:*",
+    "@ai-sdk/anthropic": "^3.0.31",
+    "@ai-sdk/groq": "^3.0.19",
+    "@ai-sdk/openai": "^3.0.23",
     "@hono/node-server": "^1.19.9",
     "@supabase/supabase-js": "^2.91.0",
+    "@triple-a/types": "workspace:*",
+    "ai": "^6.0.62",
     "bcrypt": "^6.0.0",
     "dotenv": "^17.2.3",
     "hono": "^4.11.6",

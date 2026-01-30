@@ -155,6 +155,30 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   }, [user, fetchNotes]);
 
   /**
+   * Create initial version for a note
+   */
+  const createInitialVersion = useCallback(
+    async (noteId: string, content: string, description: string | null, category: NoteCategory, completed: boolean) => {
+      if (!user || !supabase) return;
+
+      const { error } = await supabase.from('note_versions').insert({
+        note_id: noteId,
+        user_id: user.id,
+        content,
+        description: description || null,
+        category,
+        completed,
+        version_number: 1,
+      });
+
+      if (error) {
+        console.error('[useNotesSupabase] Error creating initial version:', error);
+      }
+    },
+    [user]
+  );
+
+  /**
    * Create a new note
    */
   const createNote = useCallback(
@@ -199,6 +223,10 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       }
 
       const row = data as any;
+
+      // Create initial version
+      await createInitialVersion(row.id, row.content, row.description, row.category, row.completed);
+
       const note: Note = {
         id: row.id,
         date: row.date,
@@ -223,7 +251,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
 
       return note;
     },
-    [user, notes, effectiveDate, projectId]
+    [user, notes, effectiveDate, projectId, createInitialVersion]
   );
 
   /**
@@ -321,6 +349,54 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   );
 
   /**
+   * Create a new version when description changes
+   * Throttled: won't create if last version was created less than 30 seconds ago
+   */
+  const createVersion = useCallback(
+    async (noteId: string, content: string, description: string | null, category: NoteCategory, completed: boolean) => {
+      if (!user || !supabase) return;
+
+      // Get the most recent version with its creation time
+      const { data: lastVersion } = await supabase
+        .from('note_versions')
+        .select('version_number, created_at')
+        .eq('note_id', noteId)
+        .order('version_number', { ascending: false })
+        .limit(1)
+        .single();
+
+      // Throttle: don't create a new version if last one was less than 30 seconds ago
+      if (lastVersion?.created_at) {
+        const lastVersionTime = new Date(lastVersion.created_at).getTime();
+        const now = Date.now();
+        const secondsSinceLastVersion = (now - lastVersionTime) / 1000;
+
+        if (secondsSinceLastVersion < 30) {
+          console.log('[useNotesSupabase] Skipping version creation - last version was', Math.round(secondsSinceLastVersion), 'seconds ago');
+          return;
+        }
+      }
+
+      const nextVersionNumber = (lastVersion?.version_number || 0) + 1;
+
+      const { error } = await supabase.from('note_versions').insert({
+        note_id: noteId,
+        user_id: user.id,
+        content,
+        description: description || null,
+        category,
+        completed,
+        version_number: nextVersionNumber,
+      });
+
+      if (error) {
+        console.error('[useNotesSupabase] Error creating version:', error);
+      }
+    },
+    [user]
+  );
+
+  /**
    * Update a note
    */
   const updateNote = useCallback(
@@ -330,7 +406,14 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       category?: NoteCategory,
       description?: string | null
     ): Promise<void> => {
-      if (!supabase) return;
+      if (!user || !supabase) return;
+
+      // Get current note state to check if description changed
+      const { data: currentNote } = await supabase
+        .from('notes')
+        .select('content, description, category, completed')
+        .eq('id', id)
+        .single();
 
       const updates: Record<string, unknown> = { content };
       if (category !== undefined) updates.category = category;
@@ -338,9 +421,29 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
 
       const { error } = await supabase.from('notes').update(updates).eq('id', id);
 
-      if (error) console.error('[useNotesSupabase] Update error:', error);
+      if (error) {
+        console.error('[useNotesSupabase] Update error:', error);
+        return;
+      }
+
+      // Create a new version if description changed (and has content)
+      if (currentNote && description !== undefined && description !== currentNote.description) {
+        // Only create version if description has actual content
+        const hasNewContent = description && description.trim().length > 0;
+        const hadPreviousContent = currentNote.description && currentNote.description.trim().length > 0;
+
+        if (hasNewContent || hadPreviousContent) {
+          await createVersion(
+            id,
+            content,
+            description,
+            (category ?? currentNote.category) as NoteCategory,
+            currentNote.completed
+          );
+        }
+      }
     },
-    []
+    [user, createVersion]
   );
 
   /**

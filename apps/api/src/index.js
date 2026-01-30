@@ -19,6 +19,10 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
+import { createGroq } from '@ai-sdk/groq';
+import { createOpenAI } from '@ai-sdk/openai';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { generateText } from 'ai';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -381,6 +385,113 @@ Respond in JSON format:
     console.error('Error in summarize:', error);
     return c.json({
       error: 'Failed to summarize text',
+      code: 'PROCESSING_FAILED',
+      details: sanitizeErrorDetails(error),
+    }, 500);
+  }
+});
+
+// ============================================
+// AI Processing Endpoint (Multi-provider)
+// ============================================
+
+/**
+ * Get AI model based on provider
+ */
+function getAIModel(provider, apiKey, modelId) {
+  switch (provider) {
+    case 'groq': {
+      const groq = createGroq({ apiKey });
+      return { model: groq(modelId), modelName: modelId };
+    }
+    case 'openai': {
+      const openai = createOpenAI({ apiKey });
+      return { model: openai(modelId), modelName: modelId };
+    }
+    case 'anthropic': {
+      const anthropic = createAnthropic({ apiKey });
+      return { model: anthropic(modelId), modelName: modelId };
+    }
+    default:
+      throw new Error(`Unsupported provider: ${provider}`);
+  }
+}
+
+/**
+ * Process note content with AI
+ * POST /api/ai-process
+ * Body: { content: string, prompt: string, provider: string, model: string, apiKey: string }
+ */
+app.post('/api/ai-process', async (c) => {
+  try {
+    const { content, prompt, provider, model: modelId, apiKey } = await c.req.json();
+
+    if (!content || !prompt) {
+      return c.json({
+        error: 'content and prompt are required',
+        code: 'INVALID_REQUEST',
+      }, 400);
+    }
+
+    if (!provider || !apiKey || !modelId) {
+      return c.json({
+        error: 'provider, model, and apiKey are required',
+        code: 'NO_API_KEY',
+      }, 400);
+    }
+
+    const validProviders = ['groq', 'openai', 'anthropic'];
+    if (!validProviders.includes(provider)) {
+      return c.json({
+        error: `Invalid provider. Must be one of: ${validProviders.join(', ')}`,
+        code: 'INVALID_PROVIDER',
+      }, 400);
+    }
+
+    const { model, modelName } = getAIModel(provider, apiKey, modelId);
+
+    const systemPrompt = `Eres un asistente que ayuda a mejorar notas.
+El usuario te proporcionará el contenido de una nota y una instrucción.
+Responde SOLO con el contenido mejorado, sin explicaciones adicionales.
+Si el contenido original está en un idioma específico, responde en el mismo idioma.
+Mantén un formato limpio y legible.`;
+
+    const { text, usage } = await generateText({
+      model,
+      system: systemPrompt,
+      prompt: `Contenido de la nota:\n${content}\n\nInstrucción: ${prompt}`,
+      maxTokens: 4096,
+    });
+
+    return c.json({
+      generatedContent: text,
+      provider,
+      model: modelName,
+      usage: {
+        promptTokens: usage?.promptTokens || 0,
+        completionTokens: usage?.completionTokens || 0,
+      },
+    }, 200);
+  } catch (error) {
+    console.error('Error in ai-process:', error);
+
+    // Handle API specific errors
+    if (error.message?.includes('401') || error.message?.includes('invalid_api_key') || error.message?.includes('Unauthorized')) {
+      return c.json({
+        error: 'Invalid API key',
+        code: 'INVALID_API_KEY',
+      }, 401);
+    }
+
+    if (error.message?.includes('429')) {
+      return c.json({
+        error: 'Rate limit exceeded',
+        code: 'RATE_LIMIT',
+      }, 429);
+    }
+
+    return c.json({
+      error: 'Failed to process with AI',
       code: 'PROCESSING_FAILED',
       details: sanitizeErrorDetails(error),
     }, 500);

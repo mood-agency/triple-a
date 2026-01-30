@@ -1,7 +1,7 @@
 import { forwardRef, memo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus, Calendar, Layers, PanelRightClose, History, RotateCcw, Globe, Link } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus, Calendar, Layers, PanelRightClose, History, RotateCcw, Globe, Link, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -24,7 +24,9 @@ import type { Note, NoteCategory, Label, NoteVersion, NoteAction } from '@/types
 import type { Contact } from '@/types/contact';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { NoteMetaRow } from './editor/NoteMetaRow';
+import { AIAssistantDialog } from './AIAssistantDialog';
 import { useAssignees } from '@/hooks/useAssignees';
+import type { AIProviderConfig } from '@/hooks/useSettings';
 
 interface NoteEditorPanelProps {
   note: Note;
@@ -73,9 +75,10 @@ interface NoteEditorPanelProps {
   onClose?: () => void;
   autoSaveInterval?: number; // in seconds, 0 = disabled
   onTogglePublic?: (id: string, makePublic: boolean) => string | null | Promise<string | null>;
+  aiProvider?: AIProviderConfig | null;
 }
 
-// Helper to parse description preview from TipTap JSON or plain text
+// Helper to parse description preview from BlockNote JSON or plain text
 const parseDescriptionPreview = (description: string): string => {
   if (!description) return '';
   try {
@@ -83,8 +86,10 @@ const parseDescriptionPreview = (description: string): string => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const extractText = (node: any): string => {
       if (typeof node === 'string') return node;
+      if (Array.isArray(node)) return node.map(extractText).join(' ');
       if (node.text) return node.text;
       if (node.content) return node.content.map(extractText).join(' ');
+      if (node.children) return node.children.map(extractText).join(' ');
       return '';
     };
     return extractText(parsed).trim().substring(0, 200);
@@ -139,10 +144,12 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   onClose,
   autoSaveInterval = 3,
   onTogglePublic,
+  aiProvider,
 }, ref) {
   const { t, i18n } = useTranslation();
   const { getAssigneesForNote, noteAssigneeVersion } = useAssignees();
   const [noteAssignees, setNoteAssignees] = useState<Contact[]>([]);
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
 
   // Load assignees when note or assignee version changes
   useEffect(() => {
@@ -400,6 +407,28 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
       {/* Separator */}
       <div className="border-t border-muted-foreground/20 my-1.5" />
 
+      {/* AI Assistant button */}
+      {aiProvider && (
+        <div className="flex items-center gap-2 mb-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAiDialogOpen(true)}
+                className="h-7 gap-1.5 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span className="text-xs">AI</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('ai.assistant.title')}</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
+
       <BlockNoteEditor
         ref={ref}
         value={descriptionValue}
@@ -595,6 +624,19 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
               ))}
           </div>
         </div>
+      )}
+
+      {/* AI Assistant Dialog */}
+      {aiProvider && (
+        <AIAssistantDialog
+          open={aiDialogOpen}
+          onOpenChange={setAiDialogOpen}
+          content={descriptionValue || ''}
+          aiProvider={aiProvider}
+          onApply={(newContent) => {
+            onDescriptionChange(newContent);
+          }}
+        />
       )}
     </>
   );
