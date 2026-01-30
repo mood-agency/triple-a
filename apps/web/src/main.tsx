@@ -17,22 +17,22 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('[UnhandledRejection]', event.reason)
 })
 
-// Clean up old service worker caches that may contain stale offline pages
-async function cleanupOldCaches() {
+// Unregister any existing service workers and clear caches (PWA removed)
+async function cleanupServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations()
+    for (const registration of registrations) {
+      await registration.unregister()
+    }
+  }
   if ('caches' in window) {
     const cacheNames = await caches.keys()
     for (const name of cacheNames) {
-      // Delete old workbox caches that might have stale content
-      if (name.includes('workbox') || name.includes('offline')) {
-        const cache = await caches.open(name)
-        // Remove any cached offline.html or pages that shouldn't be cached
-        await cache.delete('/offline.html').catch(() => {})
-        await cache.delete('/offline').catch(() => {})
-      }
+      await caches.delete(name)
     }
   }
 }
-cleanupOldCaches()
+cleanupServiceWorker()
 
 // Handle shared content from other apps (Android/iOS)
 async function handleSharedContent() {
