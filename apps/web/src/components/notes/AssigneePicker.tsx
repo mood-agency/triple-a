@@ -1,8 +1,6 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, Plus } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { Check } from 'lucide-react';
 import {
   Command,
   CommandEmpty,
@@ -21,9 +19,9 @@ interface AssigneePickerProps {
   value: string[];
   onChange: (contactIds: string[]) => void;
   disabled?: boolean;
-  className?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  trigger?: ReactNode;
 }
 
 export function AssigneePicker({
@@ -31,9 +29,9 @@ export function AssigneePicker({
   value,
   onChange,
   disabled = false,
-  className,
   open: controlledOpen,
   onOpenChange,
+  trigger,
 }: AssigneePickerProps) {
   const { t } = useTranslation();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -58,17 +56,8 @@ export function AssigneePicker({
     <Popover open={open} onOpenChange={setOpen}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              role="combobox"
-              aria-expanded={open}
-              disabled={disabled}
-              size="icon"
-              className={cn('h-6 w-6', className)}
-            >
-              <Plus className="h-3 w-3" />
-            </Button>
+          <PopoverTrigger asChild disabled={disabled}>
+            {trigger}
           </PopoverTrigger>
         </TooltipTrigger>
         <TooltipContent className="flex items-center gap-2">

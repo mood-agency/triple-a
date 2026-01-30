@@ -25,10 +25,11 @@ interface NaturalDateInputProps {
 export function NaturalDateInput({
   value,
   onChange,
-  placeholder = 'e.g. tomorrow, next friday, in 3 days',
+  placeholder,
   className,
 }: NaturalDateInputProps) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const resolvedPlaceholder = placeholder ?? t('naturalDatePlaceholder');
   const locale = i18n.language === 'es' ? es : enUS;
 
   const [inputValue, setInputValue] = React.useState('');
@@ -95,7 +96,7 @@ export function NaturalDateInput({
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
-            placeholder={placeholder}
+            placeholder={resolvedPlaceholder}
             className="pr-8"
           />
           {parsedDate && inputValue && (
