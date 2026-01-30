@@ -148,6 +148,8 @@
   "categoryNotes": "Notes",
   "categoryNote": "Note",
   "categoryMeeting": "Meeting",
+  "createdOnDate": "created on",
+  "expiresOnDate": "expires on",
   "changeCategory": "Change category",
   "searchCategory": "Search category...",
   "noCategoriesFound": "No categories found",
