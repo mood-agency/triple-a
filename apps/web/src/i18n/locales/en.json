@@ -662,6 +662,7 @@
   },
   "sharing": {
     "sharePublicly": "Share publicly",
+    "shareDescription": "Anyone with the link can view this note.",
     "stopSharing": "Stop sharing",
     "makePublic": "Make public",
     "publicLink": "Public link",
