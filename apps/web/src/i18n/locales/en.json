@@ -151,6 +151,8 @@
   "createdOnDate": "created on",
   "expiresOnDate": "expires on",
   "changeCategory": "Change category",
+  "setCategory": "Set category",
+  "createLabelWithName": "Create \"{{name}}\"",
   "searchCategory": "Search category...",
   "noCategoriesFound": "No categories found",
   "history": "History",

@@ -5,12 +5,14 @@ interface TaskKeyboardCallbacks {
   onToggleCompleted?: (noteId: string, completed: boolean) => void
   onDelete?: (noteId: string) => void
   onCreateAfter?: (noteId: string) => void
+  onTogglePinned?: (noteId: string, pinned: boolean) => void
 }
 
 /**
  * Hook to handle keyboard shortcuts for task items
  * - Ctrl+D: Toggle completed
  * - Ctrl+Backspace: Delete task
+ * - Ctrl+P: Toggle pinned
  * - Enter: Create new task after current (handled by BlockNote natively for new blocks)
  */
 export function useTaskKeyboardShortcuts(
@@ -32,6 +34,7 @@ export function useTaskKeyboardShortcuts(
         checked: boolean
         category: string
         noteId: string
+        pinned: boolean
       }
 
       // Ctrl+D: Toggle completed
@@ -45,6 +48,16 @@ export function useTaskKeyboardShortcuts(
           })
           callbacks.onToggleCompleted?.(props.noteId, newChecked)
         }
+      }
+
+      // Ctrl+P: Toggle pinned
+      if (e.key === 'p' && e.ctrlKey && !e.shiftKey && !e.altKey) {
+        e.preventDefault()
+        const newPinned = !props.pinned
+        editor.updateBlock(block, {
+          props: { pinned: newPinned },
+        })
+        callbacks.onTogglePinned?.(props.noteId, newPinned)
       }
 
       // Ctrl+Backspace: Delete task

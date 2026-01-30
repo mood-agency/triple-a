@@ -29,7 +29,7 @@ export function HashtagSuggestionMenu({ labels, onCreateLabel }: HashtagSuggesti
     // Categories
     const categories: Array<{ value: NoteCategory; key: string }> = [
       { value: 'todo', key: 'categoryTodo' },
-      { value: 'followup', key: 'categoryFollowup' },
+      { value: 'followup', key: 'categoryFollowUp' },
       { value: 'notes', key: 'categoryNotes' },
       { value: 'meeting', key: 'categoryMeeting' },
     ]

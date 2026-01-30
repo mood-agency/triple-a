@@ -818,6 +818,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           onClearOverdue={handleClearOverdue}
           onClearAllFilters={handleClearAllFilters}
           autoSaveInterval={settings.autoSaveInterval}
+          onCreateNote={onCreateTask}
+          onCreateLabel={(name) => createLabel(name)}
         />
 
         {selectedNote && selection.showDescriptionPanel && (

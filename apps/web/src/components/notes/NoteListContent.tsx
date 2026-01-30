@@ -1,15 +1,5 @@
 import { memo } from 'react';
-import {
-    DndContext,
-    closestCenter,
-    type DragEndEvent,
-    type SensorDescriptor,
-    type SensorOptions,
-} from '@dnd-kit/core';
-import {
-    SortableContext,
-    verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
+import type { DragEndEvent, SensorDescriptor, SensorOptions } from '@dnd-kit/core';
 import { useTranslation } from 'react-i18next';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
@@ -19,6 +9,7 @@ import { TimelineView } from './TimelineView';
 import { MemoizedNoteRow } from './NoteRow';
 import { NoteListEmptyState } from './NoteListEmptyState';
 import { ActiveFiltersBar } from './ActiveFiltersBar';
+import { TaskListEditor } from '@/components/blocknote/TaskListEditor';
 
 const EMPTY_ASSIGNEES: Contact[] = [];
 
@@ -109,6 +100,10 @@ interface NoteListContentProps {
 
     // Auto-save settings
     autoSaveInterval?: number; // in seconds, 0 = disabled
+
+    // New task creation
+    onCreateNote?: () => void;
+    onCreateLabel?: (name: string) => void;
 }
 
 export const NoteListContent = memo(function NoteListContent({
@@ -143,10 +138,10 @@ export const NoteListContent = memo(function NoteListContent({
     handleTitleFocused,
     handleCreateNoteAfterById,
     handleCreateTaskAtTime,
-    sensors,
-    handleDragStart,
-    handleDragEnd,
-    activeId,
+    sensors: _sensors,
+    handleDragStart: _handleDragStart,
+    handleDragEnd: _handleDragEnd,
+    activeId: _activeId,
     labels,
     noteLabelsCache,
     handleAddLabelToNote,
@@ -180,6 +175,8 @@ export const NoteListContent = memo(function NoteListContent({
     onClearOverdue,
     onClearAllFilters,
     autoSaveInterval = 3,
+    onCreateNote,
+    onCreateLabel,
 }: NoteListContentProps) {
     const { t } = useTranslation();
 
@@ -189,6 +186,19 @@ export const NoteListContent = memo(function NoteListContent({
             shouldShowOnlyCompletedMessage={shouldShowOnlyCompletedMessage}
             fillHeight={fillHeight}
         />;
+    };
+
+    // Handler for BlockNote editor delete (needs reason)
+    const handleBlockNoteDelete = (noteId: string) => {
+        const note = activeNotes.find(n => n.id === noteId);
+        if (note) {
+            handleDeleteWithToast(note, '');
+        }
+    };
+
+    // Handler for edit from BlockNote (without description)
+    const handleBlockNoteEdit = (id: string, content: string, category?: NoteCategory) => {
+        onEdit(id, content, category);
     };
 
     return (
@@ -289,7 +299,7 @@ export const NoteListContent = memo(function NoteListContent({
                 </div>
             ) : (
                 <>
-                    {/* Active tasks section */}
+                    {/* Active tasks section - Using BlockNote TaskListEditor */}
                     {taskStatusFilter === 'active' && (
                         <div className="overflow-y-auto pr-2 flex-[3] flex flex-col">
                             {/* Show message when no active tasks but have filters */}
@@ -297,69 +307,40 @@ export const NoteListContent = memo(function NoteListContent({
                                 <NoResultsMessage />
                             ) : activeNotes.length === 0 && filteredNotes.length === 0 && hasActiveFilters ? (
                                 <NoResultsMessage />
-                            ) : (
+                            ) : activeNotes.length > 0 ? (
                                 <>
-                                    <DndContext
-                                        sensors={sensors}
-                                        collisionDetection={closestCenter}
-                                        onDragStart={handleDragStart}
-                                        onDragEnd={handleDragEnd}
-                                    >
-                                        <SortableContext
-                                            items={activeNotes.map((n) => n.id)}
-                                            strategy={verticalListSortingStrategy}
-                                        >
-                                            {activeNotes.map((note) => (
-                                                <MemoizedNoteRow
-                                                    key={note.id}
-                                                    note={note}
-                                                    onDeleteWithToast={handleDeleteWithToast}
-                                                    onToggleCompleted={handleToggleCompletedWithNavigation}
-                                                    onTogglePinned={onTogglePinned}
-                                                    isSelected={selectedNote?.id === note.id}
-                                                    onSelect={handleSelectNoteById}
-                                                    onEdit={onEdit}
-                                                    onNavigateDown={handleNavigateDownById}
-                                                    onNavigateUp={handleNavigateUpById}
-                                                    onNavigateToDescription={handleNavigateToDescription}
-                                                    shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
-                                                    desiredColumn={desiredColumn}
-                                                    onTitleFocused={handleTitleFocused}
-                                                    onCreateNoteAfter={handleCreateNoteAfterById}
-                                                    isDragging={activeId === note.id}
-                                                    labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
-                                                    allLabels={labels}
-                                                    onAddLabel={handleAddLabelToNote}
-                                                    onRemoveLabel={handleRemoveLabelFromNote}
-                                                    onCreateLabel={handleCreateLabelClick}
-                                                    onCreateLabelAndAdd={handleCreateLabelAndAdd}
-                                                    onEditLabel={handleEditLabel}
-                                                    isFixedInSidebar={fixedNoteId === note.id}
-                                                    onToggleFixInSidebar={handleToggleFixInSidebarById}
-                                                    onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
-                                                    assigneeName={assigneeNamesCache.get(note.id)}
-                                                    assignees={noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES}
-                                                    compactView={compactTaskView}
-                                                    isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
-                                                    contacts={contacts}
-                                                    onAddAssignee={onAddAssignee}
-                                                    onRemoveAssignee={onRemoveAssignee}
-                                                    onUpdateAssignee={onUpdateAssignee}
-                                                    autoSaveInterval={autoSaveInterval}
-                                                />
-                                            ))}
-                                        </SortableContext>
-                                    </DndContext>
+                                    <TaskListEditor
+                                        notes={activeNotes}
+                                        labels={labels}
+                                        contacts={contacts}
+                                        noteLabelsCache={noteLabelsCache}
+                                        noteAssigneesCache={noteAssigneesCache}
+                                        selectedNoteId={selectedNote?.id}
+                                        onSelect={handleSelectNoteById}
+                                        onEdit={handleBlockNoteEdit}
+                                        onToggleCompleted={handleToggleCompletedWithNavigation}
+                                        onTogglePinned={onTogglePinned}
+                                        onDelete={handleBlockNoteDelete}
+                                        onCreateNote={onCreateNote || (() => {})}
+                                        onCreateLabel={onCreateLabel}
+                                        onAddLabel={handleAddLabelToNote}
+                                        onRemoveLabel={handleRemoveLabelFromNote}
+                                        onAddAssignee={onAddAssignee}
+                                        onRemoveAssignee={onRemoveAssignee}
+                                        className="flex-1"
+                                    />
                                     {/* Show no results message after pinned notes when they don't match filters */}
                                     {shouldShowNoResultsWithPinnedVisible && (
                                         <NoResultsMessage fillHeight={false} />
                                     )}
                                 </>
+                            ) : (
+                                <NoResultsMessage />
                             )}
                         </div>
                     )}
 
-                    {/* Completed tasks section */}
+                    {/* Completed tasks section - Using traditional NoteRow */}
                     {taskStatusFilter === 'completed' && (
                         completedNotes.length > 0 ? (
                             <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">
@@ -410,7 +391,7 @@ export const NoteListContent = memo(function NoteListContent({
                         ) : null
                     )}
 
-                    {/* Deleted tasks section */}
+                    {/* Deleted tasks section - Using traditional NoteRow */}
                     {taskStatusFilter === 'deleted' && (
                         deletedNotes.length > 0 ? (
                             <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">

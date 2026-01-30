@@ -1,6 +1,6 @@
 import { createReactBlockSpec } from '@blocknote/react'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Pickaxe, Forward, StickyNote, Users } from 'lucide-react'
+import { Pickaxe, Forward, StickyNote, Users, Pin } from 'lucide-react'
 import type { NoteCategory } from '@/types/note'
 
 const categoryIcons: Record<NoteCategory, React.ElementType> = {
@@ -34,7 +34,7 @@ export const TaskItemBlock = createReactBlockSpec(
   {
     render: (props) => {
       const { block, editor, contentRef } = props
-      const { checked, category } = block.props
+      const { checked, category, pinned } = block.props
       const isCheckable = category === 'todo' || category === 'followup'
       const CategoryIcon = categoryIcons[category as NoteCategory] || Pickaxe
 
@@ -46,9 +46,11 @@ export const TaskItemBlock = createReactBlockSpec(
 
       return (
         <div
-          className={`flex items-start gap-2 py-0.5 group/task ${
+          data-block-type="taskItem"
+          data-id={block.id}
+          className={`flex items-start gap-2 py-1 px-2 rounded-md group/task cursor-pointer transition-colors hover:bg-muted/50 ${
             checked && isCheckable ? 'opacity-50' : ''
-          }`}
+          } ${pinned ? 'bg-yellow-500/5' : ''}`}
         >
           {/* Checkbox or Icon */}
           <div className="flex-shrink-0 mt-0.5">
@@ -70,6 +72,13 @@ export const TaskItemBlock = createReactBlockSpec(
               checked && isCheckable ? 'line-through text-muted-foreground' : ''
             }`}
           />
+
+          {/* Pin indicator */}
+          {pinned && (
+            <div className="flex-shrink-0 opacity-50">
+              <Pin className="h-3 w-3 text-yellow-600" />
+            </div>
+          )}
         </div>
       )
     },
