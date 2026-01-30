@@ -262,7 +262,7 @@
   "noResults": "No results found",
   "activeFilters": "Active Filters",
   "clearAllFilters": "Clear all filters",
-  "filterByCategory": "Category",
+  "filterByCategory": "Filter: {{category}}",
   "filterByAssignee": "Filter by assignee",
   "clearAssigneeFilter": "Clear assignee filter",
   "filterByLabel": "Filter by label",
