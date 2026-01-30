@@ -281,6 +281,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             onToggleComplete={onToggleComplete}
             titleValue={titleValue}
             autoSaveInterval={autoSaveInterval}
+            showCheckbox={note.category === 'todo' || note.category === 'followup'}
           />
         </div>
       </div>
