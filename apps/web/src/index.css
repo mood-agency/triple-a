@@ -202,6 +202,17 @@ body {
 
 .bn-editor {
   background: transparent !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Remove BlockNote default block padding */
+.bn-block-outer {
+  padding-left: 0 !important;
+}
+
+.bn-block-group .bn-block-group {
+  margin-left: 1rem !important;
 }
 
 .dark .bn-container {
