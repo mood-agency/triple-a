@@ -16,6 +16,7 @@ interface EditableTitleProps {
   onDelete?: () => void;
   titleValue?: string;
   autoSaveInterval?: number; // in seconds, 0 = disabled
+  showCheckbox?: boolean;
 }
 
 export function EditableTitle({
@@ -27,6 +28,7 @@ export function EditableTitle({
   onDelete,
   titleValue,
   autoSaveInterval = 3,
+  showCheckbox = true,
 }: EditableTitleProps) {
   const { t } = useTranslation();
   // Don't auto-start editing - let the NoteRow handle focus for new tasks
@@ -151,21 +153,23 @@ export function EditableTitle({
 
   return (
     <div className="group flex items-start gap-3 flex-shrink-0">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="pt-1.5">
-            <Checkbox
-              checked={completed}
-              onCheckedChange={() => onToggleComplete(noteId)}
-              className="h-5 w-5"
-            />
-          </div>
-        </TooltipTrigger>
-        <TooltipContent className="flex items-center gap-2">
-          <p>{completed ? t('markIncomplete') : t('markComplete')}</p>
-          <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>D</Kbd></span>
-        </TooltipContent>
-      </Tooltip>
+      {showCheckbox && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="pt-1.5">
+              <Checkbox
+                checked={completed}
+                onCheckedChange={() => onToggleComplete(noteId)}
+                className="h-5 w-5"
+              />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="flex items-center gap-2">
+            <p>{completed ? t('markIncomplete') : t('markComplete')}</p>
+            <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>D</Kbd></span>
+          </TooltipContent>
+        </Tooltip>
+      )}
       <div className="flex items-start gap-1 flex-1 min-w-0">
         {isEditing ? (
           <input
