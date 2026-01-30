@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { format } from 'date-fns';
 import { es, enUS } from 'date-fns/locale';
-import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus, Calendar, Layers, PanelRightClose, History, RotateCcw, Sparkles } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, Tag, User, Trash2, PanelRightClose, History, RotateCcw, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
@@ -24,7 +24,6 @@ import { EditableTitle } from '@/components/notes/EditableTitle';
 import type { Note, NoteCategory, Label, NoteVersion, NoteAction } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { parseLocalDate } from '@/utils/dateUtils';
-import { NoteMetaRow } from './editor/NoteMetaRow';
 import { AIAssistantDialog } from './AIAssistantDialog';
 import { ShareDialog } from './ShareDialog';
 import { useAssignees } from '@/hooks/useAssignees';
@@ -297,34 +296,16 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
         )}
       </div>
 
-      {note.created_at && (
-        <div className="flex gap-1.5 flex-shrink-0 items-center mb-1">
-          <div className="w-4 flex justify-center shrink-0">
-            <CalendarPlus className="h-3.5 w-3.5 text-muted-foreground" />
-          </div>
-          <span className="text-xs font-normal text-foreground px-1.5">
-            {format(new Date(note.created_at), 'dd/MM/yyyy', { locale })}
-          </span>
-        </div>
-      )}
-
-      {/* Category row */}
-      <NoteMetaRow icon={Layers}>
+      {/* Category, created date, and deadline - single line */}
+      <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2 flex-wrap">
         <Popover open={categoryDropdownOpen} onOpenChange={onCategoryDropdownOpenChange}>
           <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-1.5 text-xs font-normal gap-1"
-            >
-              <span>
-                {note.category === 'todo' && t('categoryTodo')}
-                {note.category === 'followup' && t('categoryFollowUp')}
-                {note.category === 'notes' && t('categoryNote')}
-                {note.category === 'meeting' && t('categoryMeeting')}
-              </span>
-              <ChevronDown className="h-3 w-3 opacity-50" />
-            </Button>
+            <button type="button" className="font-medium text-foreground hover:underline">
+              {note.category === 'todo' && t('categoryTodo')}
+              {note.category === 'followup' && t('categoryFollowUp')}
+              {note.category === 'notes' && t('categoryNote')}
+              {note.category === 'meeting' && t('categoryMeeting')}
+            </button>
           </PopoverTrigger>
           <PopoverContent className="w-44 p-0" align="start">
             <Command>
@@ -353,10 +334,13 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             </Command>
           </PopoverContent>
         </Popover>
-      </NoteMetaRow>
-
-      {/* Deadline row */}
-      <NoteMetaRow icon={Calendar}>
+        {note.created_at && (
+          <>
+            <span>{t('createdOnDate')}</span>
+            <span className="font-medium text-foreground">{format(new Date(note.created_at), 'dd/MM/yyyy', { locale })}</span>
+          </>
+        )}
+        <span>{t('expiresOnDate')}</span>
         <DatePicker
           date={note.deadline ? parseLocalDate(note.deadline) : undefined}
           onDateChange={onDeadlineChange}
@@ -364,11 +348,10 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
           placeholder={t('setDeadline')}
           open={deadlinePickerOpen}
           onOpenChange={onDeadlinePickerOpenChange}
-          className="h-6 text-xs"
           showTime
           hideIcon
         />
-      </NoteMetaRow>
+      </div>
 
 {/* Share & AI row */}
       <div className="flex items-center gap-2 mb-2">
