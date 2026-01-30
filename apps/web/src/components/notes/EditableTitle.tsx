@@ -13,7 +13,7 @@ interface EditableTitleProps {
   completed: boolean;
   onEdit: (id: string, content: string) => void;
   onToggleComplete: (id: string) => void;
-  onDelete: () => void;
+  onDelete?: () => void;
   titleValue?: string;
   autoSaveInterval?: number; // in seconds, 0 = disabled
 }
@@ -193,20 +193,22 @@ export function EditableTitle({
             {(titleValue ?? content) || t('newTaskPlaceholder')}
           </h1>
         )}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={onDelete}
-              className="p-1.5 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all shrink-0"
-            >
-              <Trash2 className="h-5 w-5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{t('deleteTask')}</p>
-          </TooltipContent>
-        </Tooltip>
+        {onDelete && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={onDelete}
+                className="p-1.5 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all shrink-0"
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('deleteTask')}</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
     </div>
   );

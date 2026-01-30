@@ -12,9 +12,11 @@ import { useCreateBlockNote } from '@blocknote/react'
 import { BlockNoteSchema, defaultBlockSpecs, createCodeBlockSpec } from '@blocknote/core'
 import type { BlockNoteEditor as BlockNoteEditorCore } from '@blocknote/core'
 import { codeBlockOptions } from '@blocknote/code-block'
+import { en as enLocale, es as esLocale } from '@blocknote/core/locales'
 import '@blocknote/shadcn/style.css'
 import '@blocknote/core/fonts/inter.css'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import i18n from '@/i18n'
 import { uploadNoteAttachment, StorageError, getFileTypeLabel } from '@/services/storage'
 import { detectContentFormat, tiptapToBlockNote, plainTextToBlockNote } from '@/utils/contentMigration'
@@ -121,6 +123,16 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
     const { debugMode, debugDescriptionFocusClass } = useDebugNavigation()
     const [isFocused, setIsFocused] = useState(false)
     const { theme } = useTheme()
+    const { i18n: i18nInstance } = useTranslation()
+
+    // Get BlockNote dictionary based on current language
+    const blockNoteDictionary = useMemo(() => {
+      const locales: Record<string, typeof enLocale> = {
+        en: enLocale,
+        es: esLocale,
+      }
+      return locales[i18nInstance.language] || enLocale
+    }, [i18nInstance.language])
 
     // Resolve theme for BlockNote (handles 'system' preference)
     const resolvedTheme = useMemo(() => {
@@ -217,6 +229,7 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
       schema,
       initialContent,
       uploadFile,
+      dictionary: blockNoteDictionary,
       tables: {
         splitCells: true,
         cellBackgroundColor: true,
