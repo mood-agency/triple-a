@@ -98,10 +98,23 @@
       "Bash(git reset:*)",
       "Bash(pnpm --filter @triple-a/web type-check:*)",
       "Bash(xxd:*)",
-      "Bash(iconv:*)"
+      "Bash(iconv:*)",
+      "Bash(pnpm --filter @triple-a/web add serve)",
+      "WebFetch(domain:triple-a-api-production.up.railway.app)",
+      "Bash(pnpm type-check:*)",
+      "WebFetch(domain:triplea.qzz.io)",
+      "WebFetch(domain:triple-a-web-production.up.railway.app)",
+      "WebFetch(domain:triple-a-web.up.railway.app)",
+      "Bash(pnpm --filter @triple-a/web lint:*)",
+      "Bash(pnpm remove:*)",
+      "WebFetch(domain:www.blocknotejs.org)",
+      "Bash(git ls-tree:*)",
+      "Bash(git fetch:*)",
+      "Bash(git rev-parse:*)"
     ],
     "additionalDirectories": [
-      "c:\\Users\\argen\\Documents\\GitHub\\triple-a"
+      "c:\\Users\\argen\\Documents\\GitHub\\triple-a",
+      "c:\\Users\\argen\\Documents\\GitHub\\triple-a\\apps\\web\\public"
     ]
   }
 }
