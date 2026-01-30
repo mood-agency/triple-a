@@ -1,8 +1,9 @@
 import { forwardRef, memo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus, Calendar, Layers, PanelRightClose, History, RotateCcw, Globe, Link, Sparkles } from 'lucide-react';
-import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { es, enUS } from 'date-fns/locale';
+import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, ChevronDown, Tag, User, Trash2, CalendarPlus, Calendar, Layers, PanelRightClose, History, RotateCcw, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
@@ -25,6 +26,7 @@ import type { Contact } from '@/types/contact';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { NoteMetaRow } from './editor/NoteMetaRow';
 import { AIAssistantDialog } from './AIAssistantDialog';
+import { ShareDialog } from './ShareDialog';
 import { useAssignees } from '@/hooks/useAssignees';
 import type { AIProviderConfig } from '@/hooks/useSettings';
 
@@ -147,6 +149,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   aiProvider,
 }, ref) {
   const { t, i18n } = useTranslation();
+  const locale = i18n.language === 'es' ? es : enUS;
   const { getAssigneesForNote, noteAssigneeVersion } = useAssignees();
   const [noteAssignees, setNoteAssignees] = useState<Contact[]>([]);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
@@ -300,7 +303,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             <CalendarPlus className="h-3.5 w-3.5 text-muted-foreground" />
           </div>
           <span className="text-xs font-normal text-foreground px-1.5">
-            {new Date(note.created_at).toLocaleDateString(i18n.language, { day: 'numeric', month: 'long', year: 'numeric' })}
+            {format(new Date(note.created_at), 'dd/MM/yyyy', { locale })}
           </span>
         </div>
       )}
@@ -367,78 +370,36 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
         />
       </NoteMetaRow>
 
-{/* Share row */}
-      {onTogglePublic && (
-        <NoteMetaRow icon={Globe}>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`h-6 px-1.5 text-xs font-normal gap-1 ${note.is_public ? 'text-green-600' : ''}`}
-            onClick={async () => {
+{/* Share & AI row */}
+      <div className="flex items-center gap-2 mb-2">
+        {onTogglePublic && (
+          <ShareDialog
+            isPublic={note.is_public ?? false}
+            publicSlug={note.public_slug ?? null}
+            onTogglePublic={async () => {
               const slug = await onTogglePublic(note.id, !note.is_public);
-              if (slug) {
-                const url = `${window.location.origin}/p/${slug}`;
-                navigator.clipboard.writeText(url);
-                toast.success(t('sharing.linkCopied'));
-              } else {
-                toast.success(t('sharing.linkRemoved'));
-              }
+              return slug;
             }}
-          >
-            {note.is_public ? (
-              <>
-                <Globe className="h-3 w-3" />
-                {t('sharing.stopSharing')}
-              </>
-            ) : (
-              <>
-                <Link className="h-3 w-3" />
-                {t('sharing.makePublic')}
-              </>
-            )}
-          </Button>
-          {note.is_public && note.public_slug && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-6 px-1.5 text-xs font-normal gap-1"
-              onClick={() => {
-                const url = `${window.location.origin}/p/${note.public_slug}`;
-                navigator.clipboard.writeText(url);
-                toast.success(t('sharing.linkCopied'));
-              }}
-            >
-              <Link className="h-3 w-3" />
-              {t('sharing.copyLink')}
-            </Button>
-          )}
-        </NoteMetaRow>
-      )}
-
-      {/* Separator */}
-      <div className="border-t border-muted-foreground/20 my-1.5" />
-
-      {/* AI Assistant button */}
-      {aiProvider && (
-        <div className="flex items-center gap-2 mb-2">
+          />
+        )}
+        {aiProvider && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="outline"
-                size="sm"
+                variant="ghost"
+                size="icon"
                 onClick={() => setAiDialogOpen(true)}
-                className="h-7 gap-1.5 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950"
+                className="h-6 w-6 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950"
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                <span className="text-xs">AI</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>
               <p>{t('ai.assistant.title')}</p>
             </TooltipContent>
           </Tooltip>
-        </div>
-      )}
+        )}
+      </div>
 
       <BlockNoteEditor
         ref={ref}

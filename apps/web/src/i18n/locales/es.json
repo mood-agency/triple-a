@@ -662,6 +662,7 @@
   },
   "sharing": {
     "sharePublicly": "Compartir publicamente",
+    "shareDescription": "Cualquier persona con el enlace puede ver esta nota.",
     "stopSharing": "Dejar de compartir",
     "makePublic": "Hacer publica",
     "publicLink": "Enlace publico",
