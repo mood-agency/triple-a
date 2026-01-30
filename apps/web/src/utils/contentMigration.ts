@@ -306,79 +306,67 @@ export function plainTextToBlockNote(text: string): PartialBlock[] {
 /**
  * Parse inline Markdown formatting (bold, italic, code, links)
  */
+type MatchCandidate = { index: number; length: number; content: InlineContent }
+
+function updateEarliestMatch(
+  current: MatchCandidate | null,
+  candidate: MatchCandidate
+): MatchCandidate {
+  if (current === null || candidate.index < current.index) {
+    return candidate
+  }
+  return current
+}
+
 function parseInlineMarkdown(text: string): InlineContent[] {
   const result: InlineContent[] = []
   let remaining = text
 
-  // Regex patterns for inline formatting
-  const patterns = [
-    // Bold: **text** or __text__
-    { regex: /\*\*(.+?)\*\*|__(.+?)__/, style: 'bold' },
-    // Italic: *text* or _text_ (not followed by another _ or *)
-    { regex: /(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)|(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/, style: 'italic' },
-    // Code: `text`
-    { regex: /`(.+?)`/, style: 'code' },
-    // Links: [text](url)
-    { regex: /\[(.+?)\]\((.+?)\)/, type: 'link' },
-  ]
-
   while (remaining.length > 0) {
-    let earliestMatch: { index: number; length: number; content: InlineContent } | null = null
+    let earliestMatch: MatchCandidate | null = null
 
     // Find bold **text**
     const boldMatch = remaining.match(/\*\*(.+?)\*\*/)
     if (boldMatch && boldMatch.index !== undefined) {
-      const idx = boldMatch.index
-      if (!earliestMatch || idx < earliestMatch.index) {
-        earliestMatch = {
-          index: idx,
-          length: boldMatch[0].length,
-          content: { type: 'text', text: boldMatch[1], styles: { bold: true } },
-        }
-      }
+      earliestMatch = updateEarliestMatch(earliestMatch, {
+        index: boldMatch.index,
+        length: boldMatch[0].length,
+        content: { type: 'text', text: boldMatch[1], styles: { bold: true } },
+      })
     }
 
     // Find italic *text* (single asterisk, not double)
     const italicMatch = remaining.match(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/)
     if (italicMatch && italicMatch.index !== undefined) {
-      const idx = italicMatch.index
-      if (!earliestMatch || idx < earliestMatch.index) {
-        earliestMatch = {
-          index: idx,
-          length: italicMatch[0].length,
-          content: { type: 'text', text: italicMatch[1], styles: { italic: true } },
-        }
-      }
+      earliestMatch = updateEarliestMatch(earliestMatch, {
+        index: italicMatch.index,
+        length: italicMatch[0].length,
+        content: { type: 'text', text: italicMatch[1], styles: { italic: true } },
+      })
     }
 
     // Find code `text`
     const codeMatch = remaining.match(/`([^`]+)`/)
     if (codeMatch && codeMatch.index !== undefined) {
-      const idx = codeMatch.index
-      if (!earliestMatch || idx < earliestMatch.index) {
-        earliestMatch = {
-          index: idx,
-          length: codeMatch[0].length,
-          content: { type: 'text', text: codeMatch[1], styles: { code: true } },
-        }
-      }
+      earliestMatch = updateEarliestMatch(earliestMatch, {
+        index: codeMatch.index,
+        length: codeMatch[0].length,
+        content: { type: 'text', text: codeMatch[1], styles: { code: true } },
+      })
     }
 
     // Find links [text](url)
     const linkMatch = remaining.match(/\[(.+?)\]\((.+?)\)/)
     if (linkMatch && linkMatch.index !== undefined) {
-      const idx = linkMatch.index
-      if (!earliestMatch || idx < earliestMatch.index) {
-        earliestMatch = {
-          index: idx,
-          length: linkMatch[0].length,
-          content: {
-            type: 'link',
-            href: linkMatch[2],
-            content: [{ type: 'text', text: linkMatch[1], styles: {} }],
-          },
-        }
-      }
+      earliestMatch = updateEarliestMatch(earliestMatch, {
+        index: linkMatch.index,
+        length: linkMatch[0].length,
+        content: {
+          type: 'link',
+          href: linkMatch[2],
+          content: [{ type: 'text', text: linkMatch[1], styles: {} }],
+        },
+      })
     }
 
     if (earliestMatch) {
