@@ -13,7 +13,7 @@ interface UseNoteOperationsProps {
     onNavigateToEditor?: (column: number) => void;
     setDesiredColumn: (column: number) => void;
     setFocusTarget: (target: 'title' | 'description-start' | 'description-end' | null) => void;
-    onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[], assigneeId?: string | null) => Promise<Note>;
+    onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[], assigneeId?: string | null, newNoteId?: string) => Promise<Note>;
     viewMode: 'list' | 'calendar';
     calendarSelectedDate?: Date;
     labelFilter: string[];

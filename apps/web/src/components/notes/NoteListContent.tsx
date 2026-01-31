@@ -48,7 +48,7 @@ interface NoteListContentProps {
     handleTitleFocused: () => void;
     handleCreateNoteAfterById: (id: string) => void;
     handleCreateTaskAtTime: (hour: number) => void;
-    onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[]) => Promise<Note>;
+    onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[], assigneeId?: string | null, newNoteId?: string) => Promise<Note>;
 
     // Drag and Drop
     sensors: SensorDescriptor<SensorOptions>[];
@@ -304,7 +304,10 @@ export const NoteListContent = memo(function NoteListContent({
                                         onDelete={handleDeleteWithToast}
                                         onCreateNoteAfter={onCreateNoteAfter}
                                         onEdit={onEdit}
-                                        onTogglePin={(noteId) => onTogglePinned(noteId, true)}
+                                        onTogglePin={(noteId) => {
+                                            const note = activeNotes.find(n => n.id === noteId);
+                                            if (note) onTogglePinned(noteId, !note.pinned);
+                                        }}
                                         onToggleFixInSidebar={handleToggleFixInSidebarById}
                                         onSaveSuccess={(savedCount) => {
                                             toast.success(t('toast.noteSaved', { count: savedCount }));

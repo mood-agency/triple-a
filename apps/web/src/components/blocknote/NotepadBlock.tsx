@@ -27,6 +27,7 @@ export const NotepadBlock = createReactBlockSpec(
             date: { default: "22 de noviembre 2026" },
             labels: { default: [] as Array<{ name: string; color: string }> },
             assignees: { default: [] as string[] },
+            pinned: { default: false },
         },
         content: "inline",
     },
@@ -121,6 +122,7 @@ export const NotepadBlock = createReactBlockSpec(
             const CategoryIcon = categoryIcons[category] || Pickaxe;
             const isChecked = props.block.props.isChecked as boolean;
             const dateStr = props.block.props.date as string;
+            const isPinned = props.block.props.pinned as boolean;
 
             const cycleCategory = (e: React.MouseEvent) => {
                 e.preventDefault();
@@ -265,19 +267,27 @@ export const NotepadBlock = createReactBlockSpec(
                         </div>
                     )}
 
-                    {/* Action icons - visible on hover */}
+                    {/* Pin icon - always visible when pinned, hover otherwise */}
+                    <button
+                        contentEditable={false}
+                        onClick={handleTogglePin}
+                        className={`p-1 hover:bg-gray-200 rounded transition-all ml-1 flex-shrink-0 ${
+                            isPinned
+                                ? 'opacity-100'
+                                : 'opacity-0 group-hover:opacity-100'
+                        }`}
+                        style={{ userSelect: "none" }}
+                        title={isPinned ? "Unpin task" : "Pin task"}
+                    >
+                        <Pin size={14} className={isPinned ? "text-black" : "text-gray-600"} />
+                    </button>
+
+                    {/* Other action icons - visible on hover */}
                     <div
                         contentEditable={false}
-                        className="flex gap-1 ml-2 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                        className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                         style={{ userSelect: "none" }}
                     >
-                        <button
-                            onClick={handleTogglePin}
-                            className="p-1 hover:bg-gray-200 rounded transition-colors"
-                            title="Pin task"
-                        >
-                            <Pin size={14} className="text-gray-600" />
-                        </button>
                         <button
                             onClick={handleToggleFixInSidebar}
                             className="p-1 hover:bg-gray-200 rounded transition-colors"

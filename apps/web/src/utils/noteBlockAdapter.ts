@@ -15,6 +15,7 @@ export interface NotepadBlockProps {
   date: string;
   labels: LabelData[];
   assignees: string[];
+  pinned: boolean;
 }
 
 export interface NotepadBlockData {
@@ -41,6 +42,7 @@ export function noteToBlock(
       date: note.deadline || note.date,
       labels,
       assignees,
+      pinned: note.pinned,
     },
     content: note.content,
   };

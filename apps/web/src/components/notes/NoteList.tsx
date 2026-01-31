@@ -1,6 +1,7 @@
 import { useRef, useState, forwardRef, useImperativeHandle, useMemo, useEffect, useCallback } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ArrowLeft } from 'lucide-react';
 import {
@@ -65,7 +66,7 @@ interface NoteListProps {
   selectedNote: Note | null;
   onSelectNote: (note: Note | null) => void;
   onNavigateToEditor?: (column: number) => void;
-  onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[]) => Promise<Note>;
+  onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[], assigneeId?: string | null, newNoteId?: string) => Promise<Note>;
   onCreateTask?: () => void;
   // External filter control (from CommandPalette)
   externalLabelFilter?: string[];
@@ -443,6 +444,12 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     }
   }, [notes, onSelectNote, selectedNote, setShowSidebar]);
 
+  // Pin handler that saves state and shows toast
+  const handleTogglePinnedWithToast = useCallback((id: string, pinned: boolean) => {
+    onTogglePinned(id, pinned);
+    toast.success(pinned ? t('notePinned') : t('noteUnpinned'));
+  }, [onTogglePinned, t]);
+
   const handleContentChange = useCallback((c: string) => {
     selection.setTitleValue(c);
   }, [selection]);
@@ -790,7 +797,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           handleSelectNoteById={handleSelectNoteById}
           handleDeleteWithToast={operations.handleDeleteWithToast}
           handleToggleCompletedWithNavigation={operations.handleToggleCompletedWithNavigation}
-          onTogglePinned={onTogglePinned}
+          onTogglePinned={handleTogglePinnedWithToast}
           onEdit={onEdit}
           handleNavigateDownById={operations.handleNavigateDownById}
           handleNavigateUpById={operations.handleNavigateUpById}

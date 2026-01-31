@@ -263,7 +263,8 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       category: NoteCategory = 'todo',
       deadline?: string | null,
       labelIds: string[] = [],
-      assigneeId?: string | null
+      assigneeId?: string | null,
+      newNoteId?: string
     ): Promise<Note> => {
       if (!user || !supabase) throw new Error('Not authenticated');
 
@@ -285,6 +286,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       const { data, error } = await supabase
         .from('notes')
         .insert({
+          ...(newNoteId && { id: newNoteId }),  // Use provided ID if available
           user_id: user.id,
           date: effectiveDate,
           content: '',

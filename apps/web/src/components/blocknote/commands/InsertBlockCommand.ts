@@ -15,11 +15,6 @@ export class InsertBlockCommand implements BlockCommand {
     event.preventDefault();
     event.stopPropagation();
 
-    // Dispatch event to notify parent that a new note should be created
-    window.dispatchEvent(new CustomEvent('notepad:createNoteAfter', {
-      detail: { afterNoteId: block.id }
-    }));
-
     // Insert a new notepad block after the current block (optimistic update)
     const insertedBlocks = editor.insertBlocks(
       [
@@ -35,6 +30,14 @@ export class InsertBlockCommand implements BlockCommand {
     // Move cursor to the start of the newly created block
     if (insertedBlocks.length > 0) {
       editor.setTextCursorPosition(insertedBlocks[0], "start");
+
+      // Dispatch event with the new block's ID so the database can use it
+      window.dispatchEvent(new CustomEvent('notepad:createNoteAfter', {
+        detail: {
+          afterNoteId: block.id,
+          newNoteId: insertedBlocks[0].id  // Pass the new block's ID
+        }
+      }));
     }
 
     return true;
