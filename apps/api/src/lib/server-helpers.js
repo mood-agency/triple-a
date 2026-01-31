@@ -57,7 +57,7 @@ export function parseJsonResponse(content) {
 
   try {
     return JSON.parse(jsonStr.trim());
-  } catch (error) {
+  } catch (_error) {
     // If parsing fails, return the content as a summary
     return {
       summary: content,

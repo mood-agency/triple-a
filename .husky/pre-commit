@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Validar el API antes de hacer commit
+echo "🔍 Validando código del API..."
+pnpm --filter @triple-a/api build
+
+if [ $? -ne 0 ]; then
+  echo "❌ Error: La validación del API falló. Arregla los errores antes de hacer commit."
+  exit 1
+fi
+
+echo "✅ Validación exitosa!"
