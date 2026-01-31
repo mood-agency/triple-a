@@ -9,12 +9,20 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# Validar Web (opcional - solo advertencia por ahora)
+# Validar Web (bloqueante - debe pasar sin errores)
 echo "\n🌐 Validando Web..."
-pnpm --filter @triple-a/web lint || echo "⚠️  Advertencia: Hay warnings en Web (no bloquea commit)"
+pnpm --filter @triple-a/web lint
+if [ $? -ne 0 ]; then
+  echo "❌ Error: La validación de ESLint en Web falló."
+  exit 1
+fi
 
-# Type checking Web
+# Type checking Web (bloqueante - debe pasar)
 echo "\n🔎 Type checking Web..."
-pnpm --filter @triple-a/web type-check || echo "⚠️  Advertencia: Hay errores de tipos en Web (no bloquea commit)"
+pnpm --filter @triple-a/web type-check
+if [ $? -ne 0 ]; then
+  echo "❌ Error: Type check de Web falló."
+  exit 1
+fi
 
-echo "\n✅ Validación del API exitosa!"
+echo "\n✅ Todas las validaciones pasaron correctamente!"
