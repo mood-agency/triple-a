@@ -720,8 +720,21 @@
       "processingFailed": "Failed to process with AI",
       "networkError": "Connection error",
       "invalidApiKey": "Invalid API Key"
+    },
+    "summary": {
+      "button": "AI Summary",
+      "title": "Tasks Summary",
+      "generating": "Generating summary...",
+      "copy": "Copy",
+      "copied": "Copied",
+      "regenerate": "Regenerate",
+      "close": "Close"
     }
   },
+  "searchInDescription": "Search in description...",
+  "previousMatch": "Previous match (Shift+Enter)",
+  "nextMatch": "Next match (Enter)",
+  "close": "Close (Esc)",
   "comments": {
     "comment": "comment",
     "comments": "comments",

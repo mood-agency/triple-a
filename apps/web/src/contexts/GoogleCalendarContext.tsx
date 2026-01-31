@@ -177,7 +177,7 @@ async function getNoteByGCalEventId(gcalEventId: string): Promise<{ id: string }
     .select('id')
     .eq('gcal_event_id', gcalEventId)
     .is('deleted_at', null)
-    .single();
+    .maybeSingle();
 
   return data;
 }

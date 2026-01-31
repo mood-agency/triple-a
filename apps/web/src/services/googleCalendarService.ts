@@ -208,14 +208,14 @@ class GoogleCalendarService {
         .from('google_calendar_config')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        if (error.code === 'PGRST116') {
-          // No config found, return default
-          return null;
-        }
         console.error('Error fetching config:', error);
+        return null;
+      }
+
+      if (!data) {
         return null;
       }
 

@@ -565,7 +565,18 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
   // Hotkeys
   const hotkeyOptions = { preventDefault: true, enableOnFormTags: true, enableOnContentEditable: true };
-  useHotkeys('ctrl+f', () => { searchInputRef.current?.focus(); searchInputRef.current?.select(); }, hotkeyOptions);
+  // CTRL+F: Only focus global search when NOT inside a contenteditable (allows browser native find in editor)
+  useHotkeys('ctrl+f', () => {
+    searchInputRef.current?.focus();
+    searchInputRef.current?.select();
+  }, {
+    ...hotkeyOptions,
+    enableOnContentEditable: false,
+    enabled: () => {
+      const activeElement = document.activeElement;
+      return activeElement?.closest('[contenteditable="true"]') === null;
+    },
+  });
   useHotkeys('alt+q', () => { filters.setCategoryFilter(filters.categoryFilter === 'todo' ? 'all' : 'todo'); }, hotkeyOptions, [filters.categoryFilter]);
   useHotkeys('alt+w', () => { filters.setCategoryFilter(filters.categoryFilter === 'followup' ? 'all' : 'followup'); }, hotkeyOptions, [filters.categoryFilter]);
   useHotkeys('alt+e', () => { filters.setCategoryFilter(filters.categoryFilter === 'meeting' ? 'all' : 'meeting'); }, hotkeyOptions, [filters.categoryFilter]);
@@ -736,6 +747,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         setSortByCategory={filters.setSortByCategory}
         contacts={contacts}
         noteAssigneesCache={noteAssigneesCache}
+        aiProvider={settings.aiProvider}
         assigneeFilter={filters.assigneeFilter}
         setAssigneeFilter={filters.setAssigneeFilter}
         assigneePopoverOpen={assigneeFilterPopoverOpen}
