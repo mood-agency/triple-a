@@ -9,8 +9,10 @@ import {
 } from 'react'
 import { BlockNoteView } from '@blocknote/shadcn'
 import { useCreateBlockNote } from '@blocknote/react'
-import { BlockNoteSchema, defaultBlockSpecs, createCodeBlockSpec, en as enLocale, es as esLocale, type BlockNoteEditor as BlockNoteEditorCore } from '@blocknote/core'
+import { BlockNoteSchema, defaultBlockSpecs, createCodeBlockSpec, type BlockNoteEditor as BlockNoteEditorCore } from '@blocknote/core'
 import { codeBlockOptions } from '@blocknote/code-block'
+// eslint-disable-next-line no-duplicate-imports
+import { en as enLocale, es as esLocale } from '@blocknote/core/locales'
 import '@blocknote/shadcn/style.css'
 import '@blocknote/core/fonts/inter.css'
 import { toast } from 'sonner'
