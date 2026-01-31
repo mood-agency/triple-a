@@ -2,8 +2,10 @@ import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
-import { List, Calendar, AlignJustify, Copy, Check } from 'lucide-react';
+import { List, Calendar, AlignJustify, Copy, Check, Sparkles } from 'lucide-react';
 import { NoteFilters } from './NoteFilters';
+import { AISummaryDialog } from './AISummaryDialog';
+import type { AIProviderConfig } from '@/hooks/useSettings';
 import { Logo } from '@/components/Logo';
 import { useTranslation } from 'react-i18next';
 import type { Note, NoteCategory, Label } from '@/types/note';
@@ -20,6 +22,8 @@ interface NoteListToolbarProps {
     setCompactTaskView: (compact: boolean) => void;
     // Active notes for copy functionality
     activeNotes: Note[];
+    // AI provider for summary feature
+    aiProvider?: AIProviderConfig | null;
 
     // NoteFilters props
     searchQuery: string;
@@ -66,6 +70,7 @@ export function NoteListToolbar({
     compactTaskView,
     setCompactTaskView,
     activeNotes,
+    aiProvider,
     searchQuery,
     setSearchQuery,
     searchInputRef,
@@ -100,6 +105,7 @@ export function NoteListToolbar({
 }: NoteListToolbarProps) {
     const { t } = useTranslation();
     const [copied, setCopied] = useState(false);
+    const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
 
     const handleCopyTasks = useCallback(async () => {
         if (activeNotes.length === 0) return;
@@ -206,6 +212,24 @@ export function NoteListToolbar({
                     <p>{t('copyActiveTasks')} ({activeNotes.length})</p>
                 </TooltipContent>
             </Tooltip>
+            {/* AI Summary button */}
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setSummaryDialogOpen(true)}
+                        className="h-8 w-8 shadow-none"
+                        aria-label={t('ai.summary.button')}
+                        disabled={activeNotes.length === 0 || !aiProvider}
+                    >
+                        <Sparkles className="h-4 w-4" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>{aiProvider ? `${t('ai.summary.button')} (${activeNotes.length})` : t('ai.notConfigured')}</p>
+                </TooltipContent>
+            </Tooltip>
             <NoteFilters
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
@@ -241,6 +265,17 @@ export function NoteListToolbar({
             />
             </div>
         </div>
+
+        {/* AI Summary Dialog */}
+        {aiProvider && (
+            <AISummaryDialog
+                open={summaryDialogOpen}
+                onOpenChange={setSummaryDialogOpen}
+                notes={activeNotes}
+                aiProvider={aiProvider}
+                noteAssigneesCache={noteAssigneesCache}
+            />
+        )}
         </div>
     );
 }

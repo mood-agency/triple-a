@@ -363,7 +363,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         .eq('note_id', noteId)
         .order('version_number', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       // Throttle: don't create a new version if last one was less than 30 seconds ago
       if (lastVersion?.created_at) {
@@ -413,7 +413,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         .from('notes')
         .select('content, description, category, completed')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
       const updates: Record<string, unknown> = { content };
       if (category !== undefined) updates.category = category;

@@ -720,8 +720,21 @@
       "processingFailed": "Error al procesar con AI",
       "networkError": "Error de conexión",
       "invalidApiKey": "API Key inválida"
+    },
+    "summary": {
+      "button": "Resumen IA",
+      "title": "Resumen de Tareas",
+      "generating": "Generando resumen...",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "regenerate": "Regenerar",
+      "close": "Cerrar"
     }
   },
+  "searchInDescription": "Buscar en descripción...",
+  "previousMatch": "Coincidencia anterior (Shift+Enter)",
+  "nextMatch": "Siguiente coincidencia (Enter)",
+  "close": "Cerrar (Esc)",
   "comments": {
     "comment": "comentario",
     "comments": "comentarios",
