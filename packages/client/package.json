@@ -1,6 +1,7 @@
 {
   "name": "@triple-a/client",
   "version": "0.1.0",
+  "description": "TypeScript API client for Triple-A with automatic authentication, retry logic, and rate limit handling",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -12,21 +13,41 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": ["dist", "README.md"],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "clean": "rm -rf dist",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "pnpm build"
   },
+  "keywords": [
+    "triple-a",
+    "api-client",
+    "typescript",
+    "notes",
+    "tasks",
+    "productivity"
+  ],
+  "author": "Triple-A",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mood-agency/triple-a",
+    "directory": "packages/client"
+  },
+  "bugs": {
+    "url": "https://github.com/mood-agency/triple-a/issues"
+  },
+  "homepage": "https://github.com/mood-agency/triple-a#readme",
   "dependencies": {
-    "@triple-a/types": "workspace:*"
+    "@triple-a/types": "^0.1.0"
   },
   "devDependencies": {
     "tsup": "^8.0.0",
     "typescript": "~5.9.3"
   },
-  "peerDependencies": {
-    "@triple-a/types": "workspace:*"
+  "publishConfig": {
+    "access": "public"
   }
 }
