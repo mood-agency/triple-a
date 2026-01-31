@@ -215,6 +215,12 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.91.0
         version: 2.93.2
+      '@tiptap/core':
+        specifier: ^3.16.0
+        version: 3.18.0(@tiptap/pm@3.18.0)
+      '@tiptap/pm':
+        specifier: ^3.16.0
+        version: 3.18.0
       '@triple-a/types':
         specifier: workspace:*
         version: link:../../packages/types
