@@ -1,6 +1,7 @@
 import { Extension } from '@tiptap/core';
-import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Plugin, PluginKey, type Transaction, type EditorState } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import type { Node as PMNode } from '@tiptap/pm/model';
 
 const searchPluginKey = new PluginKey('search-highlight');
 
@@ -44,7 +45,7 @@ export const SearchHighlightExtension = Extension.create<SearchHighlightOptions,
     return {
       setSearchHighlight:
         (searchTerm: string, currentMatchIndex: number) =>
-        ({ tr, dispatch }) => {
+        ({ tr, dispatch }: { tr: Transaction; dispatch: ((tr: Transaction) => void) | undefined }) => {
           this.storage.searchTerm = searchTerm;
           this.storage.currentMatchIndex = currentMatchIndex;
           // Dispatch transaction to trigger update
@@ -56,7 +57,7 @@ export const SearchHighlightExtension = Extension.create<SearchHighlightOptions,
         },
       clearSearchHighlight:
         () =>
-        ({ tr, dispatch }) => {
+        ({ tr, dispatch }: { tr: Transaction; dispatch: ((tr: Transaction) => void) | undefined }) => {
           this.storage.searchTerm = '';
           this.storage.currentMatchIndex = 0;
           if (dispatch) {
@@ -79,7 +80,7 @@ export const SearchHighlightExtension = Extension.create<SearchHighlightOptions,
           init() {
             return DecorationSet.empty;
           },
-          apply(tr, oldState) {
+          apply(tr: Transaction, oldState: DecorationSet) {
             const searchTerm = extension.storage.searchTerm;
             const currentMatchIndex = extension.storage.currentMatchIndex;
 
@@ -92,7 +93,7 @@ export const SearchHighlightExtension = Extension.create<SearchHighlightOptions,
               const { doc } = tr;
               let matchIndex = 0;
 
-              doc.descendants((node, pos) => {
+              doc.descendants((node: PMNode, pos: number) => {
                 if (node.isText && node.text) {
                   const text = node.text.toLowerCase();
                   const search = searchTerm.toLowerCase();
@@ -118,8 +119,8 @@ export const SearchHighlightExtension = Extension.create<SearchHighlightOptions,
           },
         },
         props: {
-          decorations(state) {
-            return this.getState(state);
+          decorations(state: EditorState) {
+            return searchPluginKey.getState(state);
           },
         },
       }),
