@@ -104,16 +104,23 @@ export function Home() {
     return assigneesParam ? assigneesParam.split(',').filter(Boolean) : [];
   }, [searchParams]);
 
+  const getInitialSortConfig = useCallback(() => {
+    const deadline = searchParams.get('sortDeadline') as 'asc' | 'desc' | null;
+    const assignee = searchParams.get('sortAssignee') as 'asc' | 'desc' | null;
+    const category = searchParams.get('sortCategory') as 'asc' | 'desc' | null;
+    return {
+      deadline: deadline === 'asc' || deadline === 'desc' ? deadline : null,
+      assignee: assignee === 'asc' || assignee === 'desc' ? assignee : null,
+      category: category === 'asc' || category === 'desc' ? category : null,
+    };
+  }, [searchParams]);
+
   const [labelFilter, setLabelFilter] = useState<string[]>(getInitialLabelFilter);
   const [categoryFilter, setCategoryFilter] = useState<NoteCategory | 'all'>(getInitialCategoryFilter);
   const [assigneeFilter, setAssigneeFilter] = useState<string[]>(getInitialAssigneeFilter);
   const [taskStatusFilter, setTaskStatusFilter] = useState<'active' | 'completed' | 'deleted'>('active');
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
-  const [sortConfig, setSortConfig] = useState<{ deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null }>({
-    deadline: null,
-    assignee: null,
-    category: null,
-  });
+  const [sortConfig, setSortConfig] = useState<{ deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null }>(getInitialSortConfig);
   const [showCreateProjectDialog, setShowCreateProjectDialog] = useState(false);
 
   // Update URL when view mode changes
@@ -259,6 +266,33 @@ export function Home() {
     }, { replace: true });
   }, [setSearchParams]);
 
+  // Update URL when sort config changes
+  const handleSortConfigChange = useCallback((newSortConfig: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null }) => {
+    setSortConfig(newSortConfig);
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      // Update or remove deadline sort param
+      if (newSortConfig.deadline) {
+        newParams.set('sortDeadline', newSortConfig.deadline);
+      } else {
+        newParams.delete('sortDeadline');
+      }
+      // Update or remove assignee sort param
+      if (newSortConfig.assignee) {
+        newParams.set('sortAssignee', newSortConfig.assignee);
+      } else {
+        newParams.delete('sortAssignee');
+      }
+      // Update or remove category sort param
+      if (newSortConfig.category) {
+        newParams.set('sortCategory', newSortConfig.category);
+      } else {
+        newParams.delete('sortCategory');
+      }
+      return newParams;
+    }, { replace: true });
+  }, [setSearchParams]);
+
   const handleCreateTask = useCallback(() => {
     // Use category filter if set, otherwise default to 'todo'
     const category = categoryFilter !== 'all' ? categoryFilter : 'todo';
@@ -338,7 +372,7 @@ export function Home() {
         externalShowOverdueOnly={showOverdueOnly}
         onShowOverdueOnlyChange={setShowOverdueOnly}
         externalSortConfig={sortConfig}
-        onSortConfigChange={setSortConfig}
+        onSortConfigChange={handleSortConfigChange}
         sidebarTrigger={sidebarTrigger}
       />
 
@@ -378,7 +412,7 @@ export function Home() {
         hasCompletedTasks={notes.some(n => n.completed)}
         hasDeletedTasks={notes.some(n => n.deleted_at)}
         sortConfig={sortConfig}
-        onSortChange={setSortConfig}
+        onSortChange={handleSortConfigChange}
       />
 
       <HotkeysHelper />
