@@ -1,22 +1,14 @@
 import { memo } from 'react';
-import {
-    DndContext,
-    closestCenter,
-    type DragEndEvent,
-    type SensorDescriptor,
-    type SensorOptions,
-} from '@dnd-kit/core';
-import {
-    SortableContext,
-    verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
+import type { DragEndEvent, SensorDescriptor, SensorOptions } from '@dnd-kit/core';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { EMPTY_LABELS } from '@/constants/notes';
 import { CalendarView } from './CalendarView';
 import { TimelineView } from './TimelineView';
 import { MemoizedNoteRow } from './NoteRow';
+import { BlockNoteNoteList } from './BlockNoteNoteList';
 import { NoteListEmptyState } from './NoteListEmptyState';
 import { ActiveFiltersBar } from './ActiveFiltersBar';
 
@@ -56,6 +48,7 @@ interface NoteListContentProps {
     handleTitleFocused: () => void;
     handleCreateNoteAfterById: (id: string) => void;
     handleCreateTaskAtTime: (hour: number) => void;
+    onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[]) => Promise<Note>;
 
     // Drag and Drop
     sensors: SensorDescriptor<SensorOptions>[];
@@ -143,10 +136,11 @@ export const NoteListContent = memo(function NoteListContent({
     handleTitleFocused,
     handleCreateNoteAfterById,
     handleCreateTaskAtTime,
-    sensors,
-    handleDragStart,
-    handleDragEnd,
-    activeId,
+    onCreateNoteAfter,
+    sensors: _sensors,
+    handleDragStart: _handleDragStart,
+    handleDragEnd: _handleDragEnd,
+    activeId: _activeId,
     labels,
     noteLabelsCache,
     handleAddLabelToNote,
@@ -299,57 +293,23 @@ export const NoteListContent = memo(function NoteListContent({
                                 <NoResultsMessage />
                             ) : (
                                 <>
-                                    <DndContext
-                                        sensors={sensors}
-                                        collisionDetection={closestCenter}
-                                        onDragStart={handleDragStart}
-                                        onDragEnd={handleDragEnd}
-                                    >
-                                        <SortableContext
-                                            items={activeNotes.map((n) => n.id)}
-                                            strategy={verticalListSortingStrategy}
-                                        >
-                                            {activeNotes.map((note) => (
-                                                <MemoizedNoteRow
-                                                    key={note.id}
-                                                    note={note}
-                                                    onDeleteWithToast={handleDeleteWithToast}
-                                                    onToggleCompleted={handleToggleCompletedWithNavigation}
-                                                    onTogglePinned={onTogglePinned}
-                                                    isSelected={selectedNote?.id === note.id}
-                                                    onSelect={handleSelectNoteById}
-                                                    onEdit={onEdit}
-                                                    onNavigateDown={handleNavigateDownById}
-                                                    onNavigateUp={handleNavigateUpById}
-                                                    onNavigateToDescription={handleNavigateToDescription}
-                                                    shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
-                                                    desiredColumn={desiredColumn}
-                                                    onTitleFocused={handleTitleFocused}
-                                                    onCreateNoteAfter={handleCreateNoteAfterById}
-                                                    isDragging={activeId === note.id}
-                                                    labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
-                                                    allLabels={labels}
-                                                    onAddLabel={handleAddLabelToNote}
-                                                    onRemoveLabel={handleRemoveLabelFromNote}
-                                                    onCreateLabel={handleCreateLabelClick}
-                                                    onCreateLabelAndAdd={handleCreateLabelAndAdd}
-                                                    onEditLabel={handleEditLabel}
-                                                    isFixedInSidebar={fixedNoteId === note.id}
-                                                    onToggleFixInSidebar={handleToggleFixInSidebarById}
-                                                    onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
-                                                    assigneeName={assigneeNamesCache.get(note.id)}
-                                                    assignees={noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES}
-                                                    compactView={compactTaskView}
-                                                    isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
-                                                    contacts={contacts}
-                                                    onAddAssignee={onAddAssignee}
-                                                    onRemoveAssignee={onRemoveAssignee}
-                                                    onUpdateAssignee={onUpdateAssignee}
-                                                    autoSaveInterval={autoSaveInterval}
-                                                />
-                                            ))}
-                                        </SortableContext>
-                                    </DndContext>
+                                    {/* Pass filtered notes when filters are active, otherwise pass all active notes */}
+                                    <BlockNoteNoteList
+                                        notes={hasActiveFilters ? filteredNotes : activeNotes}
+                                        noteLabelsCache={noteLabelsCache}
+                                        noteAssigneesCache={noteAssigneesCache}
+                                        onNavigateToDescription={handleNavigateToDescription}
+                                        onSelectNote={handleSelectNoteById}
+                                        onToggleCompleted={handleToggleCompletedWithNavigation}
+                                        onDelete={handleDeleteWithToast}
+                                        onCreateNoteAfter={onCreateNoteAfter}
+                                        onEdit={onEdit}
+                                        onTogglePin={(noteId) => onTogglePinned(noteId, true)}
+                                        onToggleFixInSidebar={handleToggleFixInSidebarById}
+                                        onSaveSuccess={(savedCount) => {
+                                            toast.success(t('toast.noteSaved', { count: savedCount }));
+                                        }}
+                                    />
                                     {/* Show no results message after pinned notes when they don't match filters */}
                                     {shouldShowNoResultsWithPinnedVisible && (
                                         <NoResultsMessage fillHeight={false} />

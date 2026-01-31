@@ -166,6 +166,7 @@
     "noteCreated": "Tarea creada",
     "noteUpdated": "Tarea actualizada",
     "noteRestored": "Tarea restaurada",
+    "noteSaved": "{{count}} tarea(s) guardada(s)",
     "deadlineUpdated": "Fecha límite actualizada",
     "notePostponed": "Tarea pospuesta",
     "notePinned": "Tarea fijada",

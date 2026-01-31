@@ -43,3 +43,6 @@ dist-ssr
 TODO.md
 /.turbo
 .turbo/
+/.brv/sessions
+/.brv/context-tree
+/.brv/blobs

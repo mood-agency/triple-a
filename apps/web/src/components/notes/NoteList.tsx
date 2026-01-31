@@ -433,8 +433,15 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   // PERFORMANCE: Stabilized callbacks for NoteListContent
   const handleSelectNoteById = useCallback((id: string) => {
     const n = notes.find(n => n.id === id);
-    if (n) onSelectNote(n);
-  }, [notes, onSelectNote]);
+    if (n) {
+      // Hide description panel when switching to a different task
+      if (selectedNote?.id !== id) {
+        setShowSidebar(false);
+        setSidebarClosing(false);
+      }
+      onSelectNote(n);
+    }
+  }, [notes, onSelectNote, selectedNote, setShowSidebar]);
 
   const handleContentChange = useCallback((c: string) => {
     selection.setTitleValue(c);
@@ -793,6 +800,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           handleTitleFocused={selection.handleTitleFocused}
           handleCreateNoteAfterById={operations.handleCreateNoteAfterById}
           handleCreateTaskAtTime={operations.handleCreateTaskAtTime}
+          onCreateNoteAfter={onCreateNoteAfter}
           sensors={sensors}
           handleDragStart={handleDragStart}
           handleDragEnd={handleDragEnd}

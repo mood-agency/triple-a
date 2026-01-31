@@ -2,6 +2,7 @@ import type { BlockCommand, BlockCommandContext } from "./BlockCommand";
 import { SelectAllCommand } from "./SelectAllCommand";
 import { InsertBlockCommand } from "./InsertBlockCommand";
 import { DeleteBlockCommand } from "./DeleteBlockCommand";
+import { NavigateToDescriptionCommand } from "./NavigateToDescriptionCommand";
 
 /**
  * Maps keyboard events to command instances
@@ -15,6 +16,7 @@ class CommandRegistry {
     this.register("Cmd+A", new SelectAllCommand());
     this.register("Enter", new InsertBlockCommand());
     this.register("Backspace", new DeleteBlockCommand());
+    this.register("Tab", new NavigateToDescriptionCommand());
   }
 
   /**
