@@ -1,8 +1,6 @@
 import { forwardRef, memo, useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { format } from 'date-fns';
-import { es, enUS } from 'date-fns/locale';
 import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, Tag, User, Trash2, History, RotateCcw, Sparkles, Pin, PanelRightOpen, Search, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -23,7 +21,7 @@ import { AssigneePicker } from '@/components/notes/AssigneePicker';
 import { EditableTitle } from '@/components/notes/EditableTitle';
 import type { Note, NoteCategory, Label, NoteVersion, NoteAction } from '@/types/note';
 import type { Contact } from '@/types/contact';
-import { parseLocalDate } from '@/utils/dateUtils';
+import { parseLocalDate, formatRelativeDateWithTime } from '@/utils/dateUtils';
 import { AIAssistantDialog } from './AIAssistantDialog';
 import { ShareDialog } from './ShareDialog';
 import { useAssignees } from '@/hooks/useAssignees';
@@ -154,7 +152,6 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   isFixedInSidebar = false,
 }, ref) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.language === 'es' ? es : enUS;
   const { getAssigneesForNote, noteAssigneeVersion } = useAssignees();
   const [noteAssignees, setNoteAssignees] = useState<Contact[]>([]);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
@@ -508,20 +505,52 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
         {note.created_at && (
           <>
             <span>{t('createdOnDate')}</span>
-            <span className="font-medium text-foreground">{format(new Date(note.created_at), 'dd/MM/yyyy HH:mm:ss', { locale })}</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+              className="font-medium text-foreground cursor-default"
+            >
+              {formatRelativeDateWithTime(
+                new Date(note.created_at),
+                i18n.language,
+                t('date.today'),
+                t('date.tomorrow')
+              )}
+            </button>
           </>
         )}
         <span>{t('expiresOnDate')}</span>
-        <DatePicker
-          date={note.deadline ? parseLocalDate(note.deadline) : undefined}
-          onDateChange={onDeadlineChange}
-          onSave={onDeadlineSave}
-          placeholder={t('setDeadline')}
-          open={deadlinePickerOpen}
-          onOpenChange={onDeadlinePickerOpenChange}
-          showTime
-          hideIcon
-        />
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDeadlinePickerOpenChange(!deadlinePickerOpen);
+          }}
+          className="font-medium text-foreground hover:underline cursor-pointer"
+        >
+          {note.deadline
+            ? formatRelativeDateWithTime(
+                parseLocalDate(note.deadline),
+                i18n.language,
+                t('date.today'),
+                t('date.tomorrow')
+              )
+            : t('setDeadline')}
+        </button>
+        <span className="sr-only">
+          <DatePicker
+            date={note.deadline ? parseLocalDate(note.deadline) : undefined}
+            onDateChange={onDeadlineChange}
+            onSave={onDeadlineSave}
+            placeholder=""
+            open={deadlinePickerOpen}
+            onOpenChange={onDeadlinePickerOpenChange}
+            showTime
+            hideIcon
+          />
+        </span>
       </div>
 
 {/* Actions row: Share, AI, Pin, Sidebar, Delete */}
