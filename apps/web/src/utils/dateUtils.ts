@@ -96,3 +96,49 @@ export function getMinutesFromDeadline(deadlineStr: string): number {
   const date = parseLocalDate(deadlineStr);
   return date.getMinutes();
 }
+
+/**
+ * Format a date for display, showing relative dates like "today" or "tomorrow"
+ * with the time included (e.g., "hoy 14:30:00", "mañana 09:15:00")
+ * @param date - The date to format
+ * @param language - The language code ('es' or 'en')
+ * @param todayText - Translation for "today"
+ * @param tomorrowText - Translation for "tomorrow"
+ * @returns Formatted date string with time
+ */
+export function formatRelativeDateWithTime(
+  date: Date,
+  language: string,
+  todayText: string,
+  tomorrowText: string
+): string {
+  const today = new Date();
+  const isToday = date.getDate() === today.getDate() &&
+                  date.getMonth() === today.getMonth() &&
+                  date.getFullYear() === today.getFullYear();
+
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const isTomorrow = date.getDate() === tomorrow.getDate() &&
+                     date.getMonth() === tomorrow.getMonth() &&
+                     date.getFullYear() === tomorrow.getFullYear();
+
+  // Format time as HH:mm:ss
+  const timeStr = date.toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+
+  if (isToday) return `${todayText} ${timeStr}`;
+  if (isTomorrow) return `${tomorrowText} ${timeStr}`;
+
+  // For other dates, show date + time
+  const dateStr = date.toLocaleDateString(language, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+
+  return `${dateStr} ${timeStr}`;
+}
