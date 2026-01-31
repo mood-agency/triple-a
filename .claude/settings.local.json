@@ -110,7 +110,22 @@
       "WebFetch(domain:www.blocknotejs.org)",
       "Bash(git ls-tree:*)",
       "Bash(git fetch:*)",
-      "Bash(git rev-parse:*)"
+      "Bash(git rev-parse:*)",
+      "Bash(pnpm dev)",
+      "Bash(npm view:*)",
+      "Bash(if [ -d \"dist\" ])",
+      "Bash(then cat dist/package.json)",
+      "Bash(else echo \"No dist folder\")",
+      "Bash(fi)",
+      "Bash(pnpm --filter @triple-a/web add:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm test:run:*)",
+      "Bash(pnpm test:coverage:*)",
+      "Bash(pnpm run lint:*)",
+      "Bash(pnpm run type-check:*)",
+      "Bash(pnpm run build:*)",
+      "Bash(tee:*)",
+      "Bash(npx husky:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\argen\\Documents\\GitHub\\triple-a",

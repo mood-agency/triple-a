@@ -1,9 +1,5 @@
 import { useState, useCallback } from 'react'
-import type {
-  YouTubeImportState,
-  YouTubeImportError,
-} from '@/types/youtube'
-import { initialYouTubeImportState } from '@/types/youtube'
+import { initialYouTubeImportState, type YouTubeImportState, type YouTubeImportError } from '@/types/youtube'
 import {
   isYouTubeImportAvailable,
   getVideoMetadata,

@@ -1,9 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { addDays, format, isSameDay, startOfDay } from "date-fns"
+import { addDays, format, isSameDay, startOfDay, type Locale } from "date-fns"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
-import type { Locale } from "date-fns"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"

@@ -390,7 +390,7 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
               });
               result.eventsImported++;
             }
-          } catch (err) {
+          } catch (_err) {
             result.errors.push(`Failed to process event: ${event.summary}`);
           }
         }

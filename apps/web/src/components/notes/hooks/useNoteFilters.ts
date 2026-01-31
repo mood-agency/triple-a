@@ -196,28 +196,7 @@ export function useNoteFilters({
 
     // Filter Logic
     const baseFilteredNotes = useMemo(() => notes.filter((note) => {
-        if (note.pinned) {
-            if (!searchQuery.trim()) {
-                if (categoryFilter === 'all' && note.category === 'notes') return false;
-                if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
-                return true;
-            }
-            // Cuando hay búsqueda, buscar en el contenido sin filtrar por categoría
-            const titleMatch = note.content.toLowerCase().includes(searchQueryLower);
-            const descriptionMatch = note.description?.toLowerCase().includes(searchQueryLower) ?? false;
-            return titleMatch || descriptionMatch;
-        }
-
-        // Solo aplicar filtro de categoría si NO hay búsqueda de texto
-        // (cuando hay búsqueda, queremos buscar en todas las categorías incluyendo notas)
-        if (!searchQuery.trim()) {
-            if (categoryFilter === 'all') {
-                if (note.category === 'notes') return false;
-            } else if (note.category !== categoryFilter) {
-                return false;
-            }
-        }
-
+        // Apply label and assignee filters first (applies to both pinned and non-pinned notes)
         if (labelFilter.length > 0) {
             const noteLabelIds = (noteLabelsCache.get(note.id) ?? EMPTY_LABELS).map(l => l.id);
             const hasMatchingLabel = labelFilter.some(labelId => noteLabelIds.includes(labelId));
@@ -228,6 +207,34 @@ export function useNoteFilters({
             const noteAssignees = noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES;
             const hasMatchingAssignee = assigneeFilter.some(contactId => noteAssignees.some(c => c.id === contactId));
             if (!hasMatchingAssignee) return false;
+        }
+
+        // Check if we have active filters (label, assignee, or date range)
+        const hasActiveFilters = labelFilter.length > 0 || assigneeFilter.length > 0 || dateRangeFilter.from || dateRangeFilter.to;
+
+        if (note.pinned) {
+            if (!searchQuery.trim()) {
+                // Only apply category exclusion if there are no active filters
+                if (!hasActiveFilters) {
+                    if (categoryFilter === 'all' && note.category === 'notes') return false;
+                    if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
+                }
+                return true;
+            }
+            // Cuando hay búsqueda, buscar en el contenido sin filtrar por categoría
+            const titleMatch = note.content.toLowerCase().includes(searchQueryLower);
+            const descriptionMatch = note.description?.toLowerCase().includes(searchQueryLower) ?? false;
+            return titleMatch || descriptionMatch;
+        }
+
+        // Solo aplicar filtro de categoría si NO hay búsqueda de texto Y no hay filtros activos
+        // (cuando hay búsqueda o filtros activos, queremos buscar en todas las categorías incluyendo notas)
+        if (!searchQuery.trim() && !hasActiveFilters) {
+            if (categoryFilter === 'all') {
+                if (note.category === 'notes') return false;
+            } else if (note.category !== categoryFilter) {
+                return false;
+            }
         }
 
         if (showOverdueOnly) {

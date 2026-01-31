@@ -41,7 +41,7 @@
   },
   "homepage": "https://github.com/mood-agency/triple-a#readme",
   "dependencies": {
-    "@triple-a/types": "^0.1.0"
+    "@triple-a/types": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.0.0",
