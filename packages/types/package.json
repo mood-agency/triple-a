@@ -1,6 +1,7 @@
 {
   "name": "@triple-a/types",
   "version": "0.1.0",
+  "description": "Shared TypeScript types for Triple-A (Notes, Labels, Projects, Contacts, API responses)",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -10,14 +11,36 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": ["dist", "README.md"],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "pnpm build"
   },
+  "keywords": [
+    "triple-a",
+    "typescript",
+    "types",
+    "notes",
+    "tasks"
+  ],
+  "author": "Triple-A",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mood-agency/triple-a",
+    "directory": "packages/types"
+  },
+  "bugs": {
+    "url": "https://github.com/mood-agency/triple-a/issues"
+  },
+  "homepage": "https://github.com/mood-agency/triple-a#readme",
   "devDependencies": {
     "typescript": "~5.9.3"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
