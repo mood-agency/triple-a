@@ -12,6 +12,7 @@ COPY apps/api/package.json ./apps/api/
 RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm --filter @triple-a/types build
+RUN pnpm --filter @triple-a/api build
 
 # Production
 FROM node:20-slim AS runner

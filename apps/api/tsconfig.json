@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    // Permitir type checking de archivos JavaScript
+    "allowJs": true,
+    "checkJs": true,
+
+    // No emitir archivos (solo validación)
+    "noEmit": true,
+
+    // ES Modules
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+
+    // Reglas para detectar errores críticos (no todos los problemas de tipos)
+    "strict": false,
+    "noImplicitAny": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitReturns": false,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Permitir imports de node_modules sin tipos
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+
+    // Paths
+    "baseUrl": ".",
+    "types": ["node"]
+  },
+  "include": [
+    "src/**/*.js"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

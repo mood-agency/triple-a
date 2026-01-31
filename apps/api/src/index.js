@@ -137,11 +137,13 @@ app.post('/api/youtube-metadata', async (c) => {
 
     if (!response.ok) {
       console.error('YouTube API error:', data);
+      // Use status from API or default to 500
+      const status = response.status >= 400 && response.status < 600 ? response.status : 500;
       return c.json({
         error: 'YouTube API error',
         code: 'API_ERROR',
         details: data.error?.message,
-      }, response.status);
+      }, /** @type {any} */ (status));
     }
 
     if (!data.items || data.items.length === 0) {
@@ -1381,6 +1383,7 @@ app.get('/api/v1/notes', async (c) => {
     const category = c.req.query('category');
     const pinned = c.req.query('pinned');
     const assignee_ids = c.req.queries('assignee_ids'); // New: multiple assignees filter
+    const assignee_id = c.req.query('assignee_id'); // Legacy: single assignee filter
     const limit = parseInt(c.req.query('limit') || '100', 10);
     const offset = parseInt(c.req.query('offset') || '0', 10);
     const sort = c.req.query('sort') || 'created_at';
@@ -1456,7 +1459,7 @@ app.get('/api/v1/notes', async (c) => {
     const notesWithRelations = notes.map((note) => {
       const labels = note.note_labels ? note.note_labels.map((nl) => nl.label_id) : [];
       const assignee_ids = note.note_assignees ? note.note_assignees.map((na) => na.contact_id) : [];
-      const { note_labels, note_assignees, ...noteData } = note;
+      const { note_labels: _note_labels, note_assignees: _note_assignees, ...noteData } = note;
       return { ...noteData, labels, assignee_ids };
     });
 
@@ -1499,7 +1502,7 @@ app.get('/api/v1/notes/:id', async (c) => {
 
     const labels = note.note_labels ? note.note_labels.map((nl) => nl.label_id) : [];
     const assignee_ids = note.note_assignees ? note.note_assignees.map((na) => na.contact_id) : [];
-    const { note_labels, note_assignees, ...noteData } = note;
+    const { note_labels: _note_labels, note_assignees: _note_assignees, ...noteData } = note;
 
     return c.json({ data: { ...noteData, labels, assignee_ids } }, 200);
   } catch (error) {
@@ -1844,7 +1847,7 @@ app.post('/api/v1/notes/search', async (c) => {
     const notesWithRelations = notes.map((note) => {
       const labels = note.note_labels ? note.note_labels.map((nl) => nl.label_id) : [];
       const assignee_ids = note.note_assignees ? note.note_assignees.map((na) => na.contact_id) : [];
-      const { note_labels, note_assignees, ...noteData } = note;
+      const { note_labels: _note_labels, note_assignees: _note_assignees, ...noteData } = note;
       return { ...noteData, labels, assignee_ids };
     });
 
@@ -2356,7 +2359,7 @@ app.get('/api/v1/projects/:id/notes', async (c) => {
     const notesWithRelations = (notes || []).map((note) => {
       const labels = note.note_labels ? note.note_labels.map((nl) => nl.label_id) : [];
       const assignee_ids = note.note_assignees ? note.note_assignees.map((na) => na.contact_id) : [];
-      const { note_labels, note_assignees, ...noteData } = note;
+      const { note_labels: _note_labels, note_assignees: _note_assignees, ...noteData } = note;
       return { ...noteData, labels, assignee_ids };
     });
 
@@ -2571,7 +2574,7 @@ app.get('/api/v1/contacts/:id/notes', async (c) => {
       const note = na.notes;
       const labels = note.note_labels ? note.note_labels.map((nl) => nl.label_id) : [];
       const assignee_ids = note.note_assignees ? note.note_assignees.map((na) => na.contact_id) : [];
-      const { note_labels, note_assignees: _, ...noteData } = note;
+      const { note_labels: _note_labels, note_assignees: _note_assignees, ...noteData } = note;
       return { ...noteData, labels, assignee_ids };
     });
 
