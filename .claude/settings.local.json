@@ -131,7 +131,18 @@
       "Skill(keybindings-help:*)",
       "Bash(pnpm list:*)",
       "Bash(gh workflow:*)",
-      "Bash(pnpm dev:web:*)"
+      "Bash(pnpm dev:web:*)",
+      "Bash(bash)",
+      "Bash(echo:*)",
+      "Bash(export NVM_DIR=\"$HOME/.nvm\")",
+      "Bash([ -s \"$NVM_DIR/nvm.sh\" ])",
+      "Bash(. \"$NVM_DIR/nvm.sh\")",
+      "Bash(nvm install:*)",
+      "Bash(nvm use:*)",
+      "Bash(npm:*)",
+      "Bash(brv --version:*)",
+      "Bash(brv:*)",
+      "Bash(pnpm lint:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\argen\\Documents\\GitHub\\triple-a",

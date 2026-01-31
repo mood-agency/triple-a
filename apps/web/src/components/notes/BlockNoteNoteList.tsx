@@ -17,7 +17,7 @@ interface BlockNoteNoteListProps {
   onSelectNote?: (noteId: string) => void;
   onToggleCompleted?: (noteId: string, completed: boolean) => void;
   onDelete?: (note: Note, reason: string) => void;
-  onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[]) => Promise<Note>;
+  onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[], assigneeId?: string | null, newNoteId?: string) => Promise<Note>;
   onEdit?: (id: string, content: string, category?: NoteCategory, description?: string | null) => void;
   onTogglePin?: (noteId: string) => void;
   onToggleFixInSidebar?: (noteId: string) => void;
@@ -152,7 +152,10 @@ export const BlockNoteNoteList = ({
   useEffect(() => {
     const unsubscribe = editor.onChange(() => {
       if (!isSyncingRef.current) {
-        console.log('[BlockNote] onChange - marking as dirty');
+        console.log('[BlockNote] onChange - marking as dirty', {
+          documentLength: editor.document.length,
+          blocks: editor.document.map(b => ({ id: b.id, type: b.type }))
+        });
         pendingChangesRef.current = true;
       } else {
         console.log('[BlockNote] onChange - ignored (syncing)');
@@ -191,6 +194,12 @@ export const BlockNoteNoteList = ({
     // Create a sorted string of note IDs to detect changes
     const currentNoteIds = notes.map(n => n.id).sort().join(',');
 
+    console.log('[BlockNote] Notes effect - checking sync', {
+      previousIds: previousNoteIdsRef.current,
+      currentIds: currentNoteIds,
+      changed: previousNoteIdsRef.current !== currentNoteIds
+    });
+
     // Only update if the set of note IDs actually changed
     if (previousNoteIdsRef.current !== currentNoteIds) {
       const previousIds = new Set(previousNoteIdsRef.current ? previousNoteIdsRef.current.split(',').filter(Boolean) : []);
@@ -204,6 +213,12 @@ export const BlockNoteNoteList = ({
 
       // Also sync if this is initial load (no previous IDs) and we have notes
       const isInitialLoad = previousIds.size === 0 && notes.length > 0;
+
+      console.log('[BlockNote] Sync decision:', {
+        notesWereFiltered,
+        isInitialLoad,
+        willSync: notesWereFiltered || isInitialLoad
+      });
 
       // Only sync on actual filtering (notes removed from view), not on note creation
       if (notesWereFiltered || isInitialLoad) {
@@ -372,8 +387,9 @@ export const BlockNoteNoteList = ({
   useEffect(() => {
     const handleDelete = (e: Event) => {
       const customEvent = e as CustomEvent<{ noteId: string; reason: string }>;
-      // Save content before deleting
-      flushPendingSavesRef.current();
+
+      // Clear pending saves to avoid showing "saved" toast when deleting
+      pendingChangesRef.current = false;
 
       if (onDelete) {
         const note = notes.find(n => n.id === customEvent.detail.noteId);
@@ -392,7 +408,7 @@ export const BlockNoteNoteList = ({
   // Listen for create note events from blocks
   useEffect(() => {
     const handleCreateNoteAfter = async (e: Event) => {
-      const customEvent = e as CustomEvent<{ afterNoteId: string }>;
+      const customEvent = e as CustomEvent<{ afterNoteId: string; newNoteId?: string }>;
       if (onCreateNoteAfter) {
         // Save current content before creating new note
         console.log('[BlockNote] Enter pressed - saving before create');
@@ -401,14 +417,19 @@ export const BlockNoteNoteList = ({
         const afterNote = notes.find(n => n.id === customEvent.detail.afterNoteId);
         if (afterNote) {
           // Get labels for the current note to inherit them
-          const labelIds = noteLabelsCache.get(afterNote.id)?.map(l => l.id) ?? [];
+          // Use the original noteLabelsCache prop which has full Label objects with IDs
+          const labels = noteLabelsCache.get(afterNote.id) ?? [];
+          const labelIds = labels.map(l => l.id);
 
           // Create new note with same category, deadline, and labels as the current note
+          // Pass the new block's ID so the database uses it (fixes ID mismatch)
           await onCreateNoteAfter(
             afterNote.id,
             afterNote.category,
             afterNote.deadline,
-            labelIds
+            labelIds,
+            null,  // assigneeId - not used in BlockNote list view
+            customEvent.detail.newNoteId
           );
 
           // Note: BlockNote already inserted the block optimistically in InsertBlockCommand
@@ -427,8 +448,25 @@ export const BlockNoteNoteList = ({
   useEffect(() => {
     const handleTogglePin = (e: Event) => {
       const customEvent = e as CustomEvent<{ noteId: string }>;
+      const noteId = customEvent.detail.noteId;
+
+      // Find the note to get current pinned state
+      const note = notes.find(n => n.id === noteId);
+      if (!note) return;
+
+      const newPinnedState = !note.pinned;
+
+      // Update block's pinned prop
+      const block = editor.getBlock(noteId);
+      if (block) {
+        editor.updateBlock(block, {
+          props: { ...block.props, pinned: newPinnedState }
+        } as any);
+      }
+
+      // Notify parent
       if (onTogglePin) {
-        onTogglePin(customEvent.detail.noteId);
+        onTogglePin(noteId);
       }
     };
 
@@ -436,7 +474,7 @@ export const BlockNoteNoteList = ({
     return () => {
       window.removeEventListener('notepad:togglePin', handleTogglePin);
     };
-  }, [onTogglePin]);
+  }, [onTogglePin, notes, editor]);
 
   // Listen for toggle fix in sidebar events from blocks
   useEffect(() => {
