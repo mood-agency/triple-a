@@ -1,0 +1,39 @@
+/* Hide ALL BlockNote placeholders (default paragraphs, custom blocks, etc.) */
+.bn-editor [data-placeholder]::before,
+.bn-editor [data-content-type] [data-placeholder]::before,
+.bn-editor .bn-visual-placeholder {
+    content: none !important;
+    display: none !important;
+}
+
+/* Notepad Block Styles */
+.notepad-line {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.notepad-content {
+    position: relative;
+    transition: color 0.3s ease;
+}
+
+.notepad-content.is-checked {
+    color: #a1a1aa;
+}
+
+/* Strikethrough Animation */
+.notepad-content::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 0;
+    height: 2px;
+    background: currentColor;
+    transition: width 0.4s cubic-bezier(0.65, 0, 0.35, 1);
+    pointer-events: none;
+}
+
+.notepad-content.is-checked::after {
+    width: 100%;
+}
