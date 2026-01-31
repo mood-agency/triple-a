@@ -214,7 +214,7 @@ export function Home() {
         newParams.delete('date');
       }
       return newParams;
-    }, { replace: true });
+    });
   }, [setSearchParams, viewMode]);
 
   // Update URL when label filter changes
