@@ -508,7 +508,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
         {note.created_at && (
           <>
             <span>{t('createdOnDate')}</span>
-            <span className="font-medium text-foreground">{format(new Date(note.created_at), 'dd/MM/yyyy', { locale })}</span>
+            <span className="font-medium text-foreground">{format(new Date(note.created_at), 'dd/MM/yyyy HH:mm:ss', { locale })}</span>
           </>
         )}
         <span>{t('expiresOnDate')}</span>
