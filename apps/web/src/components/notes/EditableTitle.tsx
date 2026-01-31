@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Trash2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -17,6 +17,7 @@ interface EditableTitleProps {
   titleValue?: string;
   autoSaveInterval?: number; // in seconds, 0 = disabled
   showCheckbox?: boolean;
+  isCompletingExternal?: boolean; // Optional external control for completion animation
 }
 
 export function EditableTitle({
@@ -29,14 +30,33 @@ export function EditableTitle({
   titleValue,
   autoSaveInterval = 3,
   showCheckbox = true,
+  isCompletingExternal = false,
 }: EditableTitleProps) {
   const { t } = useTranslation();
   // Don't auto-start editing - let the NoteRow handle focus for new tasks
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(titleValue ?? content);
+  const [isCompletingInternal, setIsCompletingInternal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const clickXRef = useRef<number | null>(null);
   const ignoreBlurRef = useRef(false);
+
+  // Combine internal and external completing states
+  const isCompleting = isCompletingInternal || isCompletingExternal;
+
+  // Handle checkbox change with animation
+  const handleCheckedChange = useCallback(() => {
+    if (!completed) {
+      setIsCompletingInternal(true);
+      // Wait for animation to finish (400ms strikethrough + 200ms fade)
+      setTimeout(() => {
+        onToggleComplete(noteId);
+        // Don't reset isCompleting - the component will update when completed changes
+      }, 600);
+    } else {
+      onToggleComplete(noteId);
+    }
+  }, [completed, noteId, onToggleComplete]);
 
   // Auto-save for title while editing
   const autoSave = useAutoSave({
@@ -63,11 +83,19 @@ export function EditableTitle({
       // Note changed - reset everything
       setEditedTitle(titleValue ?? content);
       setIsEditing(false);
+      setIsCompletingInternal(false);
     } else if (!isEditing) {
       // Same note, not editing - sync with store
       setEditedTitle(titleValue ?? content);
     }
   }, [noteId, content, titleValue, isEditing]);
+
+  // Reset isCompleting when completed changes (task was actually completed)
+  useEffect(() => {
+    if (completed) {
+      setIsCompletingInternal(false);
+    }
+  }, [completed]);
 
   // Focus input and set cursor position when user clicks to edit
   useEffect(() => {
@@ -159,7 +187,7 @@ export function EditableTitle({
             <div className="pt-1.5">
               <Checkbox
                 checked={completed}
-                onCheckedChange={() => onToggleComplete(noteId)}
+                onCheckedChange={handleCheckedChange}
                 className="h-5 w-5"
               />
             </div>
@@ -170,7 +198,7 @@ export function EditableTitle({
           </TooltipContent>
         </Tooltip>
       )}
-      <div className="flex items-start gap-1 flex-1 min-w-0">
+      <div className={`flex items-start gap-1 flex-1 min-w-0 ${isCompleting ? 'completing-task-fade' : ''}`}>
         {isEditing ? (
           <input
             ref={inputRef}
@@ -187,12 +215,12 @@ export function EditableTitle({
             onKeyDown={handleKeyDown}
             onFocus={handleInputFocus}
 
-            className={`w-full text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-muted-foreground/50 ${completed ? 'line-through text-muted-foreground' : ''}`}
+            className={`w-full text-2xl font-semibold bg-transparent border-none outline-none placeholder:text-muted-foreground/50 ${completed && !isCompleting ? 'line-through text-muted-foreground' : ''} ${isCompleting ? 'completing-task' : ''}`}
           />
         ) : (
           <h1
             onClick={handleTitleClick}
-            className={`text-2xl font-semibold cursor-text ${completed ? 'line-through text-muted-foreground' : ''} ${!(titleValue ?? content) ? 'text-muted-foreground/50' : ''}`}
+            className={`text-2xl font-semibold cursor-text ${completed && !isCompleting ? 'line-through text-muted-foreground' : ''} ${!(titleValue ?? content) ? 'text-muted-foreground/50' : ''} ${isCompleting ? 'completing-task' : ''}`}
           >
             {(titleValue ?? content) || t('newTaskPlaceholder')}
           </h1>

@@ -76,6 +76,9 @@ export function useNoteRow({
     const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
+    // Animation state for task completion
+    const [isCompleting, setIsCompleting] = useState(false);
+
     // Refs
     const rowRef = useRef<HTMLDivElement>(null);
     const contentInputRef = useRef<HTMLInputElement>(null);
@@ -297,6 +300,20 @@ export function useNoteRow({
         setIsEditingContent(false);
     }, [contentValue, note.content, isCommandPaletteOpen, saveContentWithHashtagParsing, showLabelDropdown, showCategoryDropdown, showAssigneeDropdown, autoSave, contacts]);
 
+    const handleCheckedChange = useCallback(() => {
+        // If completing a task (not already completed), animate first
+        if (!note.completed) {
+            setIsCompleting(true);
+            // Wait for animation to finish (400ms strikethrough + 200ms fade)
+            setTimeout(() => {
+                onToggleCompleted(note.id, true);
+                // Don't reset isCompleting - the note will be removed from the list anyway
+            }, 600);
+        } else {
+            // If uncompleting, just toggle immediately
+            onToggleCompleted(note.id, false);
+        }
+    }, [note.id, note.completed, onToggleCompleted]);
 
     const handleContentKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'd' && e.ctrlKey && note.category !== 'notes' && note.category !== 'meeting') {
@@ -306,7 +323,8 @@ export function useNoteRow({
             if (trimmed && (contentValue !== note.content || hasUnparsedTags(trimmed))) {
                 saveContentWithHashtagParsing(hasUnparsedTags(trimmed));
             }
-            onToggleCompleted(note.id, !note.completed);
+            // Use animated completion via handleCheckedChange
+            handleCheckedChange();
             return;
         }
         if (e.key === 'Backspace' && e.ctrlKey) {
@@ -364,7 +382,7 @@ export function useNoteRow({
                 handleContentBlur();
             }
         }
-    }, [contentValue, note, saveContentWithHashtagParsing, onToggleCompleted, onCreateNoteAfter, handleContentBlur, onNavigateToDescription, onNavigateDown, onNavigateUp]);
+    }, [contentValue, note, saveContentWithHashtagParsing, handleCheckedChange, onCreateNoteAfter, handleContentBlur, onNavigateToDescription, onNavigateDown, onNavigateUp]);
 
     const handleContentClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
         e.stopPropagation();
@@ -386,10 +404,6 @@ export function useNoteRow({
         }
         setIsEditingContent(true);
     }, [note.id, onSelect]);
-
-    const handleCheckedChange = useCallback(() => {
-        onToggleCompleted(note.id, !note.completed);
-    }, [note.id, note.completed, onToggleCompleted]);
 
     const handleConfirmDelete = useCallback((reason: string) => {
         onDeleteWithToast(note, reason);
@@ -423,6 +437,7 @@ export function useNoteRow({
         showAssigneeDropdown,
         showDeleteDialog,
         setShowDeleteDialog,
+        isCompleting,
 
         // Refs
         rowRef,

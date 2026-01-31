@@ -22,6 +22,7 @@ import { uploadNoteAttachment, StorageError, getFileTypeLabel } from '@/services
 import { detectContentFormat, tiptapToBlockNote, plainTextToBlockNote } from '@/utils/contentMigration'
 import { useDebugNavigation } from '@/hooks/useDebugNavigation'
 import { useTheme } from '@/contexts/ThemeContext'
+import { SearchHighlightExtension } from './SearchHighlightExtension'
 
 // Create schema with code block syntax highlighting
 const schema = BlockNoteSchema.create({
@@ -109,6 +110,9 @@ export interface BlockNoteEditorHandle {
   blur: () => void
   getSelectionInfo: () => { cursorPosition: number; text: string } | null
   setCursorPosition: (position: number) => void
+  updateSearch: (searchTerm: string, currentMatchIndex: number) => void
+  clearSearch: () => void
+  countSearchMatches: (searchTerm: string) => number
 }
 
 export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditorProps>(
@@ -235,6 +239,14 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
         cellBackgroundColor: true,
         cellTextColor: true,
         headers: true,
+      },
+      _tiptapOptions: {
+        extensions: [
+          SearchHighlightExtension.configure({
+            searchTerm: '',
+            currentMatchIndex: 0,
+          }),
+        ],
       },
     })
 
@@ -386,6 +398,42 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
         setCursorPosition: (_position: number) => {
           // BlockNote uses block-based selection, this is a simplified implementation
           editor?.focus()
+        },
+        updateSearch: (searchTerm: string, currentMatchIndex: number) => {
+          if (!editor) return
+          // Access the underlying TipTap editor and call the custom command
+          const tiptapEditor = (editor as unknown as { _tiptapEditor?: { commands: { setSearchHighlight: (term: string, index: number) => boolean } } })._tiptapEditor
+          if (tiptapEditor?.commands) {
+            tiptapEditor.commands.setSearchHighlight(searchTerm, currentMatchIndex)
+          }
+        },
+        clearSearch: () => {
+          if (!editor) return
+          const tiptapEditor = (editor as unknown as { _tiptapEditor?: { commands: { clearSearchHighlight: () => boolean } } })._tiptapEditor
+          if (tiptapEditor?.commands) {
+            tiptapEditor.commands.clearSearchHighlight()
+          }
+        },
+        countSearchMatches: (searchTerm: string): number => {
+          if (!editor || !searchTerm) return 0
+          const tiptapEditor = (editor as unknown as { _tiptapEditor?: { state: { doc: { descendants: (callback: (node: { isText: boolean; text?: string }, pos: number) => void) => void } } } })._tiptapEditor
+          if (!tiptapEditor?.state?.doc) return 0
+
+          let count = 0
+          const searchLower = searchTerm.toLowerCase()
+
+          tiptapEditor.state.doc.descendants((node) => {
+            if (node.isText && node.text) {
+              const text = node.text.toLowerCase()
+              let pos = 0
+              while ((pos = text.indexOf(searchLower, pos)) !== -1) {
+                count++
+                pos += searchTerm.length
+              }
+            }
+          })
+
+          return count
         },
       }),
       [editor]

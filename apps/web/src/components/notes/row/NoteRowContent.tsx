@@ -25,6 +25,8 @@ interface NoteRowContentProps {
     isSelected: boolean;
     isDescriptionFocused: boolean;
     compactView: boolean;
+    isCompleting?: boolean;
+    isPastDeadline?: boolean;
     listeners?: DraggableSyntheticListeners;
     attributes?: any;
     onContentClick: (e: React.MouseEvent<HTMLDivElement>) => void;
@@ -63,6 +65,7 @@ export function NoteRowContent({
     isSelected,
     isDescriptionFocused,
     compactView,
+    isCompleting = false,
     listeners,
     attributes,
     onContentClick,
@@ -86,6 +89,7 @@ export function NoteRowContent({
     onEdit,
     onAddAssignee,
     onRemoveAssignee,
+    isPastDeadline = false,
 }: NoteRowContentProps) {
     const { t } = useTranslation();
     const { debugMode, debugTitleFocusClass } = useDebugNavigation();
@@ -253,7 +257,7 @@ export function NoteRowContent({
                 </>
             ) : (
                 <span
-                    className={`flex-1 min-w-0 text-sm leading-4 truncate ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} hover:cursor-text ${note.completed ? 'line-through text-muted-foreground' : ''} ${isSelected && isDescriptionFocused ? 'cursor-text underline decoration-primary decoration-2 underline-offset-2' : ''} ${!contentValue ? 'text-muted-foreground/50 italic' : ''}`}
+                    className={`flex-1 min-w-0 text-sm leading-4 truncate ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} hover:cursor-text ${note.completed && !isCompleting ? 'line-through text-muted-foreground' : ''} ${isSelected && isDescriptionFocused ? 'cursor-text underline decoration-primary decoration-2 underline-offset-2' : ''} ${!contentValue ? 'text-muted-foreground/50 italic' : ''} ${isPastDeadline && note.category === 'meeting' ? 'opacity-50' : ''} ${isCompleting ? 'completing-task' : ''}`}
                     {...attributes}
                     {...listeners}
                 >
