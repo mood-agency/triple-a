@@ -48,7 +48,7 @@ const BEEPER_TIMEOUT_MS = Number(import.meta.env.VITE_BEEPER_TIMEOUT_MS) || 1000
 
 // Validates international phone format: +[country code][number]
 function isValidInternationalPhone(phone: string): boolean {
-  const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  const cleaned = phone.replace(/[\s\-()]/g, '');
   // Must start with + followed by country code (1-3 digits) and phone number (7-14 digits)
   return /^\+\d{1,3}\d{7,14}$/.test(cleaned);
 }
@@ -196,7 +196,7 @@ export function Contacts() {
 
     try {
       // Format phone number (remove spaces, dashes, etc.)
-      const phoneNumber = whatsAppContact.phone.replace(/[\s\-\(\)]/g, '');
+      const phoneNumber = whatsAppContact.phone.replace(/[\s\-()]/g, '');
 
       // First, get WhatsApp account
       const accountsResponse = await fetchWithTimeout(
