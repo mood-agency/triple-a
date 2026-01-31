@@ -59,7 +59,7 @@ export default function ShareReceiver() {
       const category: NoteCategory = 'todo';
       await createNote(title.trim(), category, description.trim() || null);
       navigate('/', { replace: true });
-    } catch (err) {
+    } catch (_err) {
       setError(t('share.errorCreating'));
       setIsCreating(false);
     }
