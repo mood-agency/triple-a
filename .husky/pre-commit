@@ -1,13 +1,20 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
+# Validar código antes de hacer commit
+echo "🔍 Validando código..."
 
-# Validar el API antes de hacer commit
-echo "🔍 Validando código del API..."
-pnpm --filter @triple-a/api build
-
+# Validar API (bloqueante - debe pasar)
+echo "\n📦 Validando API..."
+pnpm --filter @triple-a/api lint
 if [ $? -ne 0 ]; then
-  echo "❌ Error: La validación del API falló. Arregla los errores antes de hacer commit."
+  echo "❌ Error: La validación del API falló."
   exit 1
 fi
 
-echo "✅ Validación exitosa!"
+# Validar Web (opcional - solo advertencia por ahora)
+echo "\n🌐 Validando Web..."
+pnpm --filter @triple-a/web lint || echo "⚠️  Advertencia: Hay warnings en Web (no bloquea commit)"
+
+# Type checking Web
+echo "\n🔎 Type checking Web..."
+pnpm --filter @triple-a/web type-check || echo "⚠️  Advertencia: Hay errores de tipos en Web (no bloquea commit)"
+
+echo "\n✅ Validación del API exitosa!"

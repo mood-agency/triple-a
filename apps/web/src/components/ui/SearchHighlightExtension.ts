@@ -69,6 +69,7 @@ export const SearchHighlightExtension = Extension.create<SearchHighlightOptions,
   },
 
   addProseMirrorPlugins() {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     const extension = this;
 
     return [
