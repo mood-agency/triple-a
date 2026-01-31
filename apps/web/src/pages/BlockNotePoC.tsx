@@ -18,6 +18,9 @@ export const BlockNotePoC = () => {
 
     const editor = useCreateBlockNote({
         schema,
+        placeholders: {
+            default: "",
+        },
         initialContent: [
             {
                 type: "paragraph",
