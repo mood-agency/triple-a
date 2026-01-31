@@ -10,11 +10,55 @@
 .notepad-line {
     outline: none !important;
     box-shadow: none !important;
+    contain: layout style;
+    isolation: isolate;
+}
+
+.category-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.notepad-line:hover .category-icon {
+    pointer-events: none;
 }
 
 .notepad-content {
     position: relative;
     transition: color 0.3s ease;
+    flex: 1;
+    min-width: 0;
+    text-overflow: ellipsis;
+}
+
+/* Specific targeting of BlockNote's internal content div for robust ellipsis */
+/* Only truncate when NOT editing */
+.notepad-content:not(.is-editing) {
+    max-width: 250px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.notepad-content:not(.is-editing) > * {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Keep same width when editing, stay on single line */
+.notepad-content.is-editing {
+    max-width: 250px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: clip !important;
+}
+
+.notepad-content.is-editing > * {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: clip !important;
 }
 
 .notepad-content.is-checked {

@@ -2,9 +2,19 @@ import { defaultProps } from "@blocknote/core";
 import { createReactBlockSpec } from "@blocknote/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-
-import { TextSelection } from "@tiptap/pm/state";
+import { useBlockCommands } from "./hooks/useBlockCommands";
+import { ListTodo, Users, Repeat2, FileText } from "lucide-react";
 import "./NotepadBlock.css";
+
+const CATEGORIES = ["todo", "meeting", "follow-up", "note"] as const;
+type Category = (typeof CATEGORIES)[number];
+
+const categoryIcons: Record<Category, any> = {
+    "todo": ListTodo,
+    "meeting": Users,
+    "follow-up": Repeat2,
+    "note": FileText,
+};
 
 export const NotepadBlock = createReactBlockSpec(
     {
@@ -12,6 +22,7 @@ export const NotepadBlock = createReactBlockSpec(
         propSchema: {
             ...defaultProps,
             isChecked: { default: false },
+            category: { default: "todo" },
             date: { default: "22 de noviembre 2026" },
             labels: { default: [] as string[] },
             assignees: { default: [] as string[] },
@@ -21,6 +32,7 @@ export const NotepadBlock = createReactBlockSpec(
     {
         render: (props) => {
             const [node, setNode] = useState<HTMLElement | null>(null);
+            const [isEditing, setIsEditing] = useState(false);
             const editorRef = useRef(props.editor);
             const blockRef = useRef(props.block);
 
@@ -34,122 +46,117 @@ export const NotepadBlock = createReactBlockSpec(
                 props.contentRef(node);
             }, [props.contentRef]);
 
+            // Track if this block is currently being edited
             useEffect(() => {
-                if (!node) return;
+                const checkSelection = () => {
+                    const textCursorPosition = props.editor.getTextCursorPosition();
+                    const isThisBlockSelected = textCursorPosition.block.id === props.block.id;
+                    setIsEditing(isThisBlockSelected);
 
-                const handleKeyDown = (e: KeyboardEvent) => {
-                    const editor = editorRef.current;
-                    const currentBlock = blockRef.current;
-                    if (!editor || !currentBlock) return;
+                    // Prevent multi-block selection
+                    const selection = props.editor._tiptapEditor.state.selection;
+                    const { from, to } = selection;
 
-                    const selection = window.getSelection();
-                    const anchorNode = selection?.anchorNode;
+                    // Get the blocks involved in the selection
+                    const blocks = props.editor.getSelection()?.blocks || [];
 
-                    const isInside = (anchorNode && node.contains(anchorNode)) ||
-                        node.contains(e.target as Node) ||
-                        node.parentElement?.contains(e.target as Node) ||
-                        e.target === node;
+                    // If selection spans multiple blocks, constrain to current block
+                    if (blocks.length > 1) {
+                        const currentBlockPos = props.editor._tiptapEditor.state.doc.resolve(from);
+                        // Find the current block's start and end positions
+                        let blockStart = from;
+                        let blockEnd = to;
 
-                    if (isInside) {
-                        e.stopImmediatePropagation();
-
-                        const textContent = node.textContent || "";
-                        const isEmpty = textContent.trim() === "" || textContent === "\u200B";
-
-                        // Handle Ctrl+A (or Cmd+A) to select only the block text using ProseMirror
-                        if (e.key.toLowerCase() === "a" && (e.ctrlKey || e.metaKey)) {
-                            console.log("🔹 Ctrl+A pressed - scoping selection (PM)");
-                            e.preventDefault();
-                            e.stopImmediatePropagation();
-
-                            const tiptapEditor = (editor as any)._tiptapEditor;
-                            if (tiptapEditor) {
-                                const { state, view } = tiptapEditor;
-                                let foundPos = -1;
-                                let foundNodeSize = -1;
-
-                                state.doc.descendants((pmNode: any, pos: number) => {
-                                    if (pmNode.attrs?.id === currentBlock.id) {
-                                        foundPos = pos;
-                                        foundNodeSize = pmNode.nodeSize;
-                                        return false;
-                                    }
-                                    return true;
-                                });
-
-                                if (foundPos !== -1) {
-                                    // Selection range for the block's content
-                                    const start = foundPos + 1;
-                                    const end = foundPos + foundNodeSize - 1;
-
-                                    const tr = state.tr.setSelection(TextSelection.create(state.doc, start, end));
-                                    view.dispatch(tr);
-                                    view.focus();
-                                }
-                            }
-                            return;
-                        }
-
-                        if (e.key === "Enter") {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const insertedBlocks = editor.insertBlocks(
-                                [{ type: "notepad", props: { date: new Date().toLocaleDateString() } as any }],
-                                currentBlock,
-                                "after"
-                            );
-                            if (insertedBlocks.length > 0) {
-                                editor.setTextCursorPosition(insertedBlocks[0], "start");
-                            }
-                            return;
-                        }
-
-                        if (e.key === "Backspace" && (isEmpty || e.ctrlKey || e.metaKey)) {
-                            e.preventDefault();
-                            e.stopPropagation();
-
-                            const cursorInfo = editor.getTextCursorPosition();
-                            const prevBlock = cursorInfo?.prevBlock;
-                            const nextBlock = cursorInfo?.nextBlock;
-
-                            if (prevBlock) {
-                                editor.setTextCursorPosition(prevBlock, "end");
-                            } else if (nextBlock) {
-                                editor.setTextCursorPosition(nextBlock, "start");
-                            }
-
-                            if (!prevBlock && !nextBlock) {
-                                editor.updateBlock(currentBlock, { type: "paragraph" } as any);
-                            } else {
-                                editor.removeBlocks([currentBlock]);
+                        // Walk up to find the block node
+                        for (let d = currentBlockPos.depth; d > 0; d--) {
+                            const node = currentBlockPos.node(d);
+                            if (node.type.name === 'blockContainer') {
+                                blockStart = currentBlockPos.start(d);
+                                blockEnd = currentBlockPos.end(d);
+                                break;
                             }
                         }
+
+                        // Constrain selection to current block
+                        const tr = props.editor._tiptapEditor.state.tr.setSelection(
+                            props.editor._tiptapEditor.state.selection.constructor.create(
+                                props.editor._tiptapEditor.state.doc,
+                                Math.max(blockStart, from),
+                                Math.min(blockEnd, to)
+                            )
+                        );
+                        props.editor._tiptapEditor.view.dispatch(tr);
                     }
                 };
 
-                document.addEventListener("keydown", handleKeyDown, { capture: true });
-                return () => {
-                    document.removeEventListener("keydown", handleKeyDown, { capture: true });
-                };
-            }, [node, props.block.id]);
+                // Check initially
+                checkSelection();
+
+                // Listen to selection updates
+                const unsubscribe = props.editor.onSelectionChange(checkSelection);
+                return () => unsubscribe();
+            }, [props.editor, props.block.id]);
+
+            // Reset scroll position when unfocusing
+            useEffect(() => {
+                if (!isEditing && node) {
+                    // Scroll to the beginning when unfocusing
+                    node.scrollLeft = 0;
+                    // Also reset scroll on all child elements
+                    const children = node.querySelectorAll('*');
+                    children.forEach((child) => {
+                        if (child instanceof HTMLElement) {
+                            child.scrollLeft = 0;
+                        }
+                    });
+                }
+            }, [isEditing, node]);
+
+            // Use Command Pattern for keyboard handling
+            // Using 'as any' for block because BlockNote has strict typing for custom blocks
+            useBlockCommands(node, editorRef.current, blockRef.current as any);
+
+            const category = (props.block.props.category as Category) || "todo";
+            const CategoryIcon = categoryIcons[category] || ListTodo;
+
+            const cycleCategory = (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const currentIndex = CATEGORIES.indexOf(category);
+                const nextIndex = (currentIndex + 1) % CATEGORIES.length;
+                props.editor.updateBlock(props.block, {
+                    props: { ...props.block.props, category: CATEGORIES[nextIndex] }
+                } as any);
+            };
 
             return (
-                <div className="notepad-line" style={{ display: "flex", alignItems: "center", width: "100%", userSelect: "none", outline: "none", boxShadow: "none" }}>
-                    <div contentEditable={false} style={{ marginRight: "8px", userSelect: "none" }}>
-                        <input
-                            type="checkbox"
-                            className="cursor-pointer"
-                            checked={props.block.props.isChecked as boolean}
-                            onChange={() => props.editor.updateBlock(props.block, {
-                                props: { ...props.block.props, isChecked: !props.block.props.isChecked }
-                            } as any)}
-                        />
+                <div className="notepad-line group" style={{ display: "flex", alignItems: "center", width: "100%", userSelect: "none", outline: "none", boxShadow: "none" }}>
+                    <div contentEditable={false} className="relative flex items-center justify-center w-6 h-6 mr-2 flex-shrink-0 cursor-pointer">
+                        {/* Category Icon (Visible by default) */}
+                        <div
+                            className="category-icon group-hover:opacity-0 transition-opacity duration-200"
+                            onClick={cycleCategory}
+                        >
+                            <CategoryIcon size={18} className="text-gray-500" />
+                        </div>
+
+                        {/* Checkbox (Visible on hover) */}
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <input
+                                type="checkbox"
+                                className="cursor-pointer w-4 h-4"
+                                checked={props.block.props.isChecked as boolean}
+                                onChange={() => props.editor.updateBlock(props.block, {
+                                    props: { ...props.block.props, isChecked: !props.block.props.isChecked }
+                                } as any)}
+                            />
+                        </div>
                     </div>
 
                     <div
                         ref={combinedRef}
-                        className={`notepad-content text-black dark:text-black ${props.block.props.isChecked ? 'is-checked' : ''}`}
-                        style={{ flexGrow: 1, outline: "none", userSelect: "text" }}
+                        className={`notepad-content text-black dark:text-black ${props.block.props.isChecked ? 'is-checked' : ''} ${isEditing ? 'is-editing' : ''}`}
+                        style={{ outline: "none", userSelect: "text" }}
                     />
 
                     <div contentEditable={false} className="flex gap-1 mx-2 flex-shrink-0 pointer-events-none">
