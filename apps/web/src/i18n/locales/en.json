@@ -166,6 +166,7 @@
     "noteCreated": "Task created",
     "noteUpdated": "Task updated",
     "noteRestored": "Task restored",
+    "noteSaved": "{{count}} task(s) saved",
     "deadlineUpdated": "Deadline updated",
     "notePostponed": "Task postponed",
     "notePinned": "Task pinned",

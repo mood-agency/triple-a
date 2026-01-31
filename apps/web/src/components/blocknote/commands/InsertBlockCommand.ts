@@ -15,7 +15,12 @@ export class InsertBlockCommand implements BlockCommand {
     event.preventDefault();
     event.stopPropagation();
 
-    // Insert a new notepad block after the current block
+    // Dispatch event to notify parent that a new note should be created
+    window.dispatchEvent(new CustomEvent('notepad:createNoteAfter', {
+      detail: { afterNoteId: block.id }
+    }));
+
+    // Insert a new notepad block after the current block (optimistic update)
     const insertedBlocks = editor.insertBlocks(
       [
         {

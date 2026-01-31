@@ -1,19 +1,20 @@
 import { defaultProps } from "@blocknote/core";
 import { createReactBlockSpec } from "@blocknote/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { useBlockCommands } from "./hooks/useBlockCommands";
-import { ListTodo, Users, Repeat2, FileText } from "lucide-react";
+import { Pickaxe, Users, Forward, StickyNote, Pin, SidebarClose, Trash2 } from "lucide-react";
+import { parseLocalDate } from "@/utils/dateUtils";
+import i18n from "@/i18n";
 import "./NotepadBlock.css";
 
-const CATEGORIES = ["todo", "meeting", "follow-up", "note"] as const;
+const CATEGORIES = ["todo", "meeting", "followup", "notes"] as const;
 type Category = (typeof CATEGORIES)[number];
 
 const categoryIcons: Record<Category, any> = {
-    "todo": ListTodo,
+    "todo": Pickaxe,
     "meeting": Users,
-    "follow-up": Repeat2,
-    "note": FileText,
+    "followup": Forward,
+    "notes": StickyNote,
 };
 
 export const NotepadBlock = createReactBlockSpec(
@@ -24,7 +25,7 @@ export const NotepadBlock = createReactBlockSpec(
             isChecked: { default: false },
             category: { default: "todo" },
             date: { default: "22 de noviembre 2026" },
-            labels: { default: [] as string[] },
+            labels: { default: [] as Array<{ name: string; color: string }> },
             assignees: { default: [] as string[] },
         },
         content: "inline",
@@ -117,7 +118,9 @@ export const NotepadBlock = createReactBlockSpec(
             useBlockCommands(node, editorRef.current, blockRef.current as any);
 
             const category = (props.block.props.category as Category) || "todo";
-            const CategoryIcon = categoryIcons[category] || ListTodo;
+            const CategoryIcon = categoryIcons[category] || Pickaxe;
+            const isChecked = props.block.props.isChecked as boolean;
+            const dateStr = props.block.props.date as string;
 
             const cycleCategory = (e: React.MouseEvent) => {
                 e.preventDefault();
@@ -128,6 +131,78 @@ export const NotepadBlock = createReactBlockSpec(
                     props: { ...props.block.props, category: CATEGORIES[nextIndex] }
                 } as any);
             };
+
+            const handleToggleCompleted = () => {
+                // Dispatch custom event to parent component
+                window.dispatchEvent(new CustomEvent('notepad:toggleCompleted', {
+                    detail: { noteId: props.block.id, completed: !isChecked }
+                }));
+
+                // Update block state
+                props.editor.updateBlock(props.block, {
+                    props: { ...props.block.props, isChecked: !isChecked }
+                } as any);
+            };
+
+            const handleTogglePin = (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.dispatchEvent(new CustomEvent('notepad:togglePin', {
+                    detail: { noteId: props.block.id }
+                }));
+            };
+
+            const handleToggleFixInSidebar = (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.dispatchEvent(new CustomEvent('notepad:toggleFixInSidebar', {
+                    detail: { noteId: props.block.id }
+                }));
+            };
+
+            const handleDelete = (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.dispatchEvent(new CustomEvent('notepad:delete', {
+                    detail: { noteId: props.block.id, reason: 'Deleted via trash icon' }
+                }));
+            };
+
+            // Format deadline display (same logic as NoteRow)
+            const formatDeadline = (deadline: string) => {
+                if (!deadline) return '';
+
+                const date = parseLocalDate(deadline);
+                const today = new Date();
+                const isToday = date.getDate() === today.getDate() &&
+                               date.getMonth() === today.getMonth() &&
+                               date.getFullYear() === today.getFullYear();
+
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const isTomorrow = date.getDate() === tomorrow.getDate() &&
+                                  date.getMonth() === tomorrow.getMonth() &&
+                                  date.getFullYear() === tomorrow.getFullYear();
+
+                let dateText = '';
+                if (isToday) dateText = 'Today';
+                else if (isTomorrow) dateText = 'Tomorrow';
+                else dateText = date.toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' });
+
+                // Add time if it's not midnight (all-day events)
+                if (deadline.includes('T')) {
+                    const d = parseLocalDate(deadline);
+                    if (!(d.getHours() === 0 && d.getMinutes() === 0)) {
+                        dateText += ` ${d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
+                    }
+                }
+
+                return dateText;
+            };
+
+            // Check if deadline has passed
+            const isPastDeadline = dateStr ? parseLocalDate(dateStr) < new Date() : false;
+            const shouldShowRed = isPastDeadline && !isChecked && category !== 'meeting';
 
             return (
                 <div className="notepad-line group" style={{ display: "flex", alignItems: "center", width: "100%", userSelect: "none", outline: "none", boxShadow: "none" }}>
@@ -145,10 +220,8 @@ export const NotepadBlock = createReactBlockSpec(
                             <input
                                 type="checkbox"
                                 className="cursor-pointer w-4 h-4"
-                                checked={props.block.props.isChecked as boolean}
-                                onChange={() => props.editor.updateBlock(props.block, {
-                                    props: { ...props.block.props, isChecked: !props.block.props.isChecked }
-                                } as any)}
+                                checked={isChecked}
+                                onChange={handleToggleCompleted}
                             />
                         </div>
                     </div>
@@ -159,31 +232,66 @@ export const NotepadBlock = createReactBlockSpec(
                         style={{ outline: "none", userSelect: "text" }}
                     />
 
-                    <div contentEditable={false} className="flex gap-1 mx-2 flex-shrink-0 pointer-events-none">
-                        {(props.block.props.labels as string[])?.map((label: string, i: number) => (
-                            <Badge key={i} variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-100 px-1.5 py-0 whitespace-nowrap">
-                                {label}
-                            </Badge>
+                    <div contentEditable={false} className="flex gap-1 mx-2 flex-shrink-0">
+                        {(props.block.props.labels as Array<{ name: string; color: string }>)?.map((label, i: number) => (
+                            <span
+                                key={i}
+                                className="chip-label"
+                                style={{ backgroundColor: label.color }}
+                            >
+                                {label.name}
+                            </span>
                         ))}
                         {(props.block.props.assignees as string[])?.map((assignee: string, i: number) => (
-                            <Badge key={i} variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 px-1.5 py-0 whitespace-nowrap">
+                            <span key={i} className="chip-assignee">
                                 {assignee}
-                            </Badge>
+                            </span>
                         ))}
                     </div>
 
+                    {dateStr && (
+                        <div
+                            contentEditable={false}
+                            className={`flex-shrink-0 text-[10px] whitespace-nowrap ${
+                                shouldShowRed ? 'text-red-500 font-medium' : 'text-muted-foreground'
+                            }`}
+                            style={{
+                                marginLeft: "8px",
+                                userSelect: "none",
+                                pointerEvents: "none"
+                            }}
+                        >
+                            {formatDeadline(dateStr)}
+                        </div>
+                    )}
+
+                    {/* Action icons - visible on hover */}
                     <div
                         contentEditable={false}
-                        className="flex-shrink-0"
-                        style={{
-                            marginLeft: "8px",
-                            color: "#888",
-                            whiteSpace: "nowrap",
-                            userSelect: "none",
-                            pointerEvents: "none"
-                        }}
+                        className="flex gap-1 ml-2 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                        style={{ userSelect: "none" }}
                     >
-                        ({props.block.props.date as string})
+                        <button
+                            onClick={handleTogglePin}
+                            className="p-1 hover:bg-gray-200 rounded transition-colors"
+                            title="Pin task"
+                        >
+                            <Pin size={14} className="text-gray-600" />
+                        </button>
+                        <button
+                            onClick={handleToggleFixInSidebar}
+                            className="p-1 hover:bg-gray-200 rounded transition-colors"
+                            title="Fix to sidebar"
+                        >
+                            <SidebarClose size={14} className="text-gray-600" />
+                        </button>
+                        <button
+                            onClick={handleDelete}
+                            className="p-1 hover:bg-red-100 rounded transition-colors"
+                            title="Delete"
+                        >
+                            <Trash2 size={14} className="text-red-600" />
+                        </button>
                     </div>
                 </div>
             );
