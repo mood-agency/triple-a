@@ -356,6 +356,29 @@ body {
   background: var(--color-accent);
 }
 
+/* Search highlight styles for BlockNote/ProseMirror */
+.search-result-highlight {
+  background-color: oklch(0.92 0.15 95);
+  border-radius: 0.125rem;
+  padding: 0.0625rem 0;
+}
+
+.dark .search-result-highlight {
+  background-color: oklch(0.45 0.15 95);
+}
+
+.search-result-current {
+  background-color: oklch(0.85 0.2 90);
+  border-radius: 0.125rem;
+  padding: 0.0625rem 0;
+  box-shadow: 0 0 0 2px oklch(0.7 0.2 85);
+}
+
+.dark .search-result-current {
+  background-color: oklch(0.55 0.18 90);
+  box-shadow: 0 0 0 2px oklch(0.65 0.2 85);
+}
+
 /* React Day Picker - Reset default styles for shadcn Calendar */
 .rdp-root {
   --rdp-accent-color: var(--color-primary);
@@ -571,5 +594,42 @@ body {
 
 .slide-out-to-top-\[48\%\] {
   --tw-exit-translate-y: -48%;
+}
+
+/* Strikethrough animation for task completion */
+@keyframes strikethrough-grow {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes fade-out-task {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.completing-task {
+  position: relative;
+}
+
+.completing-task::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 1px;
+  background-color: var(--color-muted-foreground);
+  animation: strikethrough-grow 400ms ease-out forwards;
+}
+
+.completing-task-fade {
+  animation: fade-out-task 200ms ease-out 400ms forwards;
 }
 

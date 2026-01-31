@@ -79,6 +79,9 @@ function NoteRow(props: NoteRowProps) {
   // Assignees are passed from parent (pre-computed in NoteList)
   const noteAssignees = props.assignees ?? [];
 
+  // Check if deadline has passed
+  const isPastDeadline = note.deadline ? parseLocalDate(note.deadline) < new Date() : false;
+
   const {
     contentValue,
     setContentValue,
@@ -88,6 +91,7 @@ function NoteRow(props: NoteRowProps) {
     showAssigneeDropdown,
     showDeleteDialog,
     setShowDeleteDialog,
+    isCompleting,
     rowRef,
     contentInputRef,
     handleContentKeyDown,
@@ -122,7 +126,7 @@ function NoteRow(props: NoteRowProps) {
         }}
         style={style}
         onClick={() => props.onSelect(note.id)}
-        className={`group grid ${compactView ? 'grid-cols-[auto_1fr_auto]' : 'grid-cols-[auto_minmax(0,1fr)_auto_auto_auto]'} items-center h-6 transition-colors cursor-pointer ${note.completed && note.category !== 'notes' && note.category !== 'meeting' ? 'opacity-50' : ''} ${isDraggingProp ? 'opacity-50 bg-muted/30' : ''} ${props.isSelected && debugMode ? debugSelectedClass : ''}`}
+        className={`group grid ${compactView ? 'grid-cols-[auto_1fr_auto]' : 'grid-cols-[auto_minmax(0,1fr)_auto_auto_auto]'} items-center h-6 transition-colors cursor-pointer ${note.completed && !isCompleting && note.category !== 'notes' && note.category !== 'meeting' ? 'opacity-50' : ''} ${isDraggingProp ? 'opacity-50 bg-muted/30' : ''} ${props.isSelected && debugMode ? debugSelectedClass : ''} ${isCompleting ? 'completing-task-fade' : ''}`}
       >
         {/* Category icon column */}
         {!compactView ? (
@@ -142,14 +146,14 @@ function NoteRow(props: NoteRowProps) {
                 handleCheckedChange();
               }}
             >
-              <span className={`flex items-center justify-center ${note.completed ? 'hidden' : 'group-hover:hidden'}`}>
+              <span className={`flex items-center justify-center ${note.completed && !isCompleting ? 'hidden' : 'group-hover:hidden'}`}>
                 {note.category === 'todo' ? (
                   <Pickaxe className="h-4 w-4 text-muted-foreground/70" />
                 ) : (
                   <Forward className="h-4 w-4 text-muted-foreground/70" />
                 )}
               </span>
-              <span className={`absolute flex items-center justify-center ${note.completed ? 'flex' : 'hidden group-hover:flex'}`}>
+              <span className={`absolute flex items-center justify-center ${note.completed && !isCompleting ? 'flex' : 'hidden group-hover:flex'}`}>
                 <Checkbox
                   checked={note.completed}
                   onCheckedChange={handleCheckedChange}
@@ -171,6 +175,7 @@ function NoteRow(props: NoteRowProps) {
             isSelected={props.isSelected}
             isDescriptionFocused={!!props.isDescriptionFocused}
             compactView={compactView}
+            isCompleting={isCompleting}
             listeners={listeners}
             attributes={attributes}
             onContentClick={handleContentClick}
@@ -194,6 +199,7 @@ function NoteRow(props: NoteRowProps) {
             onEdit={props.onEdit}
             onAddAssignee={props.onAddAssignee}
             onRemoveAssignee={props.onRemoveAssignee}
+            isPastDeadline={isPastDeadline}
           />
 
           {/* Actions - positioned right of content */}
@@ -251,7 +257,7 @@ function NoteRow(props: NoteRowProps) {
                 For now, I'll extract it to a tiny helper or just inline simple version.
             */}
             {!hideDeadline && note.deadline && (
-              <span className={`text-[10px] whitespace-nowrap ${parseLocalDate(note.deadline) < new Date() && !note.completed ? 'text-red-500 font-medium' : 'text-muted-foreground'
+              <span className={`text-[10px] whitespace-nowrap ${isPastDeadline && !note.completed && note.category !== 'meeting' ? 'text-red-500 font-medium' : 'text-muted-foreground'
                 }`}>
                 {(() => {
                   const date = parseLocalDate(note.deadline);

@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useState, useMemo } from 'react';
+import { forwardRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { X, Pickaxe, Forward, StickyNote, Users, CalendarClock, Plus, Pencil, Trash2, Tag, ChevronDown, Check } from 'lucide-react';
@@ -91,7 +91,21 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
     const [labelDropdownOpen, setLabelDropdownOpen] = useState(false);
     const [showPostponeHistory, setShowPostponeHistory] = useState(false);
     const [editingHistoryEntry, setEditingHistoryEntry] = useState<{ id: string; reason: string } | null>(null);
+    const [isCompleting, setIsCompleting] = useState(false);
     const descriptionRef = { current: null as BlockNoteEditorHandle | null };
+
+    // Handle checkbox change with animation
+    const handleCheckedChange = useCallback(() => {
+      if (!note.completed) {
+        setIsCompleting(true);
+        // Wait for animation to finish (400ms strikethrough + 200ms fade)
+        setTimeout(() => {
+          onToggleComplete(note.id);
+        }, 600);
+      } else {
+        onToggleComplete(note.id);
+      }
+    }, [note.completed, note.id, onToggleComplete]);
 
     // Get assignees for this note (re-compute when noteAssigneeVersion changes)
     const noteAssignees = useMemo(() => getAssigneesForNote(note.id), [note.id, getAssigneesForNote, noteAssigneeVersion]);
@@ -102,7 +116,15 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
     // Sync description value when note changes
     useEffect(() => {
       setDescriptionValue(note.description ?? '');
+      setIsCompleting(false);
     }, [note.id, note.description]);
+
+    // Reset isCompleting when completed changes
+    useEffect(() => {
+      if (note.completed) {
+        setIsCompleting(false);
+      }
+    }, [note.completed]);
 
     // Expose methods via ref
     useEffect(() => {
@@ -119,9 +141,9 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
     // Ctrl+D to toggle task completion (only for non-notes categories)
     useHotkeys('ctrl+d, meta+d', () => {
       if (note.category !== 'notes') {
-        onToggleComplete(note.id);
+        handleCheckedChange();
       }
-    }, { preventDefault: true, enableOnFormTags: true }, [note.id, note.category, onToggleComplete]);
+    }, { preventDefault: true, enableOnFormTags: true }, [note.category, handleCheckedChange]);
 
     const handleDescriptionBlur = () => {
       if (descriptionValue !== (note.description || '')) {
@@ -150,14 +172,14 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
     return (
       <div className={`flex flex-col overflow-hidden ${className}`}>
         {/* Title with checkbox and close button */}
-        <div className="flex items-start justify-between flex-shrink-0 gap-2">
+        <div className={`flex items-start justify-between flex-shrink-0 gap-2 ${isCompleting ? 'completing-task-fade' : ''}`}>
           <div className="flex items-start gap-3">
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="pt-1.5">
                   <Checkbox
                     checked={note.completed}
-                    onCheckedChange={() => onToggleComplete(note.id)}
+                    onCheckedChange={handleCheckedChange}
                     className="h-5 w-5"
                   />
                 </div>
@@ -167,7 +189,7 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
                 <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>D</Kbd></span>
               </TooltipContent>
             </Tooltip>
-            <h1 className={`text-2xl font-semibold ${note.completed ? 'line-through text-muted-foreground' : ''}`}>
+            <h1 className={`text-2xl font-semibold ${note.completed && !isCompleting ? 'line-through text-muted-foreground' : ''} ${isCompleting ? 'completing-task' : ''}`}>
               {note.content}
             </h1>
           </div>

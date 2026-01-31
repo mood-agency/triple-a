@@ -1,9 +1,9 @@
-import { forwardRef, memo, useState, useEffect } from 'react';
+import { forwardRef, memo, useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { format } from 'date-fns';
 import { es, enUS } from 'date-fns/locale';
-import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, Tag, User, Trash2, History, RotateCcw, Sparkles, Pin, PanelRightOpen } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, Tag, User, Trash2, History, RotateCcw, Sparkles, Pin, PanelRightOpen, Search, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
@@ -158,18 +158,198 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   const { getAssigneesForNote, noteAssigneeVersion } = useAssignees();
   const [noteAssignees, setNoteAssignees] = useState<Contact[]>([]);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
+
+  // Handle toggle complete with animation
+  const handleCheckedChange = useCallback(() => {
+    if (!note.completed) {
+      setIsCompleting(true);
+      // Wait for animation to finish (400ms strikethrough + 200ms fade)
+      setTimeout(() => {
+        onToggleComplete(note.id);
+      }, 600);
+    } else {
+      onToggleComplete(note.id);
+    }
+  }, [note.completed, note.id, onToggleComplete]);
+
+  // In-editor search state
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [matchCount, setMatchCount] = useState(0);
+  const [currentMatch, setCurrentMatch] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<BlockNoteEditorHandle | null>(null);
 
   // Load assignees when note or assignee version changes
   useEffect(() => {
     setNoteAssignees(getAssigneesForNote(note.id));
   }, [note.id, noteAssigneeVersion, getAssigneesForNote]);
 
+  // Reset isCompleting when note changes or completed state changes
+  useEffect(() => {
+    setIsCompleting(false);
+  }, [note.id]);
+
+  useEffect(() => {
+    if (note.completed) {
+      setIsCompleting(false);
+    }
+  }, [note.completed]);
+
+  // Forward ref to editor
+  useEffect(() => {
+    if (ref && typeof ref === 'function') {
+      ref(editorRef.current);
+    } else if (ref) {
+      ref.current = editorRef.current;
+    }
+  }, [ref]);
+
+  // Reset search when note changes
+  useEffect(() => {
+    setShowSearch(false);
+    setSearchTerm('');
+    setMatchCount(0);
+    setCurrentMatch(0);
+    editorRef.current?.clearSearch();
+  }, [note.id]);
+
+  // Focus search input when opened
+  useEffect(() => {
+    if (showSearch) {
+      setTimeout(() => searchInputRef.current?.focus(), 0);
+    } else {
+      // Clear search when closed
+      editorRef.current?.clearSearch();
+    }
+  }, [showSearch]);
+
+  // Count matches in the editor text using ProseMirror document
+  const countMatches = useCallback((term: string): number => {
+    if (!term) return 0;
+    return editorRef.current?.countSearchMatches(term) ?? 0;
+  }, []);
+
+  // Perform search using ProseMirror decorations
+  const performSearch = useCallback((term: string, matchIndex?: number) => {
+    if (!term) {
+      setMatchCount(0);
+      setCurrentMatch(0);
+      editorRef.current?.clearSearch();
+      return;
+    }
+
+    const count = countMatches(term);
+    setMatchCount(count);
+
+    if (count > 0) {
+      const index = matchIndex !== undefined ? matchIndex : 0;
+      const safeIndex = ((index % count) + count) % count;
+      setCurrentMatch(safeIndex + 1);
+
+      // Update the extension with search term and current match index
+      editorRef.current?.updateSearch(term, safeIndex);
+
+      // Scroll to current match by finding the nth match
+      setTimeout(() => {
+        const container = editorContainerRef.current;
+        if (!container) return;
+
+        const walker = document.createTreeWalker(
+          container,
+          NodeFilter.SHOW_TEXT,
+          null
+        );
+
+        let matchCounter = 0;
+        const searchTermLower = term.toLowerCase();
+        let node: Text | null;
+
+        while ((node = walker.nextNode() as Text | null)) {
+          const text = node.textContent || '';
+          const textLower = text.toLowerCase();
+          let pos = 0;
+
+          while ((pos = textLower.indexOf(searchTermLower, pos)) !== -1) {
+            if (matchCounter === safeIndex) {
+              // Found the current match, scroll it into view
+              const element = node.parentElement;
+              element?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+              return;
+            }
+            matchCounter++;
+            pos += 1;
+          }
+        }
+      }, 10);
+    } else {
+      setCurrentMatch(0);
+      editorRef.current?.clearSearch();
+    }
+  }, [countMatches]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchTerm(value);
+    if (value) {
+      // Small delay to let the state update
+      setTimeout(() => performSearch(value, 0), 10);
+    } else {
+      performSearch('');
+    }
+  }, [performSearch]);
+
+  const goToNextMatch = useCallback(() => {
+    if (searchTerm && matchCount > 0) {
+      const nextIndex = currentMatch % matchCount;
+      performSearch(searchTerm, nextIndex);
+    }
+  }, [searchTerm, matchCount, currentMatch, performSearch]);
+
+  const goToPrevMatch = useCallback(() => {
+    if (searchTerm && matchCount > 0) {
+      const prevIndex = currentMatch - 2;
+      performSearch(searchTerm, prevIndex);
+    }
+  }, [searchTerm, matchCount, currentMatch, performSearch]);
+
+  const closeSearch = useCallback(() => {
+    setShowSearch(false);
+    setSearchTerm('');
+    setMatchCount(0);
+    setCurrentMatch(0);
+    editorRef.current?.clearSearch();
+  }, []);
+
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      closeSearch();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        goToPrevMatch();
+      } else {
+        goToNextMatch();
+      }
+    } else if (e.key === 'F3') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        goToPrevMatch();
+      } else {
+        goToNextMatch();
+      }
+    }
+  }, [closeSearch, goToNextMatch, goToPrevMatch]);
+
   // Ctrl+D to toggle task completion (only for non-notes categories)
   useHotkeys('ctrl+d, meta+d', () => {
     if (note.category !== 'notes') {
-      onToggleComplete(note.id);
+      handleCheckedChange();
     }
-  }, { preventDefault: true, enableOnFormTags: true }, [note.id, note.category, onToggleComplete]);
+  }, { preventDefault: true, enableOnFormTags: true }, [note.category, handleCheckedChange]);
 
   const handleTitleEdit = (id: string, content: string) => {
     onEdit(id, content, note.category, note.description);
@@ -282,6 +462,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             titleValue={titleValue}
             autoSaveInterval={autoSaveInterval}
             showCheckbox={note.category === 'todo' || note.category === 'followup'}
+            isCompletingExternal={isCompleting}
           />
         </div>
       </div>
@@ -423,17 +604,85 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
         </Tooltip>
       </div>
 
-      <BlockNoteEditor
-        ref={ref}
-        value={descriptionValue}
-        onChange={onDescriptionChange}
-        onBlur={onDescriptionBlur}
-        onFocus={onDescriptionFocus}
-        onKeyDown={onDescriptionKeyDown}
-        placeholder={t('writeDescription')}
-        className="flex-1 min-h-0 w-full text-base bg-transparent text-muted-foreground overflow-y-auto"
-        noteId={note.id}
-      />
+      {/* Editor with in-editor search */}
+      <div
+        ref={editorContainerRef}
+        className="flex-1 min-h-0 flex flex-col overflow-hidden relative"
+        onKeyDown={(e) => {
+          // Capture CTRL+F to open in-editor search
+          if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+            e.preventDefault();
+            e.stopPropagation();
+            setShowSearch(true);
+          }
+        }}
+      >
+        {/* In-editor search bar - floating, compact, aligned right */}
+        {showSearch && (
+          <div
+            className="absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2 py-1.5 bg-background border border-muted-foreground/20 rounded-lg shadow-md"
+            onKeyDown={(e) => {
+              // Stop all key events from propagating to the editor
+              e.stopPropagation();
+            }}
+          >
+            <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder={t('searchInDescription')}
+              className="w-32 text-xs bg-transparent border-none outline-none placeholder:text-muted-foreground/50"
+            />
+            {searchTerm && (
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                {matchCount > 0 ? `${currentMatch}/${matchCount}` : t('noResults')}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={goToPrevMatch}
+              disabled={!searchTerm || matchCount === 0}
+              className="p-0.5 hover:bg-muted rounded disabled:opacity-30"
+              title={t('previousMatch')}
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={goToNextMatch}
+              disabled={!searchTerm || matchCount === 0}
+              className="p-0.5 hover:bg-muted rounded disabled:opacity-30"
+              title={t('nextMatch')}
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={closeSearch}
+              className="p-0.5 hover:bg-muted rounded"
+              title={t('close')}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+        <div className="flex-1 min-h-0 relative overflow-hidden">
+          <BlockNoteEditor
+            ref={editorRef}
+            value={descriptionValue}
+            onChange={onDescriptionChange}
+            onBlur={onDescriptionBlur}
+            onFocus={onDescriptionFocus}
+            onKeyDown={onDescriptionKeyDown}
+            placeholder={t('writeDescription')}
+            className="h-full w-full text-base bg-transparent text-muted-foreground overflow-y-auto"
+            noteId={note.id}
+          />
+        </div>
+      </div>
 
       {/* Footer: Postpone reason and version history */}
       {(note.last_postpone_reason || versions.length > 0) && (
