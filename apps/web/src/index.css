@@ -62,7 +62,7 @@
 
 /* Reusable chip styles for labels and assignees */
 .chip-label {
-  @apply inline-flex items-center gap-0.5 h-4 px-1.5 text-[10px] rounded-sm text-white leading-none;
+  @apply inline-flex items-center gap-0.5 h-4 px-1.5 text-[10px] rounded-sm text-white leading-none whitespace-nowrap overflow-hidden flex-shrink-0;
 }
 
 .chip-label-btn {
@@ -70,7 +70,7 @@
 }
 
 .chip-assignee {
-  @apply inline-flex items-center gap-0.5 h-4 px-1.5 text-[10px] rounded-sm border border-border bg-background text-muted-foreground leading-none;
+  @apply inline-flex items-center gap-0.5 h-4 px-1.5 text-[10px] rounded-sm border border-border bg-background text-muted-foreground leading-none whitespace-nowrap overflow-hidden flex-shrink-0;
 }
 
 .chip-assignee-btn {
