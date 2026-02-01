@@ -124,7 +124,8 @@ export function CommandPalette({
   };
 
   const handleSetSort = (field: 'deadline' | 'assignee' | 'category', direction: 'asc' | 'desc' | null) => {
-    onSortChange?.({ ...sortConfig, [field]: direction });
+    // Only one sort can be active at a time - clear others when setting a new one
+    onSortChange?.({ deadline: null, assignee: null, category: null, [field]: direction });
     closeWithoutFocusRestore();
   };
 

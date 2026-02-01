@@ -86,11 +86,22 @@ export function Home() {
     const deadline = searchParams.get('sortDeadline') as 'asc' | 'desc' | null;
     const assignee = searchParams.get('sortAssignee') as 'asc' | 'desc' | null;
     const category = searchParams.get('sortCategory') as 'asc' | 'desc' | null;
-    return {
-      deadline: deadline === 'asc' || deadline === 'desc' ? deadline : null,
-      assignee: assignee === 'asc' || assignee === 'desc' ? assignee : null,
-      category: category === 'asc' || category === 'desc' ? category : null,
-    };
+
+    // Only one sort can be active at a time - prioritize deadline > assignee > category
+    const validDeadline = deadline === 'asc' || deadline === 'desc' ? deadline : null;
+    const validAssignee = assignee === 'asc' || assignee === 'desc' ? assignee : null;
+    const validCategory = category === 'asc' || category === 'desc' ? category : null;
+
+    if (validDeadline) {
+      return { deadline: validDeadline, assignee: null, category: null };
+    }
+    if (validAssignee) {
+      return { deadline: null, assignee: validAssignee, category: null };
+    }
+    if (validCategory) {
+      return { deadline: null, assignee: null, category: validCategory };
+    }
+    return { deadline: null, assignee: null, category: null };
   }, [searchParams]);
 
   const [labelFilter, setLabelFilter] = useState<string[]>(getInitialLabelFilter);
