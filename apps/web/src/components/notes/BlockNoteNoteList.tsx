@@ -11,7 +11,7 @@ import type { Note, Label, NoteCategory } from '@/types/note';
 import type { Contact } from '@/types/contact';
 
 // Debug flag - set to true to enable console logs for debugging
-const DEBUG_BLOCKNOTE = true;
+const DEBUG_BLOCKNOTE = false;
 
 interface BlockNoteNoteListProps {
   notes: Note[];
@@ -48,11 +48,6 @@ export const BlockNoteNoteList = ({
   fixedNoteId = null,
   hideDate = false
 }: BlockNoteNoteListProps) => {
-  // Debug: log incoming notes order
-  if (DEBUG_BLOCKNOTE) {
-    console.log('[BlockNote] Received notes:', notes.slice(0, 3).map(n => ({ id: n.id.substring(0, 8), deadline: n.deadline })));
-  }
-
   // Create schema with notepad block
   const schema = useMemo(
     () =>
@@ -545,18 +540,6 @@ export const BlockNoteNoteList = ({
       // Detect if only the order changed (same notes, different order)
       // This happens when user applies a sort filter
       const orderChanged = removedIds.length === 0 && previousIds.size === noteIds.size && previousIds.size > 0;
-
-      if (DEBUG_BLOCKNOTE) {
-        console.log('[BlockNote] Sync check:', {
-          currentNoteIds: currentNoteIds.substring(0, 100),
-          previousSize: previousIds.size,
-          currentSize: noteIds.size,
-          removedIds: removedIds.length,
-          notesWereFiltered,
-          isInitialLoad,
-          orderChanged,
-        });
-      }
 
       // Sync on filtering (notes removed), initial load, or order change (sorting)
       if (notesWereFiltered || isInitialLoad || orderChanged) {
