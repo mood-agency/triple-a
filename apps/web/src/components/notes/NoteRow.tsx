@@ -302,33 +302,29 @@ function NoteRow(props: NoteRowProps) {
         {/* Assignee column */}
         {!compactView && note.category !== 'notes' && (
           <div className="shrink-0 flex justify-end px-1 gap-0.5">
-            <AnimatePresence mode="popLayout">
-              {noteAssignees.map((contact) => {
-                const initials = getInitials(contact.name, contact.lastname);
-                const fullName = `${contact.name} ${contact.lastname}`.trim();
-                return (
-                  <motion.div
-                    key={contact.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="chip-assignee cursor-default">
-                          {initials}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{fullName}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
+            {noteAssignees.length > 0 && (
+              <AnimatePresence mode="popLayout">
+                <motion.div
+                  key="assignees-chip"
+                  layout
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="chip-assignee cursor-default">
+                        {noteAssignees.map(contact => getInitials(contact.name, contact.lastname)).join(' | ')}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{noteAssignees.map(contact => `${contact.name} ${contact.lastname}`.trim()).join(', ')}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </motion.div>
+              </AnimatePresence>
+            )}
           </div>
         )}
       </div>
