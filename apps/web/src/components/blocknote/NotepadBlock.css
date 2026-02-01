@@ -35,7 +35,7 @@
 /* Specific targeting of BlockNote's internal content div for robust ellipsis */
 /* Only truncate when NOT editing */
 .notepad-content:not(.is-editing) {
-    max-width: 250px !important;
+    max-width: 250px;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
@@ -49,7 +49,7 @@
 
 /* Keep same width when editing, stay on single line */
 .notepad-content.is-editing {
-    max-width: 250px !important;
+    max-width: 250px;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: clip !important;
@@ -80,4 +80,10 @@
 
 .notepad-content.is-checked::after {
     width: 100%;
+}
+
+/* Hide content during filter sync to prevent flash of unfiltered content */
+.blocknote-note-list.blocknote-syncing {
+    opacity: 0;
+    pointer-events: none;
 }

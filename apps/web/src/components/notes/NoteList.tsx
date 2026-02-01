@@ -435,14 +435,14 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const handleSelectNoteById = useCallback((id: string) => {
     const n = notes.find(n => n.id === id);
     if (n) {
-      // Hide description panel when switching to a different task
-      if (selectedNote?.id !== id) {
+      // Hide description panel when switching to a different task (but keep sidebar visible if there's a fixed note)
+      if (selectedNote?.id !== id && !fixedNoteId) {
         setShowSidebar(false);
         setSidebarClosing(false);
       }
       onSelectNote(n);
     }
-  }, [notes, onSelectNote, selectedNote, setShowSidebar]);
+  }, [notes, onSelectNote, selectedNote, fixedNoteId, setShowSidebar]);
 
   // Pin handler that saves state and shows toast
   const handleTogglePinnedWithToast = useCallback((id: string, pinned: boolean) => {
