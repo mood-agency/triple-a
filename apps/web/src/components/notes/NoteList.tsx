@@ -2,6 +2,7 @@ import { useRef, useState, forwardRef, useImperativeHandle, useMemo, useEffect, 
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'motion/react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ArrowLeft } from 'lucide-react';
 import {
@@ -266,7 +267,8 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
   const closeSidebar = useCallback(() => {
     setSidebarClosing(true);
-  }, []);
+    setShowSidebar(false);
+  }, [setShowSidebar]);
 
   const compactTaskView = settings.compactTaskView;
   const setCompactTaskView = (value: boolean) => updateSettings({ compactTaskView: value });
@@ -857,89 +859,104 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           autoSaveInterval={settings.autoSaveInterval}
         />
 
-        {selectedNote && selection.showDescriptionPanel && (
-          <div className={`${isMobile ? 'w-full' : 'flex-1'} min-w-0 overflow-hidden flex flex-col`}>
-            {isMobile && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onSelectNote(null)}
-                className="mb-2 self-start -ml-2"
-              >
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                {t('back')}
-              </Button>
-            )}
-            <NoteEditorPanel
-              ref={selection.descriptionRef}
-              note={selectedNote}
-              noteLabels={noteLabels}
-              allLabels={labels}
-              descriptionValue={selection.descriptionValue}
-              titleValue={selection.titleValue}
-              showPostponeHistory={showPostponeHistory}
-              showVersionHistory={showVersionHistory}
-              versions={versions}
-              actions={actions}
-              labelDropdownOpen={labelDropdownOpen}
-              categoryDropdownOpen={categoryDropdownOpen}
-              deadlinePickerOpen={deadlinePickerOpen}
-              assigneePickerOpen={assigneePickerOpen}
-              editingHistoryEntry={editingHistoryEntry}
-              contacts={contacts}
-              onEdit={onEdit}
-              onDescriptionChange={selection.setDescriptionValue}
-              onDescriptionBlur={handleDescriptionBlur}
-              onDescriptionFocus={handleDescriptionFocus}
-              onDescriptionKeyDown={handleDescriptionKeyDown}
-              onTogglePostponeHistory={() => setShowPostponeHistory(!showPostponeHistory)}
-              onToggleVersionHistory={() => setShowVersionHistory(!showVersionHistory)}
-              onRestoreVersion={handleRestoreVersion}
-              onAddLabel={handleAddLabel}
-              onRemoveLabel={handleRemoveLabel}
-              onEditLabel={handleEditLabel}
-              onCreateLabel={() => setShowCreateLabelDialog(true)}
-              onDeadlineChange={handleDeadlineChange}
-              onDeadlineSave={handleDeadlineSave}
-              onAddAssignee={onAddAssignee}
-              onRemoveAssignee={onRemoveAssignee}
-              onUpdateAssignee={onUpdateAssignee}
-              onDelete={() => setShowEditorDeleteDialog(true)}
-              onLabelDropdownOpenChange={handleLabelDropdownOpenChange}
-              onCategoryDropdownOpenChange={handleCategoryDropdownOpenChange}
-              onDeadlinePickerOpenChange={handleDeadlinePickerOpenChange}
-              onAssigneePickerOpenChange={handleAssigneePickerOpenChange}
-              onEditHistoryEntry={(entry) => setEditingHistoryEntry(entry)}
-              onUpdateHistoryReason={updateReason}
-              onDeleteHistoryEntry={(id) => setHistoryEntryToDelete(id)}
-              onSetEditingHistoryEntry={setEditingHistoryEntry}
-              onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !selectedNote.completed)}
-              autoSaveInterval={settings.autoSaveInterval}
-              onTogglePublic={onTogglePublic}
-              aiProvider={settings.aiProvider}
-              onTogglePinned={onTogglePinned}
-              onToggleFixInSidebar={handleToggleFixInSidebarById}
-              isFixedInSidebar={fixedNoteId === selectedNote.id}
-            />
-          </div>
-        )}
+        <AnimatePresence>
+          {selectedNote && selection.showDescriptionPanel && (
+            <motion.div
+              key="description-panel"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className={`${isMobile ? 'w-full' : 'flex-1'} min-w-0 overflow-hidden flex flex-col`}
+            >
+              {isMobile && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onSelectNote(null)}
+                  className="mb-2 self-start -ml-2"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  {t('back')}
+                </Button>
+              )}
+              <NoteEditorPanel
+                ref={selection.descriptionRef}
+                note={selectedNote}
+                noteLabels={noteLabels}
+                allLabels={labels}
+                descriptionValue={selection.descriptionValue}
+                titleValue={selection.titleValue}
+                showPostponeHistory={showPostponeHistory}
+                showVersionHistory={showVersionHistory}
+                versions={versions}
+                actions={actions}
+                labelDropdownOpen={labelDropdownOpen}
+                categoryDropdownOpen={categoryDropdownOpen}
+                deadlinePickerOpen={deadlinePickerOpen}
+                assigneePickerOpen={assigneePickerOpen}
+                editingHistoryEntry={editingHistoryEntry}
+                contacts={contacts}
+                onEdit={onEdit}
+                onDescriptionChange={selection.setDescriptionValue}
+                onDescriptionBlur={handleDescriptionBlur}
+                onDescriptionFocus={handleDescriptionFocus}
+                onDescriptionKeyDown={handleDescriptionKeyDown}
+                onTogglePostponeHistory={() => setShowPostponeHistory(!showPostponeHistory)}
+                onToggleVersionHistory={() => setShowVersionHistory(!showVersionHistory)}
+                onRestoreVersion={handleRestoreVersion}
+                onAddLabel={handleAddLabel}
+                onRemoveLabel={handleRemoveLabel}
+                onEditLabel={handleEditLabel}
+                onCreateLabel={() => setShowCreateLabelDialog(true)}
+                onDeadlineChange={handleDeadlineChange}
+                onDeadlineSave={handleDeadlineSave}
+                onAddAssignee={onAddAssignee}
+                onRemoveAssignee={onRemoveAssignee}
+                onUpdateAssignee={onUpdateAssignee}
+                onDelete={() => setShowEditorDeleteDialog(true)}
+                onLabelDropdownOpenChange={handleLabelDropdownOpenChange}
+                onCategoryDropdownOpenChange={handleCategoryDropdownOpenChange}
+                onDeadlinePickerOpenChange={handleDeadlinePickerOpenChange}
+                onAssigneePickerOpenChange={handleAssigneePickerOpenChange}
+                onEditHistoryEntry={(entry) => setEditingHistoryEntry(entry)}
+                onUpdateHistoryReason={updateReason}
+                onDeleteHistoryEntry={(id) => setHistoryEntryToDelete(id)}
+                onSetEditingHistoryEntry={setEditingHistoryEntry}
+                onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !selectedNote.completed)}
+                autoSaveInterval={settings.autoSaveInterval}
+                onTogglePublic={onTogglePublic}
+                aiProvider={settings.aiProvider}
+                onTogglePinned={onTogglePinned}
+                onToggleFixInSidebar={handleToggleFixInSidebarById}
+                isFixedInSidebar={fixedNoteId === selectedNote.id}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* Fixed sidebar - wrapper for layout space, inner panel slides with transform */}
-        {!isMobile && (
-          <div
-            onTransitionEnd={(e) => {
-              if (e.target === e.currentTarget && e.propertyName === 'width' && sidebarClosing) {
-                setSidebarClosing(false);
-                setShowSidebar(false);
-                setClosingNote(null);
-              }
-            }}
-            className={`ml-auto overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] -my-4 ${
-              showSidebar && !sidebarClosing ? 'w-[calc(35%+2rem)]' : 'w-0'
-            }`}
-          >
-            <div className="w-[calc(35vw+2rem)] min-w-[400px] h-full flex flex-col p-4 py-4 pr-8 rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30 overflow-y-auto">
-            {showSidebar && (displayedNote ? (
+        {/* Fixed sidebar - animated with Motion */}
+        <AnimatePresence
+          onExitComplete={() => {
+            setSidebarClosing(false);
+            setShowSidebar(false);
+            setClosingNote(null);
+          }}
+        >
+          {!isMobile && showSidebar && (
+            <motion.div
+              key="fixed-sidebar"
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 'calc(35% + 2rem)', opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{
+                duration: 0.3,
+                ease: [0.16, 1, 0.3, 1],
+              }}
+              className="ml-auto overflow-hidden -my-4"
+            >
+              <div className="w-[calc(35vw+2rem)] min-w-[400px] h-full flex flex-col p-4 py-4 pr-8 rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30 overflow-y-auto">
+              {displayedNote ? (
               <NoteEditorPanel
                 ref={fixedNoteDescriptionRef}
                 note={displayedNote}
@@ -992,10 +1009,11 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               />
             ) : (
               <p className="text-sm text-muted-foreground/50 italic">{t('selectNoteToEdit')}</p>
-            ))}
-            </div>
-          </div>
-        )}
+            )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <Dialog open={showCreateLabelDialog} onOpenChange={setShowCreateLabelDialog}>
