@@ -28,6 +28,7 @@ interface BlockNoteNoteListProps {
   onSaveSuccess?: (savedCount: number) => void;
   compactView?: boolean;
   fixedNoteId?: string | null;
+  hideDate?: boolean;
 }
 
 export const BlockNoteNoteList = ({
@@ -44,7 +45,8 @@ export const BlockNoteNoteList = ({
   onToggleFixInSidebar,
   onSaveSuccess,
   compactView = false,
-  fixedNoteId = null
+  fixedNoteId = null,
+  hideDate = false
 }: BlockNoteNoteListProps) => {
   // Create schema with notepad block
   const schema = useMemo(
@@ -77,8 +79,8 @@ export const BlockNoteNoteList = ({
 
   // Convert notes to blocks using adapter
   const initialContent = useMemo(
-    () => notesToBlocks(notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId),
-    [notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId]
+    () => notesToBlocks(notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId, hideDate),
+    [notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId, hideDate]
   );
 
   // Create editor
@@ -106,6 +108,9 @@ export const BlockNoteNoteList = ({
   // Track if we're syncing filter changes to hide content during transition
   const [isSyncingFilter, setIsSyncingFilter] = useState(false);
 
+  // Track if we're animating from compact to full view
+  const [isAnimatingToFull, setIsAnimatingToFull] = useState(false);
+
   // Ref for the container element for animations
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -117,6 +122,15 @@ export const BlockNoteNoteList = ({
 
   // Skip animation on initial mount (prevents flash on page load)
   const isInitialMountRef = useRef(true);
+
+  // Track previous compactView state to detect mode changes
+  const prevCompactViewRef = useRef(compactView);
+
+  // Track pending animation frame IDs for cleanup
+  const animationFrameRef = useRef<number | null>(null);
+
+  // Track running animations for cleanup
+  const runningAnimationsRef = useRef<Array<{ stop: () => void }>>([]);
 
   // Function to flush pending saves immediately
   const flushPendingSaves = useCallback(() => {
@@ -233,6 +247,94 @@ export const BlockNoteNoteList = ({
     }, 30);
   }, [notes]);
 
+  // Animate new elements when switching from compact to full view
+  useEffect(() => {
+    // Cancel any pending animations and frames when compactView changes
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    runningAnimationsRef.current.forEach(anim => anim.stop());
+    runningAnimationsRef.current = [];
+
+    // Skip initial mount
+    if (isInitialMountRef.current) {
+      prevCompactViewRef.current = compactView;
+      return;
+    }
+
+    // Only animate when switching FROM compact TO full view
+    if (prevCompactViewRef.current === true && compactView === false) {
+      // Hide elements immediately before they render
+      setIsAnimatingToFull(true);
+
+      // Wait for CSS to apply and elements to be in the DOM (but hidden)
+      const frameId1 = requestAnimationFrame(() => {
+        const frameId2 = requestAnimationFrame(() => {
+          animationFrameRef.current = null;
+
+          // Select all the elements that appear in full mode
+          const checkboxes = containerRef.current?.querySelectorAll('.notepad-category-checkbox');
+          const metadataElements = containerRef.current?.querySelectorAll('.notepad-metadata');
+          const deadlines = containerRef.current?.querySelectorAll('.notepad-deadline');
+
+          // Combine all elements to animate
+          const allElements: HTMLElement[] = [];
+
+          checkboxes?.forEach(el => allElements.push(el as HTMLElement));
+          metadataElements?.forEach(el => allElements.push(el as HTMLElement));
+          deadlines?.forEach(el => allElements.push(el as HTMLElement));
+
+          // Clear any inline styles from previous animations
+          allElements.forEach(el => {
+            el.style.opacity = '';
+            el.style.transform = '';
+          });
+
+          // Remove the hiding class so animation can start from opacity 0
+          setIsAnimatingToFull(false);
+
+          // Animate each element with stagger
+          const animations: Array<{ stop: () => void }> = [];
+          allElements.forEach((el, index) => {
+            const anim = (animate as any)(
+              el,
+              {
+                opacity: [0, 1],
+                transform: ['translateX(-8px)', 'translateX(0px)']
+              },
+              {
+                duration: 0.2,
+                delay: index * 0.015,
+                easing: 'ease-out'
+              }
+            );
+            animations.push(anim);
+          });
+          runningAnimationsRef.current = animations;
+        });
+        animationFrameRef.current = frameId2;
+      });
+      animationFrameRef.current = frameId1;
+    } else {
+      // When switching to compact, clean up any inline styles
+      const checkboxes = containerRef.current?.querySelectorAll('.notepad-category-checkbox');
+      const metadataElements = containerRef.current?.querySelectorAll('.notepad-metadata');
+      const deadlines = containerRef.current?.querySelectorAll('.notepad-deadline');
+
+      [checkboxes, metadataElements, deadlines].forEach(nodeList => {
+        nodeList?.forEach(el => {
+          (el as HTMLElement).style.opacity = '';
+          (el as HTMLElement).style.transform = '';
+        });
+      });
+
+      setIsAnimatingToFull(false);
+    }
+
+    prevCompactViewRef.current = compactView;
+  }, [compactView]);
+
   // Listen to BlockNote selection changes and sync to parent
   useEffect(() => {
     let previousBlockId: string | undefined;
@@ -321,7 +423,7 @@ export const BlockNoteNoteList = ({
           isSyncingRef.current = true;
 
           // Replace entire document when filtering changes
-          const newContent = notesToBlocks(notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId);
+          const newContent = notesToBlocks(notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId, hideDate);
           const blocksToReplace = editor.document.map(b => b.id);
           editor.replaceBlocks(blocksToReplace, newContent as any);
 
@@ -608,7 +710,7 @@ export const BlockNoteNoteList = ({
   return (
     <div
       ref={containerRef}
-      className={`blocknote-note-list ${isSyncingFilter ? 'blocknote-syncing' : ''} ${compactView ? 'compact-view' : ''}`}
+      className={`blocknote-note-list ${isSyncingFilter ? 'blocknote-syncing' : ''} ${compactView ? 'compact-view' : ''} ${isAnimatingToFull ? 'animating-to-full' : ''}`}
       onFocus={(e) => {
         if (DEBUG_BLOCKNOTE) console.log('[DOM] Editor wrapper gained focus', e.target);
       }}

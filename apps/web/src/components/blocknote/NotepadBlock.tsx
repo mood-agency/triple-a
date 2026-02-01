@@ -34,6 +34,7 @@ export const NotepadBlock = createReactBlockSpec(
             pinned: { default: false },
             compact: { default: false },
             fixedInSidebar: { default: false },
+            hideDate: { default: false },
         },
         content: "inline",
     },
@@ -189,6 +190,7 @@ export const NotepadBlock = createReactBlockSpec(
             const dateStr = props.block.props.date as string;
             const isPinned = props.block.props.pinned as boolean;
             const isFixedInSidebar = props.block.props.fixedInSidebar as boolean;
+            const hideDate = props.block.props.hideDate as boolean;
 
             const cycleCategory = (e: React.MouseEvent) => {
                 e.preventDefault();
@@ -345,12 +347,11 @@ export const NotepadBlock = createReactBlockSpec(
                         </TooltipProvider>
                     </div>
 
-                    {dateStr && (
+                    {dateStr && !hideDate && (
                         <div
                             contentEditable={false}
-                            className={`notepad-deadline flex-shrink-0 text-[10px] whitespace-nowrap ${
-                                shouldShowRed ? 'text-red-500 font-medium' : 'text-muted-foreground'
-                            }`}
+                            className={`notepad-deadline flex-shrink-0 text-[10px] whitespace-nowrap ${shouldShowRed ? 'text-red-500 font-medium' : 'text-muted-foreground'
+                                }`}
                             style={{
                                 marginLeft: "8px",
                                 userSelect: "none",
@@ -365,11 +366,10 @@ export const NotepadBlock = createReactBlockSpec(
                     <button
                         contentEditable={false}
                         onClick={handleTogglePin}
-                        className={`p-1 hover:bg-gray-200 rounded transition-all ml-1 flex-shrink-0 ${
-                            isPinned
+                        className={`p-1 hover:bg-gray-200 rounded transition-all ml-1 flex-shrink-0 ${isPinned
                                 ? 'opacity-100'
                                 : 'opacity-0 group-hover:opacity-100'
-                        }`}
+                            }`}
                         style={{ userSelect: "none" }}
                         title={isPinned ? "Unpin task" : "Pin task"}
                     >
@@ -380,11 +380,10 @@ export const NotepadBlock = createReactBlockSpec(
                     <button
                         contentEditable={false}
                         onClick={handleToggleFixInSidebar}
-                        className={`p-1 hover:bg-gray-200 rounded transition-all flex-shrink-0 ${
-                            isFixedInSidebar
+                        className={`p-1 hover:bg-gray-200 rounded transition-all flex-shrink-0 ${isFixedInSidebar
                                 ? 'opacity-100'
                                 : 'opacity-0 group-hover:opacity-100'
-                        }`}
+                            }`}
                         style={{ userSelect: "none" }}
                         title={isFixedInSidebar ? "Unfix from sidebar" : "Fix to sidebar"}
                     >
