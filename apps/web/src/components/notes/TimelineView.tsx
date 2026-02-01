@@ -7,6 +7,7 @@ import { MemoizedNoteRow } from './NoteRow';
 import { hasTimeComponent, getHourFromDeadline } from '@/utils/dateUtils';
 import { sortNotesByCategory } from '@/utils/noteUtils';
 import { useNoteRowProps } from '@/hooks/useNoteRowProps';
+import { useRegisterNavigationRegion, type RegionHandler } from './navigation';
 
 interface TimelineViewProps {
   notes: Note[];
@@ -124,7 +125,7 @@ export function TimelineView({
     contacts,
     onAddAssignee,
     onRemoveAssignee,
-    onUpdateAssignee: onUpdateAssignee || (() => {}),
+    onUpdateAssignee: onUpdateAssignee || (() => { }),
     noteLabelsCache,
     assigneeNamesCache,
     noteAssigneesCache,
@@ -147,6 +148,30 @@ export function TimelineView({
         return notes;
     }
   }, [taskStatusFilter, notes, completedNotes, deletedNotes]);
+
+  // Register this component as the task list region in the navigation mediator
+  const taskListRegionHandler = useMemo<RegionHandler>(() => ({
+    region: 'taskList',
+    focusFirst: () => {
+      if (currentNotes.length > 0) {
+        onSelectNote(currentNotes[0].id);
+        if (onTitleFocused) onTitleFocused();
+        return true;
+      }
+      return false;
+    },
+    focusLast: () => {
+      if (currentNotes.length > 0) {
+        onSelectNote(currentNotes[currentNotes.length - 1].id);
+        if (onTitleFocused) onTitleFocused();
+        return true;
+      }
+      return false;
+    },
+    canReceiveFocus: () => currentNotes.length > 0,
+  }), [currentNotes, onSelectNote, onTitleFocused]);
+
+  useRegisterNavigationRegion(taskListRegionHandler);
 
   // Helper to conditionally sort by category
   const applyCategorySort = (notesToSort: Note[]): Note[] => {
@@ -302,9 +327,8 @@ export function TimelineView({
 
                   {/* Time slot */}
                   <div
-                    className={`relative ${
-                      !hasNotes ? 'hover:bg-accent/20 cursor-pointer group' : ''
-                    }`}
+                    className={`relative ${!hasNotes ? 'hover:bg-accent/20 cursor-pointer group' : ''
+                      }`}
                     style={{ minHeight: hasNotes ? 'auto' : `${HOUR_HEIGHT - 24}px` }}
                     onClick={() => !hasNotes && handleHourClick(hour)}
                   >
