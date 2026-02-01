@@ -64,19 +64,18 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
     return null;
   }, [projectParam, projects, projectsLoading, activeProjectId, settings.activeProjectId]);
 
-  // Sync internal state and settings with URL (side effects only)
+  // Sync internal state with URL (side effects only)
+  // IMPORTANT: This effect should NOT call setSearchParams after initialization
+  // to avoid race conditions with other components updating URL params
   useEffect(() => {
     if (projectsLoading) return;
 
     const activeProjects = projects.filter(p => p.status === 'active');
 
-    // If we have a valid URL param, sync internal state and settings
+    // If we have a valid URL param, sync internal state only (not settings, to avoid re-render cascades)
     if (projectParam && projects.some(p => p.id === projectParam)) {
       if (activeProjectId !== projectParam) {
         setActiveProjectIdState(projectParam);
-      }
-      if (settings.activeProjectId !== projectParam) {
-        updateSettings({ activeProjectId: projectParam });
       }
       if (!initialized) {
         setInitialized(true);
@@ -110,6 +109,21 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
       setInitialized(true);
     }
   }, [projects, projectsLoading, settings.activeProjectId, updateSettings, initialized, projectParam, setSearchParams, activeProjectId]);
+
+  // Separate effect to sync settings with URL - runs less frequently
+  // This avoids re-render cascades during URL updates from other components
+  useEffect(() => {
+    if (!initialized || projectsLoading) return;
+    if (projectParam && projects.some(p => p.id === projectParam)) {
+      if (settings.activeProjectId !== projectParam) {
+        // Use setTimeout to defer this update and avoid race conditions
+        const timeoutId = setTimeout(() => {
+          updateSettings({ activeProjectId: projectParam });
+        }, 0);
+        return () => clearTimeout(timeoutId);
+      }
+    }
+  }, [initialized, projectsLoading, projectParam, projects, settings.activeProjectId, updateSettings]);
 
   // Set active project and persist to settings AND URL
   const setActiveProjectId = useCallback((id: string) => {

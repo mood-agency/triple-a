@@ -53,7 +53,6 @@ export function Home() {
   const getInitialSelectedDate = useCallback((): Date => {
     const dateParam = searchParams.get('date');
     if (dateParam) {
-      // Use parseLocalDate to avoid timezone issues (e.g., 2026-01-26 showing as Jan 25)
       const parsed = parseLocalDate(dateParam);
       if (!isNaN(parsed.getTime())) {
         return parsed;
@@ -64,27 +63,6 @@ export function Home() {
 
   const [selectedDate, setSelectedDateState] = useState<Date>(getInitialSelectedDate);
 
-  // Update URL when selected date changes (only in calendar view)
-  const setSelectedDate = useCallback((newDate: Date | undefined) => {
-    const dateToSet = newDate ?? new Date();
-    setSelectedDateState(dateToSet);
-    // Only update URL date param when in calendar view
-    if (viewMode === 'calendar') {
-      setSearchParams(prev => {
-        const newParams = new URLSearchParams(prev);
-        // Use formatLocalDate to avoid timezone issues
-        const dateStr = formatLocalDate(dateToSet);
-        const today = formatLocalDate(new Date());
-        if (dateStr !== today) {
-          newParams.set('date', dateStr);
-        } else {
-          newParams.delete('date');
-        }
-        return newParams;
-      }, { replace: true });
-    }
-  }, [setSearchParams, viewMode]);
-
   // Initialize filters from URL params
   const getInitialLabelFilter = useCallback(() => {
     const labelsParam = searchParams.get('labels');
@@ -93,7 +71,7 @@ export function Home() {
 
   const getInitialCategoryFilter = useCallback((): NoteCategory | 'all' => {
     const categoryParam = searchParams.get('category');
-    if (categoryParam === 'todo' || categoryParam === 'followup' || categoryParam === 'notes') {
+    if (categoryParam === 'todo' || categoryParam === 'followup' || categoryParam === 'notes' || categoryParam === 'meeting') {
       return categoryParam;
     }
     return 'all';
@@ -123,31 +101,116 @@ export function Home() {
   const [sortConfig, setSortConfig] = useState<{ deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null }>(getInitialSortConfig);
   const [showCreateProjectDialog, setShowCreateProjectDialog] = useState(false);
 
+  // Keep a ref of the current state values to avoid stale closures in syncStateToURL
+  // when multiple rapid updates occur (e.g. category filter change -> auto-note selection).
+  // We include activeProjectId to ensure project switching doesn't conflict.
+  const stateRef = useRef({
+    viewMode,
+    selectedDate,
+    selectedNoteId,
+    categoryFilter,
+    labelFilter,
+    assigneeFilter,
+    sortConfig,
+    activeProjectId
+  });
+
+  // Keep ref in sync with latest state for next renders
+  useEffect(() => {
+    stateRef.current = {
+      viewMode,
+      selectedDate,
+      selectedNoteId,
+      categoryFilter,
+      labelFilter,
+      assigneeFilter,
+      sortConfig,
+      activeProjectId
+    };
+  }, [viewMode, selectedDate, selectedNoteId, categoryFilter, labelFilter, assigneeFilter, sortConfig, activeProjectId]);
+
+  // Canonical function to update URL from current state
+  const syncStateToURL = useCallback((overrides: Record<string, any> = {}) => {
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      // Use the ref for latest values if not overridden
+      const s = { ...stateRef.current, ...overrides };
+
+      // 1. View Mode
+      newParams.set('view', s.viewMode);
+
+      // 2. Selected Date (Calendar only)
+      if (s.viewMode === 'calendar') {
+        const dateStr = formatLocalDate(s.selectedDate);
+        const today = formatLocalDate(new Date());
+        if (dateStr !== today) newParams.set('date', dateStr);
+        else newParams.delete('date');
+      } else {
+        newParams.delete('date');
+      }
+
+      // 3. Selected Note
+      const noteId = 'noteId' in overrides ? overrides.noteId : s.selectedNoteId;
+      if (noteId) newParams.set('note', noteId);
+      else newParams.delete('note');
+
+      // 4. Category Filter
+      if (s.categoryFilter !== 'all') newParams.set('category', s.categoryFilter);
+      else newParams.delete('category');
+
+      // 5. Label Filter
+      if (s.labelFilter && s.labelFilter.length > 0) newParams.set('labels', s.labelFilter.join(','));
+      else newParams.delete('labels');
+
+      // 6. Assignee Filter
+      if (s.assigneeFilter && s.assigneeFilter.length > 0) newParams.set('assignees', s.assigneeFilter.join(','));
+      else newParams.delete('assignees');
+
+      // 7. Sort Configuration
+      const sort = overrides.sort || s.sortConfig;
+      if (sort.deadline) newParams.set('sortDeadline', sort.deadline);
+      else newParams.delete('sortDeadline');
+
+      if (sort.assignee) newParams.set('sortAssignee', sort.assignee);
+      else newParams.delete('sortAssignee');
+
+      if (sort.category) newParams.set('sortCategory', sort.category);
+      else newParams.delete('sortCategory');
+
+      // 8. Project (Preserve from context if not in URL, but ProjectContext usually handles this)
+      if (s.activeProjectId && !newParams.has('project')) {
+        newParams.set('project', s.activeProjectId);
+      }
+
+      // Only update if something changed to avoid unnecessary re-renders
+      if (newParams.toString() === prev.toString()) return prev;
+      return newParams;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  // Update URL when selected date changes (only in calendar view)
+  const setSelectedDate = useCallback((newDate: Date | undefined) => {
+    const dateToSet = newDate ?? new Date();
+    setSelectedDateState(dateToSet);
+    stateRef.current.selectedDate = dateToSet;
+    syncStateToURL({ date: dateToSet });
+  }, [syncStateToURL]);
+
   // Update URL when view mode changes
   const setViewMode = useCallback((newViewMode: 'list' | 'calendar') => {
     setViewModeState(newViewMode);
     updateSettings({ viewMode: newViewMode });
 
     // Reset category filter if switching to calendar view with 'notes' filter active
-    // (notes don't have deadlines, so they don't make sense in calendar view)
-    if (newViewMode === 'calendar' && categoryFilter === 'notes') {
-      setCategoryFilter('all');
+    const newCategory = (newViewMode === 'calendar' && categoryFilter === 'notes') ? 'all' : categoryFilter;
+    if (newCategory !== categoryFilter) {
+      setCategoryFilter(newCategory);
+      stateRef.current.categoryFilter = newCategory;
     }
 
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
-      newParams.set('view', newViewMode);
-      if (newViewMode === 'list') {
-        // Clear date param when switching to list view (date is only for calendar)
-        newParams.delete('date');
-      }
-      // Also clear category param if switching to calendar with notes filter
-      if (newViewMode === 'calendar' && categoryFilter === 'notes') {
-        newParams.delete('category');
-      }
-      return newParams;
-    }, { replace: true });
-  }, [setSearchParams, updateSettings, categoryFilter]);
+    stateRef.current.viewMode = newViewMode;
+    syncStateToURL({ viewMode: newViewMode, category: newCategory });
+  }, [updateSettings, categoryFilter, syncStateToURL]);
 
   const toggleViewMode = useCallback(() => {
     setViewMode(viewMode === 'list' ? 'calendar' : 'list');
@@ -203,43 +266,20 @@ export function Home() {
   }, [loading, notes, searchParams, selectedNoteId, activeProjectId]);
 
   // Update URL when selected note changes
-  // Optimized: Work with note ID instead of full object
   const handleSelectNote = useCallback((note: Note | null) => {
     const noteId = note?.id ?? null;
-    console.log('[Select Debug] handleSelectNote called with:', noteId);
+    console.log('[Home] handleSelectNote:', noteId);
     setSelectedNoteId(noteId);
-    setSearchParams(prev => {
-      console.log('[Select Debug] prev params:', prev.toString());
-      const newParams = new URLSearchParams(prev);
-      if (noteId) {
-        newParams.set('note', noteId);
-      } else {
-        newParams.delete('note');
-      }
-      // Ensure view mode is preserved (use current state, not prev params)
-      newParams.set('view', viewMode);
-      // Clear date param in list view (date is only for calendar)
-      if (viewMode === 'list') {
-        newParams.delete('date');
-      }
-      console.log('[Select Debug] new params:', newParams.toString());
-      return newParams;
-    }, { replace: true });
-  }, [setSearchParams, viewMode]);
+    stateRef.current.selectedNoteId = noteId;
+    syncStateToURL({ noteId });
+  }, [syncStateToURL]);
 
   // Update URL when label filter changes
   const handleLabelFilterChange = useCallback((newLabels: string[]) => {
     setLabelFilter(newLabels);
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
-      if (newLabels.length > 0) {
-        newParams.set('labels', newLabels.join(','));
-      } else {
-        newParams.delete('labels');
-      }
-      return newParams;
-    }, { replace: true });
-  }, [setSearchParams]);
+    stateRef.current.labelFilter = newLabels;
+    syncStateToURL({ labels: newLabels });
+  }, [syncStateToURL]);
 
   // Debug: Log URL changes
   useEffect(() => {
@@ -254,61 +294,25 @@ export function Home() {
 
   // Update URL when category filter changes
   const handleCategoryFilterChange = useCallback((newCategory: NoteCategory | 'all') => {
-    console.log('[Filter Debug] handleCategoryFilterChange called with:', newCategory);
+    console.log('[Home] handleCategoryFilterChange:', newCategory);
     setCategoryFilter(newCategory);
-    setSearchParams(prev => {
-      console.log('[Filter Debug] prev params:', prev.toString());
-      const newParams = new URLSearchParams(prev);
-      if (newCategory !== 'all') {
-        newParams.set('category', newCategory);
-      } else {
-        newParams.delete('category');
-      }
-      console.log('[Filter Debug] new params:', newParams.toString());
-      return newParams;
-    }, { replace: true });
-  }, [setSearchParams]);
+    stateRef.current.categoryFilter = newCategory;
+    syncStateToURL({ category: newCategory });
+  }, [syncStateToURL]);
 
   // Update URL when assignee filter changes
   const handleAssigneeFilterChange = useCallback((newAssignees: string[]) => {
     setAssigneeFilter(newAssignees);
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
-      if (newAssignees.length > 0) {
-        newParams.set('assignees', newAssignees.join(','));
-      } else {
-        newParams.delete('assignees');
-      }
-      return newParams;
-    }, { replace: true });
-  }, [setSearchParams]);
+    stateRef.current.assigneeFilter = newAssignees;
+    syncStateToURL({ assignees: newAssignees });
+  }, [syncStateToURL]);
 
   // Update URL when sort config changes
   const handleSortConfigChange = useCallback((newSortConfig: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null }) => {
     setSortConfig(newSortConfig);
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
-      // Update or remove deadline sort param
-      if (newSortConfig.deadline) {
-        newParams.set('sortDeadline', newSortConfig.deadline);
-      } else {
-        newParams.delete('sortDeadline');
-      }
-      // Update or remove assignee sort param
-      if (newSortConfig.assignee) {
-        newParams.set('sortAssignee', newSortConfig.assignee);
-      } else {
-        newParams.delete('sortAssignee');
-      }
-      // Update or remove category sort param
-      if (newSortConfig.category) {
-        newParams.set('sortCategory', newSortConfig.category);
-      } else {
-        newParams.delete('sortCategory');
-      }
-      return newParams;
-    }, { replace: true });
-  }, [setSearchParams]);
+    stateRef.current.sortConfig = newSortConfig;
+    syncStateToURL({ sort: newSortConfig });
+  }, [syncStateToURL]);
 
   const handleCreateTask = useCallback(() => {
     // Use category filter if set, otherwise default to 'todo'
