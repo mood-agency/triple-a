@@ -14,6 +14,8 @@ import { useContacts } from '@/hooks/useContacts';
 import { useAssignees } from '@/hooks/useAssignees';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useActiveProject } from '@/contexts/ProjectContext';
+import { useFilterCommands } from '@/components/notes/hooks/useFilterCommands';
+import { FilterCommandsProvider } from '@/components/notes/FilterCommandsContext';
 import type { Note, NoteCategory } from '@/types/note';
 import { parseLocalDate, formatLocalDate } from '@/utils/dateUtils';
 
@@ -359,6 +361,32 @@ export function Home() {
     // Note: selectedNote will automatically update via useMemo when notes array changes
   }, [postponeNote]);
 
+  // Placeholder for dateRangeFilter and searchQuery (these are managed in useNoteFilters)
+  const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter Commands hook for undo/redo support
+  const filterCommands = useFilterCommands({
+    categoryFilter,
+    labelFilter,
+    assigneeFilter,
+    searchQuery,
+    sortConfig,
+    dateRangeFilter,
+    taskStatusFilter,
+    showOverdueOnly,
+    setCategoryFilter: handleCategoryFilterChange,
+    setLabelFilter: handleLabelFilterChange,
+    setAssigneeFilter: handleAssigneeFilterChange,
+    setSearchQuery,
+    setSortConfig: handleSortConfigChange,
+    setDateRangeFilter,
+    setTaskStatusFilter,
+    setShowOverdueOnly,
+    labels,
+    contacts,
+  });
+
   // Show loading spinner only when loading and no notes yet
   // This prevents React hooks count mismatch when project changes
   if (loading && !notes.length) {
@@ -370,7 +398,16 @@ export function Home() {
   }
 
   return (
-    <>
+    <FilterCommandsProvider
+      value={{
+        canUndo: filterCommands.canUndo,
+        canRedo: filterCommands.canRedo,
+        lastCommand: filterCommands.lastCommand,
+        undo: filterCommands.undo,
+        redo: filterCommands.redo,
+        commands: filterCommands.commands,
+      }}
+    >
       <NoteList
         ref={noteListRef}
         notes={notes}
@@ -456,6 +493,6 @@ export function Home() {
           await createProject(data, true);
         }}
       />
-    </>
+    </FilterCommandsProvider>
   );
 }

@@ -44,6 +44,10 @@ import { useNoteOperations } from './hooks/useNoteOperations';
 import { NoteListToolbar } from './NoteListToolbar';
 import { NoteListContent } from './NoteListContent';
 import { DebugNavigationOverlay } from '@/hooks/useDebugNavigation';
+import {
+  useNavigationMediator,
+  type RegionHandler,
+} from './navigation';
 
 // Re-export types if needed
 export interface NoteListHandle {
@@ -173,6 +177,57 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     onEdit,
     autoSaveInterval: settings.autoSaveInterval,
   });
+
+  // Navigation Mediator for centralized keyboard navigation
+  const navigationMediator = useNavigationMediator();
+
+  // Register search region handler
+  const searchRegionHandler = useMemo<RegionHandler>(() => ({
+    region: 'search',
+    focusFirst: () => {
+      searchInputRef.current?.focus();
+      return true;
+    },
+    focusLast: () => {
+      searchInputRef.current?.focus();
+      return true;
+    },
+    canReceiveFocus: () => true,
+  }), []);
+
+  // Register task list region handler
+  const taskListRegionHandler = useMemo<RegionHandler>(() => ({
+    region: 'taskList',
+    focusFirst: (column = 0) => {
+      if (filters.activeNotes.length > 0) {
+        onSelectNote(filters.activeNotes[0]);
+        selection.setDesiredColumn(column);
+        selection.setFocusTarget('title');
+        return true;
+      }
+      return false;
+    },
+    focusLast: (column = 0) => {
+      if (filters.activeNotes.length > 0) {
+        onSelectNote(filters.activeNotes[filters.activeNotes.length - 1]);
+        selection.setDesiredColumn(column);
+        selection.setFocusTarget('title');
+        return true;
+      }
+      return false;
+    },
+    canReceiveFocus: () => filters.activeNotes.length > 0,
+  }), [filters.activeNotes, onSelectNote, selection]);
+
+  // Register regions with mediator
+  useEffect(() => {
+    navigationMediator.registerRegion(searchRegionHandler);
+    navigationMediator.registerRegion(taskListRegionHandler);
+    return () => {
+      navigationMediator.unregisterRegion('search');
+      navigationMediator.unregisterRegion('taskList');
+    };
+  }, [navigationMediator, searchRegionHandler, taskListRegionHandler]);
 
   // Auto-create empty note when no active notes exist (notepad behavior - always have a caret ready)
   const autoCreateInProgressRef = useRef(false);
@@ -511,16 +566,19 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   }, [filters]);
 
   const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'ArrowDown' && filters.filteredNotes.length > 0) {
+    if (e.key === 'ArrowDown') {
       e.preventDefault();
-      onSelectNote(filters.filteredNotes[0]);
-      selection.setDesiredColumn(0);
-      selection.setFocusTarget('title');
+      // Use mediator to navigate from search to task list
+      navigationMediator.navigate({
+        fromRegion: 'search',
+        direction: 'down',
+        column: 0,
+      });
     } else if (e.key === 'Escape') {
       filters.setSearchQuery('');
       searchInputRef.current?.blur();
     }
-  }, [filters, onSelectNote, selection]);
+  }, [filters, navigationMediator]);
 
   // Postpone Handlers
   const handleOpenPostponeDialog = (noteId: string, newDate?: Date) => {
@@ -960,56 +1018,56 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
               className="ml-auto -my-4 -mr-4 w-[calc(35%+2rem)]"
             >
               <div className="w-[calc(35vw+2rem)] min-w-[400px] h-full flex flex-col rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30 overflow-y-auto p-4 py-4 pr-8">
-              <NoteEditorPanel
-                ref={fixedNoteDescriptionRef}
-                note={displayedNote}
-                noteLabels={fixedNoteLabels}
-                allLabels={labels}
-                descriptionValue={fixedNoteDescriptionValue}
-                showPostponeHistory={fixedNoteShowPostponeHistory}
-                showVersionHistory={fixedNoteShowVersionHistory}
-                versions={fixedNoteVersions}
-                actions={fixedNoteActions}
-                labelDropdownOpen={fixedNoteLabelDropdownOpen}
-                categoryDropdownOpen={fixedNoteCategoryDropdownOpen}
-                deadlinePickerOpen={fixedNoteDeadlinePickerOpen}
-                assigneePickerOpen={fixedNoteAssigneePickerOpen}
-                editingHistoryEntry={editingFixedNoteHistoryEntry}
-                contacts={contacts}
-                onEdit={onEdit}
-                onDescriptionChange={setFixedNoteDescriptionValue}
-                onDescriptionBlur={handleFixedNoteDescriptionBlur}
-                onDescriptionKeyDown={handleFixedNoteDescriptionKeyDown}
-                onTogglePostponeHistory={() => setFixedNoteShowPostponeHistory(!fixedNoteShowPostponeHistory)}
-                onToggleVersionHistory={() => setFixedNoteShowVersionHistory(!fixedNoteShowVersionHistory)}
-                onRestoreVersion={handleFixedNoteRestoreVersion}
-                onAddLabel={handleFixedNoteAddLabel}
-                onRemoveLabel={handleFixedNoteRemoveLabel}
-                onEditLabel={handleEditLabel}
-                onCreateLabel={() => setShowCreateLabelDialog(true)}
-                onDeadlineChange={handleFixedNoteDeadlineChange}
-                onDeadlineSave={handleFixedNoteDeadlineSave}
-                onAddAssignee={onAddAssignee}
-                onRemoveAssignee={onRemoveAssignee}
-                onUpdateAssignee={onUpdateAssignee}
-                onDelete={() => setShowFixedNoteDeleteDialog(true)}
-                onLabelDropdownOpenChange={setFixedNoteLabelDropdownOpen}
-                onCategoryDropdownOpenChange={setFixedNoteCategoryDropdownOpen}
-                onDeadlinePickerOpenChange={handleFixedNoteDeadlinePickerOpenChange}
-                onAssigneePickerOpenChange={setFixedNoteAssigneePickerOpen}
-                onEditHistoryEntry={(entry) => setEditingFixedNoteHistoryEntry(entry)}
-                onUpdateHistoryReason={updateFixedNoteReason}
-                onDeleteHistoryEntry={(id) => setFixedNoteHistoryEntryToDelete(id)}
-                onSetEditingHistoryEntry={setEditingFixedNoteHistoryEntry}
-                onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !displayedNote?.completed)}
-                onClose={closeSidebar}
-                autoSaveInterval={settings.autoSaveInterval}
-                onTogglePublic={onTogglePublic}
-                aiProvider={settings.aiProvider}
-                onTogglePinned={onTogglePinned}
-                onToggleFixInSidebar={handleToggleFixInSidebarById}
-                isFixedInSidebar={true}
-              />
+                <NoteEditorPanel
+                  ref={fixedNoteDescriptionRef}
+                  note={displayedNote}
+                  noteLabels={fixedNoteLabels}
+                  allLabels={labels}
+                  descriptionValue={fixedNoteDescriptionValue}
+                  showPostponeHistory={fixedNoteShowPostponeHistory}
+                  showVersionHistory={fixedNoteShowVersionHistory}
+                  versions={fixedNoteVersions}
+                  actions={fixedNoteActions}
+                  labelDropdownOpen={fixedNoteLabelDropdownOpen}
+                  categoryDropdownOpen={fixedNoteCategoryDropdownOpen}
+                  deadlinePickerOpen={fixedNoteDeadlinePickerOpen}
+                  assigneePickerOpen={fixedNoteAssigneePickerOpen}
+                  editingHistoryEntry={editingFixedNoteHistoryEntry}
+                  contacts={contacts}
+                  onEdit={onEdit}
+                  onDescriptionChange={setFixedNoteDescriptionValue}
+                  onDescriptionBlur={handleFixedNoteDescriptionBlur}
+                  onDescriptionKeyDown={handleFixedNoteDescriptionKeyDown}
+                  onTogglePostponeHistory={() => setFixedNoteShowPostponeHistory(!fixedNoteShowPostponeHistory)}
+                  onToggleVersionHistory={() => setFixedNoteShowVersionHistory(!fixedNoteShowVersionHistory)}
+                  onRestoreVersion={handleFixedNoteRestoreVersion}
+                  onAddLabel={handleFixedNoteAddLabel}
+                  onRemoveLabel={handleFixedNoteRemoveLabel}
+                  onEditLabel={handleEditLabel}
+                  onCreateLabel={() => setShowCreateLabelDialog(true)}
+                  onDeadlineChange={handleFixedNoteDeadlineChange}
+                  onDeadlineSave={handleFixedNoteDeadlineSave}
+                  onAddAssignee={onAddAssignee}
+                  onRemoveAssignee={onRemoveAssignee}
+                  onUpdateAssignee={onUpdateAssignee}
+                  onDelete={() => setShowFixedNoteDeleteDialog(true)}
+                  onLabelDropdownOpenChange={setFixedNoteLabelDropdownOpen}
+                  onCategoryDropdownOpenChange={setFixedNoteCategoryDropdownOpen}
+                  onDeadlinePickerOpenChange={handleFixedNoteDeadlinePickerOpenChange}
+                  onAssigneePickerOpenChange={setFixedNoteAssigneePickerOpen}
+                  onEditHistoryEntry={(entry) => setEditingFixedNoteHistoryEntry(entry)}
+                  onUpdateHistoryReason={updateFixedNoteReason}
+                  onDeleteHistoryEntry={(id) => setFixedNoteHistoryEntryToDelete(id)}
+                  onSetEditingHistoryEntry={setEditingFixedNoteHistoryEntry}
+                  onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !displayedNote?.completed)}
+                  onClose={closeSidebar}
+                  autoSaveInterval={settings.autoSaveInterval}
+                  onTogglePublic={onTogglePublic}
+                  aiProvider={settings.aiProvider}
+                  onTogglePinned={onTogglePinned}
+                  onToggleFixInSidebar={handleToggleFixInSidebarById}
+                  isFixedInSidebar={true}
+                />
               </div>
             </motion.div>
           )}
