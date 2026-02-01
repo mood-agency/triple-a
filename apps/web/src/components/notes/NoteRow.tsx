@@ -11,7 +11,7 @@ import { getInitials } from '@/lib/utils';
 
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
-import { parseLocalDate, formatRelativeDate } from '@/utils/dateUtils';
+import { parseLocalDate, formatRelativeDateEnhanced } from '@/utils/dateUtils';
 
 import { useNoteRow } from './hooks/useNoteRow';
 import { NoteRowContent } from './row/NoteRowContent';
@@ -256,10 +256,10 @@ function NoteRow(props: NoteRowProps) {
                 Actually, the original had complex date logic. I should probably keep it or helper-ize it. 
                 For now, I'll extract it to a tiny helper or just inline simple version.
             */}
-            {!hideDeadline && note.deadline && (
+            {!hideDeadline && note.deadline && note.category !== 'notes' && (
               <span className={`text-[10px] whitespace-nowrap ${isPastDeadline && !note.completed && note.category !== 'meeting' ? 'text-red-500 font-medium' : 'text-muted-foreground'
                 }`}>
-                {formatRelativeDate(
+                {formatRelativeDateEnhanced(
                   parseLocalDate(note.deadline),
                   i18n.language,
                   {
@@ -285,16 +285,9 @@ function NoteRow(props: NoteRowProps) {
                     aYearAgo: t('date.aYearAgo'),
                     inYears: t('date.inYears'),
                     yearsAgo: t('date.yearsAgo'),
-                  }
+                  },
+                  true
                 )}
-                {(() => {
-                  // Only show time if deadline has a time component and it's not midnight (all-day events)
-                  if (!note.deadline.includes('T')) return null;
-                  const d = parseLocalDate(note.deadline);
-                  // Skip if it's midnight (all-day events use 00:00:00)
-                  if (d.getHours() === 0 && d.getMinutes() === 0) return null;
-                  return ` ${d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
-                })()}
               </span>
             )}
           </div>
