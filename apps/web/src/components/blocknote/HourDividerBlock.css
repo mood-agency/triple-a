@@ -1,0 +1,121 @@
+.hour-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0 4px 0;
+    border-top: 1px solid hsl(var(--border) / 0.3);
+    user-select: none;
+    cursor: default;
+}
+
+.hour-divider-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground) / 0.6);
+    min-width: 40px;
+}
+
+.hour-divider-empty {
+    min-height: 36px;
+}
+
+/* All Day section styling */
+.hour-divider-all-day {
+    border-top: none;
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+}
+
+.hour-divider-all-day .hour-divider-label {
+    font-weight: 600;
+    color: hsl(var(--muted-foreground) / 0.8);
+}
+
+.hour-divider-add-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s, background-color 0.2s;
+    color: hsl(var(--muted-foreground) / 0.4);
+}
+
+.hour-divider:hover .hour-divider-add-button {
+    opacity: 1;
+}
+
+.hour-divider-add-button:hover {
+    background-color: hsl(var(--accent) / 0.2);
+    color: hsl(var(--foreground));
+}
+
+/* Hide BlockNote's default block controls and borders for hour dividers */
+[data-block-type="hourDivider"] + .bn-side-menu,
+[data-block-type="hourDivider"] .bn-block-content {
+    min-height: 0 !important;
+}
+
+/* Remove selection/focus borders from hour divider blocks */
+[data-block-type="hourDivider"] {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+[data-block-type="hourDivider"] .bn-block-content {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+[data-block-type="hourDivider"]:focus,
+[data-block-type="hourDivider"]:focus-within,
+[data-block-type="hourDivider"]:focus-visible,
+[data-block-type="hourDivider"].bn-block-selected,
+[data-block-type="hourDivider"] [data-node-type="blockContainer"] {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Also target the inner block container */
+[data-block-type="hourDivider"] > div,
+[data-block-type="hourDivider"] [class*="blockContent"] {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Target by data attribute */
+[data-hour-divider="true"],
+[data-hour-divider="true"] * {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* BlockNote specific selection classes */
+.bn-editor [data-block-type="hourDivider"],
+.bn-editor [data-block-type="hourDivider"] * {
+    outline: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Override any ProseMirror selection styling */
+.ProseMirror [data-block-type="hourDivider"]::selection,
+.ProseMirror [data-block-type="hourDivider"] *::selection {
+    background: transparent !important;
+}
+
+/* Blocknote wrapper styling */
+[data-content-type="hourDivider"] {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
