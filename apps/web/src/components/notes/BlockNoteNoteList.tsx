@@ -112,6 +112,12 @@ export const BlockNoteNoteList = ({
   // Track previous note IDs for animation triggers
   const prevNoteIdsForAnimationRef = useRef<string>('');
 
+  // Flag to prevent overlapping animations
+  const isAnimatingRef = useRef(false);
+
+  // Skip animation on initial mount (prevents flash on page load)
+  const isInitialMountRef = useRef(true);
+
   // Function to flush pending saves immediately
   const flushPendingSaves = useCallback(() => {
     if (!pendingChangesRef.current || !onEdit) {
@@ -171,41 +177,60 @@ export const BlockNoteNoteList = ({
 
   // Trigger stagger animation when the list changes (filters, search, etc.)
   useEffect(() => {
+    // Skip if no notes
+    if (notes.length === 0) return;
+
     const currentNoteIds = notes.map(n => n.id).join(',');
 
-    // Check if the list has changed
-    if (prevNoteIdsForAnimationRef.current !== currentNoteIds) {
+    // On initial mount with data, just store the IDs (no animation yet)
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
       prevNoteIdsForAnimationRef.current = currentNoteIds;
-
-      // Trigger stagger animation with motion
-      if (notes.length > 0 && containerRef.current) {
-        // Use setTimeout to ensure BlockNote has rendered the blocks
-        setTimeout(() => {
-          const blocks = containerRef.current?.querySelectorAll('.bn-block-outer');
-
-          if (blocks && blocks.length > 0) {
-            // Animate each block individually with stagger delay
-            blocks.forEach((block, index) => {
-              const el = block as HTMLElement;
-              // Set initial state
-              el.style.opacity = '0';
-              el.style.transform = 'translateY(12px)';
-
-              // Animate with motion (using any to bypass TypeScript issue with motion types)
-              (animate as any)(
-                el,
-                { opacity: 1, transform: 'translateY(0px)' },
-                {
-                  duration: 0.3,
-                  delay: index * 0.04,
-                  easing: 'ease-out'
-                }
-              );
-            });
-          }
-        }, 50);
-      }
+      return;
     }
+
+    // Skip if no change or already animating
+    if (prevNoteIdsForAnimationRef.current === currentNoteIds || isAnimatingRef.current) {
+      return;
+    }
+
+    // List changed - trigger animation
+    prevNoteIdsForAnimationRef.current = currentNoteIds;
+    isAnimatingRef.current = true;
+
+    // Wait for BlockNote to render
+    setTimeout(() => {
+      const blocks = containerRef.current?.querySelectorAll('.bn-block-outer');
+
+      if (blocks && blocks.length > 0) {
+        const totalDuration = 0.15 + (blocks.length - 1) * 0.02;
+
+        // Animate each block with stagger
+        blocks.forEach((block, index) => {
+          const el = block as HTMLElement;
+
+          (animate as any)(
+            el,
+            {
+              opacity: [0, 1],
+              transform: ['translateY(12px)', 'translateY(0px)']
+            },
+            {
+              duration: 0.15,
+              delay: index * 0.02,
+              easing: 'ease-out'
+            }
+          );
+        });
+
+        // Reset flag after animation completes
+        setTimeout(() => {
+          isAnimatingRef.current = false;
+        }, totalDuration * 1000 + 50);
+      } else {
+        isAnimatingRef.current = false;
+      }
+    }, 30);
   }, [notes]);
 
   // Listen to BlockNote selection changes and sync to parent

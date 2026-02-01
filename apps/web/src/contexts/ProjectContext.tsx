@@ -89,8 +89,10 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
       if (settings.activeProjectId && activeProjects.some(p => p.id === settings.activeProjectId)) {
         setActiveProjectIdState(settings.activeProjectId);
         setSearchParams(prev => {
+          console.log('[ProjectContext Debug] init with settings, prev:', prev.toString());
           const newParams = new URLSearchParams(prev);
           newParams.set('project', settings.activeProjectId!);
+          console.log('[ProjectContext Debug] init with settings, new:', newParams.toString());
           return newParams;
         }, { replace: true });
       } else if (activeProjects.length > 0) {
@@ -98,8 +100,10 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
         setActiveProjectIdState(defaultId);
         updateSettings({ activeProjectId: defaultId });
         setSearchParams(prev => {
+          console.log('[ProjectContext Debug] init with default, prev:', prev.toString());
           const newParams = new URLSearchParams(prev);
           newParams.set('project', defaultId);
+          console.log('[ProjectContext Debug] init with default, new:', newParams.toString());
           return newParams;
         }, { replace: true });
       }
@@ -109,13 +113,16 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
 
   // Set active project and persist to settings AND URL
   const setActiveProjectId = useCallback((id: string) => {
+    console.log('[ProjectContext Debug] setActiveProjectId called with:', id);
     setActiveProjectIdState(id);
     updateSettings({ activeProjectId: id });
     setSearchParams(prev => {
+      console.log('[ProjectContext Debug] setActiveProjectId prev:', prev.toString());
       const newParams = new URLSearchParams(prev);
       newParams.set('project', id);
       // Clear note selection when switching projects as the note ID belongs to the previous project
       newParams.delete('note');
+      console.log('[ProjectContext Debug] setActiveProjectId new:', newParams.toString());
       return newParams;
     }, { replace: true });
   }, [updateSettings, setSearchParams]);

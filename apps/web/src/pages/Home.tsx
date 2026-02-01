@@ -206,8 +206,10 @@ export function Home() {
   // Optimized: Work with note ID instead of full object
   const handleSelectNote = useCallback((note: Note | null) => {
     const noteId = note?.id ?? null;
+    console.log('[Select Debug] handleSelectNote called with:', noteId);
     setSelectedNoteId(noteId);
     setSearchParams(prev => {
+      console.log('[Select Debug] prev params:', prev.toString());
       const newParams = new URLSearchParams(prev);
       if (noteId) {
         newParams.set('note', noteId);
@@ -220,8 +222,9 @@ export function Home() {
       if (viewMode === 'list') {
         newParams.delete('date');
       }
+      console.log('[Select Debug] new params:', newParams.toString());
       return newParams;
-    });
+    }, { replace: true });
   }, [setSearchParams, viewMode]);
 
   // Update URL when label filter changes
@@ -238,16 +241,30 @@ export function Home() {
     }, { replace: true });
   }, [setSearchParams]);
 
+  // Debug: Log URL changes
+  useEffect(() => {
+    console.log('[URL Debug] searchParams changed:', {
+      category: searchParams.get('category'),
+      project: searchParams.get('project'),
+      note: searchParams.get('note'),
+      view: searchParams.get('view'),
+      fullURL: searchParams.toString(),
+    });
+  }, [searchParams]);
+
   // Update URL when category filter changes
   const handleCategoryFilterChange = useCallback((newCategory: NoteCategory | 'all') => {
+    console.log('[Filter Debug] handleCategoryFilterChange called with:', newCategory);
     setCategoryFilter(newCategory);
     setSearchParams(prev => {
+      console.log('[Filter Debug] prev params:', prev.toString());
       const newParams = new URLSearchParams(prev);
       if (newCategory !== 'all') {
         newParams.set('category', newCategory);
       } else {
         newParams.delete('category');
       }
+      console.log('[Filter Debug] new params:', newParams.toString());
       return newParams;
     }, { replace: true });
   }, [setSearchParams]);

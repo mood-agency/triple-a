@@ -936,27 +936,30 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
         </AnimatePresence>
 
         {/* Fixed sidebar - animated with Motion */}
+        {/* AnimatePresence with mode="wait": sidebar slides out, changes content, slides back in */}
         <AnimatePresence
+          mode="wait"
           onExitComplete={() => {
-            setSidebarClosing(false);
-            setShowSidebar(false);
-            setClosingNote(null);
+            if (sidebarClosing) {
+              setSidebarClosing(false);
+              setShowSidebar(false);
+              setClosingNote(null);
+            }
           }}
         >
-          {!isMobile && showSidebar && (
+          {!isMobile && showSidebar && displayedNote && (
             <motion.div
-              key="fixed-sidebar"
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 'calc(35% + 2rem)', opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
+              key={`fixed-sidebar-${displayedNote.id}`}
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
               transition={{
-                duration: 0.3,
+                duration: 0.25,
                 ease: [0.16, 1, 0.3, 1],
               }}
-              className="ml-auto overflow-hidden -my-4"
+              className="ml-auto -my-4 -mr-4 w-[calc(35%+2rem)]"
             >
-              <div className="w-[calc(35vw+2rem)] min-w-[400px] h-full flex flex-col p-4 py-4 pr-8 rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30 overflow-y-auto">
-              {displayedNote ? (
+              <div className="w-[calc(35vw+2rem)] min-w-[400px] h-full flex flex-col rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30 overflow-y-auto p-4 py-4 pr-8">
               <NoteEditorPanel
                 ref={fixedNoteDescriptionRef}
                 note={displayedNote}
@@ -1007,9 +1010,6 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 onToggleFixInSidebar={handleToggleFixInSidebarById}
                 isFixedInSidebar={true}
               />
-            ) : (
-              <p className="text-sm text-muted-foreground/50 italic">{t('selectNoteToEdit')}</p>
-            )}
               </div>
             </motion.div>
           )}
