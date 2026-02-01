@@ -3,7 +3,7 @@ import { createReactBlockSpec } from "@blocknote/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBlockCommands } from "./hooks/useBlockCommands";
 import { Pickaxe, Users, Forward, StickyNote, Pin, SidebarClose, Trash2 } from "lucide-react";
-import { parseLocalDate } from "@/utils/dateUtils";
+import { parseLocalDate, formatRelativeDate } from "@/utils/dateUtils";
 import i18n from "@/i18n";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import "./NotepadBlock.css";
@@ -126,7 +126,6 @@ export const NotepadBlock = createReactBlockSpec(
             const isChecked = props.block.props.isChecked as boolean;
             const dateStr = props.block.props.date as string;
             const isPinned = props.block.props.pinned as boolean;
-            const isCompact = props.block.props.compact as boolean;
             const isFixedInSidebar = props.block.props.fixedInSidebar as boolean;
 
             const cycleCategory = (e: React.MouseEvent) => {
@@ -180,21 +179,32 @@ export const NotepadBlock = createReactBlockSpec(
                 if (!deadline) return '';
 
                 const date = parseLocalDate(deadline);
-                const today = new Date();
-                const isToday = date.getDate() === today.getDate() &&
-                               date.getMonth() === today.getMonth() &&
-                               date.getFullYear() === today.getFullYear();
+                const t = i18n.t.bind(i18n);
 
-                const tomorrow = new Date(today);
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                const isTomorrow = date.getDate() === tomorrow.getDate() &&
-                                  date.getMonth() === tomorrow.getMonth() &&
-                                  date.getFullYear() === tomorrow.getFullYear();
-
-                let dateText = '';
-                if (isToday) dateText = 'Today';
-                else if (isTomorrow) dateText = 'Tomorrow';
-                else dateText = date.toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' });
+                let dateText = formatRelativeDate(date, i18n.language, {
+                    today: t('date.today'),
+                    tomorrow: t('date.tomorrow'),
+                    yesterday: t('date.yesterday'),
+                    inDays: t('date.inDays'),
+                    daysAgo: t('date.daysAgo'),
+                    inAWeek: t('date.inAWeek'),
+                    aWeekAgo: t('date.aWeekAgo'),
+                    inWeeks: t('date.inWeeks'),
+                    weeksAgo: t('date.weeksAgo'),
+                    nextWeek: t('date.nextWeek'),
+                    lastWeek: t('date.lastWeek'),
+                    thisWeekday: t('date.thisWeekday'),
+                    nextWeekday: t('date.nextWeekday'),
+                    lastWeekday: t('date.lastWeekday'),
+                    inAMonth: t('date.inAMonth'),
+                    aMonthAgo: t('date.aMonthAgo'),
+                    inMonths: t('date.inMonths'),
+                    monthsAgo: t('date.monthsAgo'),
+                    inAYear: t('date.inAYear'),
+                    aYearAgo: t('date.aYearAgo'),
+                    inYears: t('date.inYears'),
+                    yearsAgo: t('date.yearsAgo'),
+                });
 
                 // Add time if it's not midnight (all-day events)
                 if (deadline.includes('T')) {
@@ -216,72 +226,67 @@ export const NotepadBlock = createReactBlockSpec(
 
             return (
                 <div className="notepad-line group" style={{ display: "flex", alignItems: "center", width: "100%", userSelect: "none", outline: "none", boxShadow: "none" }}>
-                    {!isCompact && (
-                        <div contentEditable={false} className="relative flex items-center justify-center w-6 h-4 mr-2 flex-shrink-0 cursor-pointer">
-                            {/* Category Icon (Visible by default, fades on hover only if checkbox is allowed) */}
-                            <div
-                                className={`category-icon transition-opacity duration-200 ${allowsCheckbox ? 'group-hover:opacity-0' : ''}`}
-                                onClick={cycleCategory}
-                            >
-                                <CategoryIcon size={16} className="text-gray-500" />
-                            </div>
-
-                            {/* Checkbox (Visible on hover only for todo and followup) */}
-                            {allowsCheckbox && (
-                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                    <input
-                                        type="checkbox"
-                                        className="cursor-pointer w-3 h-3"
-                                        checked={isChecked}
-                                        onChange={handleToggleCompleted}
-                                    />
-                                </div>
-                            )}
+                    <div contentEditable={false} className="notepad-category-checkbox relative flex items-center justify-center w-6 h-4 mr-2 flex-shrink-0 cursor-pointer">
+                        {/* Category Icon (Visible by default, fades on hover only if checkbox is allowed) */}
+                        <div
+                            className={`category-icon transition-opacity duration-200 ${allowsCheckbox ? 'group-hover:opacity-0' : ''}`}
+                            onClick={cycleCategory}
+                        >
+                            <CategoryIcon size={16} className="text-gray-500" />
                         </div>
-                    )}
+
+                        {/* Checkbox (Visible on hover only for todo and followup) */}
+                        {allowsCheckbox && (
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                <input
+                                    type="checkbox"
+                                    className="cursor-pointer w-3 h-3"
+                                    checked={isChecked}
+                                    onChange={handleToggleCompleted}
+                                />
+                            </div>
+                        )}
+                    </div>
 
                     <div
                         ref={combinedRef}
-                        className={`notepad-content text-black dark:text-black ${props.block.props.isChecked ? 'is-checked' : ''} ${isEditing ? 'is-editing' : ''}`}
+                        className={`notepad-content text-black dark:text-white ${props.block.props.isChecked ? 'is-checked' : ''} ${isEditing ? 'is-editing' : ''}`}
                         style={{
                             outline: "none",
                             userSelect: "text",
-                            ...(isCompact && { flex: "1 1 0", minWidth: 0, maxWidth: "none" })
                         }}
                     />
 
-                    {!isCompact && (
-                        <div contentEditable={false} className="flex gap-1 mx-2 flex-shrink-0">
-                            {(props.block.props.labels as Array<{ name: string; color: string }>)?.map((label, i: number) => (
-                                <span
-                                    key={i}
-                                    className="chip-label"
-                                    style={{ backgroundColor: label.color }}
-                                >
-                                    {label.name}
-                                </span>
+                    <div contentEditable={false} className="notepad-metadata flex gap-1 mx-2 flex-shrink-0">
+                        {(props.block.props.labels as Array<{ name: string; color: string }>)?.map((label, i: number) => (
+                            <span
+                                key={i}
+                                className="chip-label"
+                                style={{ backgroundColor: label.color }}
+                            >
+                                {label.name}
+                            </span>
+                        ))}
+                        <TooltipProvider delayDuration={300}>
+                            {(props.block.props.assignees as string[])?.map((assignee: string, i: number) => (
+                                <Tooltip key={i}>
+                                    <TooltipTrigger asChild>
+                                        <span className="chip-assignee">
+                                            {assignee}
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{assignee}</p>
+                                    </TooltipContent>
+                                </Tooltip>
                             ))}
-                            <TooltipProvider delayDuration={300}>
-                                {(props.block.props.assignees as string[])?.map((assignee: string, i: number) => (
-                                    <Tooltip key={i}>
-                                        <TooltipTrigger asChild>
-                                            <span className="chip-assignee">
-                                                {assignee}
-                                            </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>{assignee}</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                ))}
-                            </TooltipProvider>
-                        </div>
-                    )}
+                        </TooltipProvider>
+                    </div>
 
-                    {!isCompact && dateStr && (
+                    {dateStr && (
                         <div
                             contentEditable={false}
-                            className={`flex-shrink-0 text-[10px] whitespace-nowrap ${
+                            className={`notepad-deadline flex-shrink-0 text-[10px] whitespace-nowrap ${
                                 shouldShowRed ? 'text-red-500 font-medium' : 'text-muted-foreground'
                             }`}
                             style={{

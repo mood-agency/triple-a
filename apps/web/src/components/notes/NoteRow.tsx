@@ -11,7 +11,7 @@ import { getInitials } from '@/lib/utils';
 
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
-import { parseLocalDate } from '@/utils/dateUtils';
+import { parseLocalDate, formatRelativeDate } from '@/utils/dateUtils';
 
 import { useNoteRow } from './hooks/useNoteRow';
 import { NoteRowContent } from './row/NoteRowContent';
@@ -259,18 +259,34 @@ function NoteRow(props: NoteRowProps) {
             {!hideDeadline && note.deadline && (
               <span className={`text-[10px] whitespace-nowrap ${isPastDeadline && !note.completed && note.category !== 'meeting' ? 'text-red-500 font-medium' : 'text-muted-foreground'
                 }`}>
-                {(() => {
-                  const date = parseLocalDate(note.deadline);
-                  const today = new Date();
-                  const isToday = date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
-                  const tomorrow = new Date(today);
-                  tomorrow.setDate(tomorrow.getDate() + 1);
-                  const isTomorrow = date.getDate() === tomorrow.getDate() && date.getMonth() === tomorrow.getMonth() && date.getFullYear() === tomorrow.getFullYear();
-
-                  if (isToday) return t('date.today');
-                  if (isTomorrow) return t('date.tomorrow');
-                  return date.toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' });
-                })()}
+                {formatRelativeDate(
+                  parseLocalDate(note.deadline),
+                  i18n.language,
+                  {
+                    today: t('date.today'),
+                    tomorrow: t('date.tomorrow'),
+                    yesterday: t('date.yesterday'),
+                    inDays: t('date.inDays'),
+                    daysAgo: t('date.daysAgo'),
+                    inAWeek: t('date.inAWeek'),
+                    aWeekAgo: t('date.aWeekAgo'),
+                    inWeeks: t('date.inWeeks'),
+                    weeksAgo: t('date.weeksAgo'),
+                    nextWeek: t('date.nextWeek'),
+                    lastWeek: t('date.lastWeek'),
+                    thisWeekday: t('date.thisWeekday'),
+                    nextWeekday: t('date.nextWeekday'),
+                    lastWeekday: t('date.lastWeekday'),
+                    inAMonth: t('date.inAMonth'),
+                    aMonthAgo: t('date.aMonthAgo'),
+                    inMonths: t('date.inMonths'),
+                    monthsAgo: t('date.monthsAgo'),
+                    inAYear: t('date.inAYear'),
+                    aYearAgo: t('date.aYearAgo'),
+                    inYears: t('date.inYears'),
+                    yearsAgo: t('date.yearsAgo'),
+                  }
+                )}
                 {(() => {
                   // Only show time if deadline has a time component and it's not midnight (all-day events)
                   if (!note.deadline.includes('T')) return null;
