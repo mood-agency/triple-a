@@ -502,6 +502,63 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             </Command>
           </PopoverContent>
         </Popover>
+        {note.category !== 'notes' && (
+          <>
+            <span>{t('expiresOnDate')}</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeadlinePickerOpenChange(!deadlinePickerOpen);
+              }}
+              className="font-medium text-foreground hover:underline cursor-pointer"
+            >
+              {note.deadline
+                ? formatRelativeDateEnhanced(
+                  parseLocalDate(note.deadline),
+                  i18n.language,
+                  {
+                    today: t('date.today'),
+                    tomorrow: t('date.tomorrow'),
+                    yesterday: t('date.yesterday'),
+                    inDays: t('date.inDays'),
+                    daysAgo: t('date.daysAgo'),
+                    inAWeek: t('date.inAWeek'),
+                    aWeekAgo: t('date.aWeekAgo'),
+                    inWeeks: t('date.inWeeks'),
+                    weeksAgo: t('date.weeksAgo'),
+                    nextWeek: t('date.nextWeek'),
+                    lastWeek: t('date.lastWeek'),
+                    thisWeekday: t('date.thisWeekday'),
+                    nextWeekday: t('date.nextWeekday'),
+                    lastWeekday: t('date.lastWeekday'),
+                    inAMonth: t('date.inAMonth'),
+                    aMonthAgo: t('date.aMonthAgo'),
+                    inMonths: t('date.inMonths'),
+                    monthsAgo: t('date.monthsAgo'),
+                    inAYear: t('date.inAYear'),
+                    aYearAgo: t('date.aYearAgo'),
+                    inYears: t('date.inYears'),
+                    yearsAgo: t('date.yearsAgo'),
+                  },
+                  true
+                )
+                : t('setDeadline')}
+            </button>
+            <span className="sr-only">
+              <DatePicker
+                date={note.deadline ? parseLocalDate(note.deadline) : undefined}
+                onDateChange={onDeadlineChange}
+                onSave={onDeadlineSave}
+                placeholder=""
+                open={deadlinePickerOpen}
+                onOpenChange={onDeadlinePickerOpenChange}
+                showTime
+                hideIcon
+              />
+            </span>
+          </>
+        )}
         {note.created_at && (
           <>
             <span>{t('createdOnDate')}</span>
@@ -544,62 +601,9 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             </button>
           </>
         )}
-        <span>{t('expiresOnDate')}</span>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDeadlinePickerOpenChange(!deadlinePickerOpen);
-          }}
-          className="font-medium text-foreground hover:underline cursor-pointer"
-        >
-          {note.deadline
-            ? formatRelativeDateEnhanced(
-                parseLocalDate(note.deadline),
-                i18n.language,
-                {
-                  today: t('date.today'),
-                  tomorrow: t('date.tomorrow'),
-                  yesterday: t('date.yesterday'),
-                  inDays: t('date.inDays'),
-                  daysAgo: t('date.daysAgo'),
-                  inAWeek: t('date.inAWeek'),
-                  aWeekAgo: t('date.aWeekAgo'),
-                  inWeeks: t('date.inWeeks'),
-                  weeksAgo: t('date.weeksAgo'),
-                  nextWeek: t('date.nextWeek'),
-                  lastWeek: t('date.lastWeek'),
-                  thisWeekday: t('date.thisWeekday'),
-                  nextWeekday: t('date.nextWeekday'),
-                  lastWeekday: t('date.lastWeekday'),
-                  inAMonth: t('date.inAMonth'),
-                  aMonthAgo: t('date.aMonthAgo'),
-                  inMonths: t('date.inMonths'),
-                  monthsAgo: t('date.monthsAgo'),
-                  inAYear: t('date.inAYear'),
-                  aYearAgo: t('date.aYearAgo'),
-                  inYears: t('date.inYears'),
-                  yearsAgo: t('date.yearsAgo'),
-                },
-                true
-              )
-            : t('setDeadline')}
-        </button>
-        <span className="sr-only">
-          <DatePicker
-            date={note.deadline ? parseLocalDate(note.deadline) : undefined}
-            onDateChange={onDeadlineChange}
-            onSave={onDeadlineSave}
-            placeholder=""
-            open={deadlinePickerOpen}
-            onOpenChange={onDeadlinePickerOpenChange}
-            showTime
-            hideIcon
-          />
-        </span>
       </div>
 
-{/* Actions row: Share, AI, Pin, Sidebar, Delete */}
+      {/* Actions row: Share, AI, Pin, Sidebar, Delete */}
       <div className="flex items-center gap-1 mb-2">
         {onTogglePublic && (
           <ShareDialog
@@ -814,69 +818,69 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             {actions.length > 0 ? (
               actions
                 .map((entry) => (
-                <div
-                  key={entry.id}
-                  className="group text-sm text-muted-foreground bg-muted/30 rounded-md px-3 py-2 relative flex items-start justify-between gap-2"
-                >
-                  <div className="flex-1 min-w-0">
-                    {editingHistoryEntry?.id === entry.id && editingHistoryEntry ? (
-                      <input
-                        type="text"
-                        value={editingHistoryEntry.reason}
-                        onChange={(e) => onSetEditingHistoryEntry({ id: editingHistoryEntry.id, reason: e.target.value })}
-                        onBlur={() => {
-                          if (editingHistoryEntry.reason.trim()) {
-                            onUpdateHistoryReason(entry.id, editingHistoryEntry.reason.trim());
-                          }
-                          onSetEditingHistoryEntry(null);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
+                  <div
+                    key={entry.id}
+                    className="group text-sm text-muted-foreground bg-muted/30 rounded-md px-3 py-2 relative flex items-start justify-between gap-2"
+                  >
+                    <div className="flex-1 min-w-0">
+                      {editingHistoryEntry?.id === entry.id && editingHistoryEntry ? (
+                        <input
+                          type="text"
+                          value={editingHistoryEntry.reason}
+                          onChange={(e) => onSetEditingHistoryEntry({ id: editingHistoryEntry.id, reason: e.target.value })}
+                          onBlur={() => {
                             if (editingHistoryEntry.reason.trim()) {
                               onUpdateHistoryReason(entry.id, editingHistoryEntry.reason.trim());
                             }
                             onSetEditingHistoryEntry(null);
-                          } else if (e.key === 'Escape') {
-                            onSetEditingHistoryEntry(null);
-                          }
-                        }}
-                        className="w-full text-sm italic bg-transparent border-b border-muted-foreground/40 outline-none focus:border-primary"
-                        autoFocus
-                      />
-                    ) : entry.reason ? (
-                      <p className="italic">"{entry.reason}"</p>
-                    ) : (
-                      <p className="italic text-muted-foreground/50">{t('noPostponeReasons')}</p>
-                    )}
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              if (editingHistoryEntry.reason.trim()) {
+                                onUpdateHistoryReason(entry.id, editingHistoryEntry.reason.trim());
+                              }
+                              onSetEditingHistoryEntry(null);
+                            } else if (e.key === 'Escape') {
+                              onSetEditingHistoryEntry(null);
+                            }
+                          }}
+                          className="w-full text-sm italic bg-transparent border-b border-muted-foreground/40 outline-none focus:border-primary"
+                          autoFocus
+                        />
+                      ) : entry.reason ? (
+                        <p className="italic">"{entry.reason}"</p>
+                      ) : (
+                        <p className="italic text-muted-foreground/50">{t('noPostponeReasons')}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="text-xs text-muted-foreground/60 whitespace-nowrap">
+                        {new Date(entry.created_at).toLocaleDateString(i18n.language, {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onEditHistoryEntry({ id: entry.id, reason: entry.reason || '' })}
+                        className="transition-opacity p-1 hover:bg-muted rounded text-muted-foreground/60 hover:text-foreground"
+                        title={t('editPostponeReason')}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteHistoryEntry(entry.id)}
+                        className="transition-opacity p-1 hover:bg-destructive/10 rounded text-muted-foreground/60 hover:text-destructive"
+                        title={t('deletePostponeReason')}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <span className="text-xs text-muted-foreground/60 whitespace-nowrap">
-                      {new Date(entry.created_at).toLocaleDateString(i18n.language, {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => onEditHistoryEntry({ id: entry.id, reason: entry.reason || '' })}
-                      className="transition-opacity p-1 hover:bg-muted rounded text-muted-foreground/60 hover:text-foreground"
-                      title={t('editPostponeReason')}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDeleteHistoryEntry(entry.id)}
-                      className="transition-opacity p-1 hover:bg-destructive/10 rounded text-muted-foreground/60 hover:text-destructive"
-                      title={t('deletePostponeReason')}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
                 ))
             ) : (
               <p className="text-xs text-muted-foreground/50 italic px-3 py-2">

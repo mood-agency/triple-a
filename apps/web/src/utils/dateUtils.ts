@@ -144,8 +144,8 @@ function getDaysDifference(date: Date, reference: Date): number {
  */
 function isSameDay(date1: Date, date2: Date): boolean {
   return date1.getDate() === date2.getDate() &&
-         date1.getMonth() === date2.getMonth() &&
-         date1.getFullYear() === date2.getFullYear();
+    date1.getMonth() === date2.getMonth() &&
+    date1.getFullYear() === date2.getFullYear();
 }
 
 /**
@@ -358,6 +358,21 @@ export function formatRelativeDateEnhanced(
   const relativeStr = formatRelativeDate(date, language, translations);
 
   if (!includeTime) {
+    return relativeStr;
+  }
+
+  // Calculate days difference to see if we should show time
+  const today = startOfDay(new Date());
+  const targetDate = startOfDay(date);
+  const daysDiff = getDaysDifference(targetDate, today);
+
+  // Don't show time if:
+  // 1. It's too far away (more than 6 days)
+  // 2. It's exactly midnight (00:00) which often means no time was set/all-day
+  const isTooDistant = Math.abs(daysDiff) > 6;
+  const isMidnight = date.getHours() === 0 && date.getMinutes() === 0;
+
+  if (isTooDistant || isMidnight) {
     return relativeStr;
   }
 
