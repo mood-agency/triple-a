@@ -1,0 +1,37 @@
+{
+  "name": "@triple-a/agent",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "AI agent for Triple-A task management using Agno and Claude",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "type-check": "tsc --noEmit",
+    "test": "tsx test.ts",
+    "example": "tsx example.ts"
+  },
+  "dependencies": {
+    "@triple-a/client": "workspace:*",
+    "@triple-a/types": "workspace:*",
+    "agno": "latest",
+    "assemblyai": "^4.22.1",
+    "duck-duck-scrape": "^2.2.7",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "claude",
+    "agno",
+    "triple-a"
+  ],
+  "license": "MIT"
+}
