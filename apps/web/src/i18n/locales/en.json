@@ -271,8 +271,6 @@
   "noLabelsFound": "No labels found",
   "searchContacts": "Search contacts...",
   "noContactsFound": "No contacts found",
-  "searchCategory": "Search category...",
-  "noCategoriesFound": "No categories found",
   "editLabel": "Edit label",
   "editLabelDescription": "Modify the label name and color",
   "deleteLabel": "Delete label",
@@ -341,7 +339,9 @@
     "assigneeDesc": "Assignee (Z-A)",
     "category": "Category",
     "categoryAsc": "Category (A-Z)",
-    "categoryDesc": "Category (Z-A)"
+    "categoryDesc": "Category (Z-A)",
+    "createdAtAsc": "Creation date (oldest first)",
+    "createdAtDesc": "Creation date (newest first)"
   },
   "taskStatus": {
     "title": "Status",

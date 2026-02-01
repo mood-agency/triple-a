@@ -37,8 +37,8 @@ interface CommandPaletteProps {
   onSelectAssignee?: (assigneeId: string) => void;
   onClearAssignees?: () => void;
   // Sort configuration
-  sortConfig?: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null };
-  onSortChange?: (config: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null }) => void;
+  sortConfig?: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null; createdAt: 'asc' | 'desc' | null };
+  onSortChange?: (config: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null; createdAt: 'asc' | 'desc' | null }) => void;
   // Task status filter
   taskStatusFilter?: 'active' | 'completed' | 'deleted';
   onTaskStatusFilterChange?: (status: 'active' | 'completed' | 'deleted') => void;
@@ -66,7 +66,7 @@ export function CommandPalette({
   selectedAssignees = [],
   onSelectAssignee,
   onClearAssignees,
-  sortConfig = { deadline: null, assignee: null, category: null },
+  sortConfig = { deadline: null, assignee: null, category: null, createdAt: null },
   onSortChange,
   taskStatusFilter = 'active',
   onTaskStatusFilterChange,
@@ -96,7 +96,7 @@ export function CommandPalette({
     onClearLabels();
     onClearAssignees?.();
     onSelectCategory('all');
-    onSortChange?.({ deadline: null, assignee: null, category: null });
+    onSortChange?.({ deadline: null, assignee: null, category: null, createdAt: null });
     onTaskStatusFilterChange?.('active');
     onShowOverdueOnlyChange?.(false);
     closeWithoutFocusRestore();
@@ -112,7 +112,7 @@ export function CommandPalette({
     closeWithoutFocusRestore();
   };
 
-  const hasActiveSort = sortConfig.deadline !== null || sortConfig.assignee !== null || sortConfig.category !== null;
+  const hasActiveSort = sortConfig.deadline !== null || sortConfig.assignee !== null || sortConfig.category !== null || sortConfig.createdAt !== null;
   const hasActiveFilters = selectedLabels.length > 0 || categoryFilter !== 'all' || selectedAssignees.length > 0 || hasActiveSort || taskStatusFilter !== 'active' || showOverdueOnly;
 
   const handleSelectAssignee = (assigneeId: string) => {
@@ -123,14 +123,14 @@ export function CommandPalette({
     onClearAssignees?.();
   };
 
-  const handleSetSort = (field: 'deadline' | 'assignee' | 'category', direction: 'asc' | 'desc' | null) => {
+  const handleSetSort = (field: 'deadline' | 'assignee' | 'category' | 'createdAt', direction: 'asc' | 'desc' | null) => {
     // Only one sort can be active at a time - clear others when setting a new one
-    onSortChange?.({ deadline: null, assignee: null, category: null, [field]: direction });
+    onSortChange?.({ deadline: null, assignee: null, category: null, createdAt: null, [field]: direction });
     closeWithoutFocusRestore();
   };
 
   const handleClearSort = () => {
-    onSortChange?.({ deadline: null, assignee: null, category: null });
+    onSortChange?.({ deadline: null, assignee: null, category: null, createdAt: null });
     closeWithoutFocusRestore();
   };
 
@@ -139,9 +139,9 @@ export function CommandPalette({
       <CommandInput
         placeholder={
           mode === 'projects' ? t('projects.searchProjects', 'Search projects...') :
-          mode === 'labels' ? t('commandPalette.searchLabels', 'Search labels...') :
-          mode === 'assignees' ? t('commandPalette.searchAssignees', 'Search assignees...') :
-          t('commandPalettePlaceholder')
+            mode === 'labels' ? t('commandPalette.searchLabels', 'Search labels...') :
+              mode === 'assignees' ? t('commandPalette.searchAssignees', 'Search assignees...') :
+                t('commandPalettePlaceholder')
         }
       />
       <CommandList>
@@ -301,6 +301,18 @@ export function CommandPalette({
                 <ArrowDown className="h-3 w-3" />
                 {t('sort.categoryDesc')}
                 {sortConfig.category === 'desc' && <Check className="text-primary" />}
+              </CommandItem>
+              <CommandItem onSelect={() => handleSetSort('createdAt', 'asc')}>
+                <CalendarIcon />
+                <ArrowUp className="h-3 w-3" />
+                {t('sort.createdAtAsc', 'Creation date (oldest first)')}
+                {sortConfig.createdAt === 'asc' && <Check className="text-primary" />}
+              </CommandItem>
+              <CommandItem onSelect={() => handleSetSort('createdAt', 'desc')}>
+                <CalendarIcon />
+                <ArrowDown className="h-3 w-3" />
+                {t('sort.createdAtDesc', 'Creation date (newest first)')}
+                {sortConfig.createdAt === 'desc' && <Check className="text-primary" />}
               </CommandItem>
             </CommandGroup>
 

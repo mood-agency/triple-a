@@ -87,8 +87,8 @@ interface NoteListProps {
   externalSelectedDate?: Date;
   onSelectedDateChange?: (date: Date | undefined) => void;
   // External sort control (from CommandPalette)
-  externalSortConfig?: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null };
-  onSortConfigChange?: (config: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null }) => void;
+  externalSortConfig?: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null; createdAt: 'asc' | 'desc' | null };
+  onSortConfigChange?: (config: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null; createdAt: 'asc' | 'desc' | null }) => void;
   // External task status control (from CommandPalette)
   externalTaskStatusFilter?: 'active' | 'completed' | 'deleted';
   onTaskStatusFilterChange?: (status: 'active' | 'completed' | 'deleted') => void;
@@ -513,7 +513,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   }, [filters]);
 
   const handleClearSort = useCallback(() => {
-    filters.setSortConfig({ deadline: null, assignee: null, category: null });
+    filters.setSortConfig({ deadline: null, assignee: null, category: null, createdAt: null });
     filters.setSortByDeadline(false);
     filters.setSortByAssignee(false);
     filters.setSortByCategory(false);
@@ -532,7 +532,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     filters.setLabelFilter([]);
     filters.setAssigneeFilter([]);
     filters.setSearchQuery('');
-    filters.setSortConfig({ deadline: null, assignee: null, category: null });
+    filters.setSortConfig({ deadline: null, assignee: null, category: null, createdAt: null });
     filters.setSortByDeadline(false);
     filters.setSortByAssignee(false);
     filters.setSortByCategory(false);
@@ -642,7 +642,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   useHotkeys('alt+r', () => { filters.setCategoryFilter(filters.categoryFilter === 'notes' ? 'all' : 'notes'); }, hotkeyOptions, [filters.categoryFilter]);
   useHotkeys('alt+c', () => {
     filters.setCategoryFilter('all'); filters.setLabelFilter([]); filters.setAssigneeFilter([]); filters.setSearchQuery('');
-    filters.setSortConfig({ deadline: null, assignee: null, category: null });
+    filters.setSortConfig({ deadline: null, assignee: null, category: null, createdAt: null });
     filters.setSortByDeadline(false); filters.setSortByAssignee(false); filters.setSortByCategory(false);
     filters.setTaskStatusFilter('active'); filters.setShowOverdueOnly(false);
   }, hotkeyOptions);
@@ -794,7 +794,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           labelFilter={filters.labelFilter}
           setLabelFilter={filters.setLabelFilter}
           sortConfig={filters.sortConfig}
-          setSortConfig={filters.setSortConfig}
+          onSortConfigChange={onSortConfigChange}
           sortByDeadline={filters.sortByDeadline}
           setSortByDeadline={filters.setSortByDeadline}
           showOverdueOnly={filters.showOverdueOnly}

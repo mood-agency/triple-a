@@ -215,6 +215,7 @@ function NoteRow(props: NoteRowProps) {
               e.stopPropagation();
               setShowDeleteDialog(true);
             }}
+            compactView={compactView}
           />
         </div>
 
@@ -245,7 +246,7 @@ function NoteRow(props: NoteRowProps) {
           {note.gcal_event_id && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center text-blue-500">
+                <div className={`flex items-center text-blue-500 ${compactView && !note.pinned && !isFixedInSidebar ? 'hidden' : ''}`}>
                   <Calendar className="h-3 w-3" />
                 </div>
               </TooltipTrigger>

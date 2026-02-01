@@ -289,9 +289,14 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
     const handleChange = useCallback(() => {
       if (!editor) return
       const json = JSON.stringify(editor.document)
+      console.log('[BlockNoteEditor] onChange triggered:', {
+        noteId,
+        jsonLength: json.length,
+        jsonPreview: json.substring(0, 100),
+      });
       lastExternalValueRef.current = json
       onChange(json)
-    }, [editor, onChange])
+    }, [editor, onChange, noteId])
 
     // Initialize content
     useEffect(() => {
@@ -304,6 +309,13 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
       if (!editor || !isInitializedRef.current) return
 
       if (lastExternalValueRef.current !== value) {
+        console.log('[BlockNoteEditor] ⚠️ External value changed, will replaceBlocks:', {
+          noteId,
+          lastExternalValueLength: lastExternalValueRef.current?.length ?? 0,
+          newValueLength: value?.length ?? 0,
+          lastExternalValuePreview: lastExternalValueRef.current?.substring(0, 100),
+          newValuePreview: value?.substring(0, 100),
+        });
         lastExternalValueRef.current = value
 
         const format = detectContentFormat(value)
@@ -335,7 +347,7 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
 
         editor.replaceBlocks(editor.document, blocks)
       }
-    }, [value, editor])
+    }, [value, editor, noteId])
 
     // Handle keyboard events
     const handleKeyDown = useCallback(

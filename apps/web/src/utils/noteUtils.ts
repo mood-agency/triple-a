@@ -14,6 +14,7 @@ export interface NoteSortConfig {
   category?: SortDirection;
   assignee?: SortDirection;
   deadline?: SortDirection;
+  createdAt?: SortDirection;
 }
 
 /**
@@ -98,6 +99,14 @@ export function sortNotes(
       const result = aTime - bTime;
       const finalResult = sortConfig.deadline === 'desc' ? -result : result;
       return finalResult;
+    }
+
+    // Sort by creation date if enabled
+    if (sortConfig.createdAt) {
+      const aTime = new Date(a.created_at).getTime();
+      const bTime = new Date(b.created_at).getTime();
+      const result = aTime - bTime;
+      return sortConfig.createdAt === 'desc' ? -result : result;
     }
 
     return 0; // Maintain original order
