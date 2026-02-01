@@ -756,24 +756,15 @@ export const BlockNoteNoteList = ({
     if (!block) return null;
 
     const content = getBlockContent(block);
-    console.log(`[BlockNoteNoteList] 📝 Processing block ${noteId}:`, content);
 
     const parseContext = {
       labels: labels,
       contacts: contacts
     };
     const parsed = parseHashtags(content, parseContext);
-    console.log('[BlockNoteNoteList] ✨ Parsed result:', {
-      cleanedContent: parsed.cleanedContent,
-      category: parsed.category,
-      labelIds: parsed.labelIds,
-      newLabelNames: parsed.newLabelNames,
-      assigneeId: parsed.assigneeId
-    });
 
     // 1. Update the block in the editor (clean the title)
     if (parsed.cleanedContent !== content) {
-      console.log('[BlockNoteNoteList] 🧹 Cleaning title:', parsed.cleanedContent);
       editor.updateBlock(block, {
         content: [{ type: 'text', text: parsed.cleanedContent }]
       } as any);
@@ -784,7 +775,6 @@ export const BlockNoteNoteList = ({
 
     // 3. Update the note in the database via onEdit
     if (onEdit && (parsed.cleanedContent !== content || finalCategory !== note.category)) {
-      console.log('[BlockNoteNoteList] ✍️ Updating note in DB');
       onEdit(
         note.id,
         parsed.cleanedContent,
@@ -866,7 +856,6 @@ export const BlockNoteNoteList = ({
   useEffect(() => {
     const handleCreateNoteAfter = async (e: Event) => {
       const customEvent = e as CustomEvent<{ afterNoteId: string; newNoteId?: string; category?: string }>;
-      console.log('[BlockNoteNoteList] 🎯 handleCreateNoteAfter triggered', customEvent.detail);
 
       if (onCreateNoteAfter) {
         flushPendingSavesRef.current();
@@ -877,7 +866,6 @@ export const BlockNoteNoteList = ({
           const result = await processNoteBlock(afterNote.id);
 
           // Create new note with parsed/processed data
-          console.log('[BlockNoteNoteList] 💾 Creating NEXT note');
           await onCreateNoteAfter(
             afterNote.id,
             result?.finalCategory || (customEvent.detail.category as any) || afterNote.category,
@@ -886,7 +874,6 @@ export const BlockNoteNoteList = ({
             result?.parsedAssigneeId || null,
             customEvent.detail.newNoteId
           );
-          console.log('[BlockNoteNoteList] ✅ Note created successfully');
         }
       }
     };
@@ -901,7 +888,6 @@ export const BlockNoteNoteList = ({
   useEffect(() => {
     const handleNavigateToDescription = async (e: Event) => {
       const customEvent = e as CustomEvent<{ noteId: string }>;
-      console.log('[BlockNoteNoteList] 🎯 handleNavigateToDescription triggered', customEvent.detail);
 
       flushPendingSavesRef.current();
       await processNoteBlock(customEvent.detail.noteId);
@@ -975,14 +961,9 @@ export const BlockNoteNoteList = ({
     <div
       ref={containerRef}
       className={`blocknote-note-list ${isSyncingFilter ? 'blocknote-syncing' : ''} ${compactView && !isAnimatingToCompact ? 'compact-view' : ''} ${isAnimatingToFull ? 'animating-to-full' : ''} ${isAnimatingToCompact ? 'animating-to-compact' : ''}`}
-      onFocus={(e) => {
-        if (DEBUG_BLOCKNOTE) console.log('[DOM] Editor wrapper gained focus', e.target);
-      }}
       onBlur={(e) => {
-        if (DEBUG_BLOCKNOTE) console.log('[DOM] Editor wrapper lost focus', e.target, 'relatedTarget:', e.relatedTarget);
         // Only save if focus is leaving the editor entirely (not moving between blocks)
         if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-          if (DEBUG_BLOCKNOTE) console.log('[DOM] Focus left editor entirely, triggering save');
           flushPendingSavesRef.current();
         }
       }}
