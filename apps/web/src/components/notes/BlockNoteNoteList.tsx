@@ -11,7 +11,7 @@ import type { Note, Label, NoteCategory } from '@/types/note';
 import type { Contact } from '@/types/contact';
 
 // Debug flag - set to true to enable console logs for debugging
-const DEBUG_BLOCKNOTE = false;
+const DEBUG_BLOCKNOTE = true;
 
 interface BlockNoteNoteListProps {
   notes: Note[];
@@ -108,8 +108,9 @@ export const BlockNoteNoteList = ({
   // Track if we're syncing filter changes to hide content during transition
   const [isSyncingFilter, setIsSyncingFilter] = useState(false);
 
-  // Track if we're animating from compact to full view
+  // Track if we're animating to full or compact view
   const [isAnimatingToFull, setIsAnimatingToFull] = useState(false);
+  const [isAnimatingToCompact, setIsAnimatingToCompact] = useState(false);
 
   // Ref for the container element for animations
   const containerRef = useRef<HTMLDivElement>(null);
@@ -131,6 +132,66 @@ export const BlockNoteNoteList = ({
 
   // Track running animations for cleanup
   const runningAnimationsRef = useRef<Array<{ stop: () => void }>>([]);
+
+  // Function to trigger the stagger animation for list changes (filters, search, etc.)
+  const triggerStaggerAnimation = useCallback(() => {
+    // Skip if no notes or container
+    if (notes.length === 0 || !containerRef.current) {
+      isAnimatingRef.current = false;
+      return;
+    }
+
+    // Cancel any existing requestAnimationFrame
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+
+    // Stop all currently running animations to prevent glitches/conflicts
+    runningAnimationsRef.current.forEach(anim => anim.stop());
+    runningAnimationsRef.current = [];
+
+    // Use a small timeout (30ms) instead of just requestAnimationFrame
+    // This gives BlockNote and the browser enough time to finish potentially heavy 
+    // DOM operations (like replaceBlocks) before we start animating layout.
+    const timerId = window.setTimeout(() => {
+      const blocks = containerRef.current?.querySelectorAll('.bn-block-outer');
+
+      if (blocks && blocks.length > 0) {
+        const totalDuration = 0.15 + (blocks.length - 1) * 0.02;
+
+        // Animate each block with stagger
+        const animations: Array<{ stop: () => void }> = [];
+        blocks.forEach((block, index) => {
+          const el = block as HTMLElement;
+
+          const anim = (animate as any)(
+            el,
+            {
+              opacity: [0, 1],
+              transform: ['translateY(12px)', 'translateY(0px)']
+            },
+            {
+              duration: 0.15,
+              delay: index * 0.02,
+              easing: 'ease-out'
+            }
+          );
+          animations.push(anim);
+        });
+        runningAnimationsRef.current = animations;
+
+        // Reset flag after animation completes
+        window.setTimeout(() => {
+          isAnimatingRef.current = false;
+        }, totalDuration * 1000 + 50);
+      } else {
+        isAnimatingRef.current = false;
+      }
+    }, 30);
+
+    // Save timer id in the ref (abusing the ref name but same purpose)
+    animationFrameRef.current = timerId as any;
+  }, [notes.length]);
 
   // Function to flush pending saves immediately
   const flushPendingSaves = useCallback(() => {
@@ -189,6 +250,17 @@ export const BlockNoteNoteList = ({
     };
   }, []);
 
+  // Sync stagger animation with isSyncingFilter lifecycle
+  useEffect(() => {
+    // Only trigger when we finish syncing filters and have notes
+    // We don't check isAnimatingRef here because we WANT to animate 
+    // whenever a filter sync successfully completes.
+    if (!isSyncingFilter && notes.length > 0 && previousNoteIdsRef.current !== '') {
+      isAnimatingRef.current = true;
+      triggerStaggerAnimation();
+    }
+  }, [isSyncingFilter, notes.length, triggerStaggerAnimation]);
+
   // Trigger stagger animation when the list changes (filters, search, etc.)
   useEffect(() => {
     // Skip if no notes
@@ -210,44 +282,16 @@ export const BlockNoteNoteList = ({
 
     // List changed - trigger animation
     prevNoteIdsForAnimationRef.current = currentNoteIds;
-    isAnimatingRef.current = true;
 
-    // Wait for BlockNote to render
-    setTimeout(() => {
-      const blocks = containerRef.current?.querySelectorAll('.bn-block-outer');
+    // If we're not syncing filters, start animation immediately
+    // If we ARE syncing, the other useEffect handles it when isSyncingFilter becomes false
+    if (!isSyncingFilter) {
+      isAnimatingRef.current = true;
+      triggerStaggerAnimation();
+    }
+  }, [notes, isSyncingFilter, triggerStaggerAnimation]);
 
-      if (blocks && blocks.length > 0) {
-        const totalDuration = 0.15 + (blocks.length - 1) * 0.02;
-
-        // Animate each block with stagger
-        blocks.forEach((block, index) => {
-          const el = block as HTMLElement;
-
-          (animate as any)(
-            el,
-            {
-              opacity: [0, 1],
-              transform: ['translateY(12px)', 'translateY(0px)']
-            },
-            {
-              duration: 0.15,
-              delay: index * 0.02,
-              easing: 'ease-out'
-            }
-          );
-        });
-
-        // Reset flag after animation completes
-        setTimeout(() => {
-          isAnimatingRef.current = false;
-        }, totalDuration * 1000 + 50);
-      } else {
-        isAnimatingRef.current = false;
-      }
-    }, 30);
-  }, [notes]);
-
-  // Animate new elements when switching from compact to full view
+  // Animate elements when switching between compact and full view
   useEffect(() => {
     // Cancel any pending animations and frames when compactView changes
     if (animationFrameRef.current) {
@@ -263,73 +307,156 @@ export const BlockNoteNoteList = ({
       return;
     }
 
-    // Only animate when switching FROM compact TO full view
-    if (prevCompactViewRef.current === true && compactView === false) {
+    // Detect transition
+    const isToFull = prevCompactViewRef.current === true && compactView === false;
+    const isToCompact = prevCompactViewRef.current === false && compactView === true;
+
+    if (isToFull) {
       // Hide elements immediately before they render
       setIsAnimatingToFull(true);
+      setIsAnimatingToCompact(false);
 
       // Wait for CSS to apply and elements to be in the DOM (but hidden)
       const frameId1 = requestAnimationFrame(() => {
         const frameId2 = requestAnimationFrame(() => {
           animationFrameRef.current = null;
 
-          // Select all the elements that appear in full mode
+          // Select elements
           const checkboxes = containerRef.current?.querySelectorAll('.notepad-category-checkbox');
           const metadataElements = containerRef.current?.querySelectorAll('.notepad-metadata');
           const deadlines = containerRef.current?.querySelectorAll('.notepad-deadline');
 
-          // Combine all elements to animate
-          const allElements: HTMLElement[] = [];
-
-          checkboxes?.forEach(el => allElements.push(el as HTMLElement));
-          metadataElements?.forEach(el => allElements.push(el as HTMLElement));
-          deadlines?.forEach(el => allElements.push(el as HTMLElement));
-
-          // Clear any inline styles from previous animations
-          allElements.forEach(el => {
-            el.style.opacity = '';
-            el.style.transform = '';
-          });
-
-          // Remove the hiding class so animation can start from opacity 0
+          // Remove the hiding class so animation can start
           setIsAnimatingToFull(false);
 
           // Animate each element with stagger
           const animations: Array<{ stop: () => void }> = [];
-          allElements.forEach((el, index) => {
+
+          checkboxes?.forEach((el, index) => {
             const anim = (animate as any)(
               el,
               {
                 opacity: [0, 1],
+                width: ['0px', '24px'],
+                marginRight: ['0px', '8px'],
                 transform: ['translateX(-8px)', 'translateX(0px)']
               },
-              {
-                duration: 0.2,
-                delay: index * 0.015,
-                easing: 'ease-out'
-              }
+              { duration: 0.25, delay: index * 0.005, easing: 'ease-out' }
             );
             animations.push(anim);
           });
+
+          metadataElements?.forEach((el, index) => {
+            const anim = (animate as any)(
+              el,
+              {
+                opacity: [0, 1],
+                marginLeft: ['0px', '8px'],
+                marginRight: ['0px', '8px'],
+                transform: ['translateX(8px)', 'translateX(0px)']
+              },
+              { duration: 0.25, delay: index * 0.005, easing: 'ease-out' }
+            );
+            animations.push(anim);
+          });
+
+          deadlines?.forEach((el, index) => {
+            const anim = (animate as any)(
+              el,
+              {
+                opacity: [0, 1],
+                marginLeft: ['0px', '8px'],
+                transform: ['translateX(8px)', 'translateX(0px)']
+              },
+              { duration: 0.25, delay: index * 0.005, easing: 'ease-out' }
+            );
+            animations.push(anim);
+          });
+
           runningAnimationsRef.current = animations;
         });
         animationFrameRef.current = frameId2;
       });
       animationFrameRef.current = frameId1;
-    } else {
-      // When switching to compact, clean up any inline styles
+    } else if (isToCompact) {
+      // Enter "animating to compact" state
+      setIsAnimatingToCompact(true);
+      setIsAnimatingToFull(false);
+
       const checkboxes = containerRef.current?.querySelectorAll('.notepad-category-checkbox');
       const metadataElements = containerRef.current?.querySelectorAll('.notepad-metadata');
       const deadlines = containerRef.current?.querySelectorAll('.notepad-deadline');
 
-      [checkboxes, metadataElements, deadlines].forEach(nodeList => {
-        nodeList?.forEach(el => {
-          (el as HTMLElement).style.opacity = '';
-          (el as HTMLElement).style.transform = '';
-        });
+      const animations: Array<{ stop: () => void }> = [];
+      let maxDelay = 0;
+
+      checkboxes?.forEach((el, index) => {
+        const delay = index * 0.005;
+        maxDelay = Math.max(maxDelay, delay);
+        const anim = (animate as any)(
+          el,
+          {
+            opacity: [1, 0],
+            width: ['24px', '0px'],
+            marginRight: ['8px', '0px'],
+            transform: ['translateX(0px)', 'translateX(-8px)']
+          },
+          { duration: 0.2, delay, easing: 'ease-in' }
+        );
+        animations.push(anim);
       });
 
+      metadataElements?.forEach((el, index) => {
+        const delay = index * 0.005;
+        maxDelay = Math.max(maxDelay, delay);
+        const anim = (animate as any)(
+          el,
+          {
+            opacity: [1, 0],
+            marginLeft: ['8px', '0px'],
+            marginRight: ['8px', '0px'],
+            transform: ['translateX(0px)', 'translateX(8px)']
+          },
+          { duration: 0.2, delay, easing: 'ease-in' }
+        );
+        animations.push(anim);
+      });
+
+      deadlines?.forEach((el, index) => {
+        const delay = index * 0.005;
+        maxDelay = Math.max(maxDelay, delay);
+        const anim = (animate as any)(
+          el,
+          {
+            opacity: [1, 0],
+            marginLeft: ['8px', '0px'],
+            transform: ['translateX(0px)', 'translateX(8px)']
+          },
+          { duration: 0.2, delay, easing: 'ease-in' }
+        );
+        animations.push(anim);
+      });
+
+      runningAnimationsRef.current = animations;
+
+      const totalWait = (maxDelay + 0.2) * 1000 + 20;
+      setTimeout(() => {
+        setIsAnimatingToCompact(false);
+        // Clean up inline styles
+        [checkboxes, metadataElements, deadlines].forEach(nodeList => {
+          nodeList?.forEach(el => {
+            const element = el as HTMLElement;
+            element.style.opacity = '';
+            element.style.width = '';
+            element.style.margin = '';
+            element.style.transform = '';
+          });
+        });
+      }, totalWait);
+    } else {
+      // For any other state change, clean up
       setIsAnimatingToFull(false);
+      setIsAnimatingToCompact(false);
     }
 
     prevCompactViewRef.current = compactView;
@@ -382,11 +509,11 @@ export const BlockNoteNoteList = ({
     return () => clearTimeout(timer);
   }, [editor, fixedNoteId, notes.length]);
 
-  // Sync notes changes (for filtering) - only when the VIEW changes due to filtering
+  // Sync notes changes (for filtering/sorting) - when the VIEW changes
   // Don't sync when notes are added/edited (BlockNote handles this internally)
   useEffect(() => {
-    // Create a sorted string of note IDs to detect changes
-    const currentNoteIds = notes.map(n => n.id).sort().join(',');
+    // Create a string of note IDs to detect changes (preserve order to detect sort changes)
+    const currentNoteIds = notes.map(n => n.id).join(',');
 
     // Only update if the set of note IDs actually changed
     if (previousNoteIdsRef.current !== currentNoteIds) {
@@ -410,10 +537,26 @@ export const BlockNoteNoteList = ({
       // Also sync if this is initial load (no previous IDs) and we have notes
       const isInitialLoad = previousIds.size === 0 && notes.length > 0;
 
-      // Only sync on actual filtering (notes removed from view), not on note creation or deletion
-      if (notesWereFiltered || isInitialLoad) {
-        // Hide content immediately to prevent flash of unfiltered content
-        if (notesWereFiltered) {
+      // Detect if only the order changed (same notes, different order)
+      // This happens when user applies a sort filter
+      const orderChanged = removedIds.length === 0 && previousIds.size === noteIds.size && previousIds.size > 0;
+
+      if (DEBUG_BLOCKNOTE) {
+        console.log('[BlockNote] Sync check:', {
+          currentNoteIds: currentNoteIds.substring(0, 100),
+          previousSize: previousIds.size,
+          currentSize: noteIds.size,
+          removedIds: removedIds.length,
+          notesWereFiltered,
+          isInitialLoad,
+          orderChanged,
+        });
+      }
+
+      // Sync on filtering (notes removed), initial load, or order change (sorting)
+      if (notesWereFiltered || isInitialLoad || orderChanged) {
+        // Hide content immediately to prevent flash during transition
+        if (notesWereFiltered || orderChanged) {
           setIsSyncingFilter(true);
         }
 
@@ -710,7 +853,7 @@ export const BlockNoteNoteList = ({
   return (
     <div
       ref={containerRef}
-      className={`blocknote-note-list ${isSyncingFilter ? 'blocknote-syncing' : ''} ${compactView ? 'compact-view' : ''} ${isAnimatingToFull ? 'animating-to-full' : ''}`}
+      className={`blocknote-note-list ${isSyncingFilter ? 'blocknote-syncing' : ''} ${compactView && !isAnimatingToCompact ? 'compact-view' : ''} ${isAnimatingToFull ? 'animating-to-full' : ''} ${isAnimatingToCompact ? 'animating-to-compact' : ''}`}
       onFocus={(e) => {
         if (DEBUG_BLOCKNOTE) console.log('[DOM] Editor wrapper gained focus', e.target);
       }}

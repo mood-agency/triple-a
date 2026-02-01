@@ -20,13 +20,24 @@
     justify-content: center;
 }
 
+.notepad-category-checkbox {
+    transition: width 0.25s ease-out, margin 0.25s ease-out, opacity 0.2s ease-out;
+    overflow: hidden;
+}
+
+.notepad-metadata,
+.notepad-deadline {
+    transition: width 0.25s ease-out, margin 0.25s ease-out, opacity 0.2s ease-out;
+    overflow: hidden;
+}
+
 .notepad-line:hover .category-icon {
     pointer-events: none;
 }
 
 .notepad-content {
     position: relative;
-    transition: color 0.3s ease;
+    transition: color 0.3s ease, max-width 0.25s ease-out;
     flex: 1;
     min-width: 0;
     text-overflow: ellipsis;
@@ -41,7 +52,7 @@
     text-overflow: ellipsis !important;
 }
 
-.notepad-content:not(.is-editing) > * {
+.notepad-content:not(.is-editing)>* {
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
@@ -55,7 +66,7 @@
     text-overflow: clip !important;
 }
 
-.notepad-content.is-editing > * {
+.notepad-content.is-editing>* {
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: clip !important;
@@ -103,4 +114,11 @@
 
 .blocknote-note-list.compact-view .notepad-content.is-editing {
     max-width: none !important;
+}
+
+/* Hide elements during compact-to-full animation to prevent flash */
+.blocknote-note-list.animating-to-full .notepad-category-checkbox,
+.blocknote-note-list.animating-to-full .notepad-metadata,
+.blocknote-note-list.animating-to-full .notepad-deadline {
+    opacity: 0;
 }
