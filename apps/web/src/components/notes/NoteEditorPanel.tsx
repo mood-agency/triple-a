@@ -451,10 +451,10 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
               </button>
             }
           />
-          <AnimatePresence mode="popLayout">
-            {noteAssignees.map((assignee) => (
+          {noteAssignees.length > 0 && (
+            <AnimatePresence mode="popLayout">
               <motion.span
-                key={assignee.id}
+                key="assignees-chip"
                 layout
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -462,13 +462,10 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                 transition={{ duration: 0.2 }}
                 className="chip-assignee"
               >
-                {`${assignee.name} ${assignee.lastname}`.trim()}
-                <button type="button" onClick={() => onRemoveAssignee(note.id, assignee.id)} className="chip-assignee-btn">
-                  <X className="h-2.5 w-2.5" />
-                </button>
+                {noteAssignees.map(a => `${a.name} ${a.lastname}`.trim()).join(' | ')}
               </motion.span>
-            ))}
-          </AnimatePresence>
+            </AnimatePresence>
+          )}
         </div>
       )}
 

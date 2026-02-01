@@ -358,20 +358,24 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                                 {label.name}
                             </span>
                         ))}
-                        {category !== 'notes' && (
+                        {category !== 'notes' && (props.block.props.assignees as any[])?.length > 0 && (
                             <TooltipProvider delayDuration={300}>
-                                {(props.block.props.assignees as Array<{ initials: string; fullName: string }>)?.map((assignee, i: number) => (
-                                    <Tooltip key={i}>
-                                        <TooltipTrigger asChild>
-                                            <span className="chip-assignee">
-                                                {assignee.initials}
-                                            </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>{assignee.fullName}</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                ))}
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span className="chip-assignee">
+                                            {(props.block.props.assignees as Array<{ initials: string; fullName: string }>)
+                                                .map(a => a.initials)
+                                                .join(' | ')}
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>
+                                            {(props.block.props.assignees as Array<{ initials: string; fullName: string }>)
+                                                .map(a => a.fullName)
+                                                .join(', ')}
+                                        </p>
+                                    </TooltipContent>
+                                </Tooltip>
                             </TooltipProvider>
                         )}
                     </div>
