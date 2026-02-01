@@ -3,7 +3,7 @@ import { createReactBlockSpec } from "@blocknote/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBlockCommands } from "./hooks/useBlockCommands";
 import { Pickaxe, Users, Forward, StickyNote, Pin, SidebarClose, Trash2 } from "lucide-react";
-import { parseLocalDate, formatRelativeDate } from "@/utils/dateUtils";
+import { parseLocalDate, formatRelativeDateEnhanced } from "@/utils/dateUtils";
 import i18n from "@/i18n";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import "./NotepadBlock.css";
@@ -21,7 +21,7 @@ const categoryIcons: Record<Category, any> = {
     "notes": StickyNote,
 };
 
-export const NotepadBlock = createReactBlockSpec(
+export const NotepadBlock = (createReactBlockSpec as any)(
     {
         type: "notepad",
         propSchema: {
@@ -30,7 +30,7 @@ export const NotepadBlock = createReactBlockSpec(
             category: { default: "todo" },
             date: { default: "22 de noviembre 2026" },
             labels: { default: [] as Array<{ name: string; color: string }> },
-            assignees: { default: [] as string[] },
+            assignees: { default: [] as Array<{ initials: string; fullName: string }> },
             pinned: { default: false },
             compact: { default: false },
             fixedInSidebar: { default: false },
@@ -39,7 +39,7 @@ export const NotepadBlock = createReactBlockSpec(
         content: "inline",
     },
     {
-        render: (props) => {
+        render: (props: any) => {
             const [node, setNode] = useState<HTMLElement | null>(null);
             const [isEditing, setIsEditing] = useState(false);
             const editorRef = useRef(props.editor);
@@ -114,7 +114,7 @@ export const NotepadBlock = createReactBlockSpec(
 
                         // Constrain selection to current block
                         const tr = props.editor._tiptapEditor.state.tr.setSelection(
-                            props.editor._tiptapEditor.state.selection.constructor.create(
+                            (selection.constructor as any).create(
                                 props.editor._tiptapEditor.state.doc,
                                 Math.max(blockStart, from),
                                 Math.min(blockEnd, to)
@@ -242,43 +242,35 @@ export const NotepadBlock = createReactBlockSpec(
             const formatDeadline = (deadline: string) => {
                 if (!deadline) return '';
 
-                const date = parseLocalDate(deadline);
-                const t = i18n.t.bind(i18n);
-
-                let dateText = formatRelativeDate(date, i18n.language, {
-                    today: t('date.today'),
-                    tomorrow: t('date.tomorrow'),
-                    yesterday: t('date.yesterday'),
-                    inDays: t('date.inDays'),
-                    daysAgo: t('date.daysAgo'),
-                    inAWeek: t('date.inAWeek'),
-                    aWeekAgo: t('date.aWeekAgo'),
-                    inWeeks: t('date.inWeeks'),
-                    weeksAgo: t('date.weeksAgo'),
-                    nextWeek: t('date.nextWeek'),
-                    lastWeek: t('date.lastWeek'),
-                    thisWeekday: t('date.thisWeekday'),
-                    nextWeekday: t('date.nextWeekday'),
-                    lastWeekday: t('date.lastWeekday'),
-                    inAMonth: t('date.inAMonth'),
-                    aMonthAgo: t('date.aMonthAgo'),
-                    inMonths: t('date.inMonths'),
-                    monthsAgo: t('date.monthsAgo'),
-                    inAYear: t('date.inAYear'),
-                    aYearAgo: t('date.aYearAgo'),
-                    inYears: t('date.inYears'),
-                    yearsAgo: t('date.yearsAgo'),
-                });
-
-                // Add time if it's not midnight (all-day events)
-                if (deadline.includes('T')) {
-                    const d = parseLocalDate(deadline);
-                    if (!(d.getHours() === 0 && d.getMinutes() === 0)) {
-                        dateText += ` ${d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
-                    }
-                }
-
-                return dateText;
+                return formatRelativeDateEnhanced(
+                    parseLocalDate(deadline),
+                    i18n.language,
+                    {
+                        today: i18n.t('date.today'),
+                        tomorrow: i18n.t('date.tomorrow'),
+                        yesterday: i18n.t('date.yesterday'),
+                        inDays: i18n.t('date.inDays'),
+                        daysAgo: i18n.t('date.daysAgo'),
+                        inAWeek: i18n.t('date.inAWeek'),
+                        aWeekAgo: i18n.t('date.aWeekAgo'),
+                        inWeeks: i18n.t('date.inWeeks'),
+                        weeksAgo: i18n.t('date.weeksAgo'),
+                        nextWeek: i18n.t('date.nextWeek'),
+                        lastWeek: i18n.t('date.lastWeek'),
+                        thisWeekday: i18n.t('date.thisWeekday'),
+                        nextWeekday: i18n.t('date.nextWeekday'),
+                        lastWeekday: i18n.t('date.lastWeekday'),
+                        inAMonth: i18n.t('date.inAMonth'),
+                        aMonthAgo: i18n.t('date.aMonthAgo'),
+                        inMonths: i18n.t('date.inMonths'),
+                        monthsAgo: i18n.t('date.monthsAgo'),
+                        inAYear: i18n.t('date.inAYear'),
+                        aYearAgo: i18n.t('date.aYearAgo'),
+                        inYears: i18n.t('date.inYears'),
+                        yearsAgo: i18n.t('date.yearsAgo'),
+                    },
+                    true
+                );
             };
 
             // Check if deadline has passed
@@ -331,23 +323,25 @@ export const NotepadBlock = createReactBlockSpec(
                                 {label.name}
                             </span>
                         ))}
-                        <TooltipProvider delayDuration={300}>
-                            {(props.block.props.assignees as string[])?.map((assignee: string, i: number) => (
-                                <Tooltip key={i}>
-                                    <TooltipTrigger asChild>
-                                        <span className="chip-assignee">
-                                            {assignee}
-                                        </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>{assignee}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            ))}
-                        </TooltipProvider>
+                        {category !== 'notes' && (
+                            <TooltipProvider delayDuration={300}>
+                                {(props.block.props.assignees as Array<{ initials: string; fullName: string }>)?.map((assignee, i: number) => (
+                                    <Tooltip key={i}>
+                                        <TooltipTrigger asChild>
+                                            <span className="chip-assignee">
+                                                {assignee.initials}
+                                            </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>{assignee.fullName}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                ))}
+                            </TooltipProvider>
+                        )}
                     </div>
 
-                    {dateStr && !hideDate && (
+                    {dateStr && !hideDate && category !== 'notes' && (
                         <div
                             contentEditable={false}
                             className={`notepad-deadline flex-shrink-0 text-[10px] whitespace-nowrap ${shouldShowRed ? 'text-red-500 font-medium' : 'text-muted-foreground'
@@ -362,48 +356,68 @@ export const NotepadBlock = createReactBlockSpec(
                         </div>
                     )}
 
-                    {/* Pin icon - always visible when pinned, hover otherwise */}
-                    <button
-                        contentEditable={false}
-                        onClick={handleTogglePin}
-                        className={`p-1 hover:bg-gray-200 rounded transition-all ml-1 flex-shrink-0 ${isPinned
-                            ? 'opacity-100'
-                            : 'opacity-0 group-hover:opacity-100'
-                            }`}
-                        style={{ userSelect: "none" }}
-                        title={isPinned ? "Unpin task" : "Pin task"}
-                    >
-                        <Pin size={14} className={isPinned ? "text-black" : "text-gray-600"} />
-                    </button>
+                    <TooltipProvider delayDuration={300}>
+                        {/* Pin icon - always visible when pinned, hover otherwise */}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button
+                                    contentEditable={false}
+                                    onClick={handleTogglePin}
+                                    className={`p-1 hover:bg-gray-200 rounded transition-all ml-auto flex-shrink-0 ${isPinned
+                                        ? 'opacity-100'
+                                        : 'opacity-0 group-hover:opacity-100'
+                                        }`}
+                                    style={{ userSelect: "none" }}
+                                >
+                                    <Pin size={14} className={isPinned ? "text-black" : "text-gray-600"} />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{isPinned ? "Unpin task" : "Pin task"}</p>
+                            </TooltipContent>
+                        </Tooltip>
 
-                    {/* Sidebar icon - always visible when fixed, hover otherwise */}
-                    <button
-                        contentEditable={false}
-                        onClick={handleToggleFixInSidebar}
-                        className={`p-1 hover:bg-gray-200 rounded transition-all flex-shrink-0 ${isFixedInSidebar
-                            ? 'opacity-100'
-                            : 'opacity-0 group-hover:opacity-100'
-                            }`}
-                        style={{ userSelect: "none" }}
-                        title={isFixedInSidebar ? "Unfix from sidebar" : "Fix to sidebar"}
-                    >
-                        <SidebarClose size={14} className={isFixedInSidebar ? "text-blue-600" : "text-gray-600"} />
-                    </button>
+                        {/* Sidebar icon - always visible when fixed, hover otherwise */}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button
+                                    contentEditable={false}
+                                    onClick={handleToggleFixInSidebar}
+                                    className={`p-1 hover:bg-gray-200 rounded transition-all flex-shrink-0 ${isFixedInSidebar
+                                        ? 'opacity-100'
+                                        : 'opacity-0 group-hover:opacity-100'
+                                        }`}
+                                    style={{ userSelect: "none" }}
+                                >
+                                    <SidebarClose size={14} className={isFixedInSidebar ? "text-blue-600" : "text-gray-600"} />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{isFixedInSidebar ? "Unfix from sidebar" : "Fix to sidebar"}</p>
+                            </TooltipContent>
+                        </Tooltip>
 
-                    {/* Other action icons - visible on hover */}
-                    <div
-                        contentEditable={false}
-                        className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                        style={{ userSelect: "none" }}
-                    >
-                        <button
-                            onClick={handleDelete}
-                            className="p-1 hover:bg-red-100 rounded transition-colors"
-                            title="Delete"
+                        {/* Other action icons - visible on hover */}
+                        <div
+                            contentEditable={false}
+                            className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                            style={{ userSelect: "none" }}
                         >
-                            <Trash2 size={14} className="text-red-600" />
-                        </button>
-                    </div>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button
+                                        onClick={handleDelete}
+                                        className="p-1 hover:bg-red-100 rounded transition-colors"
+                                    >
+                                        <Trash2 size={14} className="text-red-600" />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Delete</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </div>
+                    </TooltipProvider>
                 </div>
             );
         },

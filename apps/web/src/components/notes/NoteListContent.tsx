@@ -2,7 +2,7 @@ import { memo } from 'react';
 import type { DragEndEvent, SensorDescriptor, SensorOptions } from '@dnd-kit/core';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { AnimatePresence } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { EMPTY_LABELS } from '@/constants/notes';
@@ -187,7 +187,12 @@ export const NoteListContent = memo(function NoteListContent({
     };
 
     return (
-        <div className={`${isMobile ? 'w-full' : 'w-[30%] border-r border-muted-foreground/30 pr-4'} ${isMobile && selectedNote ? 'hidden' : ''} shrink-0 flex flex-col overflow-hidden h-full`}>
+        <motion.div
+            initial={{ borderRightColor: "rgba(107, 114, 128, 0)" }}
+            animate={{ borderRightColor: "rgba(107, 114, 128, 0.3)" }}
+            transition={{ duration: 5, ease: "linear" }}
+            className={`${isMobile ? 'w-full' : 'w-[30%] border-r pr-4'} ${isMobile && selectedNote ? 'hidden' : ''} shrink-0 flex flex-col overflow-hidden h-full`}
+        >
             <AnimatePresence>
                 <ActiveFiltersBar
                     key="active-filters-bar"
@@ -311,6 +316,9 @@ export const NoteListContent = memo(function NoteListContent({
                                         onDelete={handleDeleteWithToast}
                                         onCreateNoteAfter={onCreateNoteAfter}
                                         onEdit={onEdit}
+                                        onAddLabel={handleAddLabelToNote}
+                                        onCreateLabelAndAdd={handleCreateLabelAndAdd}
+                                        onAddAssignee={onAddAssignee}
                                         onTogglePin={(noteId) => {
                                             const note = activeNotes.find(n => n.id === noteId);
                                             if (note) onTogglePinned(noteId, !note.pinned);
@@ -422,12 +430,12 @@ export const NoteListContent = memo(function NoteListContent({
                                             onRestore={() => onRestore(note)}
                                             compactView={compactTaskView}
                                             isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
-                                                                                        contacts={contacts}
-                                                                                        onAddAssignee={onAddAssignee}
-                                                                                        onRemoveAssignee={onRemoveAssignee}
-                                                                                        onUpdateAssignee={onUpdateAssignee}
-                                                                                        autoSaveInterval={autoSaveInterval}
-                                                                                    />                                    ))}
+                                            contacts={contacts}
+                                            onAddAssignee={onAddAssignee}
+                                            onRemoveAssignee={onRemoveAssignee}
+                                            onUpdateAssignee={onUpdateAssignee}
+                                            autoSaveInterval={autoSaveInterval}
+                                        />))}
                                 </div>
                             </div>
                         ) : hasActiveFilters ? (
@@ -436,6 +444,6 @@ export const NoteListContent = memo(function NoteListContent({
                     )}
                 </>
             )}
-        </div>
+        </motion.div>
     );
 });

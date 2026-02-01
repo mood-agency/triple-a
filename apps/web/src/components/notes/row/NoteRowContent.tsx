@@ -113,7 +113,7 @@ export function NoteRowContent({
                             // Prevent the input from auto-scrolling when focused
                             e.target.scrollLeft = 0;
                         }}
-        
+
                         className={`flex-1 min-w-0 text-sm leading-4 bg-transparent border-none outline-none p-0 m-0 text-foreground caret-foreground placeholder:text-muted-foreground/50 cursor-text ${debugMode ? debugTitleFocusClass : ''}`}
                     />
 
@@ -217,43 +217,45 @@ export function NoteRowContent({
                     </Popover>
 
                     {/* Assignee Dropdown */}
-                    <Popover open={showAssigneeDropdown} onOpenChange={onAssigneeDropdownOpenChange}>
-                        <PopoverTrigger asChild>
-                            <span className="sr-only">{t('assignee.setAssignee')}</span>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-56 p-0" align="start">
-                            <Command>
-                                <CommandInput placeholder={t('assignee.search')} className="h-9" />
-                                <CommandList>
-                                    <CommandEmpty>{t('assignee.noResults')}</CommandEmpty>
-                                    <CommandGroup>
-                                        {contacts.map((contact) => {
-                                            const fullName = `${contact.name} ${contact.lastname}`.trim();
-                                            const isSelected = noteAssignees.some((a) => a.id === contact.id);
-                                            return (
-                                                <CommandItem
-                                                    key={contact.id}
-                                                    value={fullName}
-                                                    onSelect={() => {
-                                                        if (isSelected) {
-                                                            onRemoveAssignee?.(note.id, contact.id);
-                                                        } else {
-                                                            onAddAssignee?.(note.id, contact.id);
-                                                        }
-                                                        // Don't close for multi-select
-                                                    }}
-                                                    className="flex items-center justify-between"
-                                                >
-                                                    <span className="truncate">{fullName}</span>
-                                                    {isSelected && <Check className="h-4 w-4" />}
-                                                </CommandItem>
-                                            );
-                                        })}
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
+                    {note.category !== 'notes' && (
+                        <Popover open={showAssigneeDropdown} onOpenChange={onAssigneeDropdownOpenChange}>
+                            <PopoverTrigger asChild>
+                                <span className="sr-only">{t('assignee.setAssignee')}</span>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-56 p-0" align="start">
+                                <Command>
+                                    <CommandInput placeholder={t('assignee.search')} className="h-9" />
+                                    <CommandList>
+                                        <CommandEmpty>{t('assignee.noResults')}</CommandEmpty>
+                                        <CommandGroup>
+                                            {contacts.map((contact) => {
+                                                const fullName = `${contact.name} ${contact.lastname}`.trim();
+                                                const isSelected = noteAssignees.some((a) => a.id === contact.id);
+                                                return (
+                                                    <CommandItem
+                                                        key={contact.id}
+                                                        value={fullName}
+                                                        onSelect={() => {
+                                                            if (isSelected) {
+                                                                onRemoveAssignee?.(note.id, contact.id);
+                                                            } else {
+                                                                onAddAssignee?.(note.id, contact.id);
+                                                            }
+                                                            // Don't close for multi-select
+                                                        }}
+                                                        className="flex items-center justify-between"
+                                                    >
+                                                        <span className="truncate">{fullName}</span>
+                                                        {isSelected && <Check className="h-4 w-4" />}
+                                                    </CommandItem>
+                                                );
+                                            })}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                    )}
                 </>
             ) : (
                 <span

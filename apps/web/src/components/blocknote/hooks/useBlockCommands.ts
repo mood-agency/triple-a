@@ -3,6 +3,8 @@ import type { BlockNoteEditor, Block } from "@blocknote/core";
 import { commandRegistry, getKeyCombo } from "../commands/CommandRegistry";
 import type { BlockCommandContext } from "../commands/BlockCommand";
 
+const DEBUG_BLOCKNOTE = false;
+
 /**
  * Custom hook to handle keyboard commands for BlockNote blocks
  *
@@ -41,26 +43,30 @@ export function useBlockCommands(
 
       if (!isInside) return;
 
-      // Stop event propagation for BlockNote compatibility
-      e.stopImmediatePropagation();
-
       // Convert keyboard event to key combination string
       const keyCombo = getKeyCombo(e);
 
-      // Create command context
-      const context: BlockCommandContext = {
-        editor,
-        block,
-        node,
-        event: e,
-      };
+      if (DEBUG_BLOCKNOTE) {
+        console.log(`[useBlockCommands] ⌨️ Key pressed in block ${block.id}: "${e.key}", combo: "${keyCombo}"`);
+      }
 
       // Execute the command if registered
-      const executed = commandRegistry.executeCommand(keyCombo, context);
+      if (commandRegistry.hasCommand(keyCombo)) {
+        // Stop event propagation only for registered commands
+        e.stopImmediatePropagation();
 
-      // Log for debugging (can be removed in production)
-      if (executed) {
-        console.log(`✅ Executed command for: ${keyCombo}`);
+        // Create command context
+        const context: BlockCommandContext = {
+          editor,
+          block,
+          node,
+          event: e,
+        };
+
+        const executed = commandRegistry.executeCommand(keyCombo, context);
+        if (executed) {
+          // Command executed successfully
+        }
       }
     };
 

@@ -364,7 +364,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                   type="button"
                   className="w-4 flex justify-center shrink-0 hover:text-foreground transition-colors"
                 >
-                  <Tag className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                  <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                 </button>
               </PopoverTrigger>
             </TooltipTrigger>
@@ -415,38 +415,40 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
       </div>
 
       {/* Assignee row */}
-      <div className="flex gap-1.5 flex-shrink-0 items-center mb-2">
-        <AssigneePicker
-          contacts={contacts}
-          value={noteAssignees.map(a => a.id)}
-          onChange={(contactIds) => {
-            const currentIds = noteAssignees.map(a => a.id);
-            const added = contactIds.filter(id => !currentIds.includes(id));
-            const removed = currentIds.filter(id => !contactIds.includes(id));
+      {note.category !== 'notes' && (
+        <div className="flex gap-1.5 flex-shrink-0 items-center mb-2">
+          <AssigneePicker
+            contacts={contacts}
+            value={noteAssignees.map(a => a.id)}
+            onChange={(contactIds) => {
+              const currentIds = noteAssignees.map(a => a.id);
+              const added = contactIds.filter(id => !currentIds.includes(id));
+              const removed = currentIds.filter(id => !contactIds.includes(id));
 
-            added.forEach(contactId => onAddAssignee(note.id, contactId));
-            removed.forEach(contactId => onRemoveAssignee(note.id, contactId));
-          }}
-          open={assigneePickerOpen}
-          onOpenChange={onAssigneePickerOpenChange}
-          trigger={
-            <button
-              type="button"
-              className="w-4 flex justify-center shrink-0 hover:text-foreground transition-colors"
-            >
-              <User className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-            </button>
-          }
-        />
-        {noteAssignees.map((assignee) => (
-          <span key={assignee.id} className="chip-assignee">
-            {`${assignee.name} ${assignee.lastname}`.trim()}
-            <button type="button" onClick={() => onRemoveAssignee(note.id, assignee.id)} className="chip-assignee-btn">
-              <X className="h-2.5 w-2.5" />
-            </button>
-          </span>
-        ))}
-      </div>
+              added.forEach(contactId => onAddAssignee(note.id, contactId));
+              removed.forEach(contactId => onRemoveAssignee(note.id, contactId));
+            }}
+            open={assigneePickerOpen}
+            onOpenChange={onAssigneePickerOpenChange}
+            trigger={
+              <button
+                type="button"
+                className="w-4 flex justify-center shrink-0 hover:text-foreground transition-colors"
+              >
+                <User className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+              </button>
+            }
+          />
+          {noteAssignees.map((assignee) => (
+            <span key={assignee.id} className="chip-assignee">
+              {`${assignee.name} ${assignee.lastname}`.trim()}
+              <button type="button" onClick={() => onRemoveAssignee(note.id, assignee.id)} className="chip-assignee-btn">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
