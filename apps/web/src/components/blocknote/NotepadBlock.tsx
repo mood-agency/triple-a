@@ -8,6 +8,9 @@ import i18n from "@/i18n";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import "./NotepadBlock.css";
 
+// Debug flag - set to true to enable console logs for debugging
+const DEBUG_BLOCKNOTE = false;
+
 const CATEGORIES = ["todo", "meeting", "followup", "notes"] as const;
 type Category = (typeof CATEGORIES)[number];
 
@@ -53,12 +56,38 @@ export const NotepadBlock = createReactBlockSpec(
 
             // Track if this block is currently being edited
             useEffect(() => {
+                let wasEditing = isEditing;
+
                 const checkSelection = () => {
                     const textCursorPosition = props.editor.getTextCursorPosition();
                     const isThisBlockSelected = textCursorPosition.block.id === props.block.id;
+
+                    // Early return if this block isn't selected and wasn't selected before (optimization)
+                    if (!isThisBlockSelected && !wasEditing) {
+                        return;
+                    }
+
+                    // Log when editing state actually changes (use closure variable to avoid state timing)
+                    if (isThisBlockSelected !== wasEditing) {
+                        if (isThisBlockSelected) {
+                            if (DEBUG_BLOCKNOTE) console.log('[NotepadBlock] Block GAINED focus:', props.block.id);
+                        } else {
+                            if (DEBUG_BLOCKNOTE) console.log('[NotepadBlock] Block LOST focus:', props.block.id);
+                            // Dispatch event to save the block when it loses focus
+                            window.dispatchEvent(new CustomEvent('notepad:lostFocus', {
+                                detail: { noteId: props.block.id }
+                            }));
+                        }
+                        wasEditing = isThisBlockSelected;
+                    }
+
                     setIsEditing(isThisBlockSelected);
 
-                    // Prevent multi-block selection
+                    // Prevent multi-block selection (only when this block is selected)
+                    if (!isThisBlockSelected) {
+                        return;
+                    }
+
                     const selection = props.editor._tiptapEditor.state.selection;
                     const { from, to } = selection;
 
@@ -101,6 +130,39 @@ export const NotepadBlock = createReactBlockSpec(
                 const unsubscribe = props.editor.onSelectionChange(checkSelection);
                 return () => unsubscribe();
             }, [props.editor, props.block.id]);
+
+            // Test DOM focus/blur events
+            useEffect(() => {
+                if (!node) return;
+
+                const handleFocus = (e: FocusEvent) => {
+                    if (DEBUG_BLOCKNOTE) console.log('[DOM] focus event on block:', props.block.id, 'target:', e.target);
+                };
+
+                const handleBlur = (e: FocusEvent) => {
+                    if (DEBUG_BLOCKNOTE) console.log('[DOM] blur event on block:', props.block.id, 'target:', e.target, 'relatedTarget:', e.relatedTarget);
+                };
+
+                const handleFocusIn = (_e: FocusEvent) => {
+                    if (DEBUG_BLOCKNOTE) console.log('[DOM] focusin event on block:', props.block.id);
+                };
+
+                const handleFocusOut = (e: FocusEvent) => {
+                    if (DEBUG_BLOCKNOTE) console.log('[DOM] focusout event on block:', props.block.id, 'relatedTarget:', e.relatedTarget);
+                };
+
+                node.addEventListener('focus', handleFocus, true);
+                node.addEventListener('blur', handleBlur, true);
+                node.addEventListener('focusin', handleFocusIn);
+                node.addEventListener('focusout', handleFocusOut);
+
+                return () => {
+                    node.removeEventListener('focus', handleFocus, true);
+                    node.removeEventListener('blur', handleBlur, true);
+                    node.removeEventListener('focusin', handleFocusIn);
+                    node.removeEventListener('focusout', handleFocusOut);
+                };
+            }, [node, props.block.id]);
 
             // Reset scroll position when unfocusing
             useEffect(() => {

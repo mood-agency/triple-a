@@ -9,6 +9,9 @@ import { getInitials } from '@/lib/utils';
 import type { Note, Label, NoteCategory } from '@/types/note';
 import type { Contact } from '@/types/contact';
 
+// Debug flag - set to true to enable console logs for debugging
+const DEBUG_BLOCKNOTE = false;
+
 interface BlockNoteNoteListProps {
   notes: Note[];
   noteLabelsCache: Map<string, Label[]>;
@@ -161,11 +164,18 @@ export const BlockNoteNoteList = ({
 
   // Listen to BlockNote selection changes and sync to parent
   useEffect(() => {
+    let previousBlockId: string | undefined;
+
     const unsubscribe = editor.onSelectionChange(() => {
       const cursor = editor.getTextCursorPosition();
       const blockId = cursor?.block.id;
 
       if (blockId && onSelectNote) {
+        // Log when switching to a different task
+        if (previousBlockId && previousBlockId !== blockId) {
+          if (DEBUG_BLOCKNOTE) console.log('[BlockNote] Switching from task', previousBlockId, 'to task', blockId);
+        }
+        previousBlockId = blockId;
         onSelectNote(blockId);
       }
     });
@@ -389,6 +399,21 @@ export const BlockNoteNoteList = ({
     };
   }, [onToggleCompleted]);
 
+  // Listen for lost focus events from blocks to trigger auto-save
+  useEffect(() => {
+    const handleLostFocus = (e: Event) => {
+      const customEvent = e as CustomEvent<{ noteId: string }>;
+      if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Block lost focus, saving:', customEvent.detail.noteId);
+      // Save content when block loses focus
+      flushPendingSavesRef.current();
+    };
+
+    window.addEventListener('notepad:lostFocus', handleLostFocus);
+    return () => {
+      window.removeEventListener('notepad:lostFocus', handleLostFocus);
+    };
+  }, []);
+
   // Listen for delete events from blocks
   useEffect(() => {
     const handleDelete = (e: Event) => {
@@ -505,7 +530,20 @@ export const BlockNoteNoteList = ({
   }, [onToggleFixInSidebar]);
 
   return (
-    <div className={`blocknote-note-list ${isSyncingFilter ? 'blocknote-syncing' : ''} ${compactView ? 'compact-view' : ''}`}>
+    <div
+      className={`blocknote-note-list ${isSyncingFilter ? 'blocknote-syncing' : ''} ${compactView ? 'compact-view' : ''}`}
+      onFocus={(e) => {
+        if (DEBUG_BLOCKNOTE) console.log('[DOM] Editor wrapper gained focus', e.target);
+      }}
+      onBlur={(e) => {
+        if (DEBUG_BLOCKNOTE) console.log('[DOM] Editor wrapper lost focus', e.target, 'relatedTarget:', e.relatedTarget);
+        // Only save if focus is leaving the editor entirely (not moving between blocks)
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+          if (DEBUG_BLOCKNOTE) console.log('[DOM] Focus left editor entirely, triggering save');
+          flushPendingSavesRef.current();
+        }
+      }}
+    >
       <BlockNoteView
         editor={editor}
         theme="light"
