@@ -73,6 +73,14 @@
   @apply inline-flex items-center gap-0.5 h-4 px-1.5 text-[10px] rounded-sm border border-border bg-background text-muted-foreground leading-none whitespace-nowrap overflow-hidden flex-shrink-0;
 }
 
+.chip-deadline {
+  @apply inline-flex items-center h-4 px-1.5 text-[10px] rounded-sm border border-border bg-background text-muted-foreground leading-none whitespace-nowrap flex-shrink-0 font-mono;
+}
+
+.chip-deadline-overdue {
+  @apply border-red-300 bg-red-50 text-red-600 dark:border-red-800 dark:bg-red-950 dark:text-red-400;
+}
+
 .chip-assignee-btn {
   @apply rounded-sm hover:bg-muted;
 }
