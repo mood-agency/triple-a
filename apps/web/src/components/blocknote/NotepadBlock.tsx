@@ -238,39 +238,68 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                 }));
             };
 
-            // Format deadline display (same logic as NoteRow)
+            // Format deadline display as days with decimals
             const formatDeadline = (deadline: string) => {
                 if (!deadline) return '';
 
-                return formatRelativeDateEnhanced(
-                    parseLocalDate(deadline),
-                    i18n.language,
-                    {
-                        today: i18n.t('date.today'),
-                        tomorrow: i18n.t('date.tomorrow'),
-                        yesterday: i18n.t('date.yesterday'),
-                        inDays: i18n.t('date.inDays'),
-                        daysAgo: i18n.t('date.daysAgo'),
-                        inAWeek: i18n.t('date.inAWeek'),
-                        aWeekAgo: i18n.t('date.aWeekAgo'),
-                        inWeeks: i18n.t('date.inWeeks'),
-                        weeksAgo: i18n.t('date.weeksAgo'),
-                        nextWeek: i18n.t('date.nextWeek'),
-                        lastWeek: i18n.t('date.lastWeek'),
-                        thisWeekday: i18n.t('date.thisWeekday'),
-                        nextWeekday: i18n.t('date.nextWeekday'),
-                        lastWeekday: i18n.t('date.lastWeekday'),
-                        inAMonth: i18n.t('date.inAMonth'),
-                        aMonthAgo: i18n.t('date.aMonthAgo'),
-                        inMonths: i18n.t('date.inMonths'),
-                        monthsAgo: i18n.t('date.monthsAgo'),
-                        inAYear: i18n.t('date.inAYear'),
-                        aYearAgo: i18n.t('date.aYearAgo'),
-                        inYears: i18n.t('date.inYears'),
-                        yearsAgo: i18n.t('date.yearsAgo'),
-                    },
-                    true
-                );
+                const deadlineDate = parseLocalDate(deadline);
+                const now = new Date();
+                const diffMs = deadlineDate.getTime() - now.getTime();
+                const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+                // Format with 1 decimal place, show + for positive values
+                const formatted = diffDays.toFixed(1);
+                return diffDays >= 0 ? `+${formatted}` : formatted;
+            };
+
+            // Format human-friendly date for tooltip
+            const formatHumanFriendlyDate = (deadline: string) => {
+                if (!deadline) return '';
+
+                const date = parseLocalDate(deadline);
+                const translations = {
+                    today: i18n.t('date.today'),
+                    tomorrow: i18n.t('date.tomorrow'),
+                    yesterday: i18n.t('date.yesterday'),
+                    inDays: i18n.t('date.inDays'),
+                    daysAgo: i18n.t('date.daysAgo'),
+                    inAWeek: i18n.t('date.inAWeek'),
+                    aWeekAgo: i18n.t('date.aWeekAgo'),
+                    inWeeks: i18n.t('date.inWeeks'),
+                    weeksAgo: i18n.t('date.weeksAgo'),
+                    nextWeek: i18n.t('date.nextWeek'),
+                    lastWeek: i18n.t('date.lastWeek'),
+                    thisWeekday: i18n.t('date.thisWeekday'),
+                    nextWeekday: i18n.t('date.nextWeekday'),
+                    lastWeekday: i18n.t('date.lastWeekday'),
+                    inAMonth: i18n.t('date.inAMonth'),
+                    aMonthAgo: i18n.t('date.aMonthAgo'),
+                    inMonths: i18n.t('date.inMonths'),
+                    monthsAgo: i18n.t('date.monthsAgo'),
+                    inAYear: i18n.t('date.inAYear'),
+                    aYearAgo: i18n.t('date.aYearAgo'),
+                    inYears: i18n.t('date.inYears'),
+                    yearsAgo: i18n.t('date.yearsAgo'),
+                };
+
+                const relativeStr = formatRelativeDateEnhanced(date, i18n.language, translations, false);
+
+                // Always show time for today/tomorrow/yesterday
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const targetDate = new Date(date);
+                targetDate.setHours(0, 0, 0, 0);
+                const daysDiff = Math.round((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+                if (Math.abs(daysDiff) <= 1) {
+                    const timeStr = date.toLocaleTimeString(i18n.language, {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    return `${relativeStr} ${timeStr}`;
+                }
+
+                return relativeStr;
             };
 
             // Check if deadline has passed
@@ -342,18 +371,26 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                     </div>
 
                     {dateStr && !hideDate && category !== 'notes' && (
-                        <div
-                            contentEditable={false}
-                            className={`notepad-deadline flex-shrink-0 text-[10px] whitespace-nowrap ${shouldShowRed ? 'text-red-500 font-medium' : 'text-muted-foreground'
-                                }`}
-                            style={{
-                                marginLeft: "8px",
-                                userSelect: "none",
-                                pointerEvents: "none"
-                            }}
-                        >
-                            {formatDeadline(dateStr)}
-                        </div>
+                        <TooltipProvider delayDuration={300}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div
+                                        contentEditable={false}
+                                        className={`notepad-deadline flex-shrink-0 text-[10px] whitespace-nowrap cursor-default ${shouldShowRed ? 'text-red-500 font-medium' : 'text-muted-foreground'
+                                            }`}
+                                        style={{
+                                            marginLeft: "8px",
+                                            userSelect: "none",
+                                        }}
+                                    >
+                                        {formatDeadline(dateStr)}
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{formatHumanFriendlyDate(dateStr)}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     )}
 
                     <TooltipProvider delayDuration={300}>

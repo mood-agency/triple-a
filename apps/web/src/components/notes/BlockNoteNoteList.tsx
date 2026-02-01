@@ -12,6 +12,7 @@ import { useLabels } from '@/hooks/useLabels';
 import { useContacts } from '@/hooks/useContacts';
 import type { Note, Label, NoteCategory } from '@/types/note';
 import type { Contact } from '@/types/contact';
+import { useRegisterNavigationRegion, type RegionHandler } from './navigation';
 
 // Debug flags
 const DEBUG_BLOCKNOTE = false;
@@ -209,6 +210,38 @@ export const BlockNoteNoteList = ({
     // Save timer id in the ref (abusing the ref name but same purpose)
     animationFrameRef.current = timerId as any;
   }, [notes.length]);
+
+  // Register this component as the task list region in the navigation mediator
+  const taskListRegionHandler = useMemo<RegionHandler>(() => ({
+    region: 'taskList',
+    focusFirst: () => {
+      if (notes.length > 0) {
+        const firstBlock = editor.document[0];
+        if (firstBlock) {
+          // Focus the editor and set cursor to the start of the first block
+          editor.setTextCursorPosition(firstBlock, 'start');
+          editor.focus();
+          return true;
+        }
+      }
+      return false;
+    },
+    focusLast: () => {
+      if (notes.length > 0) {
+        const lastBlock = editor.document[editor.document.length - 1];
+        if (lastBlock) {
+          // Focus the editor and set cursor to the end of the last block
+          editor.setTextCursorPosition(lastBlock, 'end');
+          editor.focus();
+          return true;
+        }
+      }
+      return false;
+    },
+    canReceiveFocus: () => notes.length > 0,
+  }), [editor, notes]);
+
+  useRegisterNavigationRegion(taskListRegionHandler);
 
   // Function to flush pending saves immediately
   const flushPendingSaves = useCallback(() => {

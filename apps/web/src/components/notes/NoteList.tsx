@@ -47,6 +47,7 @@ import { DebugNavigationOverlay } from '@/hooks/useDebugNavigation';
 import {
   useNavigationMediator,
   type RegionHandler,
+  NavigationMediatorProvider,
 } from './navigation';
 
 // Re-export types if needed
@@ -195,39 +196,13 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     canReceiveFocus: () => true,
   }), []);
 
-  // Register task list region handler
-  const taskListRegionHandler = useMemo<RegionHandler>(() => ({
-    region: 'taskList',
-    focusFirst: (column = 0) => {
-      if (filters.activeNotes.length > 0) {
-        onSelectNote(filters.activeNotes[0]);
-        selection.setDesiredColumn(column);
-        selection.setFocusTarget('title');
-        return true;
-      }
-      return false;
-    },
-    focusLast: (column = 0) => {
-      if (filters.activeNotes.length > 0) {
-        onSelectNote(filters.activeNotes[filters.activeNotes.length - 1]);
-        selection.setDesiredColumn(column);
-        selection.setFocusTarget('title');
-        return true;
-      }
-      return false;
-    },
-    canReceiveFocus: () => filters.activeNotes.length > 0,
-  }), [filters.activeNotes, onSelectNote, selection]);
-
-  // Register regions with mediator
+  // Register search region with mediator
   useEffect(() => {
     navigationMediator.registerRegion(searchRegionHandler);
-    navigationMediator.registerRegion(taskListRegionHandler);
     return () => {
       navigationMediator.unregisterRegion('search');
-      navigationMediator.unregisterRegion('taskList');
     };
-  }, [navigationMediator, searchRegionHandler, taskListRegionHandler]);
+  }, [navigationMediator, searchRegionHandler]);
 
   // Auto-create empty note when no active notes exist (notepad behavior - always have a caret ready)
   const autoCreateInProgressRef = useRef(false);
@@ -792,454 +767,456 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
 
   return (
-    <div ref={containerRef} className="flex flex-col h-full outline-none" tabIndex={-1}>
-      <DebugNavigationOverlay
-        selectedNoteId={selectedNote?.id ?? null}
-        focusTarget={selection.focusTarget}
-        desiredColumn={selection.desiredColumn}
-        isDescriptionFocused={selection.isDescriptionFocused}
-        showDescriptionPanel={selection.showDescriptionPanel}
-      />
-      <NoteListToolbar
-        isMobile={isMobile}
-        selectedNote={selectedNote}
-        sidebarTrigger={sidebarTrigger}
-        viewMode={filters.viewMode}
-        setViewMode={filters.setViewMode}
-        compactTaskView={compactTaskView}
-        setCompactTaskView={setCompactTaskView}
-        activeNotes={filters.viewMode === 'calendar' ? filters.calendarFilteredNotes : filters.activeNotes}
-        searchQuery={filters.searchQuery}
-        setSearchQuery={filters.setSearchQuery}
-        searchInputRef={searchInputRef}
-        categoryFilter={filters.categoryFilter}
-        setCategoryFilter={filters.setCategoryFilter}
-        labels={labels}
-        labelFilter={filters.labelFilter}
-        setLabelFilter={filters.setLabelFilter}
-        sortConfig={filters.sortConfig}
-        setSortConfig={filters.setSortConfig}
-        sortByDeadline={filters.sortByDeadline}
-        setSortByDeadline={filters.setSortByDeadline}
-        showOverdueOnly={filters.showOverdueOnly}
-        setShowOverdueOnly={filters.setShowOverdueOnly}
-        dateRangeFilter={filters.dateRangeFilter}
-        setDateRangeFilter={filters.setDateRangeFilter}
-        sortByAssignee={filters.sortByAssignee}
-        setSortByAssignee={filters.setSortByAssignee}
-        sortByCategory={filters.sortByCategory}
-        setSortByCategory={filters.setSortByCategory}
-        contacts={contacts}
-        noteAssigneesCache={noteAssigneesCache}
-        aiProvider={settings.aiProvider}
-        assigneeFilter={filters.assigneeFilter}
-        setAssigneeFilter={filters.setAssigneeFilter}
-        assigneePopoverOpen={assigneeFilterPopoverOpen}
-        setAssigneePopoverOpen={setAssigneeFilterPopoverOpen}
-        taskStatusFilter={filters.taskStatusFilter}
-        setTaskStatusFilter={filters.setTaskStatusFilter}
-        hasCompletedTasks={filters.completedNotes.length > 0}
-        hasDeletedTasks={deletedNotes.length > 0}
-        onSearchKeyDown={handleSearchKeyDown}
-      />
-
-      <div className="flex gap-4 flex-1 min-h-0">
-        <NoteListContent
-          isMobile={isMobile}
-          notes={notes}
-          viewMode={filters.viewMode}
-          selectedNote={selectedNote}
-          categoryFilter={filters.categoryFilter}
-          calendarSelectedDate={filters.calendarSelectedDate}
-          setCalendarSelectedDate={filters.setCalendarSelectedDate}
-          calendarFilteredNotes={filters.calendarFilteredNotes}
-          calendarCompletedNotes={filters.calendarCompletedNotes}
-          calendarDeletedNotes={filters.calendarDeletedNotes}
-          activeNotes={filters.activeNotes}
-          filteredNotes={filters.filteredNotes}
-          completedNotes={filters.completedNotes}
-          deletedNotes={deletedNotes}
-          taskStatusFilter={filters.taskStatusFilter}
-          shouldShowOnlyCompletedMessage={filters.notesMatchingFilters === 0 && filters.activeNotes.length === 0 && filters.completedNotes.length > 0}
-          hasActiveFilters={filters.searchQuery.trim() !== '' || filters.categoryFilter !== 'all' || filters.labelFilter.length > 0 || filters.assigneeFilter.length > 0 || filters.showOverdueOnly}
-          shouldShowNoResultsWithPinnedVisible={filters.notesMatchingFilters === 0 && filters.activeNotes.length > 0}
-
-          handleSelectNoteById={handleSelectNoteById}
-          handleDeleteWithToast={operations.handleDeleteWithToast}
-          handleToggleCompletedWithNavigation={operations.handleToggleCompletedWithNavigation}
-          onTogglePinned={handleTogglePinnedWithToast}
-          onEdit={onEdit}
-          handleNavigateDownById={operations.handleNavigateDownById}
-          handleNavigateUpById={operations.handleNavigateUpById}
-          handleNavigateToDescription={selection.handleNavigateToDescription}
+    <NavigationMediatorProvider mediator={navigationMediator}>
+      <div ref={containerRef} className="flex flex-col h-full outline-none" tabIndex={-1}>
+        <DebugNavigationOverlay
+          selectedNoteId={selectedNote?.id ?? null}
           focusTarget={selection.focusTarget}
           desiredColumn={selection.desiredColumn}
-          handleTitleFocused={selection.handleTitleFocused}
-          handleCreateNoteAfterById={operations.handleCreateNoteAfterById}
-          handleCreateTaskAtTime={operations.handleCreateTaskAtTime}
-          onCreateNoteAfter={onCreateNoteAfter}
-          sensors={sensors}
-          handleDragStart={handleDragStart}
-          handleDragEnd={handleDragEnd}
-          activeId={activeId}
-          labels={labels}
-          noteLabelsCache={noteLabelsCache}
-          handleAddLabelToNote={handleAddLabelToNote}
-          handleRemoveLabelFromNote={handleRemoveLabelFromNote}
-          handleCreateLabelClick={handleCreateLabelClick}
-          handleCreateLabelAndAdd={handleCreateLabelAndAdd}
-          handleEditLabel={handleEditLabel}
-          contacts={contacts}
-          assigneeNamesCache={filters.assigneeNamesCache}
-          noteAssigneesCache={noteAssigneesCache}
-          onAddAssignee={onAddAssignee}
-          onRemoveAssignee={onRemoveAssignee}
-          onUpdateAssignee={onUpdateAssignee}
-          fixedNoteId={fixedNoteId}
-          handleToggleFixInSidebarById={handleToggleFixInSidebarById}
-          handleContentChange={handleContentChange}
-          compactTaskView={compactTaskView}
           isDescriptionFocused={selection.isDescriptionFocused}
-          onRestore={onRestore}
+          showDescriptionPanel={selection.showDescriptionPanel}
+        />
+        <NoteListToolbar
+          isMobile={isMobile}
+          selectedNote={selectedNote}
+          sidebarTrigger={sidebarTrigger}
+          viewMode={filters.viewMode}
+          setViewMode={filters.setViewMode}
+          compactTaskView={compactTaskView}
+          setCompactTaskView={setCompactTaskView}
+          activeNotes={filters.viewMode === 'calendar' ? filters.calendarFilteredNotes : filters.activeNotes}
           searchQuery={filters.searchQuery}
+          setSearchQuery={filters.setSearchQuery}
+          searchInputRef={searchInputRef}
+          categoryFilter={filters.categoryFilter}
+          setCategoryFilter={filters.setCategoryFilter}
+          labels={labels}
           labelFilter={filters.labelFilter}
-          assigneeFilter={filters.assigneeFilter}
-          showOverdueOnly={filters.showOverdueOnly}
+          setLabelFilter={filters.setLabelFilter}
           sortConfig={filters.sortConfig}
-          onClearCategory={handleClearCategory}
-          onClearLabel={handleClearLabel}
-          onClearAssignee={handleClearAssignee}
-          onClearSearch={handleClearSearch}
-          onClearSort={handleClearSort}
-          onClearTaskStatus={handleClearTaskStatus}
-          onClearOverdue={handleClearOverdue}
-          onClearAllFilters={handleClearAllFilters}
-          autoSaveInterval={settings.autoSaveInterval}
+          setSortConfig={filters.setSortConfig}
+          sortByDeadline={filters.sortByDeadline}
+          setSortByDeadline={filters.setSortByDeadline}
+          showOverdueOnly={filters.showOverdueOnly}
+          setShowOverdueOnly={filters.setShowOverdueOnly}
+          dateRangeFilter={filters.dateRangeFilter}
+          setDateRangeFilter={filters.setDateRangeFilter}
+          sortByAssignee={filters.sortByAssignee}
+          setSortByAssignee={filters.setSortByAssignee}
+          sortByCategory={filters.sortByCategory}
+          setSortByCategory={filters.setSortByCategory}
+          contacts={contacts}
+          noteAssigneesCache={noteAssigneesCache}
+          aiProvider={settings.aiProvider}
+          assigneeFilter={filters.assigneeFilter}
+          setAssigneeFilter={filters.setAssigneeFilter}
+          assigneePopoverOpen={assigneeFilterPopoverOpen}
+          setAssigneePopoverOpen={setAssigneeFilterPopoverOpen}
+          taskStatusFilter={filters.taskStatusFilter}
+          setTaskStatusFilter={filters.setTaskStatusFilter}
+          hasCompletedTasks={filters.completedNotes.length > 0}
+          hasDeletedTasks={deletedNotes.length > 0}
+          onSearchKeyDown={handleSearchKeyDown}
         />
 
-        <AnimatePresence>
-          {selectedNote && selection.showDescriptionPanel && (
-            <motion.div
-              key="description-panel"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-              className={`${isMobile ? 'w-full' : 'flex-1'} min-w-0 overflow-hidden flex flex-col`}
-            >
-              {isMobile && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onSelectNote(null)}
-                  className="mb-2 self-start -ml-2"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  {t('back')}
-                </Button>
-              )}
-              <NoteEditorPanel
-                ref={selection.descriptionRef}
-                note={selectedNote}
-                noteLabels={noteLabels}
-                allLabels={labels}
-                descriptionValue={selection.descriptionValue}
-                titleValue={selection.titleValue}
-                showPostponeHistory={showPostponeHistory}
-                showVersionHistory={showVersionHistory}
-                versions={versions}
-                actions={actions}
-                labelDropdownOpen={labelDropdownOpen}
-                categoryDropdownOpen={categoryDropdownOpen}
-                deadlinePickerOpen={deadlinePickerOpen}
-                assigneePickerOpen={assigneePickerOpen}
-                editingHistoryEntry={editingHistoryEntry}
-                contacts={contacts}
-                onEdit={onEdit}
-                onDescriptionChange={selection.setDescriptionValue}
-                onDescriptionBlur={handleDescriptionBlur}
-                onDescriptionFocus={handleDescriptionFocus}
-                onDescriptionKeyDown={handleDescriptionKeyDown}
-                onTogglePostponeHistory={() => setShowPostponeHistory(!showPostponeHistory)}
-                onToggleVersionHistory={() => setShowVersionHistory(!showVersionHistory)}
-                onRestoreVersion={handleRestoreVersion}
-                onAddLabel={handleAddLabel}
-                onRemoveLabel={handleRemoveLabel}
-                onEditLabel={handleEditLabel}
-                onCreateLabel={() => setShowCreateLabelDialog(true)}
-                onDeadlineChange={handleDeadlineChange}
-                onDeadlineSave={handleDeadlineSave}
-                onAddAssignee={onAddAssignee}
-                onRemoveAssignee={onRemoveAssignee}
-                onUpdateAssignee={onUpdateAssignee}
-                onDelete={() => setShowEditorDeleteDialog(true)}
-                onLabelDropdownOpenChange={handleLabelDropdownOpenChange}
-                onCategoryDropdownOpenChange={handleCategoryDropdownOpenChange}
-                onDeadlinePickerOpenChange={handleDeadlinePickerOpenChange}
-                onAssigneePickerOpenChange={handleAssigneePickerOpenChange}
-                onEditHistoryEntry={(entry) => setEditingHistoryEntry(entry)}
-                onUpdateHistoryReason={updateReason}
-                onDeleteHistoryEntry={(id) => setHistoryEntryToDelete(id)}
-                onSetEditingHistoryEntry={setEditingHistoryEntry}
-                onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !selectedNote.completed)}
-                autoSaveInterval={settings.autoSaveInterval}
-                onTogglePublic={onTogglePublic}
-                aiProvider={settings.aiProvider}
-                onTogglePinned={onTogglePinned}
-                onToggleFixInSidebar={handleToggleFixInSidebarById}
-                isFixedInSidebar={fixedNoteId === selectedNote.id}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <div className="flex gap-4 flex-1 min-h-0">
+          <NoteListContent
+            isMobile={isMobile}
+            notes={notes}
+            viewMode={filters.viewMode}
+            selectedNote={selectedNote}
+            categoryFilter={filters.categoryFilter}
+            calendarSelectedDate={filters.calendarSelectedDate}
+            setCalendarSelectedDate={filters.setCalendarSelectedDate}
+            calendarFilteredNotes={filters.calendarFilteredNotes}
+            calendarCompletedNotes={filters.calendarCompletedNotes}
+            calendarDeletedNotes={filters.calendarDeletedNotes}
+            activeNotes={filters.activeNotes}
+            filteredNotes={filters.filteredNotes}
+            completedNotes={filters.completedNotes}
+            deletedNotes={deletedNotes}
+            taskStatusFilter={filters.taskStatusFilter}
+            shouldShowOnlyCompletedMessage={filters.notesMatchingFilters === 0 && filters.activeNotes.length === 0 && filters.completedNotes.length > 0}
+            hasActiveFilters={filters.searchQuery.trim() !== '' || filters.categoryFilter !== 'all' || filters.labelFilter.length > 0 || filters.assigneeFilter.length > 0 || filters.showOverdueOnly}
+            shouldShowNoResultsWithPinnedVisible={filters.notesMatchingFilters === 0 && filters.activeNotes.length > 0}
 
-        {/* Fixed sidebar - animated with Motion */}
-        {/* AnimatePresence with mode="wait": sidebar slides out, changes content, slides back in */}
-        <AnimatePresence
-          mode="wait"
-          onExitComplete={() => {
-            if (sidebarClosing) {
-              setSidebarClosing(false);
-              setShowSidebar(false);
-              setClosingNote(null);
-            }
-          }}
-        >
-          {!isMobile && showSidebar && displayedNote && (
-            <motion.div
-              key={`fixed-sidebar-${displayedNote.id}`}
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{
-                duration: 0.25,
-                ease: [0.16, 1, 0.3, 1],
-              }}
-              className="ml-auto -my-4 -mr-4 w-[calc(35%+2rem)]"
-            >
-              <div className="w-[calc(35vw+2rem)] min-w-[400px] h-full flex flex-col rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30 overflow-y-auto p-4 py-4 pr-8">
+            handleSelectNoteById={handleSelectNoteById}
+            handleDeleteWithToast={operations.handleDeleteWithToast}
+            handleToggleCompletedWithNavigation={operations.handleToggleCompletedWithNavigation}
+            onTogglePinned={handleTogglePinnedWithToast}
+            onEdit={onEdit}
+            handleNavigateDownById={operations.handleNavigateDownById}
+            handleNavigateUpById={operations.handleNavigateUpById}
+            handleNavigateToDescription={selection.handleNavigateToDescription}
+            focusTarget={selection.focusTarget}
+            desiredColumn={selection.desiredColumn}
+            handleTitleFocused={selection.handleTitleFocused}
+            handleCreateNoteAfterById={operations.handleCreateNoteAfterById}
+            handleCreateTaskAtTime={operations.handleCreateTaskAtTime}
+            onCreateNoteAfter={onCreateNoteAfter}
+            sensors={sensors}
+            handleDragStart={handleDragStart}
+            handleDragEnd={handleDragEnd}
+            activeId={activeId}
+            labels={labels}
+            noteLabelsCache={noteLabelsCache}
+            handleAddLabelToNote={handleAddLabelToNote}
+            handleRemoveLabelFromNote={handleRemoveLabelFromNote}
+            handleCreateLabelClick={handleCreateLabelClick}
+            handleCreateLabelAndAdd={handleCreateLabelAndAdd}
+            handleEditLabel={handleEditLabel}
+            contacts={contacts}
+            assigneeNamesCache={filters.assigneeNamesCache}
+            noteAssigneesCache={noteAssigneesCache}
+            onAddAssignee={onAddAssignee}
+            onRemoveAssignee={onRemoveAssignee}
+            onUpdateAssignee={onUpdateAssignee}
+            fixedNoteId={fixedNoteId}
+            handleToggleFixInSidebarById={handleToggleFixInSidebarById}
+            handleContentChange={handleContentChange}
+            compactTaskView={compactTaskView}
+            isDescriptionFocused={selection.isDescriptionFocused}
+            onRestore={onRestore}
+            searchQuery={filters.searchQuery}
+            labelFilter={filters.labelFilter}
+            assigneeFilter={filters.assigneeFilter}
+            showOverdueOnly={filters.showOverdueOnly}
+            sortConfig={filters.sortConfig}
+            onClearCategory={handleClearCategory}
+            onClearLabel={handleClearLabel}
+            onClearAssignee={handleClearAssignee}
+            onClearSearch={handleClearSearch}
+            onClearSort={handleClearSort}
+            onClearTaskStatus={handleClearTaskStatus}
+            onClearOverdue={handleClearOverdue}
+            onClearAllFilters={handleClearAllFilters}
+            autoSaveInterval={settings.autoSaveInterval}
+          />
+
+          <AnimatePresence>
+            {selectedNote && selection.showDescriptionPanel && (
+              <motion.div
+                key="description-panel"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className={`${isMobile ? 'w-full' : 'flex-1'} min-w-0 overflow-hidden flex flex-col`}
+              >
+                {isMobile && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onSelectNote(null)}
+                    className="mb-2 self-start -ml-2"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-1" />
+                    {t('back')}
+                  </Button>
+                )}
                 <NoteEditorPanel
-                  ref={fixedNoteDescriptionRef}
-                  note={displayedNote}
-                  noteLabels={fixedNoteLabels}
+                  ref={selection.descriptionRef}
+                  note={selectedNote}
+                  noteLabels={noteLabels}
                   allLabels={labels}
-                  descriptionValue={fixedNoteDescriptionValue}
-                  showPostponeHistory={fixedNoteShowPostponeHistory}
-                  showVersionHistory={fixedNoteShowVersionHistory}
-                  versions={fixedNoteVersions}
-                  actions={fixedNoteActions}
-                  labelDropdownOpen={fixedNoteLabelDropdownOpen}
-                  categoryDropdownOpen={fixedNoteCategoryDropdownOpen}
-                  deadlinePickerOpen={fixedNoteDeadlinePickerOpen}
-                  assigneePickerOpen={fixedNoteAssigneePickerOpen}
-                  editingHistoryEntry={editingFixedNoteHistoryEntry}
+                  descriptionValue={selection.descriptionValue}
+                  titleValue={selection.titleValue}
+                  showPostponeHistory={showPostponeHistory}
+                  showVersionHistory={showVersionHistory}
+                  versions={versions}
+                  actions={actions}
+                  labelDropdownOpen={labelDropdownOpen}
+                  categoryDropdownOpen={categoryDropdownOpen}
+                  deadlinePickerOpen={deadlinePickerOpen}
+                  assigneePickerOpen={assigneePickerOpen}
+                  editingHistoryEntry={editingHistoryEntry}
                   contacts={contacts}
                   onEdit={onEdit}
-                  onDescriptionChange={setFixedNoteDescriptionValue}
-                  onDescriptionBlur={handleFixedNoteDescriptionBlur}
-                  onDescriptionKeyDown={handleFixedNoteDescriptionKeyDown}
-                  onTogglePostponeHistory={() => setFixedNoteShowPostponeHistory(!fixedNoteShowPostponeHistory)}
-                  onToggleVersionHistory={() => setFixedNoteShowVersionHistory(!fixedNoteShowVersionHistory)}
-                  onRestoreVersion={handleFixedNoteRestoreVersion}
-                  onAddLabel={handleFixedNoteAddLabel}
-                  onRemoveLabel={handleFixedNoteRemoveLabel}
+                  onDescriptionChange={selection.setDescriptionValue}
+                  onDescriptionBlur={handleDescriptionBlur}
+                  onDescriptionFocus={handleDescriptionFocus}
+                  onDescriptionKeyDown={handleDescriptionKeyDown}
+                  onTogglePostponeHistory={() => setShowPostponeHistory(!showPostponeHistory)}
+                  onToggleVersionHistory={() => setShowVersionHistory(!showVersionHistory)}
+                  onRestoreVersion={handleRestoreVersion}
+                  onAddLabel={handleAddLabel}
+                  onRemoveLabel={handleRemoveLabel}
                   onEditLabel={handleEditLabel}
                   onCreateLabel={() => setShowCreateLabelDialog(true)}
-                  onDeadlineChange={handleFixedNoteDeadlineChange}
-                  onDeadlineSave={handleFixedNoteDeadlineSave}
+                  onDeadlineChange={handleDeadlineChange}
+                  onDeadlineSave={handleDeadlineSave}
                   onAddAssignee={onAddAssignee}
                   onRemoveAssignee={onRemoveAssignee}
                   onUpdateAssignee={onUpdateAssignee}
-                  onDelete={() => setShowFixedNoteDeleteDialog(true)}
-                  onLabelDropdownOpenChange={setFixedNoteLabelDropdownOpen}
-                  onCategoryDropdownOpenChange={setFixedNoteCategoryDropdownOpen}
-                  onDeadlinePickerOpenChange={handleFixedNoteDeadlinePickerOpenChange}
-                  onAssigneePickerOpenChange={setFixedNoteAssigneePickerOpen}
-                  onEditHistoryEntry={(entry) => setEditingFixedNoteHistoryEntry(entry)}
-                  onUpdateHistoryReason={updateFixedNoteReason}
-                  onDeleteHistoryEntry={(id) => setFixedNoteHistoryEntryToDelete(id)}
-                  onSetEditingHistoryEntry={setEditingFixedNoteHistoryEntry}
-                  onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !displayedNote?.completed)}
-                  onClose={closeSidebar}
+                  onDelete={() => setShowEditorDeleteDialog(true)}
+                  onLabelDropdownOpenChange={handleLabelDropdownOpenChange}
+                  onCategoryDropdownOpenChange={handleCategoryDropdownOpenChange}
+                  onDeadlinePickerOpenChange={handleDeadlinePickerOpenChange}
+                  onAssigneePickerOpenChange={handleAssigneePickerOpenChange}
+                  onEditHistoryEntry={(entry) => setEditingHistoryEntry(entry)}
+                  onUpdateHistoryReason={updateReason}
+                  onDeleteHistoryEntry={(id) => setHistoryEntryToDelete(id)}
+                  onSetEditingHistoryEntry={setEditingHistoryEntry}
+                  onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !selectedNote.completed)}
                   autoSaveInterval={settings.autoSaveInterval}
                   onTogglePublic={onTogglePublic}
                   aiProvider={settings.aiProvider}
                   onTogglePinned={onTogglePinned}
                   onToggleFixInSidebar={handleToggleFixInSidebarById}
-                  isFixedInSidebar={true}
+                  isFixedInSidebar={fixedNoteId === selectedNote.id}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Fixed sidebar - animated with Motion */}
+          {/* AnimatePresence with mode="wait": sidebar slides out, changes content, slides back in */}
+          <AnimatePresence
+            mode="wait"
+            onExitComplete={() => {
+              if (sidebarClosing) {
+                setSidebarClosing(false);
+                setShowSidebar(false);
+                setClosingNote(null);
+              }
+            }}
+          >
+            {!isMobile && showSidebar && displayedNote && (
+              <motion.div
+                key={`fixed-sidebar-${displayedNote.id}`}
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{
+                  duration: 0.25,
+                  ease: [0.16, 1, 0.3, 1],
+                }}
+                className="ml-auto -my-4 -mr-4 w-[calc(35%+2rem)]"
+              >
+                <div className="w-[calc(35vw+2rem)] min-w-[400px] h-full flex flex-col rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30 overflow-y-auto p-4 py-4 pr-8">
+                  <NoteEditorPanel
+                    ref={fixedNoteDescriptionRef}
+                    note={displayedNote}
+                    noteLabels={fixedNoteLabels}
+                    allLabels={labels}
+                    descriptionValue={fixedNoteDescriptionValue}
+                    showPostponeHistory={fixedNoteShowPostponeHistory}
+                    showVersionHistory={fixedNoteShowVersionHistory}
+                    versions={fixedNoteVersions}
+                    actions={fixedNoteActions}
+                    labelDropdownOpen={fixedNoteLabelDropdownOpen}
+                    categoryDropdownOpen={fixedNoteCategoryDropdownOpen}
+                    deadlinePickerOpen={fixedNoteDeadlinePickerOpen}
+                    assigneePickerOpen={fixedNoteAssigneePickerOpen}
+                    editingHistoryEntry={editingFixedNoteHistoryEntry}
+                    contacts={contacts}
+                    onEdit={onEdit}
+                    onDescriptionChange={setFixedNoteDescriptionValue}
+                    onDescriptionBlur={handleFixedNoteDescriptionBlur}
+                    onDescriptionKeyDown={handleFixedNoteDescriptionKeyDown}
+                    onTogglePostponeHistory={() => setFixedNoteShowPostponeHistory(!fixedNoteShowPostponeHistory)}
+                    onToggleVersionHistory={() => setFixedNoteShowVersionHistory(!fixedNoteShowVersionHistory)}
+                    onRestoreVersion={handleFixedNoteRestoreVersion}
+                    onAddLabel={handleFixedNoteAddLabel}
+                    onRemoveLabel={handleFixedNoteRemoveLabel}
+                    onEditLabel={handleEditLabel}
+                    onCreateLabel={() => setShowCreateLabelDialog(true)}
+                    onDeadlineChange={handleFixedNoteDeadlineChange}
+                    onDeadlineSave={handleFixedNoteDeadlineSave}
+                    onAddAssignee={onAddAssignee}
+                    onRemoveAssignee={onRemoveAssignee}
+                    onUpdateAssignee={onUpdateAssignee}
+                    onDelete={() => setShowFixedNoteDeleteDialog(true)}
+                    onLabelDropdownOpenChange={setFixedNoteLabelDropdownOpen}
+                    onCategoryDropdownOpenChange={setFixedNoteCategoryDropdownOpen}
+                    onDeadlinePickerOpenChange={handleFixedNoteDeadlinePickerOpenChange}
+                    onAssigneePickerOpenChange={setFixedNoteAssigneePickerOpen}
+                    onEditHistoryEntry={(entry) => setEditingFixedNoteHistoryEntry(entry)}
+                    onUpdateHistoryReason={updateFixedNoteReason}
+                    onDeleteHistoryEntry={(id) => setFixedNoteHistoryEntryToDelete(id)}
+                    onSetEditingHistoryEntry={setEditingFixedNoteHistoryEntry}
+                    onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !displayedNote?.completed)}
+                    onClose={closeSidebar}
+                    autoSaveInterval={settings.autoSaveInterval}
+                    onTogglePublic={onTogglePublic}
+                    aiProvider={settings.aiProvider}
+                    onTogglePinned={onTogglePinned}
+                    onToggleFixInSidebar={handleToggleFixInSidebarById}
+                    isFixedInSidebar={true}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <Dialog open={showCreateLabelDialog} onOpenChange={setShowCreateLabelDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('createLabel')}</DialogTitle>
+              <DialogDescription>{t('newLabelName')}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <input
+                type="text"
+                value={newLabelName}
+                onChange={(e) => setNewLabelName(e.target.value)}
+                placeholder={t('newLabelName')}
+                className="w-full px-3 py-2 text-sm border border-muted-foreground/20 rounded-md bg-transparent focus:outline-none focus:border-muted-foreground/40 text-foreground caret-foreground"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newLabelName.trim()) {
+                    handleCreateLabel();
+                  }
+                }}
+              />
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">{t('labelColor')}</p>
+                <ColorPicker
+                  color={newLabelColor}
+                  onChange={setNewLabelColor}
+                  presetColors={LABEL_COLORS}
                 />
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowCreateLabelDialog(false)}>
+                {t('cancel')}
+              </Button>
+              <Button onClick={handleCreateLabel} disabled={!newLabelName.trim()}>
+                {t('create')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!editingLabel} onOpenChange={(open) => !open && setEditingLabel(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('editLabel')}</DialogTitle>
+              <DialogDescription>{t('editLabelDescription')}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <input
+                type="text"
+                value={editLabelName}
+                onChange={(e) => setEditLabelName(e.target.value)}
+                placeholder={t('newLabelName')}
+                className="w-full px-3 py-2 text-sm border border-muted-foreground/20 rounded-md bg-transparent focus:outline-none focus:border-muted-foreground/40 text-foreground caret-foreground"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && editLabelName.trim()) {
+                    handleSaveEditLabel();
+                  }
+                }}
+              />
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">{t('labelColor')}</p>
+                <ColorPicker
+                  color={editLabelColor}
+                  onChange={setEditLabelColor}
+                  presetColors={LABEL_COLORS}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingLabel(null)}>
+                {t('cancel')}
+              </Button>
+              <Button onClick={handleSaveEditLabel} disabled={!editLabelName.trim()}>
+                {t('save')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <PostponeDialog
+          open={postponeDialogOpen}
+          onOpenChange={(open) => {
+            setPostponeDialogOpen(open);
+            if (!open) setPendingPostponeDate(null);
+          }}
+          onPostpone={handlePostpone}
+          taskContent={noteToPostpone?.content || ''}
+          initialDate={pendingPostponeDate}
+        />
+
+        <Dialog open={!!historyEntryToDelete} onOpenChange={(open) => !open && setHistoryEntryToDelete(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('deletePostponeReason')}</DialogTitle>
+              <DialogDescription>{t('confirmDeletePostpone')}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setHistoryEntryToDelete(null)}>
+                {t('cancel')}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  if (historyEntryToDelete) {
+                    deleteAction(historyEntryToDelete);
+                    setHistoryEntryToDelete(null);
+                  }
+                }}
+              >
+                {t('delete')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!fixedNoteHistoryEntryToDelete} onOpenChange={(open) => !open && setFixedNoteHistoryEntryToDelete(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('deletePostponeReason')}</DialogTitle>
+              <DialogDescription>{t('confirmDeletePostpone')}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setFixedNoteHistoryEntryToDelete(null)}>
+                {t('cancel')}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  if (fixedNoteHistoryEntryToDelete) {
+                    deleteFixedNoteAction(fixedNoteHistoryEntryToDelete);
+                    setFixedNoteHistoryEntryToDelete(null);
+                  }
+                }}
+              >
+                {t('delete')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Task Dialog for main editor panel */}
+        {selectedNote && (
+          <DeleteTaskDialog
+            open={showEditorDeleteDialog}
+            onOpenChange={setShowEditorDeleteDialog}
+            onConfirm={(reason) => {
+              operations.handleDeleteWithToast(selectedNote, reason);
+              setShowEditorDeleteDialog(false);
+            }}
+            taskContent={selectedNote.content}
+          />
+        )}
+
+        {/* Delete Task Dialog for fixed note editor */}
+        {fixedNote && (
+          <DeleteTaskDialog
+            open={showFixedNoteDeleteDialog}
+            onOpenChange={setShowFixedNoteDeleteDialog}
+            onConfirm={(reason) => {
+              operations.handleDeleteWithToast(fixedNote, reason);
+              setShowFixedNoteDeleteDialog(false);
+              setFixedNoteId(null);
+              setShowSidebar(false);
+            }}
+            taskContent={fixedNote.content}
+          />
+        )}
       </div>
-
-      <Dialog open={showCreateLabelDialog} onOpenChange={setShowCreateLabelDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('createLabel')}</DialogTitle>
-            <DialogDescription>{t('newLabelName')}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <input
-              type="text"
-              value={newLabelName}
-              onChange={(e) => setNewLabelName(e.target.value)}
-              placeholder={t('newLabelName')}
-              className="w-full px-3 py-2 text-sm border border-muted-foreground/20 rounded-md bg-transparent focus:outline-none focus:border-muted-foreground/40 text-foreground caret-foreground"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && newLabelName.trim()) {
-                  handleCreateLabel();
-                }
-              }}
-            />
-            <div>
-              <p className="text-xs text-muted-foreground mb-2">{t('labelColor')}</p>
-              <ColorPicker
-                color={newLabelColor}
-                onChange={setNewLabelColor}
-                presetColors={LABEL_COLORS}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateLabelDialog(false)}>
-              {t('cancel')}
-            </Button>
-            <Button onClick={handleCreateLabel} disabled={!newLabelName.trim()}>
-              {t('create')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!editingLabel} onOpenChange={(open) => !open && setEditingLabel(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('editLabel')}</DialogTitle>
-            <DialogDescription>{t('editLabelDescription')}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <input
-              type="text"
-              value={editLabelName}
-              onChange={(e) => setEditLabelName(e.target.value)}
-              placeholder={t('newLabelName')}
-              className="w-full px-3 py-2 text-sm border border-muted-foreground/20 rounded-md bg-transparent focus:outline-none focus:border-muted-foreground/40 text-foreground caret-foreground"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && editLabelName.trim()) {
-                  handleSaveEditLabel();
-                }
-              }}
-            />
-            <div>
-              <p className="text-xs text-muted-foreground mb-2">{t('labelColor')}</p>
-              <ColorPicker
-                color={editLabelColor}
-                onChange={setEditLabelColor}
-                presetColors={LABEL_COLORS}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingLabel(null)}>
-              {t('cancel')}
-            </Button>
-            <Button onClick={handleSaveEditLabel} disabled={!editLabelName.trim()}>
-              {t('save')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <PostponeDialog
-        open={postponeDialogOpen}
-        onOpenChange={(open) => {
-          setPostponeDialogOpen(open);
-          if (!open) setPendingPostponeDate(null);
-        }}
-        onPostpone={handlePostpone}
-        taskContent={noteToPostpone?.content || ''}
-        initialDate={pendingPostponeDate}
-      />
-
-      <Dialog open={!!historyEntryToDelete} onOpenChange={(open) => !open && setHistoryEntryToDelete(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('deletePostponeReason')}</DialogTitle>
-            <DialogDescription>{t('confirmDeletePostpone')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setHistoryEntryToDelete(null)}>
-              {t('cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                if (historyEntryToDelete) {
-                  deleteAction(historyEntryToDelete);
-                  setHistoryEntryToDelete(null);
-                }
-              }}
-            >
-              {t('delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!fixedNoteHistoryEntryToDelete} onOpenChange={(open) => !open && setFixedNoteHistoryEntryToDelete(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('deletePostponeReason')}</DialogTitle>
-            <DialogDescription>{t('confirmDeletePostpone')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setFixedNoteHistoryEntryToDelete(null)}>
-              {t('cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                if (fixedNoteHistoryEntryToDelete) {
-                  deleteFixedNoteAction(fixedNoteHistoryEntryToDelete);
-                  setFixedNoteHistoryEntryToDelete(null);
-                }
-              }}
-            >
-              {t('delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Task Dialog for main editor panel */}
-      {selectedNote && (
-        <DeleteTaskDialog
-          open={showEditorDeleteDialog}
-          onOpenChange={setShowEditorDeleteDialog}
-          onConfirm={(reason) => {
-            operations.handleDeleteWithToast(selectedNote, reason);
-            setShowEditorDeleteDialog(false);
-          }}
-          taskContent={selectedNote.content}
-        />
-      )}
-
-      {/* Delete Task Dialog for fixed note editor */}
-      {fixedNote && (
-        <DeleteTaskDialog
-          open={showFixedNoteDeleteDialog}
-          onOpenChange={setShowFixedNoteDeleteDialog}
-          onConfirm={(reason) => {
-            operations.handleDeleteWithToast(fixedNote, reason);
-            setShowFixedNoteDeleteDialog(false);
-            setFixedNoteId(null);
-            setShowSidebar(false);
-          }}
-          taskContent={fixedNote.content}
-        />
-      )}
-    </div>
+    </NavigationMediatorProvider>
   );
 });
