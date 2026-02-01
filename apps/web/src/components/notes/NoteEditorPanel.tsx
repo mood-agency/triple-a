@@ -1,6 +1,7 @@
 import { forwardRef, memo, useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, Tag, User, Trash2, History, RotateCcw, Sparkles, Pin, PanelRightOpen, Search, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -404,14 +405,25 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             </Command>
           </PopoverContent>
         </Popover>
-        {noteLabels.map((label) => (
-          <span key={label.id} className="chip-label" style={{ backgroundColor: label.color }}>
-            {label.name}
-            <button type="button" onClick={() => onRemoveLabel(label.id)} className="chip-label-btn">
-              <X className="h-2.5 w-2.5" />
-            </button>
-          </span>
-        ))}
+        <AnimatePresence mode="popLayout">
+          {noteLabels.map((label) => (
+            <motion.span
+              key={label.id}
+              layout
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.2 }}
+              className="chip-label"
+              style={{ backgroundColor: label.color }}
+            >
+              {label.name}
+              <button type="button" onClick={() => onRemoveLabel(label.id)} className="chip-label-btn">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </motion.span>
+          ))}
+        </AnimatePresence>
       </div>
 
       {/* Assignee row */}
@@ -439,14 +451,24 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
               </button>
             }
           />
-          {noteAssignees.map((assignee) => (
-            <span key={assignee.id} className="chip-assignee">
-              {`${assignee.name} ${assignee.lastname}`.trim()}
-              <button type="button" onClick={() => onRemoveAssignee(note.id, assignee.id)} className="chip-assignee-btn">
-                <X className="h-2.5 w-2.5" />
-              </button>
-            </span>
-          ))}
+          <AnimatePresence mode="popLayout">
+            {noteAssignees.map((assignee) => (
+              <motion.span
+                key={assignee.id}
+                layout
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.2 }}
+                className="chip-assignee"
+              >
+                {`${assignee.name} ${assignee.lastname}`.trim()}
+                <button type="button" onClick={() => onRemoveAssignee(note.id, assignee.id)} className="chip-assignee-btn">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </motion.span>
+            ))}
+          </AnimatePresence>
         </div>
       )}
 

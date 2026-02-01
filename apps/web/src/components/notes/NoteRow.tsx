@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, StickyNote, Users, Pickaxe, Forward } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -220,15 +221,22 @@ function NoteRow(props: NoteRowProps) {
         {/* Labels column */}
         {!compactView && (
           <div className="flex gap-1 shrink-0 justify-end px-1">
-            {labels.map((label) => (
-              <span
-                key={label.id}
-                className="chip-label"
-                style={{ backgroundColor: label.color }}
-              >
-                {label.name}
-              </span>
-            ))}
+            <AnimatePresence mode="popLayout">
+              {labels.map((label) => (
+                <motion.span
+                  key={label.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.2 }}
+                  className="chip-label"
+                  style={{ backgroundColor: label.color }}
+                >
+                  {label.name}
+                </motion.span>
+              ))}
+            </AnimatePresence>
           </div>
         )}
 
@@ -296,22 +304,33 @@ function NoteRow(props: NoteRowProps) {
         {/* Assignee column */}
         {!compactView && note.category !== 'notes' && (
           <div className="shrink-0 flex justify-end px-1 gap-0.5">
-            {noteAssignees.map((contact) => {
-              const initials = getInitials(contact.name, contact.lastname);
-              const fullName = `${contact.name} ${contact.lastname}`.trim();
-              return (
-                <Tooltip key={contact.id}>
-                  <TooltipTrigger asChild>
-                    <span className="chip-assignee cursor-default">
-                      {initials}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{fullName}</p>
-                  </TooltipContent>
-                </Tooltip>
-              );
-            })}
+            <AnimatePresence mode="popLayout">
+              {noteAssignees.map((contact) => {
+                const initials = getInitials(contact.name, contact.lastname);
+                const fullName = `${contact.name} ${contact.lastname}`.trim();
+                return (
+                  <motion.div
+                    key={contact.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="chip-assignee cursor-default">
+                          {initials}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{fullName}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
           </div>
         )}
       </div>
