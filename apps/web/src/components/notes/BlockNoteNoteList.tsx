@@ -7,6 +7,9 @@ import { animate } from 'motion';
 import { NotepadBlock } from '@/components/blocknote/NotepadBlock';
 import { notesToBlocks, getBlockContent } from '@/utils/noteBlockAdapter';
 import { getInitials } from '@/lib/utils';
+import { parseHashtags } from '@/utils/hashtagParser';
+import { useLabels } from '@/hooks/useLabels';
+import { useContacts } from '@/hooks/useContacts';
 import type { Note, Label, NoteCategory } from '@/types/note';
 import type { Contact } from '@/types/contact';
 
@@ -24,6 +27,9 @@ interface BlockNoteNoteListProps {
   onDelete?: (note: Note, reason: string) => void;
   onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[], assigneeId?: string | null, newNoteId?: string) => Promise<Note>;
   onEdit?: (id: string, content: string, category?: NoteCategory, description?: string | null) => void;
+  onAddLabel?: (noteId: string, labelId: string) => void;
+  onCreateLabelAndAdd?: (noteId: string, labelName: string) => void;
+  onAddAssignee?: (noteId: string, contactId: string) => void;
   onTogglePin?: (noteId: string) => void;
   onToggleFixInSidebar?: (noteId: string) => void;
   onSaveSuccess?: (savedCount: number) => void;
@@ -42,6 +48,9 @@ export const BlockNoteNoteList = ({
   onDelete,
   onCreateNoteAfter,
   onEdit,
+  onAddLabel,
+  onCreateLabelAndAdd,
+  onAddAssignee,
   onTogglePin,
   onToggleFixInSidebar,
   onSaveSuccess,
@@ -49,6 +58,10 @@ export const BlockNoteNoteList = ({
   fixedNoteId = null,
   hideDate = false
 }: BlockNoteNoteListProps) => {
+  // Get labels and contacts for hashtag/mention parsing
+  const { labels, createLabel } = useLabels();
+  const { contacts } = useContacts();
+
   // Create schema with notepad block
   const schema = useMemo(
     () =>
@@ -71,9 +84,12 @@ export const BlockNoteNoteList = ({
   }, [noteLabelsCache]);
 
   const assigneeDataCache = useMemo(() => {
-    const cache = new Map<string, string[]>();
+    const cache = new Map<string, Array<{ initials: string; fullName: string }>>();
     noteAssigneesCache.forEach((assignees, noteId) => {
-      cache.set(noteId, assignees.map(a => getInitials(a.name, a.lastname)));
+      cache.set(noteId, assignees.map(a => ({
+        initials: getInitials(a.name, a.lastname),
+        fullName: `${a.name} ${a.lastname || ''}`.trim()
+      })));
     });
     return cache;
   }, [noteAssigneesCache]);
@@ -500,7 +516,7 @@ export const BlockNoteNoteList = ({
       editor.document.forEach(block => {
         if (block.type === 'notepad') {
           const shouldBeFixed = block.id === fixedNoteId;
-          const currentlyFixed = block.props.fixedInSidebar;
+          const currentlyFixed = (block as any).props.fixedInSidebar;
 
           // Only update if the state needs to change
           if (shouldBeFixed !== currentlyFixed) {
@@ -731,6 +747,91 @@ export const BlockNoteNoteList = ({
     };
   }, []);
 
+  // Process a block: parse hashtags/mentions, update editor, and update DB
+  const processNoteBlock = useCallback(async (noteId: string) => {
+    const note = notes.find(n => n.id === noteId);
+    if (!note) return null;
+
+    const block = editor.getBlock(noteId);
+    if (!block) return null;
+
+    const content = getBlockContent(block);
+    console.log(`[BlockNoteNoteList] 📝 Processing block ${noteId}:`, content);
+
+    const parseContext = {
+      labels: labels,
+      contacts: contacts
+    };
+    const parsed = parseHashtags(content, parseContext);
+    console.log('[BlockNoteNoteList] ✨ Parsed result:', {
+      cleanedContent: parsed.cleanedContent,
+      category: parsed.category,
+      labelIds: parsed.labelIds,
+      newLabelNames: parsed.newLabelNames,
+      assigneeId: parsed.assigneeId
+    });
+
+    // 1. Update the block in the editor (clean the title)
+    if (parsed.cleanedContent !== content) {
+      console.log('[BlockNoteNoteList] 🧹 Cleaning title:', parsed.cleanedContent);
+      editor.updateBlock(block, {
+        content: [{ type: 'text', text: parsed.cleanedContent }]
+      } as any);
+    }
+
+    // 2. Determine final category
+    const finalCategory = parsed.category || note.category;
+
+    // 3. Update the note in the database via onEdit
+    if (onEdit && (parsed.cleanedContent !== content || finalCategory !== note.category)) {
+      console.log('[BlockNoteNoteList] ✍️ Updating note in DB');
+      onEdit(
+        note.id,
+        parsed.cleanedContent,
+        finalCategory,
+        note.description
+      );
+    }
+
+    // 4. Handle labels
+    const inheritedLabels = noteLabelsCache.get(note.id) ?? [];
+    const labelIds = inheritedLabels.map(l => l.id);
+
+    // Create new labels
+    if (parsed.newLabelNames.length > 0) {
+      for (const labelName of parsed.newLabelNames) {
+        try {
+          const newLabel = await createLabel(labelName);
+          if (newLabel) {
+            labelIds.push(newLabel.id);
+            onCreateLabelAndAdd?.(note.id, labelName);
+          }
+        } catch (error) {
+          console.error('[BlockNoteNoteList] ❌ Error creating label:', error);
+        }
+      }
+    }
+
+    // Add matched labels from hashtags
+    for (const hashtag of parsed.parsedHashtags) {
+      if (hashtag.type === 'label' && hashtag.matchedId) {
+        onAddLabel?.(note.id, hashtag.matchedId);
+        if (!labelIds.includes(hashtag.matchedId)) {
+          labelIds.push(hashtag.matchedId);
+        }
+      } else if (hashtag.type === 'contact' && hashtag.matchedId) {
+        onAddAssignee?.(note.id, hashtag.matchedId);
+      }
+    }
+
+    return {
+      finalCategory,
+      labelIds,
+      parsedAssigneeId: parsed.assigneeId,
+      parsed
+    };
+  }, [notes, editor, labels, contacts, onEdit, noteLabelsCache, createLabel, onCreateLabelAndAdd, onAddLabel, onAddAssignee]);
+
   // Listen for delete events from blocks
   useEffect(() => {
     const handleDelete = (e: Event) => {
@@ -761,34 +862,31 @@ export const BlockNoteNoteList = ({
     };
   }, [onDelete, notes]);
 
-  // Listen for create note events from blocks
+  // Listen for create note events from blocks (Enter key)
   useEffect(() => {
     const handleCreateNoteAfter = async (e: Event) => {
-      const customEvent = e as CustomEvent<{ afterNoteId: string; newNoteId?: string }>;
+      const customEvent = e as CustomEvent<{ afterNoteId: string; newNoteId?: string; category?: string }>;
+      console.log('[BlockNoteNoteList] 🎯 handleCreateNoteAfter triggered', customEvent.detail);
+
       if (onCreateNoteAfter) {
-        // Save current content before creating new note
         flushPendingSavesRef.current();
 
         const afterNote = notes.find(n => n.id === customEvent.detail.afterNoteId);
         if (afterNote) {
-          // Get labels for the current note to inherit them
-          // Use the original noteLabelsCache prop which has full Label objects with IDs
-          const labels = noteLabelsCache.get(afterNote.id) ?? [];
-          const labelIds = labels.map(l => l.id);
+          // Process the block the user just finished
+          const result = await processNoteBlock(afterNote.id);
 
-          // Create new note with same category, deadline, and labels as the current note
-          // Pass the new block's ID so the database uses it (fixes ID mismatch)
+          // Create new note with parsed/processed data
+          console.log('[BlockNoteNoteList] 💾 Creating NEXT note');
           await onCreateNoteAfter(
             afterNote.id,
-            afterNote.category,
+            result?.finalCategory || (customEvent.detail.category as any) || afterNote.category,
             afterNote.deadline,
-            labelIds,
-            null,  // assigneeId - not used in BlockNote list view
+            result?.labelIds || [],
+            result?.parsedAssigneeId || null,
             customEvent.detail.newNoteId
           );
-
-          // Note: BlockNote already inserted the block optimistically in InsertBlockCommand
-          // The editor will sync with the new note data on the next render cycle
+          console.log('[BlockNoteNoteList] ✅ Note created successfully');
         }
       }
     };
@@ -797,13 +895,36 @@ export const BlockNoteNoteList = ({
     return () => {
       window.removeEventListener('notepad:createNoteAfter', handleCreateNoteAfter);
     };
-  }, [onCreateNoteAfter, notes, noteLabelsCache]);
+  }, [onCreateNoteAfter, notes, processNoteBlock]);
+
+  // Listen for navigate to description events (Tab key)
+  useEffect(() => {
+    const handleNavigateToDescription = async (e: Event) => {
+      const customEvent = e as CustomEvent<{ noteId: string }>;
+      console.log('[BlockNoteNoteList] 🎯 handleNavigateToDescription triggered', customEvent.detail);
+
+      flushPendingSavesRef.current();
+      await processNoteBlock(customEvent.detail.noteId);
+
+      if (onNavigateToDescription) {
+        onNavigateToDescription();
+      }
+    };
+
+    window.addEventListener('notepad:navigateToDescription', handleNavigateToDescription);
+    return () => {
+      window.removeEventListener('notepad:navigateToDescription', handleNavigateToDescription);
+    };
+  }, [onNavigateToDescription, processNoteBlock]);
 
   // Listen for toggle pin events from blocks
   useEffect(() => {
     const handleTogglePin = (e: Event) => {
       const customEvent = e as CustomEvent<{ noteId: string }>;
       const noteId = customEvent.detail.noteId;
+
+      // Save current content before toggling pin
+      flushPendingSavesRef.current();
 
       // Find the note to get current pinned state
       const note = notes.find(n => n.id === noteId);
@@ -835,6 +956,10 @@ export const BlockNoteNoteList = ({
   useEffect(() => {
     const handleToggleFixInSidebar = (e: Event) => {
       const customEvent = e as CustomEvent<{ noteId: string }>;
+
+      // Save current content before toggling sidebar fix
+      flushPendingSavesRef.current();
+
       if (onToggleFixInSidebar) {
         onToggleFixInSidebar(customEvent.detail.noteId);
       }

@@ -294,7 +294,7 @@ function NoteRow(props: NoteRowProps) {
         )}
 
         {/* Assignee column */}
-        {!compactView && (
+        {!compactView && note.category !== 'notes' && (
           <div className="shrink-0 flex justify-end px-1 gap-0.5">
             {noteAssignees.map((contact) => {
               const initials = getInitials(contact.name, contact.lastname);

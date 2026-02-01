@@ -10,12 +10,17 @@ export interface LabelData {
   color: string;
 }
 
+export interface AssigneeData {
+  initials: string;
+  fullName: string;
+}
+
 export interface NotepadBlockProps {
   isChecked: boolean;
   category: string;
   date: string;
   labels: LabelData[];
-  assignees: string[];
+  assignees: AssigneeData[];
   pinned: boolean;
   compact: boolean;
   fixedInSidebar: boolean;
@@ -46,7 +51,7 @@ export type TimelineBlockData = NotepadBlockData | HourDividerBlockData;
 export function noteToBlock(
   note: Note,
   labels: LabelData[],
-  assignees: string[],
+  assignees: AssigneeData[],
   compact: boolean = false,
   fixedNoteId: string | null = null,
   hideDate: boolean = false
@@ -76,7 +81,7 @@ export function noteToBlock(
 export function notesToBlocks(
   notes: Note[],
   noteLabelsCache: Map<string, LabelData[]>,
-  noteAssigneesCache: Map<string, string[]>,
+  noteAssigneesCache: Map<string, AssigneeData[]>,
   compact: boolean = false,
   fixedNoteId: string | null = null,
   hideDate: boolean = false
@@ -147,7 +152,7 @@ export function notesToTimelineBlocks(
   timedNotes: Note[],
   allDayNotes: Note[],
   noteLabelsCache: Map<string, LabelData[]>,
-  noteAssigneesCache: Map<string, string[]>,
+  noteAssigneesCache: Map<string, AssigneeData[]>,
   startHour: number = 8,
   endHour: number = 20,
   hideEmptyHours: boolean = true,

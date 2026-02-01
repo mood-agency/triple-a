@@ -20,7 +20,10 @@ export class InsertBlockCommand implements BlockCommand {
       [
         {
           type: "notepad",
-          props: { date: new Date().toLocaleDateString() } as any,
+          props: {
+            date: new Date().toLocaleDateString(),
+            category: (block.props as any).category || 'todo'
+          },
         },
       ],
       block,
@@ -35,7 +38,8 @@ export class InsertBlockCommand implements BlockCommand {
       window.dispatchEvent(new CustomEvent('notepad:createNoteAfter', {
         detail: {
           afterNoteId: block.id,
-          newNoteId: insertedBlocks[0].id  // Pass the new block's ID
+          newNoteId: insertedBlocks[0].id,  // Pass the new block's ID
+          category: (block.props as any).category || 'todo'
         }
       }));
     }

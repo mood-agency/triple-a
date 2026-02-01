@@ -340,6 +340,16 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
     // Handle keyboard events
     const handleKeyDown = useCallback(
       (event: React.KeyboardEvent<HTMLDivElement>) => {
+        // Prevent browser's bookmark (Ctrl+D), print (Ctrl+P), save (Ctrl+S), 
+        // or other defaults that conflict with our task shortcuts
+        if ((event.ctrlKey || event.metaKey) &&
+          (event.key.toLowerCase() === 'd' ||
+            event.key.toLowerCase() === 'p' ||
+            event.key.toLowerCase() === 's' ||
+            event.key === 'Backspace')) {
+          event.preventDefault();
+        }
+
         if (onKeyDown) {
           onKeyDown(event)
           if (event.key === 'Escape') {
