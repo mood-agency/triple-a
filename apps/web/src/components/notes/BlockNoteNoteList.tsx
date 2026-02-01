@@ -3,6 +3,7 @@ import { useCreateBlockNote } from '@blocknote/react';
 import { BlockNoteSchema, defaultBlockSpecs } from '@blocknote/core';
 import { BlockNoteView } from '@blocknote/shadcn';
 import '@blocknote/shadcn/style.css';
+import './BlockNoteNoteList.css';
 import { NotepadBlock } from '@/components/blocknote/NotepadBlock';
 import { notesToBlocks, getBlockContent } from '@/utils/noteBlockAdapter';
 import { getInitials } from '@/lib/utils';
@@ -105,6 +106,9 @@ export const BlockNoteNoteList = ({
   // Track if we're syncing filter changes to hide content during transition
   const [isSyncingFilter, setIsSyncingFilter] = useState(false);
 
+  // Track if we should show the stagger animation (only on initial load)
+  const [shouldAnimate, setShouldAnimate] = useState(true);
+
   // Function to flush pending saves immediately
   const flushPendingSaves = useCallback(() => {
     if (!pendingChangesRef.current || !onEdit) {
@@ -161,6 +165,17 @@ export const BlockNoteNoteList = ({
       }
     };
   }, []);
+
+  // Disable stagger animation after initial load to prevent re-animation on content changes
+  useEffect(() => {
+    if (shouldAnimate && notes.length > 0) {
+      // Wait for animation to complete (max 600ms delay + 300ms duration)
+      const timer = setTimeout(() => {
+        setShouldAnimate(false);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldAnimate, notes.length]);
 
   // Listen to BlockNote selection changes and sync to parent
   useEffect(() => {
@@ -403,6 +418,11 @@ export const BlockNoteNoteList = ({
   useEffect(() => {
     const handleLostFocus = (e: Event) => {
       const customEvent = e as CustomEvent<{ noteId: string }>;
+      // Skip save if we're in the process of deleting
+      if (isDeletingRef.current) {
+        if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Block lost focus during delete, skipping save');
+        return;
+      }
       if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Block lost focus, saving:', customEvent.detail.noteId);
       // Save content when block loses focus
       flushPendingSavesRef.current();
@@ -531,7 +551,7 @@ export const BlockNoteNoteList = ({
 
   return (
     <div
-      className={`blocknote-note-list ${isSyncingFilter ? 'blocknote-syncing' : ''} ${compactView ? 'compact-view' : ''}`}
+      className={`blocknote-note-list ${isSyncingFilter ? 'blocknote-syncing' : ''} ${compactView ? 'compact-view' : ''} ${shouldAnimate ? 'animate-stagger' : ''}`}
       onFocus={(e) => {
         if (DEBUG_BLOCKNOTE) console.log('[DOM] Editor wrapper gained focus', e.target);
       }}
