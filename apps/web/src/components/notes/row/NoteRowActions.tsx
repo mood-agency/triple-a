@@ -11,6 +11,7 @@ interface NoteRowActionsProps {
     onToggleFixInSidebar?: (id: string) => void;
     onRestore?: () => void;
     onDeleteClick: (e: React.MouseEvent) => void;
+    compactView?: boolean;
 }
 
 export function NoteRowActions({
@@ -21,6 +22,7 @@ export function NoteRowActions({
     onToggleFixInSidebar,
     onRestore,
     onDeleteClick,
+    compactView,
 }: NoteRowActionsProps) {
     const { t } = useTranslation();
 
@@ -32,7 +34,7 @@ export function NoteRowActions({
                         <TooltipTrigger asChild>
                             <button
                                 type="button"
-                                className={`p-1 cursor-pointer transition-opacity ${note.pinned ? 'opacity-100 text-primary' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-primary'}`}
+                                className={`p-1 cursor-pointer transition-opacity ${note.pinned ? 'opacity-100 text-primary' : (compactView ? 'hidden' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-primary')}`}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onTogglePinned(note.id, !note.pinned);
@@ -50,7 +52,7 @@ export function NoteRowActions({
                             <TooltipTrigger asChild>
                                 <button
                                     type="button"
-                                    className={`p-1 cursor-pointer transition-opacity ${isFixedInSidebar ? 'opacity-100 text-blue-500' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-blue-500'}`}
+                                    className={`p-1 cursor-pointer transition-opacity ${isFixedInSidebar ? 'opacity-100 text-blue-500' : (compactView ? 'hidden' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-blue-500')}`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onToggleFixInSidebar?.(note.id);
@@ -71,7 +73,7 @@ export function NoteRowActions({
                     <TooltipTrigger asChild>
                         <button
                             type="button"
-                            className="p-1 cursor-pointer transition-opacity opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-primary"
+                            className={`p-1 cursor-pointer transition-opacity ${compactView ? 'hidden' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-primary'}`}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onRestore();
@@ -89,7 +91,7 @@ export function NoteRowActions({
                     <TooltipTrigger asChild>
                         <button
                             type="button"
-                            className="p-1 cursor-pointer transition-opacity opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-destructive"
+                            className={`p-1 cursor-pointer transition-opacity ${compactView ? 'hidden' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-destructive'}`}
                             onClick={onDeleteClick}
                         >
                             <Trash2 className="h-3.5 w-3.5" />

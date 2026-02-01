@@ -88,22 +88,27 @@ export function Home() {
     const deadline = searchParams.get('sortDeadline') as 'asc' | 'desc' | null;
     const assignee = searchParams.get('sortAssignee') as 'asc' | 'desc' | null;
     const category = searchParams.get('sortCategory') as 'asc' | 'desc' | null;
+    const createdAt = searchParams.get('sortCreatedAt') as 'asc' | 'desc' | null;
 
-    // Only one sort can be active at a time - prioritize deadline > assignee > category
+    // Only one sort can be active at a time - prioritize deadline > assignee > category > createdAt
     const validDeadline = deadline === 'asc' || deadline === 'desc' ? deadline : null;
     const validAssignee = assignee === 'asc' || assignee === 'desc' ? assignee : null;
     const validCategory = category === 'asc' || category === 'desc' ? category : null;
+    const validCreatedAt = createdAt === 'asc' || createdAt === 'desc' ? createdAt : null;
 
     if (validDeadline) {
-      return { deadline: validDeadline, assignee: null, category: null };
+      return { deadline: validDeadline, assignee: null, category: null, createdAt: null };
     }
     if (validAssignee) {
-      return { deadline: null, assignee: validAssignee, category: null };
+      return { deadline: null, assignee: validAssignee, category: null, createdAt: null };
     }
     if (validCategory) {
-      return { deadline: null, assignee: null, category: validCategory };
+      return { deadline: null, assignee: null, category: validCategory, createdAt: null };
     }
-    return { deadline: null, assignee: null, category: null };
+    if (validCreatedAt) {
+      return { deadline: null, assignee: null, category: null, createdAt: validCreatedAt };
+    }
+    return { deadline: null, assignee: null, category: null, createdAt: null };
   }, [searchParams]);
 
   const [labelFilter, setLabelFilter] = useState<string[]>(getInitialLabelFilter);
@@ -111,7 +116,7 @@ export function Home() {
   const [assigneeFilter, setAssigneeFilter] = useState<string[]>(getInitialAssigneeFilter);
   const [taskStatusFilter, setTaskStatusFilter] = useState<'active' | 'completed' | 'deleted'>('active');
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
-  const [sortConfig, setSortConfig] = useState<{ deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null }>(getInitialSortConfig);
+  const [sortConfig, setSortConfig] = useState<{ deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null; createdAt: 'asc' | 'desc' | null }>(getInitialSortConfig);
   const [showCreateProjectDialog, setShowCreateProjectDialog] = useState(false);
 
   // Keep a ref of the current state values to avoid stale closures in syncStateToURL
@@ -189,6 +194,9 @@ export function Home() {
 
       if (sort.category) newParams.set('sortCategory', sort.category);
       else newParams.delete('sortCategory');
+
+      if (sort.createdAt) newParams.set('sortCreatedAt', sort.createdAt);
+      else newParams.delete('sortCreatedAt');
 
       // 8. Project (Preserve from context if not in URL, but ProjectContext usually handles this)
       if (s.activeProjectId && !newParams.has('project')) {
@@ -321,7 +329,7 @@ export function Home() {
   }, [syncStateToURL]);
 
   // Update URL when sort config changes
-  const handleSortConfigChange = useCallback((newSortConfig: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null }) => {
+  const handleSortConfigChange = useCallback((newSortConfig: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null; createdAt: 'asc' | 'desc' | null }) => {
     setSortConfig(newSortConfig);
     stateRef.current.sortConfig = newSortConfig;
     syncStateToURL({ sort: newSortConfig });
@@ -376,10 +384,10 @@ export function Home() {
     taskStatusFilter,
     showOverdueOnly,
     setCategoryFilter: handleCategoryFilterChange,
-    setLabelFilter: handleLabelFilterChange,
-    setAssigneeFilter: handleAssigneeFilterChange,
+    setLabelFilter: handleLabelFilterChange as any,
+    setAssigneeFilter: handleAssigneeFilterChange as any,
     setSearchQuery,
-    setSortConfig: handleSortConfigChange,
+    setSortConfig: handleSortConfigChange as any,
     setDateRangeFilter,
     setTaskStatusFilter,
     setShowOverdueOnly,

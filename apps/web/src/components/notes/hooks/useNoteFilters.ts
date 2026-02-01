@@ -9,7 +9,7 @@ import { EMPTY_LABELS } from '@/constants/notes';
 
 const EMPTY_ASSIGNEES: Contact[] = [];
 
-type SortConfigType = { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null };
+type SortConfigType = { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null; createdAt: 'asc' | 'desc' | null };
 
 interface UseNoteFiltersProps {
     notes: Note[];
@@ -80,6 +80,7 @@ export function useNoteFilters({
         deadline: null,
         assignee: null,
         category: null,
+        createdAt: null,
     });
     const [internalShowOverdueOnly, setInternalShowOverdueOnly] = useState(false);
     const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });

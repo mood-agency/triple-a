@@ -411,7 +411,7 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                                             ? 'opacity-100'
                                             : 'opacity-0 group-hover:opacity-100'
                                             }`}
-                                        style={{ userSelect: "none" }}
+                                        style={{ userSelect: "none", display: (isCompact && !isPinned) ? "none" : undefined }}
                                     >
                                         <Pin size={14} className={isPinned ? "text-black" : "text-gray-600"} />
                                     </button>
@@ -433,7 +433,7 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                                             ? 'opacity-100'
                                             : 'opacity-0 group-hover:opacity-100'
                                             }`}
-                                        style={{ userSelect: "none" }}
+                                        style={{ userSelect: "none", display: (isCompact && !isFixedInSidebar) ? "none" : undefined }}
                                     >
                                         <SidebarClose size={14} className={isFixedInSidebar ? "text-blue-600" : "text-gray-600"} />
                                     </button>

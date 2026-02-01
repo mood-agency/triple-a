@@ -31,6 +31,7 @@ export interface SortConfig {
   deadline: SortDirection | null;
   assignee: SortDirection | null;
   category: SortDirection | null;
+  createdAt: SortDirection | null;
 }
 
 interface NoteFiltersProps {
@@ -262,8 +263,8 @@ export function NoteFilters({
                   {dateRangeFilter.from && dateRangeFilter.to
                     ? `${format(dateRangeFilter.from, 'dd/MM', { locale })} - ${format(dateRangeFilter.to, 'dd/MM', { locale })}`
                     : dateRangeFilter.from
-                    ? `${t('dateRange.from')} ${format(dateRangeFilter.from, 'dd/MM', { locale })}`
-                    : `${t('dateRange.to')} ${format(dateRangeFilter.to!, 'dd/MM', { locale })}`}
+                      ? `${t('dateRange.from')} ${format(dateRangeFilter.from, 'dd/MM', { locale })}`
+                      : `${t('dateRange.to')} ${format(dateRangeFilter.to!, 'dd/MM', { locale })}`}
                 </span>
               ) : (
                 <ChevronDown className="h-3 w-3 ml-0.5" />

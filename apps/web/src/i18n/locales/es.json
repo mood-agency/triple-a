@@ -339,7 +339,9 @@
     "assigneeDesc": "Responsable (Z-A)",
     "category": "Categoría",
     "categoryAsc": "Categoría (A-Z)",
-    "categoryDesc": "Categoría (Z-A)"
+    "categoryDesc": "Categoría (Z-A)",
+    "createdAtAsc": "Fecha de creación (antiguas primero)",
+    "createdAtDesc": "Fecha de creación (recientes primero)"
   },
   "taskStatus": {
     "title": "Estado",
