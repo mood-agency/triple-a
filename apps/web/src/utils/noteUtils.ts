@@ -93,8 +93,11 @@ export function sortNotes(
       if (!a.deadline) return 1;
       if (!b.deadline) return -1;
       // Sort by deadline
-      const result = parseLocalDate(a.deadline).getTime() - parseLocalDate(b.deadline).getTime();
-      return sortConfig.deadline === 'desc' ? -result : result;
+      const aTime = parseLocalDate(a.deadline).getTime();
+      const bTime = parseLocalDate(b.deadline).getTime();
+      const result = aTime - bTime;
+      const finalResult = sortConfig.deadline === 'desc' ? -result : result;
+      return finalResult;
     }
 
     return 0; // Maintain original order

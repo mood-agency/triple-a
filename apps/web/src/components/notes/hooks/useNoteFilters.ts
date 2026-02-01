@@ -266,7 +266,10 @@ export function useNoteFilters({
     // Active & Completed
     const activeNotes = useMemo(() => {
         const active = baseFilteredNotes.filter((note) => !note.completed);
-        return sortNotes(active, sortConfig as NoteSortConfig, assigneeNamesCache);
+        console.log('[useNoteFilters] Sorting notes with config:', JSON.stringify(sortConfig), 'notes count:', active.length);
+        const sorted = sortNotes(active, sortConfig as NoteSortConfig, assigneeNamesCache);
+        console.log('[useNoteFilters] First 3 note deadlines:', sorted.slice(0, 3).map(n => ({ id: n.id.substring(0, 8), deadline: n.deadline })));
+        return sorted;
     }, [baseFilteredNotes, sortConfig, assigneeNamesCache]);
 
     const completedNotes = useMemo(() => {

@@ -48,6 +48,11 @@ export const BlockNoteNoteList = ({
   fixedNoteId = null,
   hideDate = false
 }: BlockNoteNoteListProps) => {
+  // Debug: log incoming notes order
+  if (DEBUG_BLOCKNOTE) {
+    console.log('[BlockNote] Received notes:', notes.slice(0, 3).map(n => ({ id: n.id.substring(0, 8), deadline: n.deadline })));
+  }
+
   // Create schema with notepad block
   const schema = useMemo(
     () =>
