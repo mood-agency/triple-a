@@ -367,8 +367,8 @@ export const NotepadBlock = createReactBlockSpec(
                         contentEditable={false}
                         onClick={handleTogglePin}
                         className={`p-1 hover:bg-gray-200 rounded transition-all ml-1 flex-shrink-0 ${isPinned
-                                ? 'opacity-100'
-                                : 'opacity-0 group-hover:opacity-100'
+                            ? 'opacity-100'
+                            : 'opacity-0 group-hover:opacity-100'
                             }`}
                         style={{ userSelect: "none" }}
                         title={isPinned ? "Unpin task" : "Pin task"}
@@ -381,8 +381,8 @@ export const NotepadBlock = createReactBlockSpec(
                         contentEditable={false}
                         onClick={handleToggleFixInSidebar}
                         className={`p-1 hover:bg-gray-200 rounded transition-all flex-shrink-0 ${isFixedInSidebar
-                                ? 'opacity-100'
-                                : 'opacity-0 group-hover:opacity-100'
+                            ? 'opacity-100'
+                            : 'opacity-0 group-hover:opacity-100'
                             }`}
                         style={{ userSelect: "none" }}
                         title={isFixedInSidebar ? "Unfix from sidebar" : "Fix to sidebar"}
