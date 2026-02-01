@@ -19,6 +19,7 @@ export interface NotepadBlockProps {
   pinned: boolean;
   compact: boolean;
   fixedInSidebar: boolean;
+  hideDate: boolean;
 }
 
 export interface NotepadBlockData {
@@ -47,7 +48,8 @@ export function noteToBlock(
   labels: LabelData[],
   assignees: string[],
   compact: boolean = false,
-  fixedNoteId: string | null = null
+  fixedNoteId: string | null = null,
+  hideDate: boolean = false
 ): NotepadBlockData {
   return {
     type: 'notepad',
@@ -61,6 +63,7 @@ export function noteToBlock(
       pinned: note.pinned,
       compact,
       fixedInSidebar: note.id === fixedNoteId,
+      hideDate,
     },
     content: note.content,
   };
@@ -75,12 +78,13 @@ export function notesToBlocks(
   noteLabelsCache: Map<string, LabelData[]>,
   noteAssigneesCache: Map<string, string[]>,
   compact: boolean = false,
-  fixedNoteId: string | null = null
+  fixedNoteId: string | null = null,
+  hideDate: boolean = false
 ): NotepadBlockData[] {
   return notes.map((note) => {
     const labels = noteLabelsCache.get(note.id) ?? [];
     const assignees = noteAssigneesCache.get(note.id) ?? [];
-    return noteToBlock(note, labels, assignees, compact, fixedNoteId);
+    return noteToBlock(note, labels, assignees, compact, fixedNoteId, hideDate);
   });
 }
 

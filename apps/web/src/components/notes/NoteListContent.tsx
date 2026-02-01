@@ -2,6 +2,7 @@ import { memo } from 'react';
 import type { DragEndEvent, SensorDescriptor, SensorOptions } from '@dnd-kit/core';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { AnimatePresence } from 'motion/react';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { EMPTY_LABELS } from '@/constants/notes';
@@ -187,25 +188,28 @@ export const NoteListContent = memo(function NoteListContent({
 
     return (
         <div className={`${isMobile ? 'w-full' : 'w-[30%] border-r border-muted-foreground/30 pr-4'} ${isMobile && selectedNote ? 'hidden' : ''} shrink-0 flex flex-col overflow-hidden h-full`}>
-            <ActiveFiltersBar
-                categoryFilter={categoryFilter}
-                labelFilter={labelFilter}
-                assigneeFilter={assigneeFilter}
-                searchQuery={searchQuery}
-                labels={labels}
-                contacts={contacts}
-                sortConfig={sortConfig}
-                taskStatusFilter={taskStatusFilter}
-                showOverdueOnly={showOverdueOnly}
-                onClearCategory={onClearCategory}
-                onClearLabel={onClearLabel}
-                onClearAssignee={onClearAssignee}
-                onClearSearch={onClearSearch}
-                onClearSort={onClearSort}
-                onClearTaskStatus={onClearTaskStatus}
-                onClearOverdue={onClearOverdue}
-                onClearAll={onClearAllFilters}
-            />
+            <AnimatePresence>
+                <ActiveFiltersBar
+                    key="active-filters-bar"
+                    categoryFilter={categoryFilter}
+                    labelFilter={labelFilter}
+                    assigneeFilter={assigneeFilter}
+                    searchQuery={searchQuery}
+                    labels={labels}
+                    contacts={contacts}
+                    sortConfig={sortConfig}
+                    taskStatusFilter={taskStatusFilter}
+                    showOverdueOnly={showOverdueOnly}
+                    onClearCategory={onClearCategory}
+                    onClearLabel={onClearLabel}
+                    onClearAssignee={onClearAssignee}
+                    onClearSearch={onClearSearch}
+                    onClearSort={onClearSort}
+                    onClearTaskStatus={onClearTaskStatus}
+                    onClearOverdue={onClearOverdue}
+                    onClearAll={onClearAllFilters}
+                />
+            </AnimatePresence>
             {notes.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center">
                     <p className="text-center text-muted-foreground/60 text-sm italic">
@@ -300,6 +304,7 @@ export const NoteListContent = memo(function NoteListContent({
                                         noteAssigneesCache={noteAssigneesCache}
                                         compactView={compactTaskView}
                                         fixedNoteId={fixedNoteId}
+                                        hideDate={categoryFilter === 'notes'}
                                         onNavigateToDescription={handleNavigateToDescription}
                                         onSelectNote={handleSelectNoteById}
                                         onToggleCompleted={handleToggleCompletedWithNavigation}
