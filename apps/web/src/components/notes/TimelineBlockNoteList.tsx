@@ -86,9 +86,12 @@ export const TimelineBlockNoteList = ({
   }, [noteLabelsCache]);
 
   const assigneeDataCache = useMemo(() => {
-    const cache = new Map<string, string[]>();
+    const cache = new Map<string, Array<{ initials: string; fullName: string }>>();
     noteAssigneesCache.forEach((assignees, noteId) => {
-      cache.set(noteId, assignees.map(a => getInitials(a.name, a.lastname)));
+      cache.set(noteId, assignees.map(a => ({
+        initials: getInitials(a.name, a.lastname),
+        fullName: `${a.name} ${a.lastname || ''}`.trim()
+      })));
     });
     return cache;
   }, [noteAssigneesCache]);

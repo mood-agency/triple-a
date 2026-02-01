@@ -21,8 +21,10 @@ export class InsertBlockCommand implements BlockCommand {
         {
           type: "notepad",
           props: {
-            date: new Date().toLocaleDateString(),
-            category: (block.props as any).category || 'todo'
+            date: null,
+            category: (block.props as any).category || 'todo',
+            compact: (block.props as any).compact || false,
+            hideDate: (block.props as any).hideDate || false
           },
         },
       ],

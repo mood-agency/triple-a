@@ -102,7 +102,7 @@
 /* Compact View - hide metadata and expand title */
 .blocknote-note-list.compact-view .notepad-category-checkbox,
 .blocknote-note-list.compact-view .notepad-metadata,
-.blocknote-note-list.compact-view .notepad-deadline {
+.blocknote-note-list.compact-view .chip-deadline {
     display: none;
 }
 

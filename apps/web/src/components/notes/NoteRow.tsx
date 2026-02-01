@@ -241,65 +241,63 @@ function NoteRow(props: NoteRowProps) {
         )}
 
         {/* Deadline column */}
-        {!compactView && (
-          <div className="shrink-0 flex items-center justify-end gap-1 px-1">
-            {note.gcal_event_id && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center text-blue-500">
-                    <Calendar className="h-3 w-3" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t('syncedWithGoogleCalendar')}</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
+        <div className="shrink-0 flex items-center justify-end gap-1 px-1">
+          {note.gcal_event_id && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center text-blue-500">
+                  <Calendar className="h-3 w-3" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t('syncedWithGoogleCalendar')}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
 
-            {/* We are simplifying the rendering here, assuming date formatting is handled or we just render if exists */}
-            {/* For brevity in this refactor step, skipping detailed date logic re-implementation if it was complex inline logic, 
-                but based on previous file it seemed to use `format`. */}
-            {/* Re-adding basic date display if needed or relying on parent to pass formatted? 
-                The original had inline logic. Let's keep it simple or check if we need to helper it.
-                Actually, the original had complex date logic. I should probably keep it or helper-ize it. 
-                For now, I'll extract it to a tiny helper or just inline simple version.
-            */}
-            {!hideDeadline && note.deadline && note.category !== 'notes' && (
-              <span className={`text-[10px] whitespace-nowrap ${isPastDeadline && !note.completed && note.category !== 'meeting' ? 'text-red-500 font-medium' : 'text-muted-foreground'
-                }`}>
-                {formatRelativeDateEnhanced(
-                  parseLocalDate(note.deadline),
-                  i18n.language,
-                  {
-                    today: t('date.today'),
-                    tomorrow: t('date.tomorrow'),
-                    yesterday: t('date.yesterday'),
-                    inDays: t('date.inDays'),
-                    daysAgo: t('date.daysAgo'),
-                    inAWeek: t('date.inAWeek'),
-                    aWeekAgo: t('date.aWeekAgo'),
-                    inWeeks: t('date.inWeeks'),
-                    weeksAgo: t('date.weeksAgo'),
-                    nextWeek: t('date.nextWeek'),
-                    lastWeek: t('date.lastWeek'),
-                    thisWeekday: t('date.thisWeekday'),
-                    nextWeekday: t('date.nextWeekday'),
-                    lastWeekday: t('date.lastWeekday'),
-                    inAMonth: t('date.inAMonth'),
-                    aMonthAgo: t('date.aMonthAgo'),
-                    inMonths: t('date.inMonths'),
-                    monthsAgo: t('date.monthsAgo'),
-                    inAYear: t('date.inAYear'),
-                    aYearAgo: t('date.aYearAgo'),
-                    inYears: t('date.inYears'),
-                    yearsAgo: t('date.yearsAgo'),
-                  },
-                  true
-                )}
-              </span>
-            )}
-          </div>
-        )}
+          {/* We are simplifying the rendering here, assuming date formatting is handled or we just render if exists */}
+          {/* For brevity in this refactor step, skipping detailed date logic re-implementation if it was complex inline logic, 
+              but based on previous file it seemed to use `format`. */}
+          {/* Re-adding basic date display if needed or relying on parent to pass formatted? 
+              The original had inline logic. Let's keep it simple or check if we need to helper it.
+              Actually, the original had complex date logic. I should probably keep it or helper-ize it. 
+              For now, I'll extract it to a tiny helper or just inline simple version.
+          */}
+          {!hideDeadline && note.deadline && (
+            <span className={`text-[10px] whitespace-nowrap ${isPastDeadline && !note.completed && note.category !== 'meeting' ? 'text-red-500 font-medium' : 'text-muted-foreground'
+              }`}>
+              {formatRelativeDateEnhanced(
+                parseLocalDate(note.deadline),
+                i18n.language,
+                {
+                  today: t('date.today'),
+                  tomorrow: t('date.tomorrow'),
+                  yesterday: t('date.yesterday'),
+                  inDays: t('date.inDays'),
+                  daysAgo: t('date.daysAgo'),
+                  inAWeek: t('date.inAWeek'),
+                  aWeekAgo: t('date.aWeekAgo'),
+                  inWeeks: t('date.inWeeks'),
+                  weeksAgo: t('date.weeksAgo'),
+                  nextWeek: t('date.nextWeek'),
+                  lastWeek: t('date.lastWeek'),
+                  thisWeekday: t('date.thisWeekday'),
+                  nextWeekday: t('date.nextWeekday'),
+                  lastWeekday: t('date.lastWeekday'),
+                  inAMonth: t('date.inAMonth'),
+                  aMonthAgo: t('date.aMonthAgo'),
+                  inMonths: t('date.inMonths'),
+                  monthsAgo: t('date.monthsAgo'),
+                  inAYear: t('date.inAYear'),
+                  aYearAgo: t('date.aYearAgo'),
+                  inYears: t('date.inYears'),
+                  yearsAgo: t('date.yearsAgo'),
+                },
+                true
+              )}
+            </span>
+          )}
+        </div>
 
         {/* Assignee column */}
         {!compactView && note.category !== 'notes' && (
