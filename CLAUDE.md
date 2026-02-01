@@ -105,3 +105,64 @@ Add keys to both:
 - **Base color**: `neutral`
 - For custom styling, add className overrides at the usage site
 - Official docs: https://ui.shadcn.com/docs/components
+
+## Motion Animations
+
+This project uses the `motion` library (formerly Framer Motion) for animations. When implementing animations that can be interrupted or restarted, follow this pattern:
+
+```tsx
+import { animate } from 'motion';
+
+// Track pending animation frames for cleanup
+const animationFrameRef = useRef<number | null>(null);
+
+// Track running animations for cleanup
+const runningAnimationsRef = useRef<Array<{ stop: () => void }>>([]);
+
+useEffect(() => {
+  // 1. Cancel any pending animations when state changes
+  if (animationFrameRef.current) {
+    cancelAnimationFrame(animationFrameRef.current);
+    animationFrameRef.current = null;
+  }
+  runningAnimationsRef.current.forEach(anim => anim.stop());
+  runningAnimationsRef.current = [];
+
+  // 2. Use double requestAnimationFrame to ensure DOM is ready
+  const frameId1 = requestAnimationFrame(() => {
+    const frameId2 = requestAnimationFrame(() => {
+      animationFrameRef.current = null;
+
+      const elements = containerRef.current?.querySelectorAll('.my-element');
+      const allElements: HTMLElement[] = [];
+      elements?.forEach(el => allElements.push(el as HTMLElement));
+
+      // 3. Clear inline styles from previous animations
+      allElements.forEach(el => {
+        el.style.opacity = '';
+        el.style.transform = '';
+      });
+
+      // 4. Run animations and store references
+      const animations: Array<{ stop: () => void }> = [];
+      allElements.forEach((el, index) => {
+        const anim = animate(
+          el,
+          { opacity: [0, 1], transform: ['translateX(-8px)', 'translateX(0px)'] },
+          { duration: 0.2, delay: index * 0.015, easing: 'ease-out' }
+        );
+        animations.push(anim);
+      });
+      runningAnimationsRef.current = animations;
+    });
+    animationFrameRef.current = frameId2;
+  });
+  animationFrameRef.current = frameId1;
+}, [trigger]);
+```
+
+Key points:
+- **Always cancel** pending `requestAnimationFrame` and running animations on state change
+- **Use double RAF** to ensure DOM is fully painted before animating
+- **Clear inline styles** before re-animating to avoid conflicts
+- **Store animation references** to enable cancellation

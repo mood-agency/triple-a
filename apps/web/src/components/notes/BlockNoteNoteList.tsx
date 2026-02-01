@@ -10,8 +10,9 @@ import { getInitials } from '@/lib/utils';
 import type { Note, Label, NoteCategory } from '@/types/note';
 import type { Contact } from '@/types/contact';
 
-// Debug flag - set to true to enable console logs for debugging
+// Debug flags
 const DEBUG_BLOCKNOTE = false;
+const DISABLE_ANIMATIONS = true;
 
 interface BlockNoteNoteListProps {
   notes: Note[];
@@ -135,8 +136,8 @@ export const BlockNoteNoteList = ({
 
   // Function to trigger the stagger animation for list changes (filters, search, etc.)
   const triggerStaggerAnimation = useCallback(() => {
-    // Skip if no notes or container
-    if (notes.length === 0 || !containerRef.current) {
+    // Skip if no notes or container, or if animations are disabled
+    if (notes.length === 0 || !containerRef.current || DISABLE_ANIMATIONS) {
       isAnimatingRef.current = false;
       return;
     }
@@ -310,6 +311,13 @@ export const BlockNoteNoteList = ({
     // Detect transition
     const isToFull = prevCompactViewRef.current === true && compactView === false;
     const isToCompact = prevCompactViewRef.current === false && compactView === true;
+
+    if (DISABLE_ANIMATIONS) {
+      prevCompactViewRef.current = compactView;
+      setIsAnimatingToFull(false);
+      setIsAnimatingToCompact(false);
+      return;
+    }
 
     if (isToFull) {
       // Hide elements immediately before they render
