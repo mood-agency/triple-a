@@ -21,7 +21,7 @@ import { AssigneePicker } from '@/components/notes/AssigneePicker';
 import { EditableTitle } from '@/components/notes/EditableTitle';
 import type { Note, NoteCategory, Label, NoteVersion, NoteAction } from '@/types/note';
 import type { Contact } from '@/types/contact';
-import { parseLocalDate, formatRelativeDateWithTime } from '@/utils/dateUtils';
+import { parseLocalDate, formatRelativeDateEnhanced } from '@/utils/dateUtils';
 import { AIAssistantDialog } from './AIAssistantDialog';
 import { ShareDialog } from './ShareDialog';
 import { useAssignees } from '@/hooks/useAssignees';
@@ -512,11 +512,34 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
               }}
               className="font-medium text-foreground cursor-default"
             >
-              {formatRelativeDateWithTime(
+              {formatRelativeDateEnhanced(
                 new Date(note.created_at),
                 i18n.language,
-                t('date.today'),
-                t('date.tomorrow')
+                {
+                  today: t('date.today'),
+                  tomorrow: t('date.tomorrow'),
+                  yesterday: t('date.yesterday'),
+                  inDays: t('date.inDays'),
+                  daysAgo: t('date.daysAgo'),
+                  inAWeek: t('date.inAWeek'),
+                  aWeekAgo: t('date.aWeekAgo'),
+                  inWeeks: t('date.inWeeks'),
+                  weeksAgo: t('date.weeksAgo'),
+                  nextWeek: t('date.nextWeek'),
+                  lastWeek: t('date.lastWeek'),
+                  thisWeekday: t('date.thisWeekday'),
+                  nextWeekday: t('date.nextWeekday'),
+                  lastWeekday: t('date.lastWeekday'),
+                  inAMonth: t('date.inAMonth'),
+                  aMonthAgo: t('date.aMonthAgo'),
+                  inMonths: t('date.inMonths'),
+                  monthsAgo: t('date.monthsAgo'),
+                  inAYear: t('date.inAYear'),
+                  aYearAgo: t('date.aYearAgo'),
+                  inYears: t('date.inYears'),
+                  yearsAgo: t('date.yearsAgo'),
+                },
+                true
               )}
             </button>
           </>
@@ -531,11 +554,34 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
           className="font-medium text-foreground hover:underline cursor-pointer"
         >
           {note.deadline
-            ? formatRelativeDateWithTime(
+            ? formatRelativeDateEnhanced(
                 parseLocalDate(note.deadline),
                 i18n.language,
-                t('date.today'),
-                t('date.tomorrow')
+                {
+                  today: t('date.today'),
+                  tomorrow: t('date.tomorrow'),
+                  yesterday: t('date.yesterday'),
+                  inDays: t('date.inDays'),
+                  daysAgo: t('date.daysAgo'),
+                  inAWeek: t('date.inAWeek'),
+                  aWeekAgo: t('date.aWeekAgo'),
+                  inWeeks: t('date.inWeeks'),
+                  weeksAgo: t('date.weeksAgo'),
+                  nextWeek: t('date.nextWeek'),
+                  lastWeek: t('date.lastWeek'),
+                  thisWeekday: t('date.thisWeekday'),
+                  nextWeekday: t('date.nextWeekday'),
+                  lastWeekday: t('date.lastWeekday'),
+                  inAMonth: t('date.inAMonth'),
+                  aMonthAgo: t('date.aMonthAgo'),
+                  inMonths: t('date.inMonths'),
+                  monthsAgo: t('date.monthsAgo'),
+                  inAYear: t('date.inAYear'),
+                  aYearAgo: t('date.aYearAgo'),
+                  inYears: t('date.inYears'),
+                  yearsAgo: t('date.yearsAgo'),
+                },
+                true
               )
             : t('setDeadline')}
         </button>
@@ -844,13 +890,6 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
       {/* Version history section */}
       {showVersionHistory && versions.length > 0 && (
         <div className="border-t border-dashed border-muted-foreground/20 pt-3 mt-3 max-h-[25%] flex flex-col shrink-0">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70 mb-2 shrink-0">
-            <History className="h-3 w-3" />
-            <span>{t('versionHistory')}</span>
-            <span className="text-muted-foreground/50">
-              ({versions.length})
-            </span>
-          </div>
           <div className="space-y-2 overflow-y-auto">
             {versions
               .map((entry) => (

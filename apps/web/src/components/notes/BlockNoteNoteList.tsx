@@ -173,23 +173,6 @@ export const BlockNoteNoteList = ({
     return () => unsubscribe();
   }, [editor, onSelectNote]);
 
-  // Update all blocks when compact view changes
-  useEffect(() => {
-    isSyncingRef.current = true;
-
-    editor.document.forEach(block => {
-      if (block.type === 'notepad') {
-        editor.updateBlock(block, {
-          props: { ...block.props, compact: compactView }
-        } as any);
-      }
-    });
-
-    setTimeout(() => {
-      isSyncingRef.current = false;
-    }, 100);
-  }, [editor, compactView]);
-
   // Update all blocks when fixed note changes or notes are loaded
   useEffect(() => {
     // Wait a tick to ensure editor is fully initialized
@@ -229,16 +212,23 @@ export const BlockNoteNoteList = ({
 
       const noteIds = new Set(notes.map(note => note.id));
 
-      // Check if a note that WAS in the previous set is no longer in the current set
-      // This means filtering removed some notes from view
-      const notesWereFiltered = [...previousIds].some(id => !noteIds.has(id));
+      // Check if notes were removed from the notes array
+      const removedIds = [...previousIds].filter(id => !noteIds.has(id));
+
+      // Distinguish between delete and filter:
+      // - If removed notes are still in BlockNote's document, it's a FILTER operation (need to sync)
+      // - If removed notes are NOT in BlockNote's document, it's a DELETE operation (already handled)
+      const removedIdsStillInDocument = removedIds.filter(id =>
+        editor.document.some(block => block.id === id)
+      );
+
+      const notesWereFiltered = removedIdsStillInDocument.length > 0;
 
       // Also sync if this is initial load (no previous IDs) and we have notes
       const isInitialLoad = previousIds.size === 0 && notes.length > 0;
 
       // Only sync on actual filtering (notes removed from view), not on note creation or deletion
-      // Skip sync if we're in the middle of a delete operation (editor already handled it)
-      if ((notesWereFiltered || isInitialLoad) && !isDeletingRef.current) {
+      if (notesWereFiltered || isInitialLoad) {
         // Hide content immediately to prevent flash of unfiltered content
         if (notesWereFiltered) {
           setIsSyncingFilter(true);
@@ -250,7 +240,7 @@ export const BlockNoteNoteList = ({
           isSyncingRef.current = true;
 
           // Replace entire document when filtering changes
-          const newContent = notesToBlocks(notes, labelDataCache, assigneeDataCache);
+          const newContent = notesToBlocks(notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId);
           const blocksToReplace = editor.document.map(b => b.id);
           editor.replaceBlocks(blocksToReplace, newContent as any);
 
@@ -262,7 +252,7 @@ export const BlockNoteNoteList = ({
         }, 0);
       }
     }
-  }, [editor, notes, labelDataCache, assigneeDataCache]);
+  }, [editor, notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId]);
 
   // Sync external changes (labels, assignees) back to blocks - only when they actually change
   useEffect(() => {
@@ -515,7 +505,7 @@ export const BlockNoteNoteList = ({
   }, [onToggleFixInSidebar]);
 
   return (
-    <div className={`blocknote-note-list ${isSyncingFilter ? 'blocknote-syncing' : ''}`}>
+    <div className={`blocknote-note-list ${isSyncingFilter ? 'blocknote-syncing' : ''} ${compactView ? 'compact-view' : ''}`}>
       <BlockNoteView
         editor={editor}
         theme="light"

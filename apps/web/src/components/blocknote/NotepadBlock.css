@@ -87,3 +87,20 @@
     opacity: 0;
     pointer-events: none;
 }
+
+/* Compact View - hide metadata and expand title */
+.blocknote-note-list.compact-view .notepad-category-checkbox,
+.blocknote-note-list.compact-view .notepad-metadata,
+.blocknote-note-list.compact-view .notepad-deadline {
+    display: none;
+}
+
+.blocknote-note-list.compact-view .notepad-content {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none !important;
+}
+
+.blocknote-note-list.compact-view .notepad-content.is-editing {
+    max-width: none !important;
+}

@@ -565,7 +565,27 @@
   },
   "date": {
     "today": "Today",
-    "tomorrow": "Tomorrow"
+    "tomorrow": "Tomorrow",
+    "yesterday": "Yesterday",
+    "inDays": "In {{count}} days",
+    "daysAgo": "{{count}} days ago",
+    "inAWeek": "In a week",
+    "aWeekAgo": "A week ago",
+    "inWeeks": "In {{count}} weeks",
+    "weeksAgo": "{{count}} weeks ago",
+    "nextWeek": "Next week",
+    "lastWeek": "Last week",
+    "thisWeekday": "This {{weekday}}",
+    "nextWeekday": "Next {{weekday}}",
+    "lastWeekday": "Last {{weekday}}",
+    "inAMonth": "In a month",
+    "aMonthAgo": "A month ago",
+    "inMonths": "In {{count}} months",
+    "monthsAgo": "{{count}} months ago",
+    "inAYear": "In a year",
+    "aYearAgo": "A year ago",
+    "inYears": "In {{count}} years",
+    "yearsAgo": "{{count}} years ago"
   },
   "contacts": {
     "title": "Contacts",

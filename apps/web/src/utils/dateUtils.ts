@@ -98,6 +98,207 @@ export function getMinutesFromDeadline(deadlineStr: string): number {
 }
 
 /**
+ * Translations for relative date formatting
+ */
+export interface RelativeDateTranslations {
+  today: string;
+  tomorrow: string;
+  yesterday: string;
+  // Days
+  inDays: string; // "in {{count}} days" or "en {{count}} días"
+  daysAgo: string; // "{{count}} days ago" or "hace {{count}} días"
+  // Weeks
+  inAWeek: string;
+  aWeekAgo: string;
+  inWeeks: string; // "in {{count}} weeks"
+  weeksAgo: string; // "{{count}} weeks ago"
+  nextWeek: string;
+  lastWeek: string;
+  thisWeekday: string; // "this Monday" - {{weekday}} placeholder
+  nextWeekday: string; // "next Monday" - {{weekday}} placeholder
+  lastWeekday: string; // "last Monday" - {{weekday}} placeholder
+  // Months
+  inAMonth: string;
+  aMonthAgo: string;
+  inMonths: string; // "in {{count}} months"
+  monthsAgo: string; // "{{count}} months ago"
+  // Years
+  inAYear: string;
+  aYearAgo: string;
+  inYears: string; // "in {{count}} years"
+  yearsAgo: string; // "{{count}} years ago"
+}
+
+/**
+ * Get the difference in calendar days between two dates (ignoring time)
+ */
+function getDaysDifference(date: Date, reference: Date): number {
+  const d1 = startOfDay(date);
+  const d2 = startOfDay(reference);
+  const diffTime = d1.getTime() - d2.getTime();
+  return Math.round(diffTime / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Check if two dates are the same calendar day
+ */
+function isSameDay(date1: Date, date2: Date): boolean {
+  return date1.getDate() === date2.getDate() &&
+         date1.getMonth() === date2.getMonth() &&
+         date1.getFullYear() === date2.getFullYear();
+}
+
+/**
+ * Format a date as a relative date string (without time)
+ * Supports: today, tomorrow, yesterday, this/next/last weekday, in X days, X days ago
+ * @param date - The date to format
+ * @param language - The language code ('es' or 'en')
+ * @param translations - Translation strings for relative dates
+ * @returns Formatted relative date string
+ */
+export function formatRelativeDate(
+  date: Date,
+  language: string,
+  translations: RelativeDateTranslations
+): string {
+  const today = startOfDay(new Date());
+  const targetDate = startOfDay(date);
+  const daysDiff = getDaysDifference(targetDate, today);
+
+  // Today
+  if (daysDiff === 0) {
+    return translations.today;
+  }
+
+  // Tomorrow
+  if (daysDiff === 1) {
+    return translations.tomorrow;
+  }
+
+  // Yesterday
+  if (daysDiff === -1) {
+    return translations.yesterday;
+  }
+
+  // Get weekday name
+  const weekdayName = date.toLocaleDateString(language, { weekday: 'long' });
+  const capitalizedWeekday = weekdayName.charAt(0).toUpperCase() + weekdayName.slice(1);
+
+  // Within the next 7 days (2-7 days ahead)
+  if (daysDiff >= 2 && daysDiff <= 7) {
+    // Check if it's exactly a week
+    if (daysDiff === 7) {
+      return translations.inAWeek;
+    }
+    // This week vs next week
+    const todayDayOfWeek = new Date().getDay();
+    const targetDayOfWeek = date.getDay();
+
+    // If target is in the same week (target weekday > today's weekday)
+    if (targetDayOfWeek > todayDayOfWeek) {
+      return translations.thisWeekday.replace('{{weekday}}', capitalizedWeekday);
+    } else {
+      return translations.nextWeekday.replace('{{weekday}}', capitalizedWeekday);
+    }
+  }
+
+  // Within the past 7 days (-7 to -2 days)
+  if (daysDiff >= -7 && daysDiff <= -2) {
+    // Check if it's exactly a week ago
+    if (daysDiff === -7) {
+      return translations.aWeekAgo;
+    }
+    // This week vs last week
+    const todayDayOfWeek = new Date().getDay();
+    const targetDayOfWeek = date.getDay();
+
+    // If target was earlier this week
+    if (targetDayOfWeek < todayDayOfWeek) {
+      return translations.thisWeekday.replace('{{weekday}}', capitalizedWeekday);
+    } else {
+      return translations.lastWeekday.replace('{{weekday}}', capitalizedWeekday);
+    }
+  }
+
+  // 8-13 days ahead (next week)
+  if (daysDiff > 7 && daysDiff <= 13) {
+    return translations.nextWeek;
+  }
+
+  // 8-13 days ago (last week)
+  if (daysDiff < -7 && daysDiff >= -13) {
+    return translations.lastWeek;
+  }
+
+  // Calculate weeks, months, years difference
+  const absDaysDiff = Math.abs(daysDiff);
+  const weeks = Math.floor(absDaysDiff / 7);
+  const months = Math.floor(absDaysDiff / 30);
+  const years = Math.floor(absDaysDiff / 365);
+
+  // Future dates
+  if (daysDiff > 0) {
+    // Years (365+ days)
+    if (years >= 1) {
+      if (years === 1) {
+        return translations.inAYear;
+      }
+      return translations.inYears.replace('{{count}}', String(years));
+    }
+
+    // Months (30-364 days)
+    if (months >= 1) {
+      if (months === 1) {
+        return translations.inAMonth;
+      }
+      return translations.inMonths.replace('{{count}}', String(months));
+    }
+
+    // Weeks (14-29 days)
+    if (weeks >= 2) {
+      return translations.inWeeks.replace('{{count}}', String(weeks));
+    }
+
+    // Days (14+ days but less than 2 weeks - shouldn't happen but fallback)
+    return translations.inDays.replace('{{count}}', String(daysDiff));
+  }
+
+  // Past dates
+  if (daysDiff < 0) {
+    // Years (365+ days ago)
+    if (years >= 1) {
+      if (years === 1) {
+        return translations.aYearAgo;
+      }
+      return translations.yearsAgo.replace('{{count}}', String(years));
+    }
+
+    // Months (30-364 days ago)
+    if (months >= 1) {
+      if (months === 1) {
+        return translations.aMonthAgo;
+      }
+      return translations.monthsAgo.replace('{{count}}', String(months));
+    }
+
+    // Weeks (14-29 days ago)
+    if (weeks >= 2) {
+      return translations.weeksAgo.replace('{{count}}', String(weeks));
+    }
+
+    // Days (14+ days ago but less than 2 weeks - shouldn't happen but fallback)
+    return translations.daysAgo.replace('{{count}}', String(absDaysDiff));
+  }
+
+  // Fallback to formatted date
+  return date.toLocaleDateString(language, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+}
+
+/**
  * Format a date for display, showing relative dates like "today" or "tomorrow"
  * with the time included (e.g., "hoy 14:30:00", "mañana 09:15:00")
  * @param date - The date to format
@@ -113,15 +314,11 @@ export function formatRelativeDateWithTime(
   tomorrowText: string
 ): string {
   const today = new Date();
-  const isToday = date.getDate() === today.getDate() &&
-                  date.getMonth() === today.getMonth() &&
-                  date.getFullYear() === today.getFullYear();
+  const isToday = isSameDay(date, today);
 
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const isTomorrow = date.getDate() === tomorrow.getDate() &&
-                     date.getMonth() === tomorrow.getMonth() &&
-                     date.getFullYear() === tomorrow.getFullYear();
+  const isTomorrow = isSameDay(date, tomorrow);
 
   // Format time as HH:mm:ss
   const timeStr = date.toLocaleTimeString(undefined, {
@@ -141,4 +338,34 @@ export function formatRelativeDateWithTime(
   });
 
   return `${dateStr} ${timeStr}`;
+}
+
+/**
+ * Format a date for display with enhanced relative dates and optional time
+ * Supports: today, tomorrow, yesterday, this/next/last weekday, in X days, X days ago
+ * @param date - The date to format
+ * @param language - The language code ('es' or 'en')
+ * @param translations - Translation strings for relative dates
+ * @param includeTime - Whether to include time in the output
+ * @returns Formatted date string
+ */
+export function formatRelativeDateEnhanced(
+  date: Date,
+  language: string,
+  translations: RelativeDateTranslations,
+  includeTime: boolean = false
+): string {
+  const relativeStr = formatRelativeDate(date, language, translations);
+
+  if (!includeTime) {
+    return relativeStr;
+  }
+
+  // Format time as HH:mm
+  const timeStr = date.toLocaleTimeString(language, {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  return `${relativeStr} ${timeStr}`;
 }
