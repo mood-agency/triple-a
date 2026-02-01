@@ -274,21 +274,31 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   // Fixed Note State
   const fixedNoteId = settings.fixedNoteId;
   const setFixedNoteId = (value: string | null) => updateSettings({ fixedNoteId: value });
+  const [closingNote, setClosingNote] = useState<Note | null>(null);
 
   const fixedNote = useMemo(() => {
     if (!fixedNoteId) return null;
     return notes.find(n => n.id === fixedNoteId) ?? null;
   }, [notes, fixedNoteId]);
 
+  // Use closingNote during animation, otherwise use fixedNote
+  const displayedNote = sidebarClosing ? closingNote : fixedNote;
+
   const handleToggleFixInSidebarById = useCallback((noteId: string) => {
     if (fixedNoteId === noteId) {
+      // Save the current note for display during closing animation
+      const noteToClose = notes.find(n => n.id === noteId) ?? null;
+      setClosingNote(noteToClose);
+      // Clear fixedNoteId immediately so the button unhighlights right away
+      setFixedNoteId(null);
       closeSidebar();
     } else {
+      setClosingNote(null);
       setFixedNoteId(noteId);
       setShowSidebar(true);
       setSidebarClosing(false);
     }
-  }, [fixedNoteId, setFixedNoteId, setShowSidebar, closeSidebar]);
+  }, [fixedNoteId, setFixedNoteId, setShowSidebar, closeSidebar, notes]);
 
   // History (versions and actions) - always use selectedNote to show history for the note being edited
   const { versions, actions, deleteAction, updateReason, reload: reloadHistory } = useNoteVersionsAndActions(selectedNote?.id ?? null);
@@ -914,26 +924,25 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
           </div>
         )}
 
-        {/* Fixed sidebar */}
+        {/* Fixed sidebar - wrapper for layout space, inner panel slides with transform */}
         {!isMobile && (
           <div
             onTransitionEnd={(e) => {
-              if (e.target === e.currentTarget && e.propertyName === 'max-width' && sidebarClosing) {
+              if (e.target === e.currentTarget && e.propertyName === 'width' && sidebarClosing) {
                 setSidebarClosing(false);
-                setFixedNoteId(null);
                 setShowSidebar(false);
+                setClosingNote(null);
               }
             }}
-            className={`min-w-0 ml-auto overflow-hidden flex flex-col transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-              showSidebar && !sidebarClosing
-                ? 'flex-1 max-w-[35%] py-4 pl-4 pr-8 -mr-8 -my-4 opacity-100 rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30'
-                : 'max-w-0 p-0 mr-0 opacity-0'
+            className={`ml-auto overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] -my-4 ${
+              showSidebar && !sidebarClosing ? 'w-[calc(35%+2rem)]' : 'w-0'
             }`}
           >
-            {showSidebar && (fixedNote ? (
+            <div className="w-[calc(35vw+2rem)] min-w-[400px] h-full flex flex-col p-4 py-4 pr-8 rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30 overflow-y-auto">
+            {showSidebar && (displayedNote ? (
               <NoteEditorPanel
                 ref={fixedNoteDescriptionRef}
-                note={fixedNote}
+                note={displayedNote}
                 noteLabels={fixedNoteLabels}
                 allLabels={labels}
                 descriptionValue={fixedNoteDescriptionValue}
@@ -972,7 +981,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                 onUpdateHistoryReason={updateFixedNoteReason}
                 onDeleteHistoryEntry={(id) => setFixedNoteHistoryEntryToDelete(id)}
                 onSetEditingHistoryEntry={setEditingFixedNoteHistoryEntry}
-                onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !fixedNote.completed)}
+                onToggleComplete={(id) => operations.handleToggleCompletedWithNavigation(id, !displayedNote?.completed)}
                 onClose={closeSidebar}
                 autoSaveInterval={settings.autoSaveInterval}
                 onTogglePublic={onTogglePublic}
@@ -984,6 +993,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
             ) : (
               <p className="text-sm text-muted-foreground/50 italic">{t('selectNoteToEdit')}</p>
             ))}
+            </div>
           </div>
         )}
       </div>
