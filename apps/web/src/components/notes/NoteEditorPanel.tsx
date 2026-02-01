@@ -583,43 +583,59 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
         {note.created_at && (
           <>
             <span>{t('createdOnDate')}</span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-              }}
-              className="font-medium text-foreground cursor-default"
-            >
-              {formatRelativeDateEnhanced(
-                new Date(note.created_at),
-                i18n.language,
-                {
-                  today: t('date.today'),
-                  tomorrow: t('date.tomorrow'),
-                  yesterday: t('date.yesterday'),
-                  inDays: t('date.inDays'),
-                  daysAgo: t('date.daysAgo'),
-                  inAWeek: t('date.inAWeek'),
-                  aWeekAgo: t('date.aWeekAgo'),
-                  inWeeks: t('date.inWeeks'),
-                  weeksAgo: t('date.weeksAgo'),
-                  nextWeek: t('date.nextWeek'),
-                  lastWeek: t('date.lastWeek'),
-                  thisWeekday: t('date.thisWeekday'),
-                  nextWeekday: t('date.nextWeekday'),
-                  lastWeekday: t('date.lastWeekday'),
-                  inAMonth: t('date.inAMonth'),
-                  aMonthAgo: t('date.aMonthAgo'),
-                  inMonths: t('date.inMonths'),
-                  monthsAgo: t('date.monthsAgo'),
-                  inAYear: t('date.inAYear'),
-                  aYearAgo: t('date.aYearAgo'),
-                  inYears: t('date.inYears'),
-                  yearsAgo: t('date.yearsAgo'),
-                },
-                true
-              )}
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
+                  className="font-medium text-foreground cursor-default"
+                >
+                  {formatRelativeDateEnhanced(
+                    new Date(note.created_at),
+                    i18n.language,
+                    {
+                      today: t('date.today'),
+                      tomorrow: t('date.tomorrow'),
+                      yesterday: t('date.yesterday'),
+                      inDays: t('date.inDays'),
+                      daysAgo: t('date.daysAgo'),
+                      inAWeek: t('date.inAWeek'),
+                      aWeekAgo: t('date.aWeekAgo'),
+                      inWeeks: t('date.inWeeks'),
+                      weeksAgo: t('date.weeksAgo'),
+                      nextWeek: t('date.nextWeek'),
+                      lastWeek: t('date.lastWeek'),
+                      thisWeekday: t('date.thisWeekday'),
+                      nextWeekday: t('date.nextWeekday'),
+                      lastWeekday: t('date.lastWeekday'),
+                      inAMonth: t('date.inAMonth'),
+                      aMonthAgo: t('date.aMonthAgo'),
+                      inMonths: t('date.inMonths'),
+                      monthsAgo: t('date.monthsAgo'),
+                      inAYear: t('date.inAYear'),
+                      aYearAgo: t('date.aYearAgo'),
+                      inYears: t('date.inYears'),
+                      yearsAgo: t('date.yearsAgo'),
+                    },
+                    true
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>
+                  {new Date(note.created_at).toLocaleDateString(i18n.language, {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+              </TooltipContent>
+            </Tooltip>
           </>
         )}
       </div>

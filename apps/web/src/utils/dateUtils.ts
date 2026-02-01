@@ -225,9 +225,9 @@ export function formatRelativeDate(
     return translations.nextWeek;
   }
 
-  // 8-13 days ago (last week)
+  // 8-13 days ago - show days count for accuracy
   if (daysDiff < -7 && daysDiff >= -13) {
-    return translations.lastWeek;
+    return translations.daysAgo.replace('{{count}}', String(Math.abs(daysDiff)));
   }
 
   // Calculate weeks, months, years difference
