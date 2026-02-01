@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef, useCallback } from 'react';
+import { useMemo, useEffect, useRef, useCallback, useState } from 'react';
 import { useCreateBlockNote } from '@blocknote/react';
 import { BlockNoteSchema, defaultBlockSpecs } from '@blocknote/core';
 import { BlockNoteView } from '@blocknote/shadcn';
@@ -22,6 +22,8 @@ interface BlockNoteNoteListProps {
   onTogglePin?: (noteId: string) => void;
   onToggleFixInSidebar?: (noteId: string) => void;
   onSaveSuccess?: (savedCount: number) => void;
+  compactView?: boolean;
+  fixedNoteId?: string | null;
 }
 
 export const BlockNoteNoteList = ({
@@ -36,7 +38,9 @@ export const BlockNoteNoteList = ({
   onEdit,
   onTogglePin,
   onToggleFixInSidebar,
-  onSaveSuccess
+  onSaveSuccess,
+  compactView = false,
+  fixedNoteId = null
 }: BlockNoteNoteListProps) => {
   // Create schema with notepad block
   const schema = useMemo(
@@ -69,8 +73,8 @@ export const BlockNoteNoteList = ({
 
   // Convert notes to blocks using adapter
   const initialContent = useMemo(
-    () => notesToBlocks(notes, labelDataCache, assigneeDataCache),
-    [notes, labelDataCache, assigneeDataCache]
+    () => notesToBlocks(notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId),
+    [notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId]
   );
 
   // Create editor
@@ -92,22 +96,20 @@ export const BlockNoteNoteList = ({
   // Flag to prevent saves during programmatic updates
   const isSyncingRef = useRef(false);
 
+  // Flag to prevent sync when deleting blocks
+  const isDeletingRef = useRef(false);
+
+  // Track if we're syncing filter changes to hide content during transition
+  const [isSyncingFilter, setIsSyncingFilter] = useState(false);
+
   // Function to flush pending saves immediately
   const flushPendingSaves = useCallback(() => {
-    console.log('[BlockNote] flushPendingSaves called', {
-      pendingChanges: pendingChangesRef.current,
-      hasOnEdit: !!onEdit
-    });
-
     if (!pendingChangesRef.current || !onEdit) {
-      console.log('[BlockNote] Skipping save - no pending changes or no onEdit');
       return;
     }
 
     const blocks = editor.document;
     let savedCount = 0;
-
-    console.log('[BlockNote] Checking blocks for changes:', blocks.length);
 
     // Save each block that has changed
     blocks.forEach((block) => {
@@ -115,24 +117,13 @@ export const BlockNoteNoteList = ({
         const content = getBlockContent(block);
         const note = notes.find(n => n.id === block.id);
 
-        console.log('[BlockNote] Block check:', {
-          blockId: block.id,
-          blockContent: content,
-          noteFound: !!note,
-          noteContent: note?.content,
-          contentChanged: note ? content !== note.content : 'N/A'
-        });
-
         // Only save if content has changed
         if (note && content !== note.content) {
-          console.log('[BlockNote] Saving block:', block.id);
           onEdit(block.id, content, note.category, note.description);
           savedCount++;
         }
       }
     });
-
-    console.log('[BlockNote] Save complete, savedCount:', savedCount);
 
     // Notify parent component of successful save (parent handles toast/UI feedback)
     if (savedCount > 0 && onSaveSuccess) {
@@ -152,13 +143,7 @@ export const BlockNoteNoteList = ({
   useEffect(() => {
     const unsubscribe = editor.onChange(() => {
       if (!isSyncingRef.current) {
-        console.log('[BlockNote] onChange - marking as dirty', {
-          documentLength: editor.document.length,
-          blocks: editor.document.map(b => ({ id: b.id, type: b.type }))
-        });
         pendingChangesRef.current = true;
-      } else {
-        console.log('[BlockNote] onChange - ignored (syncing)');
       }
     });
 
@@ -188,17 +173,54 @@ export const BlockNoteNoteList = ({
     return () => unsubscribe();
   }, [editor, onSelectNote]);
 
+  // Update all blocks when compact view changes
+  useEffect(() => {
+    isSyncingRef.current = true;
+
+    editor.document.forEach(block => {
+      if (block.type === 'notepad') {
+        editor.updateBlock(block, {
+          props: { ...block.props, compact: compactView }
+        } as any);
+      }
+    });
+
+    setTimeout(() => {
+      isSyncingRef.current = false;
+    }, 100);
+  }, [editor, compactView]);
+
+  // Update all blocks when fixed note changes or notes are loaded
+  useEffect(() => {
+    // Wait a tick to ensure editor is fully initialized
+    const timer = setTimeout(() => {
+      isSyncingRef.current = true;
+
+      editor.document.forEach(block => {
+        if (block.type === 'notepad') {
+          const shouldBeFixed = block.id === fixedNoteId;
+          const currentlyFixed = block.props.fixedInSidebar;
+
+          // Only update if the state needs to change
+          if (shouldBeFixed !== currentlyFixed) {
+            editor.updateBlock(block, {
+              props: { ...block.props, fixedInSidebar: shouldBeFixed }
+            } as any);
+          }
+        }
+      });
+
+      isSyncingRef.current = false;
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [editor, fixedNoteId, notes.length]);
+
   // Sync notes changes (for filtering) - only when the VIEW changes due to filtering
   // Don't sync when notes are added/edited (BlockNote handles this internally)
   useEffect(() => {
     // Create a sorted string of note IDs to detect changes
     const currentNoteIds = notes.map(n => n.id).sort().join(',');
-
-    console.log('[BlockNote] Notes effect - checking sync', {
-      previousIds: previousNoteIdsRef.current,
-      currentIds: currentNoteIds,
-      changed: previousNoteIdsRef.current !== currentNoteIds
-    });
 
     // Only update if the set of note IDs actually changed
     if (previousNoteIdsRef.current !== currentNoteIds) {
@@ -214,14 +236,14 @@ export const BlockNoteNoteList = ({
       // Also sync if this is initial load (no previous IDs) and we have notes
       const isInitialLoad = previousIds.size === 0 && notes.length > 0;
 
-      console.log('[BlockNote] Sync decision:', {
-        notesWereFiltered,
-        isInitialLoad,
-        willSync: notesWereFiltered || isInitialLoad
-      });
+      // Only sync on actual filtering (notes removed from view), not on note creation or deletion
+      // Skip sync if we're in the middle of a delete operation (editor already handled it)
+      if ((notesWereFiltered || isInitialLoad) && !isDeletingRef.current) {
+        // Hide content immediately to prevent flash of unfiltered content
+        if (notesWereFiltered) {
+          setIsSyncingFilter(true);
+        }
 
-      // Only sync on actual filtering (notes removed from view), not on note creation
-      if (notesWereFiltered || isInitialLoad) {
         // Use setTimeout to avoid flushSync issues during React render
         setTimeout(() => {
           // Set syncing flag to prevent onChange from triggering saves
@@ -232,10 +254,11 @@ export const BlockNoteNoteList = ({
           const blocksToReplace = editor.document.map(b => b.id);
           editor.replaceBlocks(blocksToReplace, newContent as any);
 
-          // Reset syncing flag after BlockNote settles
+          // Reset syncing flag and show content after BlockNote settles
           setTimeout(() => {
             isSyncingRef.current = false;
-          }, 100);
+            setIsSyncingFilter(false);
+          }, 50);
         }, 0);
       }
     }
@@ -310,16 +333,10 @@ export const BlockNoteNoteList = ({
     const handleClickOutside = (e: MouseEvent) => {
       const editorElement = document.querySelector('.blocknote-note-list');
       const isOutside = editorElement && !editorElement.contains(e.target as Node);
-      console.log('[BlockNote] Click detected', {
-        isOutside,
-        target: (e.target as HTMLElement)?.tagName,
-        pendingChanges: pendingChangesRef.current
-      });
 
       if (isOutside) {
         // Small delay to let any pending BlockNote operations complete
         setTimeout(() => {
-          console.log('[BlockNote] Triggering save from click outside');
           flushPendingSavesRef.current();
         }, 50);
       }
@@ -327,7 +344,6 @@ export const BlockNoteNoteList = ({
 
     // Also save on blur from the window (e.g., switching tabs)
     const handleWindowBlur = () => {
-      console.log('[BlockNote] Window blur - triggering save');
       flushPendingSavesRef.current();
     };
 
@@ -388,6 +404,9 @@ export const BlockNoteNoteList = ({
     const handleDelete = (e: Event) => {
       const customEvent = e as CustomEvent<{ noteId: string; reason: string }>;
 
+      // Set flag to prevent sync from replacing blocks during delete
+      isDeletingRef.current = true;
+
       // Clear pending saves to avoid showing "saved" toast when deleting
       pendingChangesRef.current = false;
 
@@ -397,6 +416,11 @@ export const BlockNoteNoteList = ({
           onDelete(note, customEvent.detail.reason);
         }
       }
+
+      // Reset flag after delete is processed (allow next render cycle to complete)
+      setTimeout(() => {
+        isDeletingRef.current = false;
+      }, 200);
     };
 
     window.addEventListener('notepad:delete', handleDelete);
@@ -411,7 +435,6 @@ export const BlockNoteNoteList = ({
       const customEvent = e as CustomEvent<{ afterNoteId: string; newNoteId?: string }>;
       if (onCreateNoteAfter) {
         // Save current content before creating new note
-        console.log('[BlockNote] Enter pressed - saving before create');
         flushPendingSavesRef.current();
 
         const afterNote = notes.find(n => n.id === customEvent.detail.afterNoteId);
@@ -492,7 +515,7 @@ export const BlockNoteNoteList = ({
   }, [onToggleFixInSidebar]);
 
   return (
-    <div className="blocknote-note-list">
+    <div className={`blocknote-note-list ${isSyncingFilter ? 'blocknote-syncing' : ''}`}>
       <BlockNoteView
         editor={editor}
         theme="light"

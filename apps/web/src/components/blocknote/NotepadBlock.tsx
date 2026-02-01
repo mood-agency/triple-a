@@ -5,6 +5,7 @@ import { useBlockCommands } from "./hooks/useBlockCommands";
 import { Pickaxe, Users, Forward, StickyNote, Pin, SidebarClose, Trash2 } from "lucide-react";
 import { parseLocalDate } from "@/utils/dateUtils";
 import i18n from "@/i18n";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import "./NotepadBlock.css";
 
 const CATEGORIES = ["todo", "meeting", "followup", "notes"] as const;
@@ -28,6 +29,8 @@ export const NotepadBlock = createReactBlockSpec(
             labels: { default: [] as Array<{ name: string; color: string }> },
             assignees: { default: [] as string[] },
             pinned: { default: false },
+            compact: { default: false },
+            fixedInSidebar: { default: false },
         },
         content: "inline",
     },
@@ -123,6 +126,8 @@ export const NotepadBlock = createReactBlockSpec(
             const isChecked = props.block.props.isChecked as boolean;
             const dateStr = props.block.props.date as string;
             const isPinned = props.block.props.pinned as boolean;
+            const isCompact = props.block.props.compact as boolean;
+            const isFixedInSidebar = props.block.props.fixedInSidebar as boolean;
 
             const cycleCategory = (e: React.MouseEvent) => {
                 e.preventDefault();
@@ -206,52 +211,74 @@ export const NotepadBlock = createReactBlockSpec(
             const isPastDeadline = dateStr ? parseLocalDate(dateStr) < new Date() : false;
             const shouldShowRed = isPastDeadline && !isChecked && category !== 'meeting';
 
+            // Only show checkbox for todo and followup categories
+            const allowsCheckbox = category === 'todo' || category === 'followup';
+
             return (
                 <div className="notepad-line group" style={{ display: "flex", alignItems: "center", width: "100%", userSelect: "none", outline: "none", boxShadow: "none" }}>
-                    <div contentEditable={false} className="relative flex items-center justify-center w-6 h-6 mr-2 flex-shrink-0 cursor-pointer">
-                        {/* Category Icon (Visible by default) */}
-                        <div
-                            className="category-icon group-hover:opacity-0 transition-opacity duration-200"
-                            onClick={cycleCategory}
-                        >
-                            <CategoryIcon size={18} className="text-gray-500" />
-                        </div>
+                    {!isCompact && (
+                        <div contentEditable={false} className="relative flex items-center justify-center w-6 h-4 mr-2 flex-shrink-0 cursor-pointer">
+                            {/* Category Icon (Visible by default, fades on hover only if checkbox is allowed) */}
+                            <div
+                                className={`category-icon transition-opacity duration-200 ${allowsCheckbox ? 'group-hover:opacity-0' : ''}`}
+                                onClick={cycleCategory}
+                            >
+                                <CategoryIcon size={16} className="text-gray-500" />
+                            </div>
 
-                        {/* Checkbox (Visible on hover) */}
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            <input
-                                type="checkbox"
-                                className="cursor-pointer w-4 h-4"
-                                checked={isChecked}
-                                onChange={handleToggleCompleted}
-                            />
+                            {/* Checkbox (Visible on hover only for todo and followup) */}
+                            {allowsCheckbox && (
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                    <input
+                                        type="checkbox"
+                                        className="cursor-pointer w-3 h-3"
+                                        checked={isChecked}
+                                        onChange={handleToggleCompleted}
+                                    />
+                                </div>
+                            )}
                         </div>
-                    </div>
+                    )}
 
                     <div
                         ref={combinedRef}
                         className={`notepad-content text-black dark:text-black ${props.block.props.isChecked ? 'is-checked' : ''} ${isEditing ? 'is-editing' : ''}`}
-                        style={{ outline: "none", userSelect: "text" }}
+                        style={{
+                            outline: "none",
+                            userSelect: "text",
+                            ...(isCompact && { flex: "1 1 0", minWidth: 0, maxWidth: "none" })
+                        }}
                     />
 
-                    <div contentEditable={false} className="flex gap-1 mx-2 flex-shrink-0">
-                        {(props.block.props.labels as Array<{ name: string; color: string }>)?.map((label, i: number) => (
-                            <span
-                                key={i}
-                                className="chip-label"
-                                style={{ backgroundColor: label.color }}
-                            >
-                                {label.name}
-                            </span>
-                        ))}
-                        {(props.block.props.assignees as string[])?.map((assignee: string, i: number) => (
-                            <span key={i} className="chip-assignee">
-                                {assignee}
-                            </span>
-                        ))}
-                    </div>
+                    {!isCompact && (
+                        <div contentEditable={false} className="flex gap-1 mx-2 flex-shrink-0">
+                            {(props.block.props.labels as Array<{ name: string; color: string }>)?.map((label, i: number) => (
+                                <span
+                                    key={i}
+                                    className="chip-label"
+                                    style={{ backgroundColor: label.color }}
+                                >
+                                    {label.name}
+                                </span>
+                            ))}
+                            <TooltipProvider delayDuration={300}>
+                                {(props.block.props.assignees as string[])?.map((assignee: string, i: number) => (
+                                    <Tooltip key={i}>
+                                        <TooltipTrigger asChild>
+                                            <span className="chip-assignee">
+                                                {assignee}
+                                            </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>{assignee}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                ))}
+                            </TooltipProvider>
+                        </div>
+                    )}
 
-                    {dateStr && (
+                    {!isCompact && dateStr && (
                         <div
                             contentEditable={false}
                             className={`flex-shrink-0 text-[10px] whitespace-nowrap ${
@@ -282,19 +309,27 @@ export const NotepadBlock = createReactBlockSpec(
                         <Pin size={14} className={isPinned ? "text-black" : "text-gray-600"} />
                     </button>
 
+                    {/* Sidebar icon - always visible when fixed, hover otherwise */}
+                    <button
+                        contentEditable={false}
+                        onClick={handleToggleFixInSidebar}
+                        className={`p-1 hover:bg-gray-200 rounded transition-all flex-shrink-0 ${
+                            isFixedInSidebar
+                                ? 'opacity-100'
+                                : 'opacity-0 group-hover:opacity-100'
+                        }`}
+                        style={{ userSelect: "none" }}
+                        title={isFixedInSidebar ? "Unfix from sidebar" : "Fix to sidebar"}
+                    >
+                        <SidebarClose size={14} className={isFixedInSidebar ? "text-blue-600" : "text-gray-600"} />
+                    </button>
+
                     {/* Other action icons - visible on hover */}
                     <div
                         contentEditable={false}
                         className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                         style={{ userSelect: "none" }}
                     >
-                        <button
-                            onClick={handleToggleFixInSidebar}
-                            className="p-1 hover:bg-gray-200 rounded transition-colors"
-                            title="Fix to sidebar"
-                        >
-                            <SidebarClose size={14} className="text-gray-600" />
-                        </button>
                         <button
                             onClick={handleDelete}
                             className="p-1 hover:bg-red-100 rounded transition-colors"
