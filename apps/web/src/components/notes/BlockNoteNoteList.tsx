@@ -3,7 +3,7 @@ import { useCreateBlockNote } from '@blocknote/react';
 import { BlockNoteSchema, defaultBlockSpecs } from '@blocknote/core';
 import { BlockNoteView } from '@blocknote/shadcn';
 import '@blocknote/shadcn/style.css';
-import './BlockNoteNoteList.css';
+import { animate } from 'motion';
 import { NotepadBlock } from '@/components/blocknote/NotepadBlock';
 import { notesToBlocks, getBlockContent } from '@/utils/noteBlockAdapter';
 import { getInitials } from '@/lib/utils';
@@ -106,8 +106,11 @@ export const BlockNoteNoteList = ({
   // Track if we're syncing filter changes to hide content during transition
   const [isSyncingFilter, setIsSyncingFilter] = useState(false);
 
-  // Track if we should show the stagger animation (only on initial load)
-  const [shouldAnimate, setShouldAnimate] = useState(true);
+  // Ref for the container element for animations
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Track previous note IDs for animation triggers
+  const prevNoteIdsForAnimationRef = useRef<string>('');
 
   // Function to flush pending saves immediately
   const flushPendingSaves = useCallback(() => {
@@ -166,16 +169,44 @@ export const BlockNoteNoteList = ({
     };
   }, []);
 
-  // Disable stagger animation after initial load to prevent re-animation on content changes
+  // Trigger stagger animation when the list changes (filters, search, etc.)
   useEffect(() => {
-    if (shouldAnimate && notes.length > 0) {
-      // Wait for animation to complete (max 600ms delay + 300ms duration)
-      const timer = setTimeout(() => {
-        setShouldAnimate(false);
-      }, 1000);
-      return () => clearTimeout(timer);
+    const currentNoteIds = notes.map(n => n.id).join(',');
+
+    // Check if the list has changed
+    if (prevNoteIdsForAnimationRef.current !== currentNoteIds) {
+      prevNoteIdsForAnimationRef.current = currentNoteIds;
+
+      // Trigger stagger animation with motion
+      if (notes.length > 0 && containerRef.current) {
+        // Use setTimeout to ensure BlockNote has rendered the blocks
+        setTimeout(() => {
+          const blocks = containerRef.current?.querySelectorAll('.bn-block-outer');
+
+          if (blocks && blocks.length > 0) {
+            // Animate each block individually with stagger delay
+            blocks.forEach((block, index) => {
+              const el = block as HTMLElement;
+              // Set initial state
+              el.style.opacity = '0';
+              el.style.transform = 'translateY(12px)';
+
+              // Animate with motion (using any to bypass TypeScript issue with motion types)
+              (animate as any)(
+                el,
+                { opacity: 1, transform: 'translateY(0px)' },
+                {
+                  duration: 0.3,
+                  delay: index * 0.04,
+                  easing: 'ease-out'
+                }
+              );
+            });
+          }
+        }, 50);
+      }
     }
-  }, [shouldAnimate, notes.length]);
+  }, [notes]);
 
   // Listen to BlockNote selection changes and sync to parent
   useEffect(() => {
@@ -551,7 +582,8 @@ export const BlockNoteNoteList = ({
 
   return (
     <div
-      className={`blocknote-note-list ${isSyncingFilter ? 'blocknote-syncing' : ''} ${compactView ? 'compact-view' : ''} ${shouldAnimate ? 'animate-stagger' : ''}`}
+      ref={containerRef}
+      className={`blocknote-note-list ${isSyncingFilter ? 'blocknote-syncing' : ''} ${compactView ? 'compact-view' : ''}`}
       onFocus={(e) => {
         if (DEBUG_BLOCKNOTE) console.log('[DOM] Editor wrapper gained focus', e.target);
       }}
