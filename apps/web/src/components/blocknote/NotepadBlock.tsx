@@ -191,6 +191,7 @@ export const NotepadBlock = (createReactBlockSpec as any)(
             const isPinned = props.block.props.pinned as boolean;
             const isFixedInSidebar = props.block.props.fixedInSidebar as boolean;
             const hideDate = props.block.props.hideDate as boolean;
+            const isCompact = props.block.props.compact as boolean;
 
             const cycleCategory = (e: React.MouseEvent) => {
                 e.preventDefault();
@@ -284,14 +285,17 @@ export const NotepadBlock = (createReactBlockSpec as any)(
 
                 const relativeStr = formatRelativeDateEnhanced(date, i18n.language, translations, false);
 
-                // Always show time for today/tomorrow/yesterday
+                // Show time when referring to a specific day (within ±7 days) and it's not an all-day task
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 const targetDate = new Date(date);
                 targetDate.setHours(0, 0, 0, 0);
                 const daysDiff = Math.round((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-                if (Math.abs(daysDiff) <= 1) {
+                // Check if it's not an all-day task (not midnight)
+                const isAllDay = date.getHours() === 0 && date.getMinutes() === 0;
+
+                if (Math.abs(daysDiff) <= 7 && !isAllDay) {
                     const timeStr = date.toLocaleTimeString(i18n.language, {
                         hour: '2-digit',
                         minute: '2-digit'
@@ -370,21 +374,17 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                         )}
                     </div>
 
-                    {dateStr && !hideDate && category !== 'notes' && (
+                    {dateStr && !hideDate && !isCompact && category !== 'notes' && (
                         <TooltipProvider delayDuration={300}>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <div
+                                    <span
                                         contentEditable={false}
-                                        className={`notepad-deadline flex-shrink-0 text-[10px] whitespace-nowrap cursor-default ${shouldShowRed ? 'text-red-500 font-medium' : 'text-muted-foreground'
-                                            }`}
-                                        style={{
-                                            marginLeft: "8px",
-                                            userSelect: "none",
-                                        }}
+                                        className={`chip-deadline cursor-default ${shouldShowRed ? 'chip-deadline-overdue' : ''}`}
+                                        style={{ userSelect: "none" }}
                                     >
                                         {formatDeadline(dateStr)}
-                                    </div>
+                                    </span>
                                 </TooltipTrigger>
                                 <TooltipContent>
                                     <p>{formatHumanFriendlyDate(dateStr)}</p>
@@ -394,66 +394,72 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                     )}
 
                     <TooltipProvider delayDuration={300}>
-                        {/* Pin icon - always visible when pinned, hover otherwise */}
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <button
-                                    contentEditable={false}
-                                    onClick={handleTogglePin}
-                                    className={`p-1 hover:bg-gray-200 rounded transition-all ml-auto flex-shrink-0 ${isPinned
-                                        ? 'opacity-100'
-                                        : 'opacity-0 group-hover:opacity-100'
-                                        }`}
-                                    style={{ userSelect: "none" }}
-                                >
-                                    <Pin size={14} className={isPinned ? "text-black" : "text-gray-600"} />
-                                </button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{isPinned ? "Unpin task" : "Pin task"}</p>
-                            </TooltipContent>
-                        </Tooltip>
-
-                        {/* Sidebar icon - always visible when fixed, hover otherwise */}
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <button
-                                    contentEditable={false}
-                                    onClick={handleToggleFixInSidebar}
-                                    className={`p-1 hover:bg-gray-200 rounded transition-all flex-shrink-0 ${isFixedInSidebar
-                                        ? 'opacity-100'
-                                        : 'opacity-0 group-hover:opacity-100'
-                                        }`}
-                                    style={{ userSelect: "none" }}
-                                >
-                                    <SidebarClose size={14} className={isFixedInSidebar ? "text-blue-600" : "text-gray-600"} />
-                                </button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{isFixedInSidebar ? "Unfix from sidebar" : "Fix to sidebar"}</p>
-                            </TooltipContent>
-                        </Tooltip>
-
-                        {/* Other action icons - visible on hover */}
-                        <div
-                            contentEditable={false}
-                            className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                            style={{ userSelect: "none" }}
-                        >
+                        {/* Pin icon - only render if pinned in compact mode, otherwise show on hover */}
+                        {(!isCompact || isPinned) && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <button
-                                        onClick={handleDelete}
-                                        className="p-1 hover:bg-red-100 rounded transition-colors"
+                                        contentEditable={false}
+                                        onClick={handleTogglePin}
+                                        className={`p-1 hover:bg-gray-200 rounded transition-all ml-auto flex-shrink-0 ${isPinned
+                                            ? 'opacity-100'
+                                            : 'opacity-0 group-hover:opacity-100'
+                                            }`}
+                                        style={{ userSelect: "none" }}
                                     >
-                                        <Trash2 size={14} className="text-red-600" />
+                                        <Pin size={14} className={isPinned ? "text-black" : "text-gray-600"} />
                                     </button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    <p>Delete</p>
+                                    <p>{isPinned ? "Unpin task" : "Pin task"}</p>
                                 </TooltipContent>
                             </Tooltip>
-                        </div>
+                        )}
+
+                        {/* Sidebar icon - only render if fixed in compact mode, otherwise show on hover */}
+                        {(!isCompact || isFixedInSidebar) && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button
+                                        contentEditable={false}
+                                        onClick={handleToggleFixInSidebar}
+                                        className={`p-1 hover:bg-gray-200 rounded transition-all flex-shrink-0 ${isFixedInSidebar
+                                            ? 'opacity-100'
+                                            : 'opacity-0 group-hover:opacity-100'
+                                            }`}
+                                        style={{ userSelect: "none" }}
+                                    >
+                                        <SidebarClose size={14} className={isFixedInSidebar ? "text-blue-600" : "text-gray-600"} />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{isFixedInSidebar ? "Unfix from sidebar" : "Fix to sidebar"}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        )}
+
+                        {/* Other action icons - hidden in compact mode */}
+                        {!isCompact && (
+                            <div
+                                contentEditable={false}
+                                className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                                style={{ userSelect: "none" }}
+                            >
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            onClick={handleDelete}
+                                            className="p-1 hover:bg-red-100 rounded transition-colors"
+                                        >
+                                            <Trash2 size={14} className="text-red-600" />
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Delete</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
+                        )}
                     </TooltipProvider>
                 </div>
             );
