@@ -3,8 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import type { NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
-import { UndoRedoIndicator } from './UndoRedoIndicator';
-import { useFilterCommandsContext } from './FilterCommandsContext';
+
 
 interface ActiveFiltersBarProps {
   categoryFilter: NoteCategory | 'all';
@@ -46,7 +45,6 @@ export function ActiveFiltersBar({
   onClearAll,
 }: ActiveFiltersBarProps) {
   const { t } = useTranslation();
-  const { canUndo, canRedo, lastCommand, undo, redo } = useFilterCommandsContext();
 
   const trimmedSearch = searchQuery.trim();
   const hasSort = sortConfig.deadline !== null || sortConfig.assignee !== null || sortConfig.category !== null;
@@ -72,19 +70,8 @@ export function ActiveFiltersBar({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
       className="flex items-center gap-2 py-1.5 px-3 flex-wrap mr-auto mb-2 rounded-lg border border-muted-foreground/30 bg-muted/50"
     >
-      <UndoRedoIndicator
-        canUndo={canUndo}
-        canRedo={canRedo}
-        lastCommand={lastCommand}
-        onUndo={undo}
-        onRedo={redo}
-      />
 
       <span className="text-xs text-muted-foreground font-medium">
         {t('activeFilters')}:

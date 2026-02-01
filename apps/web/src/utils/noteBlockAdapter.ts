@@ -18,7 +18,7 @@ export interface AssigneeData {
 export interface NotepadBlockProps {
   isChecked: boolean;
   category: string;
-  date: string;
+  date: string | null;
   labels: LabelData[];
   assignees: AssigneeData[];
   pinned: boolean;
@@ -62,7 +62,7 @@ export function noteToBlock(
     props: {
       isChecked: note.completed,
       category: note.category,
-      date: note.deadline || note.date,
+      date: note.deadline,
       labels,
       assignees,
       pinned: note.pinned,

@@ -7,7 +7,7 @@ import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { EMPTY_LABELS } from '@/constants/notes';
 import { CalendarView } from './CalendarView';
-import { TimelineView } from './TimelineView';
+import { TimelineBlockNoteList } from './TimelineBlockNoteList';
 import { MemoizedNoteRow } from './NoteRow';
 import { BlockNoteNoteList } from './BlockNoteNoteList';
 import { NoteListEmptyState } from './NoteListEmptyState';
@@ -114,8 +114,8 @@ export const NoteListContent = memo(function NoteListContent({
     calendarSelectedDate,
     setCalendarSelectedDate,
     calendarFilteredNotes,
-    calendarCompletedNotes,
-    calendarDeletedNotes,
+    calendarCompletedNotes: _calendarCompletedNotes,
+    calendarDeletedNotes: _calendarDeletedNotes,
     activeNotes,
     filteredNotes,
     completedNotes,
@@ -239,50 +239,30 @@ export const NoteListContent = memo(function NoteListContent({
                     </div>
                     {/* Timeline view for selected date - below calendar */}
                     {calendarSelectedDate ? (
-                        <TimelineView
+                        <TimelineBlockNoteList
                             notes={calendarFilteredNotes}
-                            completedNotes={calendarCompletedNotes}
-                            deletedNotes={calendarDeletedNotes}
-                            selectedDate={calendarSelectedDate}
-                            selectedNote={selectedNote}
-                            onSelectNote={handleSelectNoteById}
-                            onDeleteWithToast={handleDeleteWithToast}
-                            onToggleCompleted={handleToggleCompletedWithNavigation}
-                            onTogglePinned={onTogglePinned}
-                            onEdit={onEdit}
-                            onNavigateDown={handleNavigateDownById}
-                            onNavigateUp={handleNavigateUpById}
-                            onNavigateToDescription={handleNavigateToDescription}
-                            focusTarget={focusTarget}
-                            desiredColumn={desiredColumn}
-                            onTitleFocused={handleTitleFocused}
-                            onCreateNoteAfter={handleCreateNoteAfterById}
-                            onCreateTaskAtTime={handleCreateTaskAtTime}
-                            labels={labels}
                             noteLabelsCache={noteLabelsCache}
-                            onAddLabel={handleAddLabelToNote}
-                            onRemoveLabel={handleRemoveLabelFromNote}
-                            onCreateLabel={handleCreateLabelClick}
-                            onEditLabel={handleEditLabel}
-                            fixedNoteId={fixedNoteId}
-                            onToggleFixInSidebar={handleToggleFixInSidebarById}
-                            onContentChange={handleContentChange}
-                            assigneeNamesCache={assigneeNamesCache}
                             noteAssigneesCache={noteAssigneesCache}
-                            compactView={compactTaskView}
-                            isDescriptionFocused={isDescriptionFocused}
-                            contacts={contacts}
-                            onAddAssignee={onAddAssignee}
-                            onRemoveAssignee={onRemoveAssignee}
-                            onUpdateAssignee={onUpdateAssignee}
-                            taskStatusFilter={taskStatusFilter}
-                            onRestoreNote={(noteId) => {
-                                const note = calendarDeletedNotes.find(n => n.id === noteId);
-                                if (note) onRestore(note);
+                            onNavigateToDescription={handleNavigateToDescription}
+                            onSelectNote={handleSelectNoteById}
+                            onToggleCompleted={handleToggleCompletedWithNavigation}
+                            onDelete={handleDeleteWithToast}
+                            onCreateNoteAfter={onCreateNoteAfter}
+                            onCreateTaskAtTime={handleCreateTaskAtTime}
+                            onEdit={onEdit}
+                            onTogglePin={(noteId: string) => {
+                                const note = calendarFilteredNotes.find(n => n.id === noteId);
+                                if (note) onTogglePinned(noteId, !note.pinned);
                             }}
-                            hasActiveFilters={hasActiveFilters}
-                            renderNoResultsMessage={(completedCount) => <NoResultsMessage completedCount={completedCount} />}
-                            sortByCategory={false} // Assuming default false or passed prop
+                            onToggleFixInSidebar={handleToggleFixInSidebarById}
+                            onSaveSuccess={(savedCount: number) => {
+                                toast.success(t('toast.noteSaved', { count: savedCount }));
+                            }}
+                            compactView={compactTaskView}
+                            fixedNoteId={fixedNoteId}
+                            hideEmptyHours={true}
+                            startHour={8}
+                            endHour={20}
                         />
                     ) : (
                         <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
@@ -309,7 +289,6 @@ export const NoteListContent = memo(function NoteListContent({
                                         noteAssigneesCache={noteAssigneesCache}
                                         compactView={compactTaskView}
                                         fixedNoteId={fixedNoteId}
-                                        hideDate={categoryFilter === 'notes'}
                                         onNavigateToDescription={handleNavigateToDescription}
                                         onSelectNote={handleSelectNoteById}
                                         onToggleCompleted={handleToggleCompletedWithNavigation}
@@ -378,6 +357,7 @@ export const NoteListContent = memo(function NoteListContent({
                                             onAddAssignee={onAddAssignee}
                                             onRemoveAssignee={onRemoveAssignee}
                                             onUpdateAssignee={onUpdateAssignee}
+                                            compactView={compactTaskView}
                                             autoSaveInterval={autoSaveInterval}
                                         />
                                     ))}

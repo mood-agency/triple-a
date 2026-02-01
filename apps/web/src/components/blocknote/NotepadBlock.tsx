@@ -28,7 +28,7 @@ export const NotepadBlock = (createReactBlockSpec as any)(
             ...defaultProps,
             isChecked: { default: false },
             category: { default: "todo" },
-            date: { default: "22 de noviembre 2026" },
+            date: { default: null as string | null },
             labels: { default: [] as Array<{ name: string; color: string }> },
             assignees: { default: [] as Array<{ initials: string; fullName: string }> },
             pinned: { default: false },
@@ -315,27 +315,29 @@ export const NotepadBlock = (createReactBlockSpec as any)(
 
             return (
                 <div className="notepad-line group" style={{ display: "flex", alignItems: "center", width: "100%", userSelect: "none", outline: "none", boxShadow: "none" }}>
-                    <div contentEditable={false} className="notepad-category-checkbox relative flex items-center justify-center w-6 h-4 mr-2 flex-shrink-0 cursor-pointer">
-                        {/* Category Icon (Visible by default, fades on hover only if checkbox is allowed) */}
-                        <div
-                            className={`category-icon transition-opacity duration-200 ${allowsCheckbox ? 'group-hover:opacity-0' : ''}`}
-                            onClick={cycleCategory}
-                        >
-                            <CategoryIcon size={16} className="text-gray-500" />
-                        </div>
-
-                        {/* Checkbox (Visible on hover only for todo and followup) */}
-                        {allowsCheckbox && (
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                <input
-                                    type="checkbox"
-                                    className="cursor-pointer w-3 h-3"
-                                    checked={isChecked}
-                                    onChange={handleToggleCompleted}
-                                />
+                    {!isCompact && (
+                        <div contentEditable={false} className="notepad-category-checkbox relative flex items-center justify-center w-6 h-4 mr-2 flex-shrink-0 cursor-pointer">
+                            {/* Category Icon (Visible by default, fades on hover only if checkbox is allowed) */}
+                            <div
+                                className={`category-icon transition-opacity duration-200 ${allowsCheckbox ? 'group-hover:opacity-0' : ''}`}
+                                onClick={cycleCategory}
+                            >
+                                <CategoryIcon size={16} className="text-gray-500" />
                             </div>
-                        )}
-                    </div>
+
+                            {/* Checkbox (Visible on hover only for todo and followup) */}
+                            {allowsCheckbox && (
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                    <input
+                                        type="checkbox"
+                                        className="cursor-pointer w-3 h-3"
+                                        checked={isChecked}
+                                        onChange={handleToggleCompleted}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div
                         ref={combinedRef}
@@ -374,7 +376,7 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                         )}
                     </div>
 
-                    {dateStr && !hideDate && !isCompact && category !== 'notes' && (
+                    {dateStr && !hideDate && (
                         <TooltipProvider delayDuration={300}>
                             <Tooltip>
                                 <TooltipTrigger asChild>
