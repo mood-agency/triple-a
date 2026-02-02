@@ -58,6 +58,7 @@ export const NotepadBlock = (createReactBlockSpec as any)(
 
             // OPTIMIZED: Listen to centralized selection event instead of each block having its own listener
             // This reduces O(n) callbacks per selection change to O(1) event + simple ID comparison
+            // Note: Saving is handled centrally by BlockNoteNoteList's onSelectionChange listener
             useEffect(() => {
                 const blockId = props.block.id;
 
@@ -67,12 +68,12 @@ export const NotepadBlock = (createReactBlockSpec as any)(
 
                     // Only update state if this block's selection status changed
                     if (isThisBlockSelected !== wasThisBlockSelected) {
-                        if (isThisBlockSelected) {
-                            if (DEBUG_BLOCKNOTE) console.log('[NotepadBlock] Block GAINED focus:', blockId);
-                        } else if (wasThisBlockSelected) {
-                            if (DEBUG_BLOCKNOTE) console.log('[NotepadBlock] Block LOST focus:', blockId);
-                            // Emit event to save the block when it loses focus
-                            eventBus.emit('editor:focusLost', { noteId: blockId });
+                        if (DEBUG_BLOCKNOTE) {
+                            if (isThisBlockSelected) {
+                                console.log('[NotepadBlock] Block GAINED focus:', blockId);
+                            } else {
+                                console.log('[NotepadBlock] Block LOST focus:', blockId);
+                            }
                         }
                         setIsEditing(isThisBlockSelected);
                     }

@@ -5,6 +5,8 @@ import type { BlockCommand, BlockCommandContext } from "./BlockCommand";
  *
  * Navigates to the previous/next block while trying to maintain the same
  * horizontal cursor position (character offset).
+ *
+ * Note: Saving is handled centrally by BlockNoteNoteList's onSelectionChange listener.
  */
 export class NavigateBlockCommand implements BlockCommand {
   private direction: "up" | "down";

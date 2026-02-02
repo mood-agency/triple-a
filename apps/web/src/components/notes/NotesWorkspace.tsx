@@ -49,13 +49,14 @@ import {
   type RegionHandler,
   NavigationMediatorProvider,
 } from './navigation';
+import { useEventSubscription, eventBus } from '@/events';
 
 // Re-export types if needed
-export interface NoteListHandle {
+export interface NotesWorkspaceHandle {
   focusFirstTaskTitle: (column?: number) => void;
 }
 
-interface NoteListProps {
+interface NotesWorkspaceProps {
   notes: Note[];
   onEdit: (id: string, content: string, category?: NoteCategory, description?: string | null) => void;
   onDelete: (id: string, reason: string) => void;
@@ -98,7 +99,7 @@ interface NoteListProps {
   sidebarTrigger?: React.ReactNode;
 }
 
-export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteList({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onAddAssignee, onRemoveAssignee, onUpdateAssignee, onReorderNotes, onPostponeNote, onTogglePublic, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, externalSortConfig, onSortConfigChange, externalTaskStatusFilter, onTaskStatusFilterChange, externalShowOverdueOnly, onShowOverdueOnlyChange, sidebarTrigger }, ref) {
+export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspaceProps>(function NotesWorkspace({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onAddAssignee, onRemoveAssignee, onUpdateAssignee, onReorderNotes, onPostponeNote, onTogglePublic, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, externalSortConfig, onSortConfigChange, externalTaskStatusFilter, onTaskStatusFilterChange, externalShowOverdueOnly, onShowOverdueOnlyChange, sidebarTrigger }, ref) {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { contacts } = useContacts();
@@ -180,7 +181,33 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   });
 
   // Navigation Mediator for centralized keyboard navigation
-  const navigationMediator = useNavigationMediator();
+  // The onSaveItem callback centralizes save decisions - regions provide data, mediator decides if/when to save
+  const navigationMediator = useNavigationMediator({
+    onSaveItem: (region, itemId, data) => {
+      let didSave = false;
+
+      if (region === 'taskList') {
+        // Compare with current note to avoid unnecessary saves
+        const note = notes.find(n => n.id === itemId);
+        if (note && (data.content !== note.content || data.category !== note.category)) {
+          onEdit(itemId, data.content, data.category, data.description);
+          didSave = true;
+        }
+      } else if (region === 'editor' || region === 'sidebar') {
+        // For editor/sidebar regions, save description changes
+        const note = notes.find(n => n.id === itemId);
+        if (note && data.description !== note.description) {
+          onEdit(itemId, note.content, note.category, data.description);
+          didSave = true;
+        }
+      }
+
+      // Emit save success event for UI feedback (toast)
+      if (didSave) {
+        eventBus.emit('editor:saveSuccess', { savedCount: 1 });
+      }
+    },
+  });
 
   // Register search region handler
   const searchRegionHandler = useMemo<RegionHandler>(() => ({
@@ -203,6 +230,46 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       navigationMediator.unregisterRegion('search');
     };
   }, [navigationMediator, searchRegionHandler]);
+
+  // Listen for navigation events from regions (decouples regions from mediator)
+  useEventSubscription('navigation:itemChanged', (event) => {
+    navigationMediator.setCurrentItem(event.payload.region, event.payload.itemId);
+  });
+
+  useEventSubscription('navigation:pushHistory', (event) => {
+    navigationMediator.pushFocusHistory({
+      region: event.payload.region,
+      noteId: event.payload.noteId,
+      column: event.payload.column,
+      context: event.payload.context,
+    });
+  });
+
+  useEventSubscription('navigation:saveCurrentItem', (event) => {
+    navigationMediator.saveCurrentItem(event.payload.region);
+  });
+
+  // Listen for Tab navigation to update title value immediately (before async save completes)
+  useEventSubscription('editor:navigateToDescription', (event) => {
+    if (event.payload.content !== undefined) {
+      selection.setTitleValue(event.payload.content);
+    }
+  });
+
+  // Window blur handler - save current items in all regions when user leaves the window
+  useEffect(() => {
+    const handleWindowBlur = () => {
+      // Save current item in taskList region
+      navigationMediator.saveCurrentItem('taskList');
+      // Save current item in editor region (main description panel)
+      navigationMediator.saveCurrentItem('editor');
+      // Save current item in sidebar region (fixed sidebar panel)
+      navigationMediator.saveCurrentItem('sidebar');
+    };
+
+    window.addEventListener('blur', handleWindowBlur);
+    return () => window.removeEventListener('blur', handleWindowBlur);
+  }, [navigationMediator]);
 
   // Auto-create empty note when no active notes exist (notepad behavior - always have a caret ready)
   const autoCreateInProgressRef = useRef(false);
@@ -670,10 +737,16 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   }, { ...hotkeyOptions, enableOnFormTags: false }, [onSelectNote]);
   useHotkeys('tab', () => {
     if (selectedNote) {
+      // Push current position to history before navigating away
+      navigationMediator.pushFocusHistory({
+        region: 'taskList',
+        noteId: selectedNote.id,
+        column: selectedNote.content.length,
+      });
       // Always navigate to description - opens panel if closed, focuses if open
       selection.handleNavigateToDescription();
     }
-  }, { ...hotkeyOptions, enableOnFormTags: ['INPUT'], enableOnContentEditable: true }, [selectedNote]);
+  }, { ...hotkeyOptions, enableOnFormTags: ['INPUT'], enableOnContentEditable: true }, [selectedNote, navigationMediator]);
   useHotkeys('alt+t', () => { if (selectedNote) setDeadlinePickerOpen(true); }, { ...hotkeyOptions, enableOnContentEditable: true }, [selectedNote]);
   useHotkeys('alt+v', () => { filters.setViewMode(filters.viewMode === 'list' ? 'calendar' : 'list'); }, hotkeyOptions, [filters.viewMode]);
   useHotkeys('alt+f', () => { setCompactTaskView(!compactTaskView); }, hotkeyOptions, [compactTaskView]);
@@ -681,60 +754,59 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
 
 
   // Editor Handlers wrapper
+  // Note: The actual save is now handled by the navigation mediator via event bus
+  // NoteEditorPanel emits 'navigation:saveCurrentItem' on blur, which triggers the mediator's onSaveItem callback
   const handleDescriptionBlur = () => {
     console.log('[NoteList] handleDescriptionBlur - description lost focus');
     selection.setIsDescriptionFocused(false);
-    // Flush any pending auto-save
+    // Flush any pending auto-save timer (mediator handles the actual save)
     selection.flushDescriptionAutoSave();
-    if (selectedNote && selection.descriptionValue !== (selectedNote.description || '')) {
-      console.log('[NoteList] Saving on blur (value changed)');
-      onEdit(selectedNote.id, selectedNote.content, selectedNote.category, selection.descriptionValue || null);
-    } else {
-      console.log('[NoteList] No save needed on blur (value unchanged)');
-    }
   };
   const handleDescriptionFocus = () => {
     console.log('[NoteList] handleDescriptionFocus - description gained focus');
     selection.setIsDescriptionFocused(true);
   };
 
+  // Note: Save on Escape is handled by the mediator via NoteEditorPanel's keydown event
+  // which emits 'navigation:saveCurrentItem' before calling this handler
   const handleDescriptionKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'd' && e.ctrlKey && selectedNote) {
       e.preventDefault();
-      if (selection.descriptionValue !== (selectedNote.description || '')) {
-        onEdit(selectedNote.id, selectedNote.content, selectedNote.category, selection.descriptionValue || null);
-      }
+      // Save via mediator before toggling complete
+      navigationMediator.saveCurrentItem('editor');
       operations.handleToggleCompletedWithNavigation(selectedNote.id, !selectedNote.completed);
     } else if (e.key === 'Escape' && selectedNote) {
       e.preventDefault();
       e.stopPropagation();
-      if (selection.descriptionValue !== (selectedNote.description || '')) {
-        onEdit(selectedNote.id, selectedNote.content, selectedNote.category, selection.descriptionValue || null);
-      }
+      // Note: Save already handled by NoteEditorPanel's keydown wrapper via event bus
+      // Close description panel
       selection.setShowDescriptionPanel(false);
-      selection.setDesiredColumn(selectedNote.content.length);
-      selection.setFocusTarget('title');
+      // Return focus to the previous location using the mediator
+      const returned = navigationMediator.returnToPrevious();
+      if (!returned) {
+        // Fallback: focus the current note's title
+        selection.setDesiredColumn(selectedNote.content.length);
+        selection.setFocusTarget('title');
+      }
     }
-
   };
 
+  // Note: The actual save is now handled by the navigation mediator via event bus
+  // NoteEditorPanel emits 'navigation:saveCurrentItem' on blur, which triggers the mediator's onSaveItem callback
   const handleFixedNoteDescriptionBlur = () => {
-    if (fixedNote && fixedNoteDescriptionValue !== (fixedNote.description || '')) {
-      onEdit(fixedNote.id, fixedNote.content, fixedNote.category, fixedNoteDescriptionValue || null);
-    }
+    // No-op: save is handled by the mediator through NoteEditorPanel's blur event
   };
 
+  // Note: Save on Escape is handled by the mediator via NoteEditorPanel's keydown event
+  // which emits 'navigation:saveCurrentItem' before calling this handler
   const handleFixedNoteDescriptionKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'd' && e.ctrlKey && fixedNote) {
       e.preventDefault();
-      if (fixedNoteDescriptionValue !== (fixedNote.description || '')) {
-        onEdit(fixedNote.id, fixedNote.content, fixedNote.category, fixedNoteDescriptionValue || null);
-      }
+      // Save via mediator before toggling complete
+      navigationMediator.saveCurrentItem('sidebar');
       operations.handleToggleCompletedWithNavigation(fixedNote.id, !fixedNote.completed);
     } else if (e.key === 'Escape') {
-      if (fixedNote && fixedNoteDescriptionValue !== (fixedNote.description || '')) {
-        onEdit(fixedNote.id, fixedNote.content, fixedNote.category, fixedNoteDescriptionValue || null);
-      }
+      // Note: Save already handled by NoteEditorPanel's keydown wrapper via event bus
       fixedNoteDescriptionRef.current?.blur();
     }
   };
@@ -964,6 +1036,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                   onTogglePinned={onTogglePinned}
                   onToggleFixInSidebar={handleToggleFixInSidebarById}
                   isFixedInSidebar={fixedNoteId === selectedNote.id}
+                  navigationRegion="editor"
                 />
               </motion.div>
             )}
@@ -1043,6 +1116,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
                     onTogglePinned={onTogglePinned}
                     onToggleFixInSidebar={handleToggleFixInSidebarById}
                     isFixedInSidebar={true}
+                    navigationRegion="sidebar"
                   />
                 </div>
               </motion.div>

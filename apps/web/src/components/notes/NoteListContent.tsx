@@ -90,7 +90,7 @@ interface NoteListContentProps {
     showOverdueOnly: boolean;
 
     // Sort & Status
-    sortConfig: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null };
+    sortConfig: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null; createdAt: 'asc' | 'desc' | null };
 
     // Active Filters Bar Props
     onClearCategory: () => void;
@@ -252,6 +252,14 @@ export const NoteListContent = memo(function NoteListContent({
                             onNavigateToDescription={handleNavigateToDescription}
                             onSelectNote={handleSelectNoteById}
                             onToggleFixInSidebar={handleToggleFixInSidebarById}
+                            onEdit={onEdit}
+                            onToggleCompleted={handleToggleCompletedWithNavigation}
+                            onDelete={(noteId, reason) => {
+                                const note = notes.find(n => n.id === noteId);
+                                if (note) handleDeleteWithToast(note, reason);
+                            }}
+                            onTogglePinned={onTogglePinned}
+                            onCreateNoteAfter={_onCreateNoteAfter}
                             compactView={compactTaskView}
                             fixedNoteId={fixedNoteId}
                             hideEmptyHours={true}
@@ -286,6 +294,17 @@ export const NoteListContent = memo(function NoteListContent({
                                         onNavigateToDescription={handleNavigateToDescription}
                                         onSelectNote={handleSelectNoteById}
                                         onToggleFixInSidebar={handleToggleFixInSidebarById}
+                                        onEdit={onEdit}
+                                        onToggleCompleted={handleToggleCompletedWithNavigation}
+                                        onDelete={(noteId, reason) => {
+                                            const note = notes.find(n => n.id === noteId);
+                                            if (note) handleDeleteWithToast(note, reason);
+                                        }}
+                                        onTogglePinned={onTogglePinned}
+                                        onCreateNoteAfter={_onCreateNoteAfter}
+                                        onAddLabel={handleAddLabelToNote}
+                                        onCreateLabelAndAdd={handleCreateLabelAndAdd}
+                                        onAddAssignee={onAddAssignee}
                                     />
                                     {/* Show no results message after pinned notes when they don't match filters */}
                                     {shouldShowNoResultsWithPinnedVisible && (

@@ -39,6 +39,15 @@ function getCursorOffsetInBlock(context: BlockCommandContext): number {
 }
 
 /**
+ * Get the current text content of a block
+ */
+function getBlockContent(context: BlockCommandContext): string {
+    const blockElement = context.node;
+    const contentElement = blockElement.querySelector('.notepad-content');
+    return contentElement?.textContent || '';
+}
+
+/**
  * Command to navigate to the description panel when Tab is pressed
  */
 export class NavigateToDescriptionCommand implements BlockCommand {
@@ -50,9 +59,10 @@ export class NavigateToDescriptionCommand implements BlockCommand {
     execute(context: BlockCommandContext): boolean {
         const noteId = context.block.id;
         const cursorOffset = getCursorOffsetInBlock(context);
+        const content = getBlockContent(context);
 
-        // Emit event to notify the parent component
-        eventBus.emit('editor:navigateToDescription', { noteId, cursorOffset });
+        // Emit event to notify the parent component (include content for immediate UI update)
+        eventBus.emit('editor:navigateToDescription', { noteId, cursorOffset, content });
 
         // Prevent default Tab behavior
         context.event.preventDefault();

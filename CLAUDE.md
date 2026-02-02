@@ -166,3 +166,109 @@ Key points:
 - **Use double RAF** to ensure DOM is fully painted before animating
 - **Clear inline styles** before re-animating to avoid conflicts
 - **Store animation references** to enable cancellation
+
+## Event-Driven Architecture with Mediator Pattern
+
+The notes components use an **Event-Driven Architecture** combined with a **Mediator Pattern** for decoupled communication between UI regions.
+
+> **Note**: This is NOT CQRS. CQRS separates read/write models. We use events for coordination and callbacks for mutations - a simpler event-driven approach.
+
+### Core Concepts
+
+1. **Event Bus** (`@/events`): Centralized pub/sub for domain events - coordinates *when* things happen
+2. **Navigation Mediator** (`./navigation`): Coordinates keyboard navigation and save operations across regions - decides *if* to save
+3. **Callbacks**: Direct function calls for data mutations - execute *what* to do
+4. **Regions**: Independent UI areas (`'search'`, `'taskList'`, `'editor'`, `'sidebar'`, `'toolbar'`)
+
+### When to Use Events vs Callbacks
+
+| Use Case | Pattern | Example |
+|----------|---------|---------|
+| Cross-component coordination | Event Bus | `navigation:saveCurrentItem`, `editor:navigateToDescription` |
+| Data mutations (persistence) | Callbacks | `onEdit()`, `onToggleCompleted()` |
+| UI state sync (immediate) | Event Bus | Updating `titleValue` when Tab is pressed |
+| Parent-child direct communication | Callbacks | `onSelectNote()`, `onNavigateToDescription()` |
+
+### Event Bus Pattern
+
+```tsx
+import { eventBus, useEventSubscription } from '@/events';
+
+// Emitting events
+eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
+eventBus.emit('editor:navigateToDescription', { noteId, cursorOffset, content });
+
+// Subscribing to events (in React components)
+useEventSubscription('editor:navigateToDescription', (event) => {
+  // Multiple components can listen to the same event
+  if (event.payload.content !== undefined) {
+    selection.setTitleValue(event.payload.content);
+  }
+});
+```
+
+### Navigation Mediator Pattern
+
+The mediator centralizes save coordination. Components provide data via `RegionHandler`, mediator decides when/how to save.
+
+```tsx
+// 1. Create mediator with onSaveItem callback (in parent component)
+const navigationMediator = useNavigationMediator({
+  onSaveItem: (region, itemId, data) => {
+    // Centralized save logic - compare and persist
+    if (region === 'taskList') {
+      const note = notes.find(n => n.id === itemId);
+      if (note && data.content !== note.content) {
+        onEdit(itemId, data.content, data.category, data.description);
+      }
+    }
+  },
+});
+
+// 2. Register region handlers (in child components)
+const regionHandler = useMemo<RegionHandler>(() => ({
+  region: 'taskList',
+  focusFirst: (column?, context?) => { /* focus logic */ },
+  focusLast: () => { /* focus logic */ },
+  canReceiveFocus: () => true,
+  getItemData: (itemId) => ({
+    content: currentContent,
+    category: note.category,
+    description: note.description,
+  }),
+  getCurrentItemId: () => focusedNoteId,
+}), [dependencies]);
+
+useRegisterNavigationRegion(regionHandler);
+
+// 3. Trigger saves via events (components don't call mediator directly)
+eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
+```
+
+### Key Events
+
+| Event | Payload | Purpose |
+|-------|---------|---------|
+| `navigation:itemChanged` | `{ region, itemId }` | Notify mediator of focus change |
+| `navigation:saveCurrentItem` | `{ region }` | Request save for current item in region |
+| `navigation:pushHistory` | `{ region, noteId, column }` | Push focus state for later restoration |
+| `editor:navigateToDescription` | `{ noteId, cursorOffset, content }` | Tab pressed, navigate to description |
+| `editor:saveSuccess` | `{ savedCount }` | Trigger UI feedback (toast) |
+| `note:completed` | `{ noteId, completed }` | Task completion toggled |
+| `note:pinned` | `{ noteId, pinned }` | Task pin toggled |
+
+### Architecture Principles
+
+1. **Events for coordination, callbacks for execution**: Events decide *when* to act, callbacks decide *what* to do
+2. **Multiple listeners allowed**: Same event can trigger different behaviors in different components
+3. **Mediator owns save logic**: Components provide data, mediator compares and decides to save
+4. **Immediate UI sync via events**: Pass data in events for instant feedback before async operations complete
+5. **Regions are independent**: Each region registers its own handler, operates independently
+
+### File Locations
+
+- Event types: `apps/web/src/events/types.ts`
+- Event bus: `apps/web/src/events/index.ts`
+- Navigation types: `apps/web/src/components/notes/navigation/types.ts`
+- Navigation mediator: `apps/web/src/components/notes/navigation/useNavigationMediator.ts`
+- Region registration: `apps/web/src/components/notes/navigation/useRegisterNavigationRegion.ts`

@@ -13,6 +13,11 @@
  */
 
 import 'dotenv/config';
+import { initLogger } from './lib/logger.js';
+
+// Initialize Abbacchio logger early to capture all console output
+initLogger();
+
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';

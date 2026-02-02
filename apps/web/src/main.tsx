@@ -8,9 +8,13 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Toaster } from './components/ui/sonner'
+import { initLogger } from './lib/logger'
 import './index.css'
 import './i18n'
 import App from './App.tsx'
+
+// Initialize Abbacchio logger early to capture all console output
+initLogger()
 
 // Global handler for unhandled promise rejections
 window.addEventListener('unhandledrejection', (event) => {

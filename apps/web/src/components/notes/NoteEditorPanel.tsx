@@ -1,4 +1,4 @@
-import { forwardRef, memo, useState, useEffect, useRef, useCallback } from 'react';
+import { forwardRef, memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -27,6 +27,8 @@ import { AIAssistantDialog } from './AIAssistantDialog';
 import { ShareDialog } from './ShareDialog';
 import { useAssignees } from '@/hooks/useAssignees';
 import type { AIProviderConfig } from '@/hooks/useSettings';
+import { useRegisterNavigationRegion, type RegionHandler, type FocusRestorationContext, type ItemSaveData } from './navigation';
+import { eventBus } from '@/events';
 
 interface NoteEditorPanelProps {
   note: Note;
@@ -79,6 +81,8 @@ interface NoteEditorPanelProps {
   onTogglePinned?: (id: string, pinned: boolean) => void;
   onToggleFixInSidebar?: (id: string) => void;
   isFixedInSidebar?: boolean;
+  /** Navigation region for mediator integration ('editor' for main panel, 'sidebar' for fixed sidebar) */
+  navigationRegion?: 'editor' | 'sidebar';
 }
 
 // Helper to parse description preview from BlockNote JSON or plain text
@@ -151,12 +155,45 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   onTogglePinned,
   onToggleFixInSidebar,
   isFixedInSidebar = false,
+  navigationRegion,
 }, ref) {
   const { t, i18n } = useTranslation();
   const { getAssigneesForNote, noteAssigneeVersion } = useAssignees();
   const [noteAssignees, setNoteAssignees] = useState<Contact[]>([]);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+
+  // Navigation region handler for mediator integration
+  const regionHandler = useMemo<RegionHandler | null>(() => {
+    if (!navigationRegion) return null;
+    return {
+      region: navigationRegion,
+      focusFirst: (_column?: number, context?: FocusRestorationContext) => {
+        editorRef.current?.focus();
+        if (context?.column !== undefined) {
+          editorRef.current?.setCursorPosition(context.column);
+        }
+        return true;
+      },
+      focusLast: () => {
+        editorRef.current?.focus();
+        return true;
+      },
+      canReceiveFocus: () => !!note,
+      getItemData: (itemId: string): ItemSaveData | null => {
+        if (itemId !== note.id) return null;
+        return {
+          content: note.content,
+          category: note.category,
+          description: descriptionValue,
+        };
+      },
+      getCurrentItemId: () => note.id,
+    };
+  }, [navigationRegion, note, descriptionValue]);
+
+  // Register with navigation mediator
+  useRegisterNavigationRegion(regionHandler);
 
   // Handle toggle complete with animation
   const handleCheckedChange = useCallback(() => {
@@ -352,6 +389,43 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   const handleTitleEdit = (id: string, content: string) => {
     onEdit(id, content, note.category, note.description);
   };
+
+  // Wrapped focus handler - emits navigation event when editor receives focus
+  const handleDescriptionFocusInternal = useCallback(() => {
+    // Call the original handler if provided
+    onDescriptionFocus?.();
+
+    // Emit navigation event to notify mediator that this region is now active
+    if (navigationRegion) {
+      eventBus.emit('navigation:itemChanged', {
+        region: navigationRegion,
+        itemId: note.id,
+      });
+    }
+  }, [onDescriptionFocus, navigationRegion, note.id]);
+
+  // Wrapped blur handler - emits save event when editor loses focus
+  const handleDescriptionBlurInternal = useCallback(() => {
+    // Emit save event before calling original handler
+    // The mediator will coordinate the actual save via onSaveItem callback
+    if (navigationRegion) {
+      eventBus.emit('navigation:saveCurrentItem', { region: navigationRegion });
+    }
+
+    // Call the original handler for any local state updates
+    onDescriptionBlur();
+  }, [onDescriptionBlur, navigationRegion]);
+
+  // Wrapped keydown handler - emits save before Escape navigation
+  const handleDescriptionKeyDownInternal = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape' && navigationRegion) {
+      // Emit save event before navigation (mediator will coordinate the actual save)
+      eventBus.emit('navigation:saveCurrentItem', { region: navigationRegion });
+    }
+
+    // Always call the original handler for actual key handling
+    onDescriptionKeyDown(e);
+  }, [onDescriptionKeyDown, navigationRegion]);
 
   return (
     <>
@@ -790,9 +864,9 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             ref={editorRef}
             value={descriptionValue}
             onChange={onDescriptionChange}
-            onBlur={onDescriptionBlur}
-            onFocus={onDescriptionFocus}
-            onKeyDown={onDescriptionKeyDown}
+            onBlur={handleDescriptionBlurInternal}
+            onFocus={handleDescriptionFocusInternal}
+            onKeyDown={handleDescriptionKeyDownInternal}
             placeholder={t('writeDescription')}
             className="h-full w-full text-base bg-transparent text-muted-foreground overflow-y-auto"
             noteId={note.id}
