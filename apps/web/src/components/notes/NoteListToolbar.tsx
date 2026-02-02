@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { LazyTooltip } from '@/components/ui/lazy-tooltip';
 import { Kbd } from '@/components/ui/kbd';
 import { List, Calendar, AlignJustify, Copy, Check, Sparkles } from 'lucide-react';
 import { NoteFilters } from './NoteFilters';
@@ -158,78 +158,64 @@ export function NoteListToolbar({
                     {sidebarTrigger}
 
                     {/* View mode toggle */}
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
-                                className="h-8 w-8 shadow-none"
-                                aria-label={viewMode === 'list' ? t('calendar.switchToCalendarView') : t('calendar.switchToListView')}
-                            >
-                                {viewMode === 'list' ? <List className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent className="flex items-center gap-2">
-                            <p>{viewMode === 'list' ? t('calendar.switchToCalendarView') : t('calendar.switchToListView')}</p>
-                            <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>V</Kbd></span>
-                        </TooltipContent>
-                    </Tooltip>
+                    <LazyTooltip
+                        content={
+                            <span className="flex items-center gap-2">
+                                <p>{viewMode === 'list' ? t('calendar.switchToCalendarView') : t('calendar.switchToListView')}</p>
+                                <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>V</Kbd></span>
+                            </span>
+                        }
+                    >
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
+                            className="h-8 w-8 shadow-none"
+                            aria-label={viewMode === 'list' ? t('calendar.switchToCalendarView') : t('calendar.switchToListView')}
+                        >
+                            {viewMode === 'list' ? <List className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
+                        </Button>
+                    </LazyTooltip>
                     {/* Compact view toggle - hide on mobile */}
                     {!isMobile && (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => setCompactTaskView(!compactTaskView)}
-                                    className="h-8 w-8 shadow-none"
-                                    aria-label={t('compactView')}
-                                >
-                                    {compactTaskView ? <AlignJustify className="h-4 w-4" /> : <List className="h-4 w-4" />}
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{compactTaskView ? t('fullViewTooltip') : t('compactViewTooltip')}</p>
-                            </TooltipContent>
-                        </Tooltip>
+                        <LazyTooltip content={compactTaskView ? t('fullViewTooltip') : t('compactViewTooltip')}>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => setCompactTaskView(!compactTaskView)}
+                                className="h-8 w-8 shadow-none"
+                                aria-label={t('compactView')}
+                            >
+                                {compactTaskView ? <AlignJustify className="h-4 w-4" /> : <List className="h-4 w-4" />}
+                            </Button>
+                        </LazyTooltip>
                     )}
                     {/* Copy active tasks button */}
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={handleCopyTasks}
-                                className="h-8 w-8 shadow-none"
-                                aria-label={t('copyActiveTasks')}
-                                disabled={activeNotes.length === 0}
-                            >
-                                {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>{t('copyActiveTasks')} ({activeNotes.length})</p>
-                        </TooltipContent>
-                    </Tooltip>
+                    <LazyTooltip content={`${t('copyActiveTasks')} (${activeNotes.length})`}>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={handleCopyTasks}
+                            className="h-8 w-8 shadow-none"
+                            aria-label={t('copyActiveTasks')}
+                            disabled={activeNotes.length === 0}
+                        >
+                            {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                    </LazyTooltip>
                     {/* AI Summary button */}
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => setSummaryDialogOpen(true)}
-                                className="h-8 w-8 shadow-none"
-                                aria-label={t('ai.summary.button')}
-                                disabled={activeNotes.length === 0 || !aiProvider}
-                            >
-                                <Sparkles className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>{aiProvider ? `${t('ai.summary.button')} (${activeNotes.length})` : t('ai.notConfigured')}</p>
-                        </TooltipContent>
-                    </Tooltip>
+                    <LazyTooltip content={aiProvider ? `${t('ai.summary.button')} (${activeNotes.length})` : t('ai.notConfigured')}>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setSummaryDialogOpen(true)}
+                            className="h-8 w-8 shadow-none"
+                            aria-label={t('ai.summary.button')}
+                            disabled={activeNotes.length === 0 || !aiProvider}
+                        >
+                            <Sparkles className="h-4 w-4" />
+                        </Button>
+                    </LazyTooltip>
                     <NoteFilters
                         searchQuery={searchQuery}
                         onSearchChange={setSearchQuery}

@@ -8,9 +8,16 @@ import type {
 } from './types';
 
 const MAX_LOG_SIZE = 1000;
+const SLOW_HANDLER_THRESHOLD_MS = 50;
+
+interface HandlerInfo {
+  handler: EventHandler<DomainEvent>;
+  name: string;
+  subscribedAt: string;
+}
 
 class EventBus {
-  private handlers: Map<string, Set<EventHandler<DomainEvent>>> = new Map();
+  private handlers: Map<string, Set<HandlerInfo>> = new Map();
   private eventLog: DomainEvent[] = [];
 
   /**
@@ -19,16 +26,49 @@ class EventBus {
    */
   subscribe<K extends EventType>(
     eventType: K,
-    handler: EventHandler<EventMap[K]>
+    handler: EventHandler<EventMap[K]>,
+    handlerName?: string
   ): UnsubscribeFn {
     if (!this.handlers.has(eventType)) {
       this.handlers.set(eventType, new Set());
     }
-    this.handlers.get(eventType)!.add(handler as EventHandler<DomainEvent>);
+
+    // Try to get a meaningful name for the handler
+    const name = handlerName || handler.name || this.getCallerInfo() || 'anonymous';
+
+    const handlerInfo: HandlerInfo = {
+      handler: handler as EventHandler<DomainEvent>,
+      name,
+      subscribedAt: new Error().stack?.split('\n')[3]?.trim() || 'unknown',
+    };
+
+    this.handlers.get(eventType)!.add(handlerInfo);
 
     return () => {
-      this.handlers.get(eventType)?.delete(handler as EventHandler<DomainEvent>);
+      this.handlers.get(eventType)?.delete(handlerInfo);
     };
+  }
+
+  /**
+   * Try to extract caller info from stack trace (dev only)
+   */
+  private getCallerInfo(): string | undefined {
+    if (!import.meta.env.DEV) return undefined;
+    try {
+      const stack = new Error().stack;
+      if (!stack) return undefined;
+      // Look for the component/hook that called subscribe
+      const lines = stack.split('\n');
+      for (const line of lines) {
+        if (line.includes('use') || line.includes('Component') || line.includes('.tsx')) {
+          const match = line.match(/at\s+(\w+)/);
+          if (match) return match[1];
+        }
+      }
+    } catch {
+      return undefined;
+    }
+    return undefined;
   }
 
   /**
@@ -63,19 +103,56 @@ class EventBus {
     // Dispatch to handlers
     const typeHandlers = this.handlers.get(event.type);
     if (typeHandlers) {
-      typeHandlers.forEach((handler) => {
+      const totalStart = performance.now();
+
+      typeHandlers.forEach((handlerInfo) => {
+        const start = performance.now();
         try {
-          const result = handler(event);
+          const result = handlerInfo.handler(event);
           // Handle async handlers - log errors but don't block
           if (result instanceof Promise) {
-            result.catch((error) => {
-              console.error(`[EventBus] Async error handling ${event.type}:`, error);
-            });
+            const asyncStart = performance.now();
+            result
+              .then(() => {
+                if (import.meta.env.DEV) {
+                  const asyncElapsed = performance.now() - asyncStart;
+                  if (asyncElapsed > SLOW_HANDLER_THRESHOLD_MS) {
+                    console.warn(
+                      `[EventBus] ⚠️ Slow async handler for "${event.type}": ${asyncElapsed.toFixed(1)}ms`,
+                      `\n  Handler: ${handlerInfo.name}`,
+                      `\n  Subscribed at: ${handlerInfo.subscribedAt}`
+                    );
+                  }
+                }
+              })
+              .catch((error) => {
+                console.error(`[EventBus] Async error handling ${event.type}:`, error);
+              });
           }
         } catch (error) {
           console.error(`[EventBus] Error handling ${event.type}:`, error);
+        } finally {
+          if (import.meta.env.DEV) {
+            const elapsed = performance.now() - start;
+            if (elapsed > SLOW_HANDLER_THRESHOLD_MS) {
+              console.warn(
+                `[EventBus] ⚠️ Slow sync handler for "${event.type}": ${elapsed.toFixed(1)}ms`,
+                `\n  Handler: ${handlerInfo.name}`,
+                `\n  Subscribed at: ${handlerInfo.subscribedAt}`
+              );
+            }
+          }
         }
       });
+
+      if (import.meta.env.DEV) {
+        const totalElapsed = performance.now() - totalStart;
+        if (totalElapsed > SLOW_HANDLER_THRESHOLD_MS) {
+          console.warn(
+            `[EventBus] ⚠️ Total time for "${event.type}": ${totalElapsed.toFixed(1)}ms (${typeHandlers.size} handlers)`
+          );
+        }
+      }
     }
   }
 
@@ -157,6 +234,20 @@ class EventBus {
    */
   hasSubscribers(eventType: EventType): boolean {
     return this.getSubscriberCount(eventType) > 0;
+  }
+
+  /**
+   * Get all registered handlers for debugging (dev only)
+   */
+  getRegisteredHandlers(): Record<string, { name: string; subscribedAt: string }[]> {
+    const result: Record<string, { name: string; subscribedAt: string }[]> = {};
+    this.handlers.forEach((handlerInfos, eventType) => {
+      result[eventType] = Array.from(handlerInfos).map((info) => ({
+        name: info.name,
+        subscribedAt: info.subscribedAt,
+      }));
+    });
+    return result;
   }
 }
 

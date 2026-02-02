@@ -289,6 +289,12 @@ export function Home() {
   // Update URL when selected note changes
   const handleSelectNote = useCallback((note: Note | null) => {
     const noteId = note?.id ?? null;
+
+    // Skip if already selected (prevents duplicate calls)
+    if (stateRef.current.selectedNoteId === noteId) {
+      return;
+    }
+
     console.log('[Home] handleSelectNote:', noteId);
     setSelectedNoteId(noteId);
     stateRef.current.selectedNoteId = noteId;

@@ -135,6 +135,9 @@ export const TimelineBlockNoteList = ({
   // Track if we're syncing filter changes
   const [isSyncingFilter, setIsSyncingFilter] = useState(false);
 
+  // Skip sync on initial mount
+  const isInitialMountRef = useRef(true);
+
   // Function to flush pending saves immediately
   const flushPendingSaves = useCallback(() => {
     if (!pendingChangesRef.current) {
@@ -197,6 +200,38 @@ export const TimelineBlockNoteList = ({
       }
     };
   }, []);
+
+  // Mark initial mount as complete after first render
+  useEffect(() => {
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+    }
+  }, []);
+
+  // Sync compact prop to all blocks when compactView changes
+  useEffect(() => {
+    // Skip initial mount - blocks are created with correct compact value
+    if (isInitialMountRef.current) {
+      return;
+    }
+
+    // Use setTimeout to avoid flushSync issues during React render
+    setTimeout(() => {
+      isSyncingRef.current = true;
+
+      editor.document.forEach((block: any) => {
+        if (block.type === 'notepad' && block.props.compact !== compactView) {
+          editor.updateBlock(block, {
+            props: { ...block.props, compact: compactView }
+          } as any);
+        }
+      });
+
+      setTimeout(() => {
+        isSyncingRef.current = false;
+      }, 50);
+    }, 0);
+  }, [editor, compactView]);
 
   // Listen to BlockNote selection changes and sync to parent (skip hourDivider)
   useEffect(() => {

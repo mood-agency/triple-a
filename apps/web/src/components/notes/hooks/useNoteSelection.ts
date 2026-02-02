@@ -60,8 +60,6 @@ export function useNoteSelection({
         onSave: (value) => {
             console.log('[NoteSelection] Auto-save triggered for note:', selectedNote?.id);
             if (selectedNote && onEdit) {
-                lastSavedValueRef.current = value;
-                lastSaveTimestampRef.current = Date.now();
                 onEdit(selectedNote.id, selectedNote.content, selectedNote.category, value || null);
             }
         },
