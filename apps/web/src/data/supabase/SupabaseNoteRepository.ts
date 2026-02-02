@@ -229,21 +229,29 @@ export class SupabaseNoteRepository implements INoteRepository {
       newSortOrder = afterSortOrder + 1;
     }
 
+    // Build insert object, including id if provided (for BlockNote sync)
+    const insertData: Record<string, unknown> = {
+      user_id: this.userId,
+      date: data.date ?? this.date,
+      content: data.content,
+      description: data.description || null,
+      category: data.category,
+      deadline: data.deadline || null,
+      completed: false,
+      pinned: data.pinned ?? false,
+      sort_order: newSortOrder,
+      project_id: data.projectId ?? this.projectId,
+      is_public: false,
+    };
+
+    // Use BlockNote's block ID if provided to maintain sync
+    if (data.id) {
+      insertData.id = data.id;
+    }
+
     const { data: row, error } = await supabase
       .from('notes')
-      .insert({
-        user_id: this.userId,
-        date: data.date ?? this.date,
-        content: data.content,
-        description: data.description || null,
-        category: data.category,
-        deadline: data.deadline || null,
-        completed: false,
-        pinned: data.pinned ?? false,
-        sort_order: newSortOrder,
-        project_id: data.projectId ?? this.projectId,
-        is_public: false,
-      })
+      .insert(insertData)
       .select()
       .single();
 

@@ -39,6 +39,7 @@ export function createNoteCommandHandlers(noteRepository: INoteRepository) {
 
   const handleCreateNoteAfter: CommandHandler<CreateNoteAfterCommand> = async (command) => {
     const note = await noteRepository.createAfter(command.payload.afterNoteId, {
+      id: command.payload.newNoteId, // Use BlockNote's block ID for sync
       content: command.payload.content,
       category: command.payload.category,
       date: command.payload.date,

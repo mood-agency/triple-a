@@ -21,6 +21,7 @@ export interface NoteFilters {
 
 // Create/Update data types
 export interface CreateNoteData {
+  id?: string; // Optional ID to use (for BlockNote sync)
   content: string;
   category: NoteCategory;
   date?: string;

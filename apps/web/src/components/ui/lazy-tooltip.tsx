@@ -17,6 +17,9 @@ interface LazyTooltipProps {
  * Unlike the regular Tooltip which always mounts its content tree,
  * this component defers rendering until the user actually hovers.
  * This saves ~5-10ms per tooltip on initial render.
+ *
+ * Additionally, this tooltip closes on any keydown event to prevent
+ * tooltips from getting stuck when keyboard shortcuts are used.
  */
 export function LazyTooltip({
   children,
@@ -28,9 +31,26 @@ export function LazyTooltip({
 }: LazyTooltipProps) {
   const [isOpen, setIsOpen] = React.useState(false)
 
+  // Close tooltip on any keydown to prevent stuck tooltips
+  // when keyboard shortcuts (like Enter to create new blocks) are used
+  React.useEffect(() => {
+    if (!isOpen) return
+
+    const handleKeyDown = () => {
+      setIsOpen(false)
+    }
+
+    // Use capture phase to catch events before they're stopped by other handlers
+    document.addEventListener('keydown', handleKeyDown, { capture: true })
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, { capture: true })
+    }
+  }, [isOpen])
+
   return (
     <TooltipPrimitive.Root
       delayDuration={delayDuration}
+      open={isOpen}
       onOpenChange={setIsOpen}
     >
       <TooltipPrimitive.Trigger asChild>
