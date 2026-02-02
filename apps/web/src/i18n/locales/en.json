@@ -611,7 +611,8 @@
     "inAYear": "In a year",
     "aYearAgo": "A year ago",
     "inYears": "In {{count}} years",
-    "yearsAgo": "{{count}} years ago"
+    "yearsAgo": "{{count}} years ago",
+    "days": "days"
   },
   "contacts": {
     "title": "Contacts",

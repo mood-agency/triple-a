@@ -15,7 +15,7 @@ import type { Contact } from '@/types/contact';
 import { useRegisterNavigationRegion, type RegionHandler } from './navigation';
 
 // Debug flags
-const DEBUG_BLOCKNOTE = false;
+const DEBUG_BLOCKNOTE = true;
 const DISABLE_ANIMATIONS = true;
 
 interface BlockNoteNoteListProps {
@@ -95,10 +95,10 @@ export const BlockNoteNoteList = ({
     return cache;
   }, [noteAssigneesCache]);
 
-  // Convert notes to blocks using adapter
+  // Convert notes to blocks using adapter (only used on initial mount, so compactView not in deps)
   const initialContent = useMemo(
     () => notesToBlocks(notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId, hideDate),
-    [notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId, hideDate]
+    [notes, labelDataCache, assigneeDataCache, fixedNoteId, hideDate]
   );
 
   // Create editor
@@ -117,6 +117,9 @@ export const BlockNoteNoteList = ({
   const previousLabelDataRef = useRef<string>('');
   const previousAssigneeDataRef = useRef<string>('');
 
+  // Track previous content data to sync external changes (e.g., from description panel)
+  const previousContentDataRef = useRef<string>('');
+
   // Flag to prevent saves during programmatic updates
   const isSyncingRef = useRef(false);
 
@@ -126,7 +129,7 @@ export const BlockNoteNoteList = ({
   // Track if we're syncing filter changes to hide content during transition
   const [isSyncingFilter, setIsSyncingFilter] = useState(false);
 
-  // Track if we're animating to full or compact view
+  // Track if we're animating to full or compact view (unused when DISABLE_ANIMATIONS is true)
   const [isAnimatingToFull, setIsAnimatingToFull] = useState(false);
   const [isAnimatingToCompact, setIsAnimatingToCompact] = useState(false);
 
@@ -317,7 +320,11 @@ export const BlockNoteNoteList = ({
       if (paragraphBlocks.length > 0) {
         isRemovingParagraphsRef.current = true;
         try {
-          // Find the last notepad block to move focus to
+          // Check if cursor is currently in a paragraph block (before removal)
+          const currentCursor = editor.getTextCursorPosition();
+          const cursorInParagraph = paragraphBlocks.some(p => p.id === currentCursor.block.id);
+
+          // Find the last notepad block to move focus to (only if needed)
           const notepadBlocks = editor.document.filter(block => block.type === 'notepad');
           const lastNotepadBlock = notepadBlocks[notepadBlocks.length - 1];
 
@@ -326,8 +333,9 @@ export const BlockNoteNoteList = ({
             editor.removeBlocks([block]);
           });
 
-          // Move focus back to the last notepad block if available
-          if (lastNotepadBlock) {
+          // Only move focus if cursor was actually in a removed paragraph block
+          // This prevents disrupting the user's cursor position during normal typing
+          if (cursorInParagraph && lastNotepadBlock) {
             editor.setTextCursorPosition(lastNotepadBlock, 'end');
           }
         } finally {
@@ -411,8 +419,7 @@ export const BlockNoteNoteList = ({
 
     if (DISABLE_ANIMATIONS) {
       prevCompactViewRef.current = compactView;
-      setIsAnimatingToFull(false);
-      setIsAnimatingToCompact(false);
+      // Don't call state setters - they cause unnecessary re-renders
       return;
     }
 
@@ -614,6 +621,29 @@ export const BlockNoteNoteList = ({
     return () => clearTimeout(timer);
   }, [editor, fixedNoteId, notes.length]);
 
+  // Update all blocks when compact view changes - no timers needed
+  useEffect(() => {
+    // Skip initial mount - handled by initialContent
+    if (isInitialMountRef.current) return;
+
+    isSyncingRef.current = true;
+
+    editor.document.forEach(block => {
+      if (block.type === 'notepad') {
+        const currentCompact = (block as any).props.compact;
+
+        // Only update if the compact state needs to change
+        if (currentCompact !== compactView) {
+          editor.updateBlock(block, {
+            props: { ...block.props, compact: compactView }
+          } as any);
+        }
+      }
+    });
+
+    isSyncingRef.current = false;
+  }, [editor, compactView]);
+
   // Sync notes changes (for filtering/sorting) - when the VIEW changes
   // Don't sync when notes are added/edited (BlockNote handles this internally)
   useEffect(() => {
@@ -671,7 +701,8 @@ export const BlockNoteNoteList = ({
         }, 0);
       }
     }
-  }, [editor, notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId]);
+    // Note: compactView intentionally NOT in deps - handled by dedicated effect above
+  }, [editor, notes, labelDataCache, assigneeDataCache, fixedNoteId]);
 
   // Sync external changes (labels, assignees) back to blocks - only when they actually change
   useEffect(() => {
@@ -736,6 +767,64 @@ export const BlockNoteNoteList = ({
       }
     }, 0);
   }, [editor, notes, labelDataCache, assigneeDataCache]);
+
+  // Sync external content changes (e.g., title edited in description panel) back to blocks
+  useEffect(() => {
+    // Create a fingerprint of note content to detect changes
+    const contentFingerprint = notes.map(n => `${n.id}:${n.content}`).join('|');
+
+    // Skip if nothing changed
+    if (previousContentDataRef.current === contentFingerprint) {
+      return;
+    }
+
+    // Skip on initial mount
+    if (previousContentDataRef.current === '') {
+      previousContentDataRef.current = contentFingerprint;
+      return;
+    }
+
+    previousContentDataRef.current = contentFingerprint;
+
+    // Use setTimeout to avoid flushSync issues during React render
+    setTimeout(() => {
+      // Skip if we're already syncing
+      if (isSyncingRef.current) return;
+
+      const blocks = editor.document;
+      let hasChanges = false;
+
+      isSyncingRef.current = true;
+
+      blocks.forEach((block: any) => {
+        if (block.type !== 'notepad') return;
+
+        const note = notes.find(n => n.id === block.id);
+        if (!note) return;
+
+        const blockContent = getBlockContent(block);
+
+        // Only update if content differs (external change)
+        if (note.content !== blockContent) {
+          if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Syncing external content change:', {
+            noteId: note.id,
+            blockContent,
+            noteContent: note.content
+          });
+
+          editor.updateBlock(block, {
+            content: note.content ? [{ type: 'text', text: note.content }] : []
+          } as any);
+          hasChanges = true;
+        }
+      });
+
+      // Reset syncing flag
+      setTimeout(() => {
+        isSyncingRef.current = false;
+      }, hasChanges ? 100 : 0);
+    }, 0);
+  }, [editor, notes]);
 
   // Save when clicking outside the editor (more reliable than focusout for ProseMirror)
   useEffect(() => {
@@ -1093,7 +1182,7 @@ export const BlockNoteNoteList = ({
   return (
     <div
       ref={containerRef}
-      className={`blocknote-note-list ${isSyncingFilter ? 'blocknote-syncing' : ''} ${compactView && !isAnimatingToCompact ? 'compact-view' : ''} ${isAnimatingToFull ? 'animating-to-full' : ''} ${isAnimatingToCompact ? 'animating-to-compact' : ''}`}
+      className={`blocknote-note-list ${compactView ? 'compact-view' : ''} ${isSyncingFilter ? 'blocknote-syncing' : ''} ${isAnimatingToFull ? 'animating-to-full' : ''} ${isAnimatingToCompact ? 'animating-to-compact' : ''}`}
       onBlur={(e) => {
         // Only save if focus is leaving the editor entirely (not moving between blocks)
         if (!e.currentTarget.contains(e.relatedTarget as Node)) {

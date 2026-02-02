@@ -11,6 +11,8 @@ export type { BlockCommand, BlockCommandContext } from "./BlockCommand";
 export { SelectAllCommand } from "./SelectAllCommand";
 export { InsertBlockCommand } from "./InsertBlockCommand";
 export { DeleteBlockCommand } from "./DeleteBlockCommand";
+export { NavigateUpCommand } from "./NavigateUpCommand";
+export { NavigateDownCommand } from "./NavigateDownCommand";
 export { TogglePinCommand } from "./TogglePinCommand";
 export { ToggleSidebarCommand } from "./ToggleSidebarCommand";
 export { CreateInitialNoteCommand } from "./CreateInitialNoteCommand";

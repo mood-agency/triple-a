@@ -611,7 +611,8 @@
     "inAYear": "En un año",
     "aYearAgo": "Hace un año",
     "inYears": "En {{count}} años",
-    "yearsAgo": "Hace {{count}} años"
+    "yearsAgo": "Hace {{count}} años",
+    "days": "días"
   },
   "contacts": {
     "title": "Contactos",

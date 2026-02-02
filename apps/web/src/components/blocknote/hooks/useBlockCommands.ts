@@ -35,10 +35,12 @@ export function useBlockCommands(
       const selection = window.getSelection();
       const anchorNode = selection?.anchorNode;
 
+      // Check if the event originated from inside THIS specific block
+      // Note: We removed `node.parentElement?.contains(e.target)` as it was too broad
+      // and could match multiple blocks at once (the parent contains all blocks)
       const isInside =
         (anchorNode && node.contains(anchorNode)) ||
         node.contains(e.target as Node) ||
-        node.parentElement?.contains(e.target as Node) ||
         e.target === node;
 
       if (!isInside) return;

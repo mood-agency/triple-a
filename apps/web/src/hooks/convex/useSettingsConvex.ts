@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -133,21 +133,37 @@ export function useSettingsConvex() {
   // Mutations
   const upsertMutation = useMutation(api.userPreferences.upsert);
 
+  // Track timestamps of last local updates to prevent stale server data from overwriting them
+  const lastLocalUpdateRef = useRef<Record<string, number>>({});
+  const GRACE_PERIOD = 2000; // 2 seconds
+
   // Merge Convex preferences with local settings when they arrive
   useEffect(() => {
     if (convexPrefs && isAuthenticated) {
       setSettings((prev) => {
-        const merged: AppSettings = {
-          ...prev,
-          showSidebar: convexPrefs.showSidebar ?? prev.showSidebar,
-          autoSync: convexPrefs.autoSync ?? prev.autoSync,
-          compactTaskView: convexPrefs.compactTaskView ?? prev.compactTaskView,
-          viewMode: (convexPrefs.viewMode as "list" | "calendar") ?? prev.viewMode,
-          beeperToken: convexPrefs.beeperToken ?? prev.beeperToken,
-          fixedNoteId: convexPrefs.fixedNoteId ?? prev.fixedNoteId,
-          activeProjectId: convexPrefs.activeProjectId ?? prev.activeProjectId,
-          autoSaveInterval: convexPrefs.autoSaveInterval ?? prev.autoSaveInterval,
+        const now = Date.now();
+        const merged: AppSettings = { ...prev };
+        let hasChanges = false;
+
+        const updateIfValid = (key: keyof AppSettings, serverValue: any) => {
+          const lastUpdate = lastLocalUpdateRef.current[key] || 0;
+          if (now - lastUpdate > GRACE_PERIOD && serverValue !== undefined && prev[key] !== serverValue) {
+            (merged as any)[key] = serverValue;
+            hasChanges = true;
+          }
         };
+
+        updateIfValid("showSidebar", convexPrefs.showSidebar);
+        updateIfValid("autoSync", convexPrefs.autoSync);
+        updateIfValid("compactTaskView", convexPrefs.compactTaskView);
+        updateIfValid("viewMode", convexPrefs.viewMode);
+        updateIfValid("beeperToken", convexPrefs.beeperToken);
+        updateIfValid("fixedNoteId", convexPrefs.fixedNoteId);
+        updateIfValid("activeProjectId", convexPrefs.activeProjectId);
+        updateIfValid("autoSaveInterval", convexPrefs.autoSaveInterval);
+
+        if (!hasChanges) return prev;
+
         saveLocalSettings(merged);
         return merged;
       });
@@ -159,6 +175,13 @@ export function useSettingsConvex() {
    */
   const updateSettings = useCallback(
     (partial: Partial<AppSettings>) => {
+      const now = Date.now();
+
+      // Update timestamps for modified fields
+      Object.keys(partial).forEach(key => {
+        lastLocalUpdateRef.current[key] = now;
+      });
+
       setSettings((prev) => {
         const newSettings = { ...prev, ...partial };
         saveLocalSettings(newSettings);

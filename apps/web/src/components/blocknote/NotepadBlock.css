@@ -25,8 +25,14 @@
 }
 
 /* Fallback for browsers that don't support :has() - target trailing block */
-.blocknote-note-list > .bn-editor > .bn-block-group > .bn-block-outer:last-child:not(:has([data-content-type="notepad"])) {
+.blocknote-note-list>.bn-editor>.bn-block-group>.bn-block-outer:last-child:not(:has([data-content-type="notepad"])) {
     display: none !important;
+}
+
+/* Normalize BlockNote block spacing to prevent vertical shifts */
+.blocknote-note-list .bn-block-outer {
+    margin-block: 0 !important;
+    padding-block: 1px !important;
 }
 
 /* Notepad Block Styles */
@@ -35,6 +41,8 @@
     box-shadow: none !important;
     contain: layout style;
     isolation: isolate;
+    min-height: 24px;
+    /* Matches icon height + padding to prevent layout shifts */
 }
 
 .category-icon {
@@ -69,27 +77,26 @@
 /* Specific targeting of BlockNote's internal content div for robust ellipsis */
 /* Only truncate when NOT editing */
 .notepad-content:not(.is-editing) {
-    max-width: 250px;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
+    max-width: 280px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.notepad-content:not(.is-editing)>* {
+/* Ensure BlockNote's internal elements don't wrap and inherit truncation */
+.notepad-content:not(.is-editing) *,
+.notepad-content:not(.is-editing) .bn-inline-content,
+.notepad-content:not(.is-editing) [data-content-type] {
+    display: inline !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    max-width: 100%;
 }
 
 /* Keep same width when editing, stay on single line */
 .notepad-content.is-editing {
-    max-width: 250px;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: clip !important;
-}
-
-.notepad-content.is-editing>* {
+    max-width: 280px;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: clip !important;
@@ -123,10 +130,16 @@
 }
 
 /* Compact View - hide metadata and expand title */
-.blocknote-note-list.compact-view .notepad-category-checkbox,
 .blocknote-note-list.compact-view .notepad-metadata,
-.blocknote-note-list.compact-view .chip-deadline {
-    display: none;
+.blocknote-note-list.compact-view .chip-deadline,
+.blocknote-note-list.compact-view .is-compact {
+    display: none !important;
+}
+
+/* Ensure items are visible during animation to allow motion.animate to work */
+.blocknote-note-list.animating-to-full .is-compact,
+.blocknote-note-list.animating-to-compact .is-compact {
+    display: flex !important;
 }
 
 .blocknote-note-list.compact-view .notepad-content {
@@ -142,6 +155,9 @@
 /* Hide elements during compact-to-full animation to prevent flash */
 .blocknote-note-list.animating-to-full .notepad-category-checkbox,
 .blocknote-note-list.animating-to-full .notepad-metadata,
-.blocknote-note-list.animating-to-full .notepad-deadline {
+.blocknote-note-list.animating-to-full .notepad-deadline,
+.blocknote-note-list.animating-to-full .notepad-pin-btn,
+.blocknote-note-list.animating-to-full .notepad-sidebar-btn,
+.blocknote-note-list.animating-to-full .notepad-trash-btn {
     opacity: 0;
 }

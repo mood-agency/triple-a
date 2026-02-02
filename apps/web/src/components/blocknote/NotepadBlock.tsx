@@ -60,8 +60,10 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                 let wasEditing = isEditing;
 
                 const checkSelection = () => {
+                    // Only consider a block as "editing" if the editor actually has focus
+                    const editorHasFocus = props.editor._tiptapEditor?.isFocused ?? false;
                     const textCursorPosition = props.editor.getTextCursorPosition();
-                    const isThisBlockSelected = textCursorPosition.block.id === props.block.id;
+                    const isThisBlockSelected = editorHasFocus && textCursorPosition.block.id === props.block.id;
 
                     // Early return if this block isn't selected and wasn't selected before (optimization)
                     if (!isThisBlockSelected && !wasEditing) {
@@ -250,7 +252,12 @@ export const NotepadBlock = (createReactBlockSpec as any)(
 
                 // Format with 1 decimal place, show + for positive values
                 const formatted = diffDays.toFixed(1);
-                return diffDays >= 0 ? `+${formatted}` : formatted;
+                const daysUnit = i18n.t('date.days');
+                // Handle -0.0 case - show as 0 without sign
+                if (formatted === '-0.0' || formatted === '0.0') {
+                    return `0 ${daysUnit}`;
+                }
+                return diffDays >= 0 ? `+${formatted} ${daysUnit}` : `${formatted} ${daysUnit}`;
             };
 
             // Format human-friendly date for tooltip
@@ -314,30 +321,29 @@ export const NotepadBlock = (createReactBlockSpec as any)(
             const allowsCheckbox = category === 'todo' || category === 'followup';
 
             return (
-                <div className="notepad-line group" style={{ display: "flex", alignItems: "center", width: "100%", userSelect: "none", outline: "none", boxShadow: "none" }}>
-                    {!isCompact && (
-                        <div contentEditable={false} className="notepad-category-checkbox relative flex items-center justify-center w-6 h-4 mr-2 flex-shrink-0 cursor-pointer">
-                            {/* Category Icon (Visible by default, fades on hover only if checkbox is allowed) */}
-                            <div
-                                className={`category-icon transition-opacity duration-200 ${allowsCheckbox ? 'group-hover:opacity-0' : ''}`}
-                                onClick={cycleCategory}
-                            >
-                                <CategoryIcon size={16} className="text-gray-500" />
-                            </div>
-
-                            {/* Checkbox (Visible on hover only for todo and followup) */}
-                            {allowsCheckbox && (
-                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                    <input
-                                        type="checkbox"
-                                        className="cursor-pointer w-3 h-3"
-                                        checked={isChecked}
-                                        onChange={handleToggleCompleted}
-                                    />
-                                </div>
-                            )}
+                <div className={`notepad-line group category-${category}`} style={{ display: "flex", alignItems: "center", width: "100%", userSelect: "none", outline: "none", boxShadow: "none" }}>
+                    <div
+                        contentEditable={false}
+                        className={`notepad-category-checkbox relative flex items-center justify-center w-6 h-4 mr-2 flex-shrink-0 cursor-pointer transition-all duration-200 ${isCompact ? 'is-compact opacity-0' : ''}`}
+                        onClick={cycleCategory}
+                    >
+                        {/* Category Icon (Visible by default, fades on hover only if checkbox is allowed) */}
+                        <div className={`category-icon transition-opacity duration-200 ${allowsCheckbox ? 'group-hover:opacity-0' : ''}`}>
+                            <CategoryIcon size={16} className="text-gray-500" />
                         </div>
-                    )}
+
+                        {/* Checkbox (Visible on hover only for todo and followup) */}
+                        {allowsCheckbox && (
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                <input
+                                    type="checkbox"
+                                    className="cursor-pointer w-3 h-3"
+                                    checked={isChecked}
+                                    onChange={handleToggleCompleted}
+                                />
+                            </div>
+                        )}
+                    </div>
 
                     <div
                         ref={combinedRef}
@@ -386,7 +392,7 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                                 <TooltipTrigger asChild>
                                     <span
                                         contentEditable={false}
-                                        className={`chip-deadline cursor-default ${shouldShowRed ? 'chip-deadline-overdue' : ''}`}
+                                        className={`chip-deadline cursor-pointer ${shouldShowRed ? 'chip-deadline-overdue' : ''}`}
                                         style={{ userSelect: "none" }}
                                     >
                                         {formatDeadline(dateStr)}
@@ -401,71 +407,65 @@ export const NotepadBlock = (createReactBlockSpec as any)(
 
                     <TooltipProvider delayDuration={300}>
                         {/* Pin icon - only render if pinned in compact mode, otherwise show on hover */}
-                        {(!isCompact || isPinned) && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <button
-                                        contentEditable={false}
-                                        onClick={handleTogglePin}
-                                        className={`p-1 hover:bg-gray-200 rounded transition-all ml-auto flex-shrink-0 ${isPinned
-                                            ? 'opacity-100'
-                                            : 'opacity-0 group-hover:opacity-100'
-                                            }`}
-                                        style={{ userSelect: "none", display: (isCompact && !isPinned) ? "none" : undefined }}
-                                    >
-                                        <Pin size={14} className={isPinned ? "text-black" : "text-gray-600"} />
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{isPinned ? "Unpin task" : "Pin task"}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button
+                                    contentEditable={false}
+                                    onClick={handleTogglePin}
+                                    className={`notepad-pin-btn p-1 hover:bg-gray-200 rounded transition-all ml-auto flex-shrink-0 opacity-0 ${isPinned
+                                        ? 'opacity-100'
+                                        : 'group-hover:opacity-100'
+                                        } ${(isCompact && !isPinned) ? 'is-compact' : ''}`}
+                                    style={{ userSelect: "none" }}
+                                >
+                                    <Pin size={14} className={isPinned ? "text-black" : "text-gray-600"} />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{isPinned ? "Unpin task" : "Pin task"}</p>
+                            </TooltipContent>
+                        </Tooltip>
 
                         {/* Sidebar icon - only render if fixed in compact mode, otherwise show on hover */}
-                        {(!isCompact || isFixedInSidebar) && (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button
+                                    contentEditable={false}
+                                    onClick={handleToggleFixInSidebar}
+                                    className={`notepad-sidebar-btn p-1 hover:bg-gray-200 rounded transition-all flex-shrink-0 opacity-0 ${isFixedInSidebar
+                                        ? 'opacity-100'
+                                        : 'group-hover:opacity-100'
+                                        } ${(isCompact && !isFixedInSidebar) ? 'is-compact' : ''}`}
+                                    style={{ userSelect: "none" }}
+                                >
+                                    <SidebarClose size={14} className={isFixedInSidebar ? "text-blue-600" : "text-gray-600"} />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{isFixedInSidebar ? "Unfix from sidebar" : "Fix to sidebar"}</p>
+                            </TooltipContent>
+                        </Tooltip>
+
+                        {/* Other action icons - hidden in compact mode */}
+                        <div
+                            contentEditable={false}
+                            className={`notepad-trash-btn flex gap-1 flex-shrink-0 transition-opacity duration-200 opacity-0 ${isCompact ? 'is-compact' : 'group-hover:opacity-100'}`}
+                            style={{ userSelect: "none" }}
+                        >
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <button
-                                        contentEditable={false}
-                                        onClick={handleToggleFixInSidebar}
-                                        className={`p-1 hover:bg-gray-200 rounded transition-all flex-shrink-0 ${isFixedInSidebar
-                                            ? 'opacity-100'
-                                            : 'opacity-0 group-hover:opacity-100'
-                                            }`}
-                                        style={{ userSelect: "none", display: (isCompact && !isFixedInSidebar) ? "none" : undefined }}
+                                        onClick={handleDelete}
+                                        className="p-1 hover:bg-red-100 rounded transition-colors"
                                     >
-                                        <SidebarClose size={14} className={isFixedInSidebar ? "text-blue-600" : "text-gray-600"} />
+                                        <Trash2 size={14} className="text-red-600" />
                                     </button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    <p>{isFixedInSidebar ? "Unfix from sidebar" : "Fix to sidebar"}</p>
+                                    <p>Delete</p>
                                 </TooltipContent>
                             </Tooltip>
-                        )}
-
-                        {/* Other action icons - hidden in compact mode */}
-                        {!isCompact && (
-                            <div
-                                contentEditable={false}
-                                className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                                style={{ userSelect: "none" }}
-                            >
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <button
-                                            onClick={handleDelete}
-                                            className="p-1 hover:bg-red-100 rounded transition-colors"
-                                        >
-                                            <Trash2 size={14} className="text-red-600" />
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Delete</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-                        )}
+                        </div>
                     </TooltipProvider>
                 </div>
             );

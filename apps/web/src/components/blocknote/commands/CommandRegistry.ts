@@ -3,6 +3,8 @@ import { SelectAllCommand } from "./SelectAllCommand";
 import { InsertBlockCommand } from "./InsertBlockCommand";
 import { DeleteBlockCommand } from "./DeleteBlockCommand";
 import { NavigateToDescriptionCommand } from "./NavigateToDescriptionCommand";
+import { NavigateUpCommand } from "./NavigateUpCommand";
+import { NavigateDownCommand } from "./NavigateDownCommand";
 import { ToggleCompleteCommand } from "./ToggleCompleteCommand";
 import { TogglePinCommand } from "./TogglePinCommand";
 import { ToggleSidebarCommand } from "./ToggleSidebarCommand";
@@ -20,6 +22,8 @@ class CommandRegistry {
     this.register("Enter", new InsertBlockCommand());
     this.register("Backspace", new DeleteBlockCommand());
     this.register("Tab", new NavigateToDescriptionCommand());
+    this.register("ArrowUp", new NavigateUpCommand());
+    this.register("ArrowDown", new NavigateDownCommand());
     this.register("Ctrl+D", new ToggleCompleteCommand());
     this.register("Cmd+D", new ToggleCompleteCommand());
     this.register("Ctrl+P", new TogglePinCommand());
