@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { Capacitor } from '@capacitor/core'
 import { SendIntent } from 'send-intent'
+import { ConvexClientProvider } from './providers/ConvexClientProvider'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -63,16 +64,18 @@ handleSharedContent()
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <BrowserRouter>
-        <ThemeProvider defaultTheme="system" storageKey="app-theme">
-          <TooltipProvider delayDuration={500} disableHoverableContent>
-            <AuthProvider>
-              <App />
-              <Toaster />
-            </AuthProvider>
-          </TooltipProvider>
-        </ThemeProvider>
-      </BrowserRouter>
+      <ConvexClientProvider>
+        <BrowserRouter>
+          <ThemeProvider defaultTheme="system" storageKey="app-theme">
+            <TooltipProvider delayDuration={500} disableHoverableContent>
+              <AuthProvider>
+                <App />
+                <Toaster />
+              </AuthProvider>
+            </TooltipProvider>
+          </ThemeProvider>
+        </BrowserRouter>
+      </ConvexClientProvider>
     </ErrorBoundary>
   </StrictMode>,
 )

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useNotesSupabase } from './supabase/useNotesSupabase';
+import { useNotesConvex } from './convex/useNotesConvex';
 import { useActiveProject } from '@/contexts/ProjectContext';
 import { useSettings } from './useSettings';
 
@@ -25,7 +25,7 @@ export function useNotes(options: UseNotesOptions = {}) {
     return activeProjectId;
   }, [projectLoading, activeProjectId, settings.activeProjectId]);
 
-  const result = useNotesSupabase({
+  const result = useNotesConvex({
     date: options.date,
     projectId: stableProjectId,
   });

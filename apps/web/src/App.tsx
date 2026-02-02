@@ -19,7 +19,7 @@ import { AuthenticatedProviders } from './components/AuthenticatedProviders'
 import { BlockNotePoC } from './pages/BlockNotePoC'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, isConfigured } = useAuth()
+  const { isAuthenticated, isLoading } = useAuth()
 
   if (isLoading) {
     return (
@@ -29,13 +29,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Allow access if:
-  // 1. Supabase is not configured (offline-only mode)
-  // 2. User is authenticated
-  // 3. User chose to continue in offline mode
+  // Allow access if user is authenticated or in offline mode
   const offlineMode = localStorage.getItem('offlineMode') === 'true'
 
-  if (!isConfigured || user || offlineMode) {
+  if (isAuthenticated || offlineMode) {
     return <>{children}</>
   }
 

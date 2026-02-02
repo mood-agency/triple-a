@@ -49,6 +49,7 @@ import {
   type RegionHandler,
   NavigationMediatorProvider,
 } from './navigation';
+import { CreateInitialNoteCommand } from '@/components/blocknote/commands';
 
 // Re-export types if needed
 export interface NoteListHandle {
@@ -107,10 +108,10 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Labels logic
-  const { labels: rawLabels, getLabelsForNote, addLabelToNote, removeLabelFromNote, createLabel, updateLabel, noteLabelVersion } = useLabels();
-  // Assignees logic
-  const { noteAssigneeVersion, getAssigneesForNote } = useAssignees();
+  // Labels logic - fully reactive with Convex
+  const { labels: rawLabels, getLabelsForNote, addLabelToNote, removeLabelFromNote, createLabel, updateLabel } = useLabels();
+  // Assignees logic - fully reactive with Convex
+  const { getAssigneesForNote } = useAssignees();
   const labelsKey = rawLabels.map(l => `${l.id}:${l.name}:${l.color}`).join(',');
   const labels = useMemo(() => rawLabels, [labelsKey]);
 
@@ -124,6 +125,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   notesRef.current = notes;
   const noteIdsKey = notes.map(n => n.id).join(',');
 
+  // Note Labels Cache - reactive with Convex (getLabelsForNote reference changes when data updates)
   const noteLabelsCache = useMemo(() => {
     const cache = new Map<string, Label[]>();
 
@@ -134,9 +136,9 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     }
 
     return cache;
-  }, [noteIdsKey, getLabelsForNote, noteLabelVersion]);
+  }, [noteIdsKey, getLabelsForNote]);
 
-  // Note Assignees Cache (maps note_id -> array of Contact objects)
+  // Note Assignees Cache - reactive with Convex (getAssigneesForNote reference changes when data updates)
   const noteAssigneesCache = useMemo(() => {
     const cache = new Map<string, Contact[]>();
 
@@ -147,7 +149,7 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     }
 
     return cache;
-  }, [noteIdsKey, noteAssigneeVersion, getAssigneesForNote]);
+  }, [noteIdsKey, getAssigneesForNote]);
 
   // --- Hooks ---
   const filters = useNoteFilters({
@@ -207,6 +209,22 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
   // Auto-create empty note when no active notes exist (notepad behavior - always have a caret ready)
   const autoCreateInProgressRef = useRef(false);
 
+  // Listen for notepad:createInitialNote event (dispatched by CreateInitialNoteCommand)
+  useEffect(() => {
+    const handleCreateInitialNote = (_e: Event) => {
+      if (!onCreateTask) return;
+      onCreateTask();
+      selection.setDesiredColumn(0);
+      selection.setFocusTarget('title');
+    };
+
+    window.addEventListener('notepad:createInitialNote', handleCreateInitialNote);
+    return () => {
+      window.removeEventListener('notepad:createInitialNote', handleCreateInitialNote);
+    };
+  }, [onCreateTask, selection]);
+
+  // Use CreateInitialNoteCommand when no active notes exist
   useEffect(() => {
     const hasActiveNotes = notes.some(n => !n.completed);
     if (hasActiveNotes) {
@@ -217,10 +235,14 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     if (autoCreateInProgressRef.current || !onCreateTask) return;
 
     autoCreateInProgressRef.current = true;
-    onCreateTask();
-    selection.setDesiredColumn(0);
-    selection.setFocusTarget('title');
-  }, [notes, onCreateTask, selection]);
+
+    // Use command pattern to create initial note
+    const command = new CreateInitialNoteCommand(
+      filters.categoryFilter !== 'all' ? filters.categoryFilter : 'todo',
+      filters.labelFilter
+    );
+    command.execute();
+  }, [notes, onCreateTask, filters.categoryFilter, filters.labelFilter]);
 
   // Track previous filter values to detect changes and auto-select first task
   // Note: searchQuery is excluded - user should press Down arrow after typing to navigate to results
@@ -492,8 +514,24 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     toast.success(pinned ? t('notePinned') : t('noteUnpinned'));
   }, [onTogglePinned, t]);
 
+  // Refs to avoid stale closures in hotkey handlers
+  const currentTitleRef = useRef<string>('');
+  const selectedNoteRef = useRef<Note | null>(null);
+
+  // Keep refs in sync with current state
+  useEffect(() => {
+    console.log('[NoteList] Updating refs:', {
+      noteId: selectedNote?.id,
+      content: selectedNote?.content,
+      prevNoteId: selectedNoteRef.current?.id
+    });
+    currentTitleRef.current = selectedNote?.content || '';
+    selectedNoteRef.current = selectedNote;
+  }, [selectedNote?.id, selectedNote?.content, selectedNote]);
+
   const handleContentChange = useCallback((c: string) => {
     selection.setTitleValue(c);
+    currentTitleRef.current = c; // Keep ref in sync
   }, [selection]);
 
   const handleClearCategory = useCallback(() => {
@@ -669,11 +707,44 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
     }
   }, { ...hotkeyOptions, enableOnFormTags: false }, [onSelectNote]);
   useHotkeys('tab', () => {
-    if (selectedNote) {
-      // Always navigate to description - opens panel if closed, focuses if open
-      selection.handleNavigateToDescription();
+    // Use ref to get the current selected note (avoids stale closure)
+    const note = selectedNoteRef.current;
+
+    // Get the current title value directly from the active input element
+    const activeElement = document.activeElement;
+    let currentTitle = '';
+
+    // If we're in an input, get its current value directly (most reliable)
+    if (activeElement instanceof HTMLInputElement) {
+      currentTitle = activeElement.value;
+    } else {
+      currentTitle = currentTitleRef.current;
     }
-  }, { ...hotkeyOptions, enableOnFormTags: ['INPUT'], enableOnContentEditable: true }, [selectedNote]);
+
+    console.log('[Tab] Handler called:', {
+      noteId: note?.id,
+      noteContent: note?.content,
+      currentTitle,
+      activeElementType: activeElement?.tagName,
+      activeElementValue: activeElement instanceof HTMLInputElement ? activeElement.value : 'N/A'
+    });
+
+    if (!note) {
+      console.log('[Tab] No note selected, skipping');
+      return;
+    }
+
+    // Save if the title has changed
+    if (currentTitle && currentTitle !== note.content) {
+      console.log('[Tab] Saving title:', { noteId: note.id, currentTitle, noteContent: note.content });
+      onEdit(note.id, currentTitle, note.category, note.description);
+    } else {
+      console.log('[Tab] Not saving:', { reason: !currentTitle ? 'empty title' : 'title unchanged' });
+    }
+
+    // Always navigate to description - opens panel if closed, focuses if open
+    selection.handleNavigateToDescription();
+  }, { ...hotkeyOptions, enableOnFormTags: ['INPUT'], enableOnContentEditable: true }, [onEdit, selection]);
   useHotkeys('alt+t', () => { if (selectedNote) setDeadlinePickerOpen(true); }, { ...hotkeyOptions, enableOnContentEditable: true }, [selectedNote]);
   useHotkeys('alt+v', () => { filters.setViewMode(filters.viewMode === 'list' ? 'calendar' : 'list'); }, hotkeyOptions, [filters.viewMode]);
   useHotkeys('alt+f', () => { setCompactTaskView(!compactTaskView); }, hotkeyOptions, [compactTaskView]);

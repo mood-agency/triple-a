@@ -85,7 +85,7 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
     ref
   ) {
     const { t, i18n } = useTranslation();
-    const { getAssigneesForNote, noteAssigneeVersion } = useAssignees();
+    const { getAssigneesForNote } = useAssignees();
     const [descriptionValue, setDescriptionValue] = useState(note.description ?? '');
     const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
     const [labelDropdownOpen, setLabelDropdownOpen] = useState(false);
@@ -107,8 +107,8 @@ export const TaskDescriptionPanel = forwardRef<TaskDescriptionPanelHandle, TaskD
       }
     }, [note.completed, note.id, onToggleComplete]);
 
-    // Get assignees for this note (re-compute when noteAssigneeVersion changes)
-    const noteAssignees = useMemo(() => getAssigneesForNote(note.id), [note.id, getAssigneesForNote, noteAssigneeVersion]);
+    // Get assignees for this note - reactive with Convex
+    const noteAssignees = useMemo(() => getAssigneesForNote(note.id), [note.id, getAssigneesForNote]);
 
     // Filter postponed history entries
     const postponedHistory = history?.filter(h => h.action_type === 'postponed') ?? [];

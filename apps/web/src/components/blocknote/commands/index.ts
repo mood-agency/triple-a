@@ -13,6 +13,7 @@ export { InsertBlockCommand } from "./InsertBlockCommand";
 export { DeleteBlockCommand } from "./DeleteBlockCommand";
 export { TogglePinCommand } from "./TogglePinCommand";
 export { ToggleSidebarCommand } from "./ToggleSidebarCommand";
+export { CreateInitialNoteCommand } from "./CreateInitialNoteCommand";
 
 // Command registry and utilities
 export { commandRegistry, getKeyCombo } from "./CommandRegistry";

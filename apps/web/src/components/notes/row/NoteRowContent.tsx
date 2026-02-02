@@ -108,8 +108,12 @@ export function NoteRowContent({
                             onContentChange?.(e.target.value);
                         }}
                         onBlur={onContentBlur}
-                        onKeyDown={onContentKeyDown}
+                        onKeyDown={(e) => {
+                            console.log('[Input] KeyDown:', { key: e.key, noteId: note.id, value: (e.target as HTMLInputElement).value });
+                            onContentKeyDown(e);
+                        }}
                         onFocus={(e) => {
+                            console.log('[Input] Focus:', { noteId: note.id });
                             // Prevent the input from auto-scrolling when focused
                             e.target.scrollLeft = 0;
                         }}

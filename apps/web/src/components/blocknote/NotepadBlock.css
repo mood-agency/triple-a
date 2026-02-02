@@ -6,6 +6,29 @@
     display: none !important;
 }
 
+/* In the note list, hide ALL paragraph blocks - only notepad blocks should be visible */
+/* This prevents users from creating content by clicking below the last task */
+.blocknote-note-list .bn-block-content[data-content-type="paragraph"] {
+    display: none !important;
+    height: 0 !important;
+    pointer-events: none !important;
+}
+
+/* Hide the outer wrapper of paragraph blocks to remove any spacing */
+.blocknote-note-list .bn-block-outer:has(.bn-block-content[data-content-type="paragraph"]) {
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+}
+
+/* Fallback for browsers that don't support :has() - target trailing block */
+.blocknote-note-list > .bn-editor > .bn-block-group > .bn-block-outer:last-child:not(:has([data-content-type="notepad"])) {
+    display: none !important;
+}
+
 /* Notepad Block Styles */
 .notepad-line {
     outline: none !important;

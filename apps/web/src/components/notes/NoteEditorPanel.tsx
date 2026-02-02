@@ -1,4 +1,4 @@
-import { forwardRef, memo, useState, useEffect, useRef, useCallback } from 'react';
+import { forwardRef, memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -153,7 +153,33 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   isFixedInSidebar = false,
 }, ref) {
   const { t, i18n } = useTranslation();
-  const { getAssigneesForNote, noteAssigneeVersion } = useAssignees();
+  const { getAssigneesForNote } = useAssignees();
+
+  // PERFORMANCE: Memoize date translations to avoid recreating on every render
+  const dateTranslations = useMemo(() => ({
+    today: t('date.today'),
+    tomorrow: t('date.tomorrow'),
+    yesterday: t('date.yesterday'),
+    inDays: t('date.inDays'),
+    daysAgo: t('date.daysAgo'),
+    inAWeek: t('date.inAWeek'),
+    aWeekAgo: t('date.aWeekAgo'),
+    inWeeks: t('date.inWeeks'),
+    weeksAgo: t('date.weeksAgo'),
+    nextWeek: t('date.nextWeek'),
+    lastWeek: t('date.lastWeek'),
+    thisWeekday: t('date.thisWeekday'),
+    nextWeekday: t('date.nextWeekday'),
+    lastWeekday: t('date.lastWeekday'),
+    inAMonth: t('date.inAMonth'),
+    aMonthAgo: t('date.aMonthAgo'),
+    inMonths: t('date.inMonths'),
+    monthsAgo: t('date.monthsAgo'),
+    inAYear: t('date.inAYear'),
+    aYearAgo: t('date.aYearAgo'),
+    inYears: t('date.inYears'),
+    yearsAgo: t('date.yearsAgo'),
+  }), [t]);
   const [noteAssignees, setNoteAssignees] = useState<Contact[]>([]);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
@@ -180,10 +206,10 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<BlockNoteEditorHandle | null>(null);
 
-  // Load assignees when note or assignee version changes
+  // Load assignees when note changes
   useEffect(() => {
     setNoteAssignees(getAssigneesForNote(note.id));
-  }, [note.id, noteAssigneeVersion, getAssigneesForNote]);
+  }, [note.id, getAssigneesForNote]);
 
   // Reset isCompleting when note changes or completed state changes
   useEffect(() => {
@@ -538,30 +564,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                 ? formatRelativeDateEnhanced(
                   parseLocalDate(note.deadline),
                   i18n.language,
-                  {
-                    today: t('date.today'),
-                    tomorrow: t('date.tomorrow'),
-                    yesterday: t('date.yesterday'),
-                    inDays: t('date.inDays'),
-                    daysAgo: t('date.daysAgo'),
-                    inAWeek: t('date.inAWeek'),
-                    aWeekAgo: t('date.aWeekAgo'),
-                    inWeeks: t('date.inWeeks'),
-                    weeksAgo: t('date.weeksAgo'),
-                    nextWeek: t('date.nextWeek'),
-                    lastWeek: t('date.lastWeek'),
-                    thisWeekday: t('date.thisWeekday'),
-                    nextWeekday: t('date.nextWeekday'),
-                    lastWeekday: t('date.lastWeekday'),
-                    inAMonth: t('date.inAMonth'),
-                    aMonthAgo: t('date.aMonthAgo'),
-                    inMonths: t('date.inMonths'),
-                    monthsAgo: t('date.monthsAgo'),
-                    inAYear: t('date.inAYear'),
-                    aYearAgo: t('date.aYearAgo'),
-                    inYears: t('date.inYears'),
-                    yearsAgo: t('date.yearsAgo'),
-                  },
+                  dateTranslations,
                   true
                 )
                 : t('setDeadline')}
@@ -595,30 +598,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                   {formatRelativeDateEnhanced(
                     new Date(note.created_at),
                     i18n.language,
-                    {
-                      today: t('date.today'),
-                      tomorrow: t('date.tomorrow'),
-                      yesterday: t('date.yesterday'),
-                      inDays: t('date.inDays'),
-                      daysAgo: t('date.daysAgo'),
-                      inAWeek: t('date.inAWeek'),
-                      aWeekAgo: t('date.aWeekAgo'),
-                      inWeeks: t('date.inWeeks'),
-                      weeksAgo: t('date.weeksAgo'),
-                      nextWeek: t('date.nextWeek'),
-                      lastWeek: t('date.lastWeek'),
-                      thisWeekday: t('date.thisWeekday'),
-                      nextWeekday: t('date.nextWeekday'),
-                      lastWeekday: t('date.lastWeekday'),
-                      inAMonth: t('date.inAMonth'),
-                      aMonthAgo: t('date.aMonthAgo'),
-                      inMonths: t('date.inMonths'),
-                      monthsAgo: t('date.monthsAgo'),
-                      inAYear: t('date.inAYear'),
-                      aYearAgo: t('date.aYearAgo'),
-                      inYears: t('date.inYears'),
-                      yearsAgo: t('date.yearsAgo'),
-                    },
+                    dateTranslations,
                     true
                   )}
                 </button>

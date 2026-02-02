@@ -215,13 +215,7 @@ export const NoteListContent = memo(function NoteListContent({
                     onClearAll={onClearAllFilters}
                 />
             </AnimatePresence>
-            {notes.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center">
-                    <p className="text-center text-muted-foreground/60 text-sm italic">
-                        {t('noNotes')}
-                    </p>
-                </div>
-            ) : viewMode === 'calendar' ? (
+            {viewMode === 'calendar' ? (
                 <div className="flex flex-col h-full overflow-hidden">
                     {/* Calendar picker - left aligned */}
                     <div className="flex-shrink-0 py-2">

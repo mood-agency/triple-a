@@ -1,17 +1,17 @@
-import * as React from 'react';
-import { memo } from 'react';
-import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { Trash2, RotateCcw, AlertTriangle } from 'lucide-react';
+import * as React from "react";
+import { memo } from "react";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { Trash2, RotateCcw, AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,10 +21,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { useDeletedNotes } from '@/hooks/useDeletedNotes';
-import { supabase } from '@/lib/supabase';
-import type { Note } from '@/types/note';
+} from "@/components/ui/alert-dialog";
+import { useDeletedNotes } from "@/hooks/useDeletedNotes";
+import type { Note } from "@/types/note";
 
 interface DeletedTasksDialogProps {
   open: boolean;
@@ -39,7 +38,8 @@ export const DeletedTasksDialog = memo(function DeletedTasksDialog({
   onRestore,
 }: DeletedTasksDialogProps) {
   const { t } = useTranslation();
-  const { deletedNotes, refresh } = useDeletedNotes();
+  const { deletedNotes, refresh, permanentDelete, permanentDeleteAll } =
+    useDeletedNotes();
   const [confirmDelete, setConfirmDelete] = React.useState<string | null>(null);
   const [confirmDeleteAll, setConfirmDeleteAll] = React.useState(false);
 
@@ -56,35 +56,31 @@ export const DeletedTasksDialog = memo(function DeletedTasksDialog({
   };
 
   const handlePermanentDelete = async (id: string) => {
-    if (!supabase) return;
-
-    // Hard delete from Supabase
-    const { error } = await supabase.from('notes').delete().eq('id', id);
-    if (error) {
-      console.error('[DeletedTasksDialog] Error permanently deleting note:', error);
-      toast.error(t('toast.permanentDeleteError'));
-      return;
+    try {
+      await permanentDelete(id);
+      setConfirmDelete(null);
+      toast.success(t("toast.permanentDeleteSuccess"));
+    } catch (error) {
+      console.error(
+        "[DeletedTasksDialog] Error permanently deleting note:",
+        error
+      );
+      toast.error(t("toast.permanentDeleteError"));
     }
-
-    refresh();
-    setConfirmDelete(null);
-    toast.success(t('toast.permanentDeleteSuccess'));
   };
 
   const handleDeleteAll = async () => {
-    if (!supabase) return;
-
-    const ids = deletedNotes.map((note) => note.id);
-    const { error } = await supabase.from('notes').delete().in('id', ids);
-    if (error) {
-      console.error('[DeletedTasksDialog] Error permanently deleting all notes:', error);
-      toast.error(t('toast.permanentDeleteError'));
-      return;
+    try {
+      await permanentDeleteAll();
+      setConfirmDeleteAll(false);
+      toast.success(t("toast.permanentDeleteAllSuccess"));
+    } catch (error) {
+      console.error(
+        "[DeletedTasksDialog] Error permanently deleting all notes:",
+        error
+      );
+      toast.error(t("toast.permanentDeleteError"));
     }
-
-    refresh();
-    setConfirmDeleteAll(false);
-    toast.success(t('toast.permanentDeleteAllSuccess'));
   };
 
   return (
@@ -94,12 +90,12 @@ export const DeletedTasksDialog = memo(function DeletedTasksDialog({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Trash2 className="h-5 w-5" />
-              {t('trash.title')}
+              {t("trash.title")}
             </DialogTitle>
             <DialogDescription>
               {deletedNotes.length > 0
-                ? `${deletedNotes.length} ${deletedNotes.length === 1 ? 'task' : 'tasks'}`
-                : t('trash.empty')}
+                ? `${deletedNotes.length} ${deletedNotes.length === 1 ? "task" : "tasks"}`
+                : t("trash.empty")}
             </DialogDescription>
           </DialogHeader>
 
@@ -107,7 +103,7 @@ export const DeletedTasksDialog = memo(function DeletedTasksDialog({
             {deletedNotes.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <Trash2 className="h-12 w-12 mb-2 opacity-20" />
-                <p>{t('trash.empty')}</p>
+                <p>{t("trash.empty")}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -117,10 +113,13 @@ export const DeletedTasksDialog = memo(function DeletedTasksDialog({
                     className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{note.content || '(empty)'}</p>
+                      <p className="text-sm font-medium truncate">
+                        {note.content || "(empty)"}
+                      </p>
                       {note.deleted_at && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          {t('trash.deletedAt')}: {format(new Date(note.deleted_at), 'PPp')}
+                          {t("trash.deletedAt")}:{" "}
+                          {format(new Date(note.deleted_at), "PPp")}
                         </p>
                       )}
                     </div>
@@ -130,7 +129,7 @@ export const DeletedTasksDialog = memo(function DeletedTasksDialog({
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => handleRestore(note)}
-                        title={t('trash.restore')}
+                        title={t("trash.restore")}
                       >
                         <RotateCcw className="h-4 w-4" />
                       </Button>
@@ -139,7 +138,7 @@ export const DeletedTasksDialog = memo(function DeletedTasksDialog({
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive"
                         onClick={() => setConfirmDelete(note.id)}
-                        title={t('trash.deletePermanently')}
+                        title={t("trash.deletePermanently")}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -158,7 +157,7 @@ export const DeletedTasksDialog = memo(function DeletedTasksDialog({
                 onClick={() => setConfirmDeleteAll(true)}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
-                {t('trash.deleteAll')}
+                {t("trash.deleteAll")}
               </Button>
             </div>
           )}
@@ -166,24 +165,27 @@ export const DeletedTasksDialog = memo(function DeletedTasksDialog({
       </Dialog>
 
       {/* Confirm single delete */}
-      <AlertDialog open={!!confirmDelete} onOpenChange={() => setConfirmDelete(null)}>
+      <AlertDialog
+        open={!!confirmDelete}
+        onOpenChange={() => setConfirmDelete(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              {t('trash.deletePermanently')}
+              {t("trash.deletePermanently")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t('trash.confirmDeletePermanently')}
+              {t("trash.confirmDeletePermanently")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => confirmDelete && handlePermanentDelete(confirmDelete)}
             >
-              {t('delete')}
+              {t("delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -195,19 +197,19 @@ export const DeletedTasksDialog = memo(function DeletedTasksDialog({
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              {t('trash.deleteAll')}
+              {t("trash.deleteAll")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t('trash.confirmDeleteAll')}
+              {t("trash.confirmDeleteAll")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={handleDeleteAll}
             >
-              {t('delete')}
+              {t("delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

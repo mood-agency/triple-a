@@ -1,10 +1,16 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { toast } from 'sonner';
-import { useOnlineStatus } from '@/hooks/useOnlineStatus';
-import { supabase } from '@/lib/supabase';
-import i18n from '@/i18n';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+import { toast } from "sonner";
+import { useConvexAuth } from "convex/react";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import i18n from "@/i18n";
 
-export type SyncConnectionStatus = 'online' | 'offline' | 'connecting';
+export type SyncConnectionStatus = "online" | "offline" | "connecting";
 
 interface SyncContextType {
   connectionStatus: SyncConnectionStatus;
@@ -15,19 +21,21 @@ const SyncContext = createContext<SyncContextType | null>(null);
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const isOnline = useOnlineStatus();
-  const [connectionStatus, setConnectionStatus] = useState<SyncConnectionStatus>('offline');
+  const { isLoading: isConvexLoading } = useConvexAuth();
+  const [connectionStatus, setConnectionStatus] =
+    useState<SyncConnectionStatus>("offline");
   const [prevOnline, setPrevOnline] = useState<boolean | null>(null);
 
-  // Update connection status
+  // Update connection status based on network and Convex connection
   useEffect(() => {
-    if (!supabase) {
-      setConnectionStatus('offline');
+    if (isConvexLoading) {
+      setConnectionStatus("connecting");
     } else if (isOnline) {
-      setConnectionStatus('online');
+      setConnectionStatus("online");
     } else {
-      setConnectionStatus('offline');
+      setConnectionStatus("offline");
     }
-  }, [isOnline]);
+  }, [isOnline, isConvexLoading]);
 
   // Show toast notifications for online/offline transitions
   useEffect(() => {
@@ -38,9 +46,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
     if (prevOnline !== isOnline) {
       if (isOnline) {
-        toast.success(i18n.t('sync.backOnline'));
+        toast.success(i18n.t("sync.backOnline"));
       } else {
-        toast.warning(i18n.t('sync.nowOffline'));
+        toast.warning(i18n.t("sync.nowOffline"));
       }
       setPrevOnline(isOnline);
     }
@@ -61,7 +69,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 export function useSync() {
   const context = useContext(SyncContext);
   if (!context) {
-    throw new Error('useSync must be used within SyncProvider');
+    throw new Error("useSync must be used within SyncProvider");
   }
   return context;
 }

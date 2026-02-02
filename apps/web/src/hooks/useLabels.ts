@@ -1,8 +1,11 @@
-import { useLabelsSupabase } from './supabase/useLabelsSupabase';
+import { useLabelsConvex, useNoteLabels } from './convex/useLabelsConvex';
 
 /**
  * Main hook for managing labels
  */
 export function useLabels() {
-  return useLabelsSupabase();
+  return useLabelsConvex();
 }
+
+// Re-export useNoteLabels for direct label queries per note
+export { useNoteLabels };

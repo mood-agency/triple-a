@@ -245,7 +245,16 @@ export const BlockNoteNoteList = ({
 
   // Function to flush pending saves immediately
   const flushPendingSaves = useCallback(() => {
+    if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] flushPendingSaves called:', {
+      hasPendingChanges: pendingChangesRef.current,
+      hasOnEdit: !!onEdit,
+      notesCount: notes.length
+    });
+
     if (!pendingChangesRef.current || !onEdit) {
+      if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] flushPendingSaves skipped:', {
+        reason: !pendingChangesRef.current ? 'no pending changes' : 'no onEdit'
+      });
       return;
     }
 
@@ -258,8 +267,17 @@ export const BlockNoteNoteList = ({
         const content = getBlockContent(block);
         const note = notes.find(n => n.id === block.id);
 
+        if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Checking block:', {
+          blockId: block.id,
+          content,
+          noteFound: !!note,
+          noteContent: note?.content,
+          contentChanged: note && content !== note.content
+        });
+
         // Only save if content has changed
         if (note && content !== note.content) {
+          if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Saving block:', { blockId: block.id, content });
           onEdit(block.id, content, note.category, note.description);
           savedCount++;
         }
@@ -271,6 +289,7 @@ export const BlockNoteNoteList = ({
       onSaveSuccess(savedCount);
     }
 
+    if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] flushPendingSaves done:', { savedCount });
     pendingChangesRef.current = false;
   }, [editor, notes, onEdit, onSaveSuccess]);
 
@@ -281,10 +300,39 @@ export const BlockNoteNoteList = ({
   }, [flushPendingSaves]);
 
   // Track changes via onChange (just mark as dirty, don't save)
+  // Also remove any paragraph blocks that get created (user clicking below last task)
+  const isRemovingParagraphsRef = useRef(false);
   useEffect(() => {
     const unsubscribe = editor.onChange(() => {
       if (!isSyncingRef.current) {
         pendingChangesRef.current = true;
+      }
+
+      // Guard to prevent recursive removal
+      if (isRemovingParagraphsRef.current) return;
+
+      // Remove any paragraph blocks - they shouldn't exist in the note list
+      // This handles the case where a user clicks below the last task
+      const paragraphBlocks = editor.document.filter(block => block.type === 'paragraph');
+      if (paragraphBlocks.length > 0) {
+        isRemovingParagraphsRef.current = true;
+        try {
+          // Find the last notepad block to move focus to
+          const notepadBlocks = editor.document.filter(block => block.type === 'notepad');
+          const lastNotepadBlock = notepadBlocks[notepadBlocks.length - 1];
+
+          // Remove paragraph blocks
+          paragraphBlocks.forEach(block => {
+            editor.removeBlocks([block]);
+          });
+
+          // Move focus back to the last notepad block if available
+          if (lastNotepadBlock) {
+            editor.setTextCursorPosition(lastNotepadBlock, 'end');
+          }
+        } finally {
+          isRemovingParagraphsRef.current = false;
+        }
       }
     });
 
@@ -889,17 +937,22 @@ export const BlockNoteNoteList = ({
   useEffect(() => {
     const handleCreateNoteAfter = async (e: Event) => {
       const customEvent = e as CustomEvent<{ afterNoteId: string; newNoteId?: string; category?: string }>;
+      if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Enter event received:', customEvent.detail);
 
       if (onCreateNoteAfter) {
+        if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Flushing saves before create');
         flushPendingSavesRef.current();
 
         const afterNote = notes.find(n => n.id === customEvent.detail.afterNoteId);
+        if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] After note found:', { afterNoteId: customEvent.detail.afterNoteId, found: !!afterNote });
+
         if (afterNote) {
           // Process the block the user just finished
           const result = await processNoteBlock(afterNote.id);
+          if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Process result:', result);
 
           // Create new note with parsed/processed data
-          await onCreateNoteAfter(
+          const createdNote = await onCreateNoteAfter(
             afterNote.id,
             result?.finalCategory || (customEvent.detail.category as any) || afterNote.category,
             afterNote.deadline,
@@ -907,6 +960,48 @@ export const BlockNoteNoteList = ({
             result?.parsedAssigneeId || null,
             customEvent.detail.newNoteId
           );
+
+          // After Convex creates the note, update the BlockNote block's ID to match
+          // This fixes the UUID vs Convex ID mismatch issue
+          if (createdNote && customEvent.detail.newNoteId) {
+            const uuidBlock = editor.getBlock(customEvent.detail.newNoteId);
+            if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Updating block ID:', {
+              uuidBlockFound: !!uuidBlock,
+              uuid: customEvent.detail.newNoteId,
+              convexId: createdNote.id
+            });
+
+            if (uuidBlock) {
+              // Set syncing flag to prevent onChange from triggering saves during update
+              isSyncingRef.current = true;
+
+              // Replace the UUID block with a new block that has the Convex ID
+              // This ensures subsequent saves can find the note in the notes array
+              const blockContent = getBlockContent(uuidBlock);
+              editor.replaceBlocks(
+                [uuidBlock],
+                [{
+                  id: createdNote.id,
+                  type: 'notepad',
+                  props: {
+                    ...(uuidBlock.props as any),
+                  },
+                  content: blockContent ? [{ type: 'text', text: blockContent }] : [],
+                }] as any
+              );
+
+              // Move cursor to the new block
+              const newBlock = editor.getBlock(createdNote.id);
+              if (newBlock) {
+                editor.setTextCursorPosition(newBlock, 'start');
+              }
+
+              // Reset syncing flag
+              setTimeout(() => {
+                isSyncingRef.current = false;
+              }, 50);
+            }
+          }
         }
       }
     };
@@ -915,17 +1010,22 @@ export const BlockNoteNoteList = ({
     return () => {
       window.removeEventListener('notepad:createNoteAfter', handleCreateNoteAfter);
     };
-  }, [onCreateNoteAfter, notes, processNoteBlock]);
+  }, [onCreateNoteAfter, notes, processNoteBlock, editor]);
 
   // Listen for navigate to description events (Tab key)
   useEffect(() => {
     const handleNavigateToDescription = async (e: Event) => {
       const customEvent = e as CustomEvent<{ noteId: string }>;
+      if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Tab event received:', customEvent.detail);
 
+      if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Flushing saves before Tab');
       flushPendingSavesRef.current();
+
+      if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Processing block before Tab');
       await processNoteBlock(customEvent.detail.noteId);
 
       if (onNavigateToDescription) {
+        if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Navigating to description');
         onNavigateToDescription();
       }
     };

@@ -142,7 +142,10 @@
       "Bash(npm:*)",
       "Bash(brv --version:*)",
       "Bash(brv:*)",
-      "Bash(pnpm lint:*)"
+      "Bash(pnpm lint:*)",
+      "Bash(npx @convex-dev/auth:*)",
+      "Bash(npx convex:*)",
+      "Bash(pnpm --filter @triple-a/web exec tsc:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\argen\\Documents\\GitHub\\triple-a",

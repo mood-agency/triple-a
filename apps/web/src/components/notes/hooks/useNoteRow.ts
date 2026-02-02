@@ -70,6 +70,9 @@ export function useNoteRow({
     const [isEditingContent, setIsEditingContent] = useState(isSelected && note.content === '');
     const [contentValue, setContentValue] = useState(note.content);
 
+    // DEBUG: Log state changes
+    console.log('[useNoteRow] State:', { noteId: note.id, isEditingContent, isSelected, contentValue, noteContent: note.content });
+
     // Dropdown states
     const [showLabelDropdown, setShowLabelDropdown] = useState(false);
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -336,6 +339,12 @@ export function useNoteRow({
         }
         if (e.key === 'Enter' && !e.shiftKey && !e.repeat) {
             e.preventDefault();
+            console.log('[Enter] Key pressed:', {
+                noteId: note.id,
+                contentValue,
+                noteContent: note.content,
+                completed: note.completed
+            });
             if (!note.completed && contentValue.trim()) {
                 // Save content to store immediately before creating the new note.
                 // This prevents a flash of "Nueva tarea..." placeholder when the
@@ -343,6 +352,7 @@ export function useNoteRow({
                 // otherwise still be stale (empty) due to the debounced loadNotes.
                 const trimmed = contentValue.trim();
                 if (trimmed !== note.content || hasUnparsedTags(trimmed)) {
+                    console.log('[Enter] Saving before create:', { trimmed, noteContent: note.content });
                     saveContentWithHashtagParsing(hasUnparsedTags(trimmed));
                 }
                 // Hide the caret instantly so it doesn't visibly jump
@@ -350,6 +360,7 @@ export function useNoteRow({
                 if (contentInputRef.current) {
                     contentInputRef.current.style.caretColor = 'transparent';
                 }
+                console.log('[Enter] Creating note after:', note.id);
                 onCreateNoteAfter?.(note.id);
             } else {
                 const trimmed = contentValue.trim();

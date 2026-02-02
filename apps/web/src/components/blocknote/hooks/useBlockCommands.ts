@@ -3,7 +3,7 @@ import type { BlockNoteEditor, Block } from "@blocknote/core";
 import { commandRegistry, getKeyCombo } from "../commands/CommandRegistry";
 import type { BlockCommandContext } from "../commands/BlockCommand";
 
-const DEBUG_BLOCKNOTE = false;
+const DEBUG_BLOCKNOTE = true;
 
 /**
  * Custom hook to handle keyboard commands for BlockNote blocks
@@ -52,6 +52,7 @@ export function useBlockCommands(
 
       // Execute the command if registered
       if (commandRegistry.hasCommand(keyCombo)) {
+        console.log(`[useBlockCommands] Command found for "${keyCombo}", executing...`);
         // Stop event propagation only for registered commands
         e.stopImmediatePropagation();
 
@@ -64,9 +65,9 @@ export function useBlockCommands(
         };
 
         const executed = commandRegistry.executeCommand(keyCombo, context);
-        if (executed) {
-          // Command executed successfully
-        }
+        console.log(`[useBlockCommands] Command executed: ${executed}`);
+      } else {
+        console.log(`[useBlockCommands] No command registered for "${keyCombo}"`);
       }
     };
 

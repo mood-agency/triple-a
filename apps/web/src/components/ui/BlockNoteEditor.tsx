@@ -31,6 +31,24 @@ const schema = BlockNoteSchema.create({
   },
 })
 
+// Create stable table options (outside component to prevent re-creation)
+const tableOptions = {
+  splitCells: true,
+  cellBackgroundColor: true,
+  cellTextColor: true,
+  headers: true,
+}
+
+// Create stable tiptap options with search extension
+const tiptapOptions = {
+  extensions: [
+    SearchHighlightExtension.configure({
+      searchTerm: '',
+      currentMatchIndex: 0,
+    }),
+  ],
+}
+
 /**
  * Detect if text is a Markdown table
  */
@@ -233,20 +251,8 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
       initialContent,
       uploadFile,
       dictionary: blockNoteDictionary,
-      tables: {
-        splitCells: true,
-        cellBackgroundColor: true,
-        cellTextColor: true,
-        headers: true,
-      },
-      _tiptapOptions: {
-        extensions: [
-          SearchHighlightExtension.configure({
-            searchTerm: '',
-            currentMatchIndex: 0,
-          }),
-        ],
-      },
+      tables: tableOptions,
+      _tiptapOptions: tiptapOptions,
     })
 
     // Store editor ref
@@ -289,11 +295,11 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
     const handleChange = useCallback(() => {
       if (!editor) return
       const json = JSON.stringify(editor.document)
-      console.log('[BlockNoteEditor] onChange triggered:', {
-        noteId,
-        jsonLength: json.length,
-        jsonPreview: json.substring(0, 100),
-      });
+      // console.log('[BlockNoteEditor] onChange triggered:', {
+      //   noteId,
+      //   jsonLength: json.length,
+      //   jsonPreview: json.substring(0, 100),
+      // });
       lastExternalValueRef.current = json
       onChange(json)
     }, [editor, onChange, noteId])

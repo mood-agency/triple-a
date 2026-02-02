@@ -74,6 +74,9 @@ function NoteRow(props: NoteRowProps) {
     hideDeadline = false,
   } = props;
 
+  // DEBUG: Log when NoteRow renders
+  console.log('[NoteRow] Render:', { noteId: note.id, content: note.content, isSelected: props.isSelected, shouldFocusTitle: props.shouldFocusTitle });
+
   const { t, i18n } = useTranslation();
   const { debugMode, debugSelectedClass } = useDebugNavigation();
 
