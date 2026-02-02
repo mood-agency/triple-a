@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Search,
@@ -87,7 +88,7 @@ interface NoteFiltersProps {
   hasDeletedTasks?: boolean;
 }
 
-export function NoteFilters({
+export const NoteFilters = memo(function NoteFilters({
   searchQuery,
   onSearchChange,
   onSearchKeyDown,
@@ -307,4 +308,4 @@ export function NoteFilters({
       </div>
     </>
   );
-}
+});
