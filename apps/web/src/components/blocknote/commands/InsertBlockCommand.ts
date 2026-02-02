@@ -1,4 +1,5 @@
 import type { BlockCommand, BlockCommandContext } from "./BlockCommand";
+import { eventBus } from "@/events";
 
 /**
  * InsertBlockCommand - Handles Enter key to insert a new notepad block
@@ -24,7 +25,7 @@ export class InsertBlockCommand implements BlockCommand {
             date: null,
             category: (block.props as any).category || 'todo',
             compact: (block.props as any).compact || false,
-            hideDate: (block.props as any).hideDate || false
+            hideDate: (block.props as any).hideDate || false,
           },
         },
       ],
@@ -36,14 +37,12 @@ export class InsertBlockCommand implements BlockCommand {
     if (insertedBlocks.length > 0) {
       editor.setTextCursorPosition(insertedBlocks[0], "start");
 
-      // Dispatch event with the new block's ID so the database can use it
-      window.dispatchEvent(new CustomEvent('notepad:createNoteAfter', {
-        detail: {
-          afterNoteId: block.id,
-          newNoteId: insertedBlocks[0].id,  // Pass the new block's ID
-          category: (block.props as any).category || 'todo'
-        }
-      }));
+      // Emit event with the new block's ID so the database can use it
+      eventBus.emit('editor:createNoteAfter', {
+        afterNoteId: block.id,
+        newNoteId: insertedBlocks[0].id,
+        category: (block.props as any).category || 'todo',
+      });
     }
 
     return true;

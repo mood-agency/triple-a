@@ -1,4 +1,5 @@
 import type { BlockCommand, BlockCommandContext } from './BlockCommand';
+import { eventBus } from "@/events";
 
 /**
  * Command to navigate to the description panel when Tab is pressed
@@ -12,10 +13,8 @@ export class NavigateToDescriptionCommand implements BlockCommand {
     execute(context: BlockCommandContext): boolean {
         const noteId = context.block.id;
 
-        // Dispatch custom event to notify the parent component
-        window.dispatchEvent(new CustomEvent('notepad:navigateToDescription', {
-            detail: { noteId }
-        }));
+        // Emit event to notify the parent component
+        eventBus.emit('editor:navigateToDescription', { noteId });
 
         // Prevent default Tab behavior
         context.event.preventDefault();

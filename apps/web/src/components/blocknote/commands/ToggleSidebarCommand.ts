@@ -1,4 +1,5 @@
 import type { BlockCommand, BlockCommandContext } from "./BlockCommand";
+import { eventBus } from "@/events";
 
 /**
  * ToggleSidebarCommand - Handles Ctrl+S / Cmd+S to toggle task fixed-in-sidebar state
@@ -17,10 +18,11 @@ export class ToggleSidebarCommand implements BlockCommand {
 
         console.log(`🔹 Ctrl+S pressed - Toggling sidebar fix for block ${block.id} to ${nextFixed}`);
 
-        // Dispatch custom event to parent component (BlockNoteNoteList)
-        window.dispatchEvent(new CustomEvent('notepad:toggleFixInSidebar', {
-            detail: { noteId: block.id }
-        }));
+        // Emit event to parent component (BlockNoteNoteList)
+        eventBus.emit('note:fixedInSidebar', {
+            noteId: block.id,
+            fixedInSidebar: nextFixed,
+        });
 
         return true;
     }

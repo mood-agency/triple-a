@@ -3,6 +3,7 @@ import { SyncProvider } from '@/contexts/SyncContext';
 import { AssigneesProvider } from '@/contexts/AssigneesContext';
 import { ProjectProvider } from '@/contexts/ProjectContext';
 import { GoogleCalendarProvider } from '@/contexts/GoogleCalendarContext';
+import { RepositoryProvider } from '@/data';
 
 interface AuthenticatedProvidersProps {
   children: ReactNode;
@@ -18,7 +19,9 @@ export function AuthenticatedProviders({ children }: AuthenticatedProvidersProps
       <AssigneesProvider>
         <ProjectProvider>
           <GoogleCalendarProvider>
-            {children}
+            <RepositoryProvider>
+              {children}
+            </RepositoryProvider>
           </GoogleCalendarProvider>
         </ProjectProvider>
       </AssigneesProvider>
