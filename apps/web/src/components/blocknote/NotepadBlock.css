@@ -122,3 +122,40 @@
 .blocknote-note-list.animating-to-full .notepad-deadline {
     opacity: 0;
 }
+
+/* Prevent clicking below the task list from triggering default BlockNote behavior */
+.blocknote-note-list .bn-editor,
+.timeline-blocknote-list .bn-editor {
+    min-height: unset !important;
+    padding-bottom: 0 !important;
+}
+
+.blocknote-note-list .bn-block-group,
+.timeline-blocknote-list .bn-block-group {
+    padding-bottom: 0 !important;
+}
+
+/* Hide the trailing empty block that BlockNote creates */
+.blocknote-note-list .bn-block-outer:last-child:has(.bn-block-content:empty),
+.blocknote-note-list .bn-block-outer:last-child[data-content-type="paragraph"]:not(:has(.notepad-line)),
+.timeline-blocknote-list .bn-block-outer:last-child:has(.bn-block-content:empty),
+.timeline-blocknote-list .bn-block-outer:last-child[data-content-type="paragraph"]:not(:has(.notepad-line)) {
+    display: none;
+}
+
+/* Remove extra space at the bottom of the editor */
+.blocknote-note-list .ProseMirror,
+.timeline-blocknote-list .ProseMirror {
+    padding-bottom: 0 !important;
+}
+
+/* Prevent pointer events on the editor container's empty areas */
+.blocknote-note-list > .bn-container,
+.timeline-blocknote-list > .bn-container {
+    pointer-events: none;
+}
+
+.blocknote-note-list .bn-block-outer,
+.timeline-blocknote-list .bn-block-outer {
+    pointer-events: auto;
+}

@@ -1,6 +1,7 @@
 import { useMemo, useEffect, useRef, useCallback, useState } from 'react';
 import { useCreateBlockNote } from '@blocknote/react';
 import { BlockNoteSchema, defaultBlockSpecs } from '@blocknote/core';
+import { es as esLocale } from '@blocknote/core/locales';
 import { BlockNoteView } from '@blocknote/shadcn';
 import '@blocknote/shadcn/style.css';
 import { NotepadBlock } from '@/components/blocknote/NotepadBlock';
@@ -116,6 +117,14 @@ export const TimelineBlockNoteList = ({
   const editor = useCreateBlockNote({
     schema,
     initialContent: initialContent.length > 0 ? (initialContent as any) : undefined,
+    trailingBlock: false,
+    dictionary: {
+      ...esLocale,
+      placeholders: {
+        ...esLocale.placeholders,
+        default: "",
+      },
+    },
   });
 
   // Track content changes for auto-save

@@ -46,3 +46,6 @@ TODO.md
 /.brv/sessions
 /.brv/context-tree
 /.brv/blobs
+
+*storybook.log
+storybook-static
