@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { EMPTY_LABELS } from '@/constants/notes';
+import { useEventSubscription } from '@/events';
 import { CalendarView } from './CalendarView';
 import { TimelineBlockNoteList } from './TimelineBlockNoteList';
 import { MemoizedNoteRow } from './NoteRow';
@@ -136,8 +137,8 @@ export const NoteListContent = memo(function NoteListContent({
     desiredColumn,
     handleTitleFocused,
     handleCreateNoteAfterById,
-    handleCreateTaskAtTime,
-    onCreateNoteAfter,
+    handleCreateTaskAtTime: _handleCreateTaskAtTime,
+    onCreateNoteAfter: _onCreateNoteAfter,
     sensors: _sensors,
     handleDragStart: _handleDragStart,
     handleDragEnd: _handleDragEnd,
@@ -177,6 +178,11 @@ export const NoteListContent = memo(function NoteListContent({
     autoSaveInterval = 3,
 }: NoteListContentProps) {
     const { t } = useTranslation();
+
+    // Listen for save success events from BlockNote components (via event bus)
+    useEventSubscription('editor:saveSuccess', (event) => {
+        toast.success(t('toast.noteSaved', { count: event.payload.savedCount }));
+    });
 
     const NoResultsMessage = ({ completedCount, fillHeight = true }: { completedCount?: number; fillHeight?: boolean }) => {
         return <NoteListEmptyState
@@ -245,19 +251,7 @@ export const NoteListContent = memo(function NoteListContent({
                             noteAssigneesCache={noteAssigneesCache}
                             onNavigateToDescription={handleNavigateToDescription}
                             onSelectNote={handleSelectNoteById}
-                            onToggleCompleted={handleToggleCompletedWithNavigation}
-                            onDelete={handleDeleteWithToast}
-                            onCreateNoteAfter={onCreateNoteAfter}
-                            onCreateTaskAtTime={handleCreateTaskAtTime}
-                            onEdit={onEdit}
-                            onTogglePin={(noteId: string) => {
-                                const note = calendarFilteredNotes.find(n => n.id === noteId);
-                                if (note) onTogglePinned(noteId, !note.pinned);
-                            }}
                             onToggleFixInSidebar={handleToggleFixInSidebarById}
-                            onSaveSuccess={(savedCount: number) => {
-                                toast.success(t('toast.noteSaved', { count: savedCount }));
-                            }}
                             compactView={compactTaskView}
                             fixedNoteId={fixedNoteId}
                             hideEmptyHours={true}
@@ -291,21 +285,7 @@ export const NoteListContent = memo(function NoteListContent({
                                         fixedNoteId={fixedNoteId}
                                         onNavigateToDescription={handleNavigateToDescription}
                                         onSelectNote={handleSelectNoteById}
-                                        onToggleCompleted={handleToggleCompletedWithNavigation}
-                                        onDelete={handleDeleteWithToast}
-                                        onCreateNoteAfter={onCreateNoteAfter}
-                                        onEdit={onEdit}
-                                        onAddLabel={handleAddLabelToNote}
-                                        onCreateLabelAndAdd={handleCreateLabelAndAdd}
-                                        onAddAssignee={onAddAssignee}
-                                        onTogglePin={(noteId) => {
-                                            const note = activeNotes.find(n => n.id === noteId);
-                                            if (note) onTogglePinned(noteId, !note.pinned);
-                                        }}
                                         onToggleFixInSidebar={handleToggleFixInSidebarById}
-                                        onSaveSuccess={(savedCount) => {
-                                            toast.success(t('toast.noteSaved', { count: savedCount }));
-                                        }}
                                     />
                                     {/* Show no results message after pinned notes when they don't match filters */}
                                     {shouldShowNoResultsWithPinnedVisible && (

@@ -138,7 +138,7 @@ const buildNoteAssigneesCache = (): Map<string, Contact[]> => {
 };
 
 export const BlockNotePoC = () => {
-    const [notes, setNotes] = useState<Note[]>(mockNotes);
+    const [notes] = useState<Note[]>(mockNotes);
     const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
     const [view, setView] = useState<"timeline" | "list">("timeline");
     const [hideEmptyHours, setHideEmptyHours] = useState(true);
@@ -146,44 +146,7 @@ export const BlockNotePoC = () => {
     const noteLabelsCache = useMemo(() => buildNoteLabelsCache(), []);
     const noteAssigneesCache = useMemo(() => buildNoteAssigneesCache(), []);
 
-    const handleEdit = (id: string, content: string) => {
-        setNotes(prev => prev.map(n => n.id === id ? { ...n, content } : n));
-        console.log(`[PoC] Edit note ${id}: "${content}"`);
-    };
-
-    const handleToggleCompleted = (id: string, completed: boolean) => {
-        setNotes(prev => prev.map(n => n.id === id ? { ...n, completed } : n));
-        console.log(`[PoC] Toggle completed ${id}: ${completed}`);
-    };
-
-    const handleDelete = (note: Note, reason: string) => {
-        setNotes(prev => prev.filter(n => n.id !== note.id));
-        console.log(`[PoC] Delete note ${note.id}: ${reason}`);
-    };
-
-    const handleCreateTaskAtTime = (hour: number) => {
-        const newNote: Note = {
-            id: `note-${Date.now()}`,
-            content: "New task",
-            category: "todo",
-            completed: false,
-            pinned: false,
-            deadline: todayAt(hour),
-            date: new Date().toISOString(),
-            user_id: "test",
-        };
-        setNotes(prev => [...prev, newNote]);
-        console.log(`[PoC] Create task at ${hour}:00`);
-    };
-
-    const handleTogglePin = (noteId: string) => {
-        setNotes(prev => prev.map(n => n.id === noteId ? { ...n, pinned: !n.pinned } : n));
-        console.log(`[PoC] Toggle pin ${noteId}`);
-    };
-
-    const handleSaveSuccess = (count: number) => {
-        console.log(`[PoC] Saved ${count} notes`);
-    };
+    // Note: Handlers removed after CQRS migration - components now use commands internally
 
     return (
         <div className="p-8 max-w-4xl mx-auto">
@@ -226,12 +189,6 @@ export const BlockNotePoC = () => {
                         noteLabelsCache={noteLabelsCache}
                         noteAssigneesCache={noteAssigneesCache}
                         onSelectNote={setSelectedNoteId}
-                        onEdit={handleEdit}
-                        onToggleCompleted={handleToggleCompleted}
-                        onDelete={handleDelete}
-                        onCreateTaskAtTime={handleCreateTaskAtTime}
-                        onTogglePin={handleTogglePin}
-                        onSaveSuccess={handleSaveSuccess}
                         hideEmptyHours={hideEmptyHours}
                         startHour={8}
                         endHour={18}
@@ -242,11 +199,6 @@ export const BlockNotePoC = () => {
                         noteLabelsCache={noteLabelsCache}
                         noteAssigneesCache={noteAssigneesCache}
                         onSelectNote={setSelectedNoteId}
-                        onEdit={handleEdit}
-                        onToggleCompleted={handleToggleCompleted}
-                        onDelete={handleDelete}
-                        onTogglePin={handleTogglePin}
-                        onSaveSuccess={handleSaveSuccess}
                     />
                 )}
             </div>

@@ -11,6 +11,20 @@ import { getInitials } from '@/lib/utils';
 import { parseHashtags } from '@/utils/hashtagParser';
 import { useLabels } from '@/hooks/useLabels';
 import { useContacts } from '@/hooks/useContacts';
+import { useEventSubscription, eventBus } from '@/events';
+import { useCommandDispatch } from '@/cqrs';
+import {
+  UpdateNoteCommand,
+  DeleteNoteCommand,
+  ToggleCompletedCommand,
+  TogglePinnedCommand,
+  CreateNoteAfterCommand,
+} from '@/cqrs/commands/notes';
+import {
+  AddLabelToNoteCommand,
+  CreateLabelAndAddToNoteCommand,
+} from '@/cqrs/commands/labels';
+import { AddAssigneeToNoteCommand } from '@/cqrs/commands/assignees';
 import type { Note, Label, NoteCategory } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { useRegisterNavigationRegion, type RegionHandler } from './navigation';
@@ -23,18 +37,12 @@ interface BlockNoteNoteListProps {
   notes: Note[];
   noteLabelsCache: Map<string, Label[]>;
   noteAssigneesCache: Map<string, Contact[]>;
+  /** Navigate to description panel (UI action, not data mutation) */
   onNavigateToDescription?: () => void;
+  /** Select a note (UI action, not data mutation) */
   onSelectNote?: (noteId: string) => void;
-  onToggleCompleted?: (noteId: string, completed: boolean) => void;
-  onDelete?: (note: Note, reason: string) => void;
-  onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[], assigneeId?: string | null, newNoteId?: string) => Promise<Note>;
-  onEdit?: (id: string, content: string, category?: NoteCategory, description?: string | null) => void;
-  onAddLabel?: (noteId: string, labelId: string) => void;
-  onCreateLabelAndAdd?: (noteId: string, labelName: string) => void;
-  onAddAssignee?: (noteId: string, contactId: string) => void;
-  onTogglePin?: (noteId: string) => void;
+  /** Toggle fix in sidebar (UI action, not data mutation) */
   onToggleFixInSidebar?: (noteId: string) => void;
-  onSaveSuccess?: (savedCount: number) => void;
   compactView?: boolean;
   fixedNoteId?: string | null;
   hideDate?: boolean;
@@ -46,16 +54,7 @@ export const BlockNoteNoteList = ({
   noteAssigneesCache,
   onNavigateToDescription,
   onSelectNote,
-  onToggleCompleted,
-  onDelete,
-  onCreateNoteAfter,
-  onEdit,
-  onAddLabel,
-  onCreateLabelAndAdd,
-  onAddAssignee,
-  onTogglePin,
   onToggleFixInSidebar,
-  onSaveSuccess,
   compactView = false,
   fixedNoteId = null,
   hideDate = false
@@ -63,6 +62,9 @@ export const BlockNoteNoteList = ({
   // Get labels and contacts for hashtag/mention parsing
   const { labels, createLabel } = useLabels();
   const { contacts } = useContacts();
+
+  // CQRS command dispatch for data mutations
+  const dispatch = useCommandDispatch();
 
   // Create schema with notepad block
   const schema = useMemo(
@@ -254,7 +256,7 @@ export const BlockNoteNoteList = ({
 
   // Function to flush pending saves immediately
   const flushPendingSaves = useCallback(() => {
-    if (!pendingChangesRef.current || !onEdit) {
+    if (!pendingChangesRef.current) {
       return;
     }
 
@@ -269,19 +271,25 @@ export const BlockNoteNoteList = ({
 
         // Only save if content has changed
         if (note && content !== note.content) {
-          onEdit(block.id, content, note.category, note.description);
+          // Use CQRS command for update
+          dispatch(new UpdateNoteCommand({
+            noteId: block.id,
+            content,
+            category: note.category,
+            description: note.description,
+          }));
           savedCount++;
         }
       }
     });
 
-    // Notify parent component of successful save (parent handles toast/UI feedback)
-    if (savedCount > 0 && onSaveSuccess) {
-      onSaveSuccess(savedCount);
+    // Emit save success event for UI feedback
+    if (savedCount > 0) {
+      eventBus.emit('editor:saveSuccess', { savedCount });
     }
 
     pendingChangesRef.current = false;
-  }, [editor, notes, onEdit, onSaveSuccess]);
+  }, [editor, notes, dispatch]);
 
   // Stable reference to avoid re-subscribing to onChange
   const flushPendingSavesRef = useRef(flushPendingSaves);
@@ -726,68 +734,45 @@ export const BlockNoteNoteList = ({
     };
   }, []);
 
-  // Listen for Tab navigation events from blocks
-  useEffect(() => {
-    const handleNavigateToDescription = (e: Event) => {
-      const customEvent = e as CustomEvent<{ noteId: string }>;
+  // Listen for Tab navigation events from blocks (via event bus)
+  useEventSubscription('editor:navigateToDescription', (event) => {
+    // Save content before navigating away
+    flushPendingSavesRef.current();
 
-      // Save content before navigating away
-      flushPendingSavesRef.current();
+    // First, select the note that triggered the event
+    if (onSelectNote) {
+      onSelectNote(event.payload.noteId);
+    }
 
-      // First, select the note that triggered the event
-      if (onSelectNote) {
-        onSelectNote(customEvent.detail.noteId);
-      }
+    // Then navigate to the description panel
+    if (onNavigateToDescription) {
+      onNavigateToDescription();
+    }
+  });
 
-      // Then navigate to the description panel
-      if (onNavigateToDescription) {
-        onNavigateToDescription();
-      }
-    };
+  // Listen for toggle completed events from blocks (via event bus)
+  useEventSubscription('note:completed', (event) => {
+    // Save content before toggling complete
+    flushPendingSavesRef.current();
 
-    window.addEventListener('notepad:navigateToDescription', handleNavigateToDescription);
-    return () => {
-      window.removeEventListener('notepad:navigateToDescription', handleNavigateToDescription);
-    };
-  }, [onNavigateToDescription, onSelectNote]);
+    // Use CQRS command for toggle completed
+    dispatch(new ToggleCompletedCommand({
+      noteId: event.payload.noteId,
+      completed: event.payload.completed,
+    }));
+  });
 
-  // Listen for toggle completed events from blocks
-  useEffect(() => {
-    const handleToggleCompleted = (e: Event) => {
-      const customEvent = e as CustomEvent<{ noteId: string; completed: boolean }>;
-      // Save content before toggling complete
-      flushPendingSavesRef.current();
-
-      if (onToggleCompleted) {
-        onToggleCompleted(customEvent.detail.noteId, customEvent.detail.completed);
-      }
-    };
-
-    window.addEventListener('notepad:toggleCompleted', handleToggleCompleted);
-    return () => {
-      window.removeEventListener('notepad:toggleCompleted', handleToggleCompleted);
-    };
-  }, [onToggleCompleted]);
-
-  // Listen for lost focus events from blocks to trigger auto-save
-  useEffect(() => {
-    const handleLostFocus = (e: Event) => {
-      const customEvent = e as CustomEvent<{ noteId: string }>;
-      // Skip save if we're in the process of deleting
-      if (isDeletingRef.current) {
-        if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Block lost focus during delete, skipping save');
-        return;
-      }
-      if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Block lost focus, saving:', customEvent.detail.noteId);
-      // Save content when block loses focus
-      flushPendingSavesRef.current();
-    };
-
-    window.addEventListener('notepad:lostFocus', handleLostFocus);
-    return () => {
-      window.removeEventListener('notepad:lostFocus', handleLostFocus);
-    };
-  }, []);
+  // Listen for lost focus events from blocks to trigger auto-save (via event bus)
+  useEventSubscription('editor:focusLost', (event) => {
+    // Skip save if we're in the process of deleting
+    if (isDeletingRef.current) {
+      if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Block lost focus during delete, skipping save');
+      return;
+    }
+    if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Block lost focus, saving:', event.payload.noteId);
+    // Save content when block loses focus
+    flushPendingSavesRef.current();
+  });
 
   // Process a block: parse hashtags/mentions, update editor, and update DB
   const processNoteBlock = useCallback(async (noteId: string) => {
@@ -815,28 +800,33 @@ export const BlockNoteNoteList = ({
     // 2. Determine final category
     const finalCategory = parsed.category || note.category;
 
-    // 3. Update the note in the database via onEdit
-    if (onEdit && (parsed.cleanedContent !== content || finalCategory !== note.category)) {
-      onEdit(
-        note.id,
-        parsed.cleanedContent,
-        finalCategory,
-        note.description
-      );
+    // 3. Update the note in the database via CQRS command
+    if (parsed.cleanedContent !== content || finalCategory !== note.category) {
+      dispatch(new UpdateNoteCommand({
+        noteId: note.id,
+        content: parsed.cleanedContent,
+        category: finalCategory,
+        description: note.description,
+      }));
     }
 
     // 4. Handle labels
     const inheritedLabels = noteLabelsCache.get(note.id) ?? [];
     const labelIds = inheritedLabels.map(l => l.id);
 
-    // Create new labels
+    // Create new labels via CQRS command
     if (parsed.newLabelNames.length > 0) {
       for (const labelName of parsed.newLabelNames) {
         try {
           const newLabel = await createLabel(labelName);
           if (newLabel) {
             labelIds.push(newLabel.id);
-            onCreateLabelAndAdd?.(note.id, labelName);
+            // Use CQRS command to add label to note
+            dispatch(new CreateLabelAndAddToNoteCommand({
+              noteId: note.id,
+              name: labelName,
+              color: newLabel.color,
+            }));
           }
         } catch (error) {
           console.error('[BlockNoteNoteList] ❌ Error creating label:', error);
@@ -844,15 +834,21 @@ export const BlockNoteNoteList = ({
       }
     }
 
-    // Add matched labels from hashtags
+    // Add matched labels from hashtags via CQRS commands
     for (const hashtag of parsed.parsedHashtags) {
       if (hashtag.type === 'label' && hashtag.matchedId) {
-        onAddLabel?.(note.id, hashtag.matchedId);
+        dispatch(new AddLabelToNoteCommand({
+          noteId: note.id,
+          labelId: hashtag.matchedId,
+        }));
         if (!labelIds.includes(hashtag.matchedId)) {
           labelIds.push(hashtag.matchedId);
         }
       } else if (hashtag.type === 'contact' && hashtag.matchedId) {
-        onAddAssignee?.(note.id, hashtag.matchedId);
+        dispatch(new AddAssigneeToNoteCommand({
+          noteId: note.id,
+          contactId: hashtag.matchedId,
+        }));
       }
     }
 
@@ -862,142 +858,81 @@ export const BlockNoteNoteList = ({
       parsedAssigneeId: parsed.assigneeId,
       parsed
     };
-  }, [notes, editor, labels, contacts, onEdit, noteLabelsCache, createLabel, onCreateLabelAndAdd, onAddLabel, onAddAssignee]);
+  }, [notes, editor, labels, contacts, noteLabelsCache, createLabel, dispatch]);
 
-  // Listen for delete events from blocks
-  useEffect(() => {
-    const handleDelete = (e: Event) => {
-      const customEvent = e as CustomEvent<{ noteId: string; reason: string }>;
+  // Listen for delete events from blocks (via event bus)
+  useEventSubscription('note:deleted', (event) => {
+    // Set flag to prevent sync from replacing blocks during delete
+    isDeletingRef.current = true;
 
-      // Set flag to prevent sync from replacing blocks during delete
-      isDeletingRef.current = true;
+    // Clear pending saves to avoid showing "saved" toast when deleting
+    pendingChangesRef.current = false;
 
-      // Clear pending saves to avoid showing "saved" toast when deleting
-      pendingChangesRef.current = false;
+    // Use CQRS command for delete
+    dispatch(new DeleteNoteCommand({
+      noteId: event.payload.noteId,
+      reason: event.payload.reason,
+    }));
 
-      if (onDelete) {
-        const note = notes.find(n => n.id === customEvent.detail.noteId);
-        if (note) {
-          onDelete(note, customEvent.detail.reason);
-        }
-      }
+    // Reset flag after delete is processed (allow next render cycle to complete)
+    setTimeout(() => {
+      isDeletingRef.current = false;
+    }, 200);
+  });
 
-      // Reset flag after delete is processed (allow next render cycle to complete)
-      setTimeout(() => {
-        isDeletingRef.current = false;
-      }, 200);
-    };
+  // Listen for create note events from blocks (Enter key) (via event bus)
+  useEventSubscription('editor:createNoteAfter', async (event) => {
+    flushPendingSavesRef.current();
 
-    window.addEventListener('notepad:delete', handleDelete);
-    return () => {
-      window.removeEventListener('notepad:delete', handleDelete);
-    };
-  }, [onDelete, notes]);
+    const afterNote = notes.find(n => n.id === event.payload.afterNoteId);
+    if (afterNote) {
+      // Process the block the user just finished
+      const result = await processNoteBlock(afterNote.id);
 
-  // Listen for create note events from blocks (Enter key)
-  useEffect(() => {
-    const handleCreateNoteAfter = async (e: Event) => {
-      const customEvent = e as CustomEvent<{ afterNoteId: string; newNoteId?: string; category?: string }>;
+      // Use CQRS command for create note after
+      await dispatch(new CreateNoteAfterCommand({
+        afterNoteId: afterNote.id,
+        content: '',
+        category: result?.finalCategory || (event.payload.category as NoteCategory) || afterNote.category,
+        deadline: afterNote.deadline,
+        labelIds: result?.labelIds || [],
+        assigneeId: result?.parsedAssigneeId || null,
+        newNoteId: event.payload.newNoteId,
+      }));
+    }
+  });
 
-      if (onCreateNoteAfter) {
-        flushPendingSavesRef.current();
+  // Listen for toggle pin events from blocks (via event bus)
+  useEventSubscription('note:pinned', (event) => {
+    const noteId = event.payload.noteId;
 
-        const afterNote = notes.find(n => n.id === customEvent.detail.afterNoteId);
-        if (afterNote) {
-          // Process the block the user just finished
-          const result = await processNoteBlock(afterNote.id);
+    // Save current content before toggling pin
+    flushPendingSavesRef.current();
 
-          // Create new note with parsed/processed data
-          await onCreateNoteAfter(
-            afterNote.id,
-            result?.finalCategory || (customEvent.detail.category as any) || afterNote.category,
-            afterNote.deadline,
-            result?.labelIds || [],
-            result?.parsedAssigneeId || null,
-            customEvent.detail.newNoteId
-          );
-        }
-      }
-    };
+    // Update block's pinned prop with the new state from the event
+    const block = editor.getBlock(noteId);
+    if (block) {
+      editor.updateBlock(block, {
+        props: { ...block.props, pinned: event.payload.pinned }
+      } as any);
+    }
 
-    window.addEventListener('notepad:createNoteAfter', handleCreateNoteAfter);
-    return () => {
-      window.removeEventListener('notepad:createNoteAfter', handleCreateNoteAfter);
-    };
-  }, [onCreateNoteAfter, notes, processNoteBlock]);
+    // Use CQRS command for toggle pinned
+    dispatch(new TogglePinnedCommand({
+      noteId,
+      pinned: event.payload.pinned,
+    }));
+  });
 
-  // Listen for navigate to description events (Tab key)
-  useEffect(() => {
-    const handleNavigateToDescription = async (e: Event) => {
-      const customEvent = e as CustomEvent<{ noteId: string }>;
+  // Listen for toggle fix in sidebar events from blocks (via event bus)
+  useEventSubscription('note:fixedInSidebar', (event) => {
+    // Save current content before toggling sidebar fix
+    flushPendingSavesRef.current();
 
-      flushPendingSavesRef.current();
-      await processNoteBlock(customEvent.detail.noteId);
-
-      if (onNavigateToDescription) {
-        onNavigateToDescription();
-      }
-    };
-
-    window.addEventListener('notepad:navigateToDescription', handleNavigateToDescription);
-    return () => {
-      window.removeEventListener('notepad:navigateToDescription', handleNavigateToDescription);
-    };
-  }, [onNavigateToDescription, processNoteBlock]);
-
-  // Listen for toggle pin events from blocks
-  useEffect(() => {
-    const handleTogglePin = (e: Event) => {
-      const customEvent = e as CustomEvent<{ noteId: string }>;
-      const noteId = customEvent.detail.noteId;
-
-      // Save current content before toggling pin
-      flushPendingSavesRef.current();
-
-      // Find the note to get current pinned state
-      const note = notes.find(n => n.id === noteId);
-      if (!note) return;
-
-      const newPinnedState = !note.pinned;
-
-      // Update block's pinned prop
-      const block = editor.getBlock(noteId);
-      if (block) {
-        editor.updateBlock(block, {
-          props: { ...block.props, pinned: newPinnedState }
-        } as any);
-      }
-
-      // Notify parent
-      if (onTogglePin) {
-        onTogglePin(noteId);
-      }
-    };
-
-    window.addEventListener('notepad:togglePin', handleTogglePin);
-    return () => {
-      window.removeEventListener('notepad:togglePin', handleTogglePin);
-    };
-  }, [onTogglePin, notes, editor]);
-
-  // Listen for toggle fix in sidebar events from blocks
-  useEffect(() => {
-    const handleToggleFixInSidebar = (e: Event) => {
-      const customEvent = e as CustomEvent<{ noteId: string }>;
-
-      // Save current content before toggling sidebar fix
-      flushPendingSavesRef.current();
-
-      if (onToggleFixInSidebar) {
-        onToggleFixInSidebar(customEvent.detail.noteId);
-      }
-    };
-
-    window.addEventListener('notepad:toggleFixInSidebar', handleToggleFixInSidebar);
-    return () => {
-      window.removeEventListener('notepad:toggleFixInSidebar', handleToggleFixInSidebar);
-    };
-  }, [onToggleFixInSidebar]);
+    if (onToggleFixInSidebar) {
+      onToggleFixInSidebar(event.payload.noteId);
+    }
+  });
 
   return (
     <div

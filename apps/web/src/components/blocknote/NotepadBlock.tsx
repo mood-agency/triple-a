@@ -6,6 +6,7 @@ import { Pickaxe, Users, Forward, StickyNote, Pin, SidebarClose, Trash2 } from "
 import { parseLocalDate, formatRelativeDateEnhanced } from "@/utils/dateUtils";
 import i18n from "@/i18n";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { eventBus } from "@/events";
 import "./NotepadBlock.css";
 
 // Debug flag - set to true to enable console logs for debugging
@@ -74,10 +75,8 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                             if (DEBUG_BLOCKNOTE) console.log('[NotepadBlock] Block GAINED focus:', props.block.id);
                         } else {
                             if (DEBUG_BLOCKNOTE) console.log('[NotepadBlock] Block LOST focus:', props.block.id);
-                            // Dispatch event to save the block when it loses focus
-                            window.dispatchEvent(new CustomEvent('notepad:lostFocus', {
-                                detail: { noteId: props.block.id }
-                            }));
+                            // Emit event to save the block when it loses focus
+                            eventBus.emit('editor:focusLost', { noteId: props.block.id });
                         }
                         wasEditing = isThisBlockSelected;
                     }
@@ -204,10 +203,12 @@ export const NotepadBlock = (createReactBlockSpec as any)(
             };
 
             const handleToggleCompleted = () => {
-                // Dispatch custom event to parent component
-                window.dispatchEvent(new CustomEvent('notepad:toggleCompleted', {
-                    detail: { noteId: props.block.id, completed: !isChecked }
-                }));
+                // Emit event to parent component
+                eventBus.emit('note:completed', {
+                    noteId: props.block.id,
+                    completed: !isChecked,
+                    completedAt: !isChecked ? new Date().toISOString() : null,
+                });
 
                 // Update block state
                 props.editor.updateBlock(props.block, {
@@ -218,25 +219,28 @@ export const NotepadBlock = (createReactBlockSpec as any)(
             const handleTogglePin = (e: React.MouseEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
-                window.dispatchEvent(new CustomEvent('notepad:togglePin', {
-                    detail: { noteId: props.block.id }
-                }));
+                eventBus.emit('note:pinned', {
+                    noteId: props.block.id,
+                    pinned: !isPinned,
+                });
             };
 
             const handleToggleFixInSidebar = (e: React.MouseEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
-                window.dispatchEvent(new CustomEvent('notepad:toggleFixInSidebar', {
-                    detail: { noteId: props.block.id }
-                }));
+                eventBus.emit('note:fixedInSidebar', {
+                    noteId: props.block.id,
+                    fixedInSidebar: !isFixedInSidebar,
+                });
             };
 
             const handleDelete = (e: React.MouseEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
-                window.dispatchEvent(new CustomEvent('notepad:delete', {
-                    detail: { noteId: props.block.id, reason: 'Deleted via trash icon' }
-                }));
+                eventBus.emit('note:deleted', {
+                    noteId: props.block.id,
+                    reason: 'Deleted via trash icon',
+                });
             };
 
             // Format deadline display as days with decimals

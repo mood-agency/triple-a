@@ -1,4 +1,5 @@
 import type { BlockCommand, BlockCommandContext } from "./BlockCommand";
+import { eventBus } from "@/events";
 
 /**
  * DeleteBlockCommand - Handles Backspace key to delete the current block
@@ -42,10 +43,11 @@ export class DeleteBlockCommand implements BlockCommand {
     if (!prevBlock && !nextBlock) {
       editor.updateBlock(block, { type: "paragraph" } as any);
     } else {
-      // Dispatch event to notify parent that note should be deleted
-      window.dispatchEvent(new CustomEvent('notepad:delete', {
-        detail: { noteId: block.id, reason: 'Deleted via keyboard' }
-      }));
+      // Emit event to notify parent that note should be deleted
+      eventBus.emit('note:deleted', {
+        noteId: block.id,
+        reason: 'Deleted via keyboard',
+      });
 
       // Remove the block from the editor
       editor.removeBlocks([block]);

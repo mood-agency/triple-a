@@ -1,5 +1,7 @@
 import { createReactBlockSpec } from "@blocknote/react";
 import { Plus } from "lucide-react";
+import { eventBus } from "@/events";
+import { formatLocalDate } from "@/utils/dateUtils";
 import "./HourDividerBlock.css";
 
 // Special hour value for "All Day" section (must match noteBlockAdapter.ts)
@@ -31,9 +33,10 @@ export const HourDividerBlock = createReactBlockSpec(
             const formattedHour = isAllDay ? 'All Day' : String(hour).padStart(2, '0') + ':00';
 
             const handleClick = () => {
-                window.dispatchEvent(new CustomEvent('hourDivider:createTask', {
-                    detail: { hour }
-                }));
+                eventBus.emit('timeline:createTask', {
+                    hour,
+                    date: formatLocalDate(new Date()),
+                });
             };
 
             return (

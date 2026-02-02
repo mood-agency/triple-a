@@ -1,4 +1,5 @@
 import type { BlockCommand, BlockCommandContext } from "./BlockCommand";
+import { eventBus } from "@/events";
 
 /**
  * TogglePinCommand - Handles Ctrl+P / Cmd+P to toggle task pin state
@@ -17,10 +18,11 @@ export class TogglePinCommand implements BlockCommand {
 
         console.log(`🔹 Ctrl+P pressed - Toggling pin for block ${block.id} to ${nextPinned}`);
 
-        // Dispatch custom event to parent component (BlockNoteNoteList)
-        window.dispatchEvent(new CustomEvent('notepad:togglePin', {
-            detail: { noteId: block.id }
-        }));
+        // Emit event to parent component (BlockNoteNoteList)
+        eventBus.emit('note:pinned', {
+            noteId: block.id,
+            pinned: nextPinned,
+        });
 
         return true;
     }
