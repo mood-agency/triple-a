@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { useNotesSupabase } from './supabase/useNotesSupabase';
 import { useActiveProject } from '@/contexts/ProjectContext';
-import { useSettings } from './useSettings';
 
 interface UseNotesOptions {
   date?: string;
@@ -13,17 +12,17 @@ interface UseNotesOptions {
  */
 export function useNotes(options: UseNotesOptions = {}) {
   const { activeProjectId, loading: projectLoading } = useActiveProject();
-  const { settings } = useSettings();
 
-  // Use a stable project ID - don't change while loading
-  // This prevents the flash of all notes before filtering by project
+  // Use a stable project ID - only use validated activeProjectId after projects load
+  // This prevents querying with an invalid project ID from localStorage
   const stableProjectId = useMemo(() => {
-    // If project context is still loading, use settings as initial value
+    // If project context is still loading, return undefined to skip the query
+    // The ProjectContext will validate the settings.activeProjectId before using it
     if (projectLoading) {
-      return settings.activeProjectId;
+      return undefined;
     }
     return activeProjectId;
-  }, [projectLoading, activeProjectId, settings.activeProjectId]);
+  }, [projectLoading, activeProjectId]);
 
   const result = useNotesSupabase({
     date: options.date,

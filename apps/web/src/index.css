@@ -1,5 +1,27 @@
 @import "tailwindcss";
-@import "react-day-picker/style.css";
+
+/* React Day Picker - Only layout styles (no colors) */
+.rdp-root {
+  --rdp-cell-size: 2rem;
+}
+
+.rdp-day,
+.rdp-weekday {
+  width: var(--rdp-cell-size);
+  height: var(--rdp-cell-size);
+  text-align: center;
+}
+
+.rdp-weekdays,
+.rdp-week {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.rdp-month_grid {
+  border-collapse: separate;
+  border-spacing: 0.25rem;
+}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -396,24 +418,6 @@ body {
   box-shadow: 0 0 0 2px oklch(0.65 0.2 85);
 }
 
-/* React Day Picker - Reset default styles for shadcn Calendar */
-.rdp-root {
-  --rdp-accent-color: var(--color-primary);
-  --rdp-accent-background-color: var(--color-primary);
-  --rdp-day-height: 2rem;
-  --rdp-day-width: 2rem;
-  --rdp-day_button-height: 2rem;
-  --rdp-day_button-width: 2rem;
-}
-
-/* Reset default button styles so shadcn Button component styles apply */
-[data-slot="calendar"] .rdp-day_button,
-[data-slot="calendar"] .rdp-button_previous,
-[data-slot="calendar"] .rdp-button_next {
-  all: unset;
-  box-sizing: border-box;
-  cursor: pointer;
-}
 
 /* React Colorful - Color Picker Styles */
 .react-colorful {

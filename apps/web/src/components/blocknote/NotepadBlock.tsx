@@ -248,9 +248,13 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                 const diffMs = deadlineDate.getTime() - now.getTime();
                 const diffDays = diffMs / (1000 * 60 * 60 * 24);
 
+                // Handle -0.0 case by using 0
+                const normalizedDays = Object.is(diffDays, -0) || (diffDays > -0.05 && diffDays < 0.05) ? 0 : diffDays;
+
                 // Format with 1 decimal place, show + for positive values
-                const formatted = diffDays.toFixed(1);
-                return diffDays >= 0 ? `+${formatted}` : formatted;
+                const formatted = normalizedDays.toFixed(1);
+                const daysUnit = i18n.t('date.daysShort');
+                return normalizedDays >= 0 ? `+${formatted}${daysUnit}` : `${formatted}${daysUnit}`;
             };
 
             // Format human-friendly date for tooltip

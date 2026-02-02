@@ -119,10 +119,11 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
     { value, onChange, onBlur, onFocus, onKeyDown, placeholder, className = '', noteId },
     ref
   ) {
-    const lastExternalValueRef = useRef(value)
     const isInitializedRef = useRef(false)
     const editorRef = useRef<BlockNoteEditorCore | null>(null)
     const containerRef = useRef<HTMLDivElement>(null)
+    // Track noteId to detect when we switch notes (start with null to force initial sync)
+    const currentNoteIdRef = useRef<string | undefined>(undefined)
     const { debugMode, debugDescriptionFocusClass } = useDebugNavigation()
     const [isFocused, setIsFocused] = useState(false)
     const { theme } = useTheme()
@@ -285,18 +286,12 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
       }
     }, [editor])
 
-    // Handle content changes
+    // Handle content changes - just propagate to parent, no complex sync logic
     const handleChange = useCallback(() => {
       if (!editor) return
       const json = JSON.stringify(editor.document)
-      console.log('[BlockNoteEditor] onChange triggered:', {
-        noteId,
-        jsonLength: json.length,
-        jsonPreview: json.substring(0, 100),
-      });
-      lastExternalValueRef.current = json
       onChange(json)
-    }, [editor, onChange, noteId])
+    }, [editor, onChange])
 
     // Initialize content
     useEffect(() => {
@@ -304,20 +299,22 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
       isInitializedRef.current = true
     }, [editor])
 
-    // Sync value from external source (when switching notes)
+    // Track if we've loaded content for this note
+    const hasLoadedContentRef = useRef(false)
+
+    // SIMPLE: Only sync when noteId changes (switching notes) or initial content load
+    // Don't try to sync value changes in real-time - that causes race conditions
     useEffect(() => {
       if (!editor || !isInitializedRef.current) return
 
-      if (lastExternalValueRef.current !== value) {
-        console.log('[BlockNoteEditor] ⚠️ External value changed, will replaceBlocks:', {
-          noteId,
-          lastExternalValueLength: lastExternalValueRef.current?.length ?? 0,
-          newValueLength: value?.length ?? 0,
-          lastExternalValuePreview: lastExternalValueRef.current?.substring(0, 100),
-          newValuePreview: value?.substring(0, 100),
-        });
-        lastExternalValueRef.current = value
+      const noteIdChanged = currentNoteIdRef.current !== noteId
+      currentNoteIdRef.current = noteId
 
+      // Also sync if we haven't loaded content yet and value is now available
+      const needsInitialLoad = !hasLoadedContentRef.current && value
+
+      // Only replace content when switching to a different note OR initial load
+      if (noteIdChanged || needsInitialLoad) {
         const format = detectContentFormat(value)
         let blocks
 
@@ -346,7 +343,14 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
         }
 
         editor.replaceBlocks(editor.document, blocks)
+        hasLoadedContentRef.current = true
       }
+
+      // Reset flag when switching notes
+      if (noteIdChanged) {
+        hasLoadedContentRef.current = !!value
+      }
+      // When noteId is the same and content loaded, DON'T sync - let the editor keep its local state
     }, [value, editor, noteId])
 
     // Handle keyboard events
