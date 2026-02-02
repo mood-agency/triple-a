@@ -155,6 +155,14 @@ export interface EditorSaveSuccessEvent
   type: 'editor:saveSuccess';
 }
 
+export interface EditorBlockSelectionEvent
+  extends DomainEvent<{
+    selectedBlockId: string | null;
+    previousBlockId: string | null;
+  }> {
+  type: 'editor:blockSelection';
+}
+
 // Timeline Events (replacing hourDivider:* CustomEvents)
 export interface TimelineCreateTaskEvent
   extends DomainEvent<{
@@ -183,6 +191,7 @@ export type AppEvent =
   | EditorCreateNoteAfterEvent
   | EditorSelectNoteEvent
   | EditorSaveSuccessEvent
+  | EditorBlockSelectionEvent
   | TimelineCreateTaskEvent;
 
 // Type-safe event map for subscribe/publish
@@ -204,6 +213,7 @@ export type EventMap = {
   'editor:createNoteAfter': EditorCreateNoteAfterEvent;
   'editor:selectNote': EditorSelectNoteEvent;
   'editor:saveSuccess': EditorSaveSuccessEvent;
+  'editor:blockSelection': EditorBlockSelectionEvent;
   'timeline:createTask': TimelineCreateTaskEvent;
 };
 

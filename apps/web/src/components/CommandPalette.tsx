@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pickaxe, Forward, StickyNote, Check, X, Users, Calendar, List, FolderKanban, User, ArrowUp, ArrowDown, Calendar as CalendarIcon, Layers, CircleDot, CheckCircle2, Trash2, AlertTriangle, Plus } from 'lucide-react';
 import {
@@ -48,7 +48,7 @@ interface CommandPaletteProps {
   hasDeletedTasks?: boolean;
 }
 
-export function CommandPalette({
+export const CommandPalette = memo(function CommandPalette({
   labels,
   selectedLabels,
   onSelectLabel,
@@ -441,4 +441,4 @@ export function CommandPalette({
       </CommandList>
     </CommandDialog>
   );
-}
+});

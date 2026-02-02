@@ -233,15 +233,60 @@ export const TimelineBlockNoteList = ({
     }, 0);
   }, [editor, compactView]);
 
-  // Listen to BlockNote selection changes and sync to parent (skip hourDivider)
+  // CENTRALIZED selection tracking - ONE listener instead of N blocks each listening
+  // Also handles multi-block selection prevention centrally
   useEffect(() => {
+    let previousBlockId: string | null = null;
+
     const unsubscribe = editor.onSelectionChange(() => {
       const cursor = editor.getTextCursorPosition();
       const block = cursor?.block;
+      const blockId = (block && block.type === 'notepad') ? block.id : null;
 
-      // Only notify for notepad blocks, not hour dividers
-      if (block && block.type === 'notepad' && onSelectNote) {
-        onSelectNote(block.id);
+      // CENTRALIZED: Prevent multi-block selection (moved from NotepadBlock)
+      const selection = editor._tiptapEditor?.state?.selection;
+      if (selection) {
+        const blocks = editor.getSelection()?.blocks || [];
+        if (blocks.length > 1) {
+          const { from, to } = selection;
+          const currentBlockPos = editor._tiptapEditor.state.doc.resolve(from);
+          let blockStart = from;
+          let blockEnd = to;
+
+          for (let d = currentBlockPos.depth; d > 0; d--) {
+            const node = currentBlockPos.node(d);
+            if (node.type.name === 'blockContainer') {
+              blockStart = currentBlockPos.start(d);
+              blockEnd = currentBlockPos.end(d);
+              break;
+            }
+          }
+
+          const tr = editor._tiptapEditor.state.tr.setSelection(
+            (selection.constructor as any).create(
+              editor._tiptapEditor.state.doc,
+              Math.max(blockStart, from),
+              Math.min(blockEnd, to)
+            )
+          );
+          editor._tiptapEditor.view.dispatch(tr);
+        }
+      }
+
+      // Only emit if selection actually changed
+      if (blockId !== previousBlockId) {
+        // Emit centralized selection event for blocks to consume
+        eventBus.emit('editor:blockSelection', {
+          selectedBlockId: blockId,
+          previousBlockId: previousBlockId,
+        });
+
+        // Also notify parent for UI updates (only for notepad blocks)
+        if (blockId && onSelectNote) {
+          onSelectNote(blockId);
+        }
+
+        previousBlockId = blockId;
       }
     });
 

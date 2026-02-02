@@ -5,7 +5,7 @@ import { useBlockCommands } from "./hooks/useBlockCommands";
 import { Pickaxe, Users, Forward, StickyNote, Pin, SidebarClose, Trash2 } from "lucide-react";
 import { parseLocalDate, formatRelativeDateEnhanced } from "@/utils/dateUtils";
 import i18n from "@/i18n";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { LazyTooltip } from "@/components/ui/lazy-tooltip";
 import { eventBus } from "@/events";
 import "./NotepadBlock.css";
 
@@ -56,80 +56,34 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                 props.contentRef(node);
             }, [props.contentRef]);
 
-            // Track if this block is currently being edited
+            // OPTIMIZED: Listen to centralized selection event instead of each block having its own listener
+            // This reduces O(n) callbacks per selection change to O(1) event + simple ID comparison
             useEffect(() => {
-                let wasEditing = isEditing;
+                const blockId = props.block.id;
 
-                const checkSelection = () => {
-                    const textCursorPosition = props.editor.getTextCursorPosition();
-                    const isThisBlockSelected = textCursorPosition.block.id === props.block.id;
+                const handleSelectionChange = (event: { payload: { selectedBlockId: string | null; previousBlockId: string | null } }) => {
+                    const isThisBlockSelected = event.payload.selectedBlockId === blockId;
+                    const wasThisBlockSelected = event.payload.previousBlockId === blockId;
 
-                    // Early return if this block isn't selected and wasn't selected before (optimization)
-                    if (!isThisBlockSelected && !wasEditing) {
-                        return;
-                    }
-
-                    // Log when editing state actually changes (use closure variable to avoid state timing)
-                    if (isThisBlockSelected !== wasEditing) {
+                    // Only update state if this block's selection status changed
+                    if (isThisBlockSelected !== wasThisBlockSelected) {
                         if (isThisBlockSelected) {
-                            if (DEBUG_BLOCKNOTE) console.log('[NotepadBlock] Block GAINED focus:', props.block.id);
-                        } else {
-                            if (DEBUG_BLOCKNOTE) console.log('[NotepadBlock] Block LOST focus:', props.block.id);
+                            if (DEBUG_BLOCKNOTE) console.log('[NotepadBlock] Block GAINED focus:', blockId);
+                        } else if (wasThisBlockSelected) {
+                            if (DEBUG_BLOCKNOTE) console.log('[NotepadBlock] Block LOST focus:', blockId);
                             // Emit event to save the block when it loses focus
-                            eventBus.emit('editor:focusLost', { noteId: props.block.id });
+                            eventBus.emit('editor:focusLost', { noteId: blockId });
                         }
-                        wasEditing = isThisBlockSelected;
-                    }
-
-                    setIsEditing(isThisBlockSelected);
-
-                    // Prevent multi-block selection (only when this block is selected)
-                    if (!isThisBlockSelected) {
-                        return;
-                    }
-
-                    const selection = props.editor._tiptapEditor.state.selection;
-                    const { from, to } = selection;
-
-                    // Get the blocks involved in the selection
-                    const blocks = props.editor.getSelection()?.blocks || [];
-
-                    // If selection spans multiple blocks, constrain to current block
-                    if (blocks.length > 1) {
-                        const currentBlockPos = props.editor._tiptapEditor.state.doc.resolve(from);
-                        // Find the current block's start and end positions
-                        let blockStart = from;
-                        let blockEnd = to;
-
-                        // Walk up to find the block node
-                        for (let d = currentBlockPos.depth; d > 0; d--) {
-                            const node = currentBlockPos.node(d);
-                            if (node.type.name === 'blockContainer') {
-                                blockStart = currentBlockPos.start(d);
-                                blockEnd = currentBlockPos.end(d);
-                                break;
-                            }
-                        }
-
-                        // Constrain selection to current block
-                        const tr = props.editor._tiptapEditor.state.tr.setSelection(
-                            (selection.constructor as any).create(
-                                props.editor._tiptapEditor.state.doc,
-                                Math.max(blockStart, from),
-                                Math.min(blockEnd, to)
-                            )
-                        );
-                        props.editor._tiptapEditor.view.dispatch(tr);
+                        setIsEditing(isThisBlockSelected);
                     }
                 };
 
-                // Check initially
-                checkSelection();
-
-                // Listen to selection updates
-                const unsubscribe = props.editor.onSelectionChange(checkSelection);
+                const unsubscribe = eventBus.subscribe('editor:blockSelection', handleSelectionChange);
                 return () => unsubscribe();
-            }, [props.editor, props.block.id]);
+            }, [props.block.id]);
+
+            // NOTE: Multi-block selection prevention is now handled centrally in BlockNoteNoteList
+            // This eliminates the need for per-block onSelectionChange listeners
 
             // Test DOM focus/blur events
             useEffect(() => {
@@ -367,114 +321,82 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                             </span>
                         ))}
                         {category !== 'notes' && (props.block.props.assignees as any[])?.length > 0 && (
-                            <TooltipProvider delayDuration={300}>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <span className="chip-assignee">
-                                            {(props.block.props.assignees as Array<{ initials: string; fullName: string }>)
-                                                .map(a => a.initials)
-                                                .join(' | ')}
-                                        </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>
-                                            {(props.block.props.assignees as Array<{ initials: string; fullName: string }>)
-                                                .map(a => a.fullName)
-                                                .join(', ')}
-                                        </p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
+                            <LazyTooltip
+                                content={(props.block.props.assignees as Array<{ initials: string; fullName: string }>).map(a => a.fullName).join(', ')}
+                                delayDuration={300}
+                            >
+                                <span className="chip-assignee">
+                                    {(props.block.props.assignees as Array<{ initials: string; fullName: string }>)
+                                        .map(a => a.initials)
+                                        .join(' | ')}
+                                </span>
+                            </LazyTooltip>
                         )}
                     </div>
 
                     {dateStr && !hideDate && (
-                        <TooltipProvider delayDuration={300}>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span
-                                        contentEditable={false}
-                                        className={`chip-deadline cursor-default ${shouldShowRed ? 'chip-deadline-overdue' : ''}`}
-                                        style={{ userSelect: "none" }}
-                                    >
-                                        {formatDeadline(dateStr)}
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{formatHumanFriendlyDate(dateStr)}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    )}
-
-                    <TooltipProvider delayDuration={300}>
-                        {/* Pin icon - only render if pinned in compact mode, otherwise show on hover */}
-                        {(!isCompact || isPinned) && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <button
-                                        contentEditable={false}
-                                        onClick={handleTogglePin}
-                                        className={`p-1 hover:bg-gray-200 rounded transition-all ml-auto flex-shrink-0 ${isPinned
-                                            ? 'opacity-100'
-                                            : 'opacity-0 group-hover:opacity-100'
-                                            }`}
-                                        style={{ userSelect: "none", display: (isCompact && !isPinned) ? "none" : undefined }}
-                                    >
-                                        <Pin size={14} className={isPinned ? "text-black" : "text-gray-600"} />
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{isPinned ? "Unpin task" : "Pin task"}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-
-                        {/* Sidebar icon - only render if fixed in compact mode, otherwise show on hover */}
-                        {(!isCompact || isFixedInSidebar) && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <button
-                                        contentEditable={false}
-                                        onClick={handleToggleFixInSidebar}
-                                        className={`p-1 hover:bg-gray-200 rounded transition-all flex-shrink-0 ${isFixedInSidebar
-                                            ? 'opacity-100'
-                                            : 'opacity-0 group-hover:opacity-100'
-                                            }`}
-                                        style={{ userSelect: "none", display: (isCompact && !isFixedInSidebar) ? "none" : undefined }}
-                                    >
-                                        <SidebarClose size={14} className={isFixedInSidebar ? "text-blue-600" : "text-gray-600"} />
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{isFixedInSidebar ? "Unfix from sidebar" : "Fix to sidebar"}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
-
-                        {/* Other action icons - hidden in compact mode */}
-                        {!isCompact && (
-                            <div
+                        <LazyTooltip content={formatHumanFriendlyDate(dateStr)} delayDuration={300}>
+                            <span
                                 contentEditable={false}
-                                className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                                className={`chip-deadline cursor-default ${shouldShowRed ? 'chip-deadline-overdue' : ''}`}
                                 style={{ userSelect: "none" }}
                             >
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <button
-                                            onClick={handleDelete}
-                                            className="p-1 hover:bg-red-100 rounded transition-colors"
-                                        >
-                                            <Trash2 size={14} className="text-red-600" />
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Delete</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-                        )}
-                    </TooltipProvider>
+                                {formatDeadline(dateStr)}
+                            </span>
+                        </LazyTooltip>
+                    )}
+
+                    {/* Pin icon - only render if pinned in compact mode, otherwise show on hover */}
+                    {(!isCompact || isPinned) && (
+                        <LazyTooltip content={isPinned ? "Unpin task" : "Pin task"} delayDuration={300}>
+                            <button
+                                contentEditable={false}
+                                onClick={handleTogglePin}
+                                className={`p-1 hover:bg-gray-200 rounded transition-all ml-auto flex-shrink-0 ${isPinned
+                                    ? 'opacity-100'
+                                    : 'opacity-0 group-hover:opacity-100'
+                                    }`}
+                                style={{ userSelect: "none", display: (isCompact && !isPinned) ? "none" : undefined }}
+                            >
+                                <Pin size={14} className={isPinned ? "text-black" : "text-gray-600"} />
+                            </button>
+                        </LazyTooltip>
+                    )}
+
+                    {/* Sidebar icon - only render if fixed in compact mode, otherwise show on hover */}
+                    {(!isCompact || isFixedInSidebar) && (
+                        <LazyTooltip content={isFixedInSidebar ? "Unfix from sidebar" : "Fix to sidebar"} delayDuration={300}>
+                            <button
+                                contentEditable={false}
+                                onClick={handleToggleFixInSidebar}
+                                className={`p-1 hover:bg-gray-200 rounded transition-all flex-shrink-0 ${isFixedInSidebar
+                                    ? 'opacity-100'
+                                    : 'opacity-0 group-hover:opacity-100'
+                                    }`}
+                                style={{ userSelect: "none", display: (isCompact && !isFixedInSidebar) ? "none" : undefined }}
+                            >
+                                <SidebarClose size={14} className={isFixedInSidebar ? "text-blue-600" : "text-gray-600"} />
+                            </button>
+                        </LazyTooltip>
+                    )}
+
+                    {/* Other action icons - hidden in compact mode */}
+                    {!isCompact && (
+                        <div
+                            contentEditable={false}
+                            className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                            style={{ userSelect: "none" }}
+                        >
+                            <LazyTooltip content="Delete" delayDuration={300}>
+                                <button
+                                    onClick={handleDelete}
+                                    className="p-1 hover:bg-red-100 rounded transition-colors"
+                                >
+                                    <Trash2 size={14} className="text-red-600" />
+                                </button>
+                            </LazyTooltip>
+                        </div>
+                    )}
                 </div>
             );
         },

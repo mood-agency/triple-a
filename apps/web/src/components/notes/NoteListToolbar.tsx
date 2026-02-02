@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { LazyTooltip } from '@/components/ui/lazy-tooltip';
 import { Kbd } from '@/components/ui/kbd';
@@ -61,7 +61,7 @@ interface NoteListToolbarProps {
     onSearchKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }
 
-export function NoteListToolbar({
+export const NoteListToolbar = memo(function NoteListToolbar({
     isMobile,
     selectedNote,
     sidebarTrigger,
@@ -264,4 +264,4 @@ export function NoteListToolbar({
             )}
         </div>
     );
-}
+});
