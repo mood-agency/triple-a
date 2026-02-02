@@ -5,15 +5,11 @@ import { toast } from 'sonner';
 import { AnimatePresence, motion } from 'motion/react';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
-import { EMPTY_LABELS } from '@/constants/notes';
 import { CalendarView } from './CalendarView';
 import { TimelineBlockNoteList } from './TimelineBlockNoteList';
-import { MemoizedNoteRow } from './NoteRow';
 import { BlockNoteNoteList } from './BlockNoteNoteList';
 import { NoteListEmptyState } from './NoteListEmptyState';
 import { ActiveFiltersBar } from './ActiveFiltersBar';
-
-const EMPTY_ASSIGNEES: Contact[] = [];
 
 interface NoteListContentProps {
     isMobile: boolean;
@@ -129,13 +125,13 @@ export const NoteListContent = memo(function NoteListContent({
     handleToggleCompletedWithNavigation,
     onTogglePinned,
     onEdit,
-    handleNavigateDownById,
-    handleNavigateUpById,
+    handleNavigateDownById: _handleNavigateDownById,
+    handleNavigateUpById: _handleNavigateUpById,
     handleNavigateToDescription,
-    focusTarget,
-    desiredColumn,
-    handleTitleFocused,
-    handleCreateNoteAfterById,
+    focusTarget: _focusTarget,
+    desiredColumn: _desiredColumn,
+    handleTitleFocused: _handleTitleFocused,
+    handleCreateNoteAfterById: _handleCreateNoteAfterById,
     handleCreateTaskAtTime,
     onCreateNoteAfter,
     sensors: _sensors,
@@ -145,22 +141,22 @@ export const NoteListContent = memo(function NoteListContent({
     labels,
     noteLabelsCache,
     handleAddLabelToNote,
-    handleRemoveLabelFromNote,
-    handleCreateLabelClick,
+    handleRemoveLabelFromNote: _handleRemoveLabelFromNote,
+    handleCreateLabelClick: _handleCreateLabelClick,
     handleCreateLabelAndAdd,
-    handleEditLabel,
+    handleEditLabel: _handleEditLabel,
     contacts,
-    assigneeNamesCache,
+    assigneeNamesCache: _assigneeNamesCache,
     noteAssigneesCache,
     onAddAssignee,
-    onRemoveAssignee,
-    onUpdateAssignee,
+    onRemoveAssignee: _onRemoveAssignee,
+    onUpdateAssignee: _onUpdateAssignee,
     fixedNoteId,
     handleToggleFixInSidebarById,
-    handleContentChange,
+    handleContentChange: _handleContentChange,
     compactTaskView,
-    isDescriptionFocused,
-    onRestore,
+    isDescriptionFocused: _isDescriptionFocused,
+    onRestore: _onRestore,
     searchQuery,
     labelFilter,
     assigneeFilter,
@@ -174,7 +170,7 @@ export const NoteListContent = memo(function NoteListContent({
     onClearTaskStatus,
     onClearOverdue,
     onClearAllFilters,
-    autoSaveInterval = 3,
+    autoSaveInterval: _autoSaveInterval = 3,
 }: NoteListContentProps) {
     const { t } = useTranslation();
 
@@ -318,43 +314,26 @@ export const NoteListContent = memo(function NoteListContent({
                                     {t('completedTasks')} ({completedNotes.length})
                                 </div>
                                 <div className="overflow-y-auto pr-2 flex-1">
-                                    {completedNotes.map((note) => (
-                                        <MemoizedNoteRow
-                                            key={note.id}
-                                            note={note}
-                                            onDeleteWithToast={handleDeleteWithToast}
-                                            onToggleCompleted={handleToggleCompletedWithNavigation}
-                                            onTogglePinned={onTogglePinned}
-                                            isSelected={selectedNote?.id === note.id}
-                                            onSelect={handleSelectNoteById}
-                                            onEdit={onEdit}
-                                            onNavigateDown={handleNavigateDownById}
-                                            onNavigateUp={handleNavigateUpById}
-                                            onNavigateToDescription={handleNavigateToDescription}
-                                            shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
-                                            desiredColumn={desiredColumn}
-                                            onTitleFocused={handleTitleFocused}
-                                            onCreateNoteAfter={handleCreateNoteAfterById}
-                                            isDragging={false}
-                                            labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
-                                            allLabels={labels}
-                                            onAddLabel={handleAddLabelToNote}
-                                            onRemoveLabel={handleRemoveLabelFromNote}
-                                            onCreateLabel={handleCreateLabelClick}
-                                            onCreateLabelAndAdd={handleCreateLabelAndAdd}
-                                            onEditLabel={handleEditLabel}
-                                            isFixedInSidebar={fixedNoteId === note.id}
-                                            onToggleFixInSidebar={handleToggleFixInSidebarById}
-                                            onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
-                                            assignees={noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES}
-                                            contacts={contacts}
-                                            onAddAssignee={onAddAssignee}
-                                            onRemoveAssignee={onRemoveAssignee}
-                                            onUpdateAssignee={onUpdateAssignee}
-                                            compactView={compactTaskView}
-                                            autoSaveInterval={autoSaveInterval}
-                                        />
-                                    ))}
+                                    <BlockNoteNoteList
+                                        notes={completedNotes}
+                                        noteLabelsCache={noteLabelsCache}
+                                        noteAssigneesCache={noteAssigneesCache}
+                                        compactView={compactTaskView}
+                                        fixedNoteId={fixedNoteId}
+                                        onNavigateToDescription={handleNavigateToDescription}
+                                        onSelectNote={handleSelectNoteById}
+                                        onToggleCompleted={handleToggleCompletedWithNavigation}
+                                        onDelete={handleDeleteWithToast}
+                                        onEdit={onEdit}
+                                        onAddLabel={handleAddLabelToNote}
+                                        onCreateLabelAndAdd={handleCreateLabelAndAdd}
+                                        onAddAssignee={onAddAssignee}
+                                        onTogglePin={(noteId) => {
+                                            const note = completedNotes.find(n => n.id === noteId);
+                                            if (note) onTogglePinned(noteId, !note.pinned);
+                                        }}
+                                        onToggleFixInSidebar={handleToggleFixInSidebarById}
+                                    />
                                 </div>
                             </div>
                         ) : hasActiveFilters ? (
@@ -370,46 +349,26 @@ export const NoteListContent = memo(function NoteListContent({
                                     {t('trash.title')} ({deletedNotes.length})
                                 </div>
                                 <div className="overflow-y-auto pr-2 flex-1">
-                                    {deletedNotes.map((note) => (
-                                        <MemoizedNoteRow
-                                            key={note.id}
-                                            note={note}
-                                            onDeleteWithToast={handleDeleteWithToast}
-                                            onToggleCompleted={handleToggleCompletedWithNavigation}
-                                            onTogglePinned={onTogglePinned}
-                                            isSelected={selectedNote?.id === note.id}
-                                            onSelect={handleSelectNoteById}
-                                            onEdit={onEdit}
-                                            onNavigateDown={handleNavigateDownById}
-                                            onNavigateUp={handleNavigateUpById}
-                                            onNavigateToDescription={handleNavigateToDescription}
-                                            shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
-                                            desiredColumn={desiredColumn}
-                                            onTitleFocused={handleTitleFocused}
-                                            onCreateNoteAfter={handleCreateNoteAfterById}
-                                            isDragging={false}
-                                            labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
-                                            allLabels={labels}
-                                            onAddLabel={handleAddLabelToNote}
-                                            onRemoveLabel={handleRemoveLabelFromNote}
-                                            onCreateLabel={handleCreateLabelClick}
-                                            onCreateLabelAndAdd={handleCreateLabelAndAdd}
-                                            onEditLabel={handleEditLabel}
-                                            isFixedInSidebar={fixedNoteId === note.id}
-                                            onToggleFixInSidebar={handleToggleFixInSidebarById}
-                                            onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
-                                            assigneeName={assigneeNamesCache.get(note.id)}
-                                            assignees={noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES}
-                                            isDeleted={true}
-                                            onRestore={() => onRestore(note)}
-                                            compactView={compactTaskView}
-                                            isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
-                                            contacts={contacts}
-                                            onAddAssignee={onAddAssignee}
-                                            onRemoveAssignee={onRemoveAssignee}
-                                            onUpdateAssignee={onUpdateAssignee}
-                                            autoSaveInterval={autoSaveInterval}
-                                        />))}
+                                    <BlockNoteNoteList
+                                        notes={deletedNotes}
+                                        noteLabelsCache={noteLabelsCache}
+                                        noteAssigneesCache={noteAssigneesCache}
+                                        compactView={compactTaskView}
+                                        fixedNoteId={fixedNoteId}
+                                        onNavigateToDescription={handleNavigateToDescription}
+                                        onSelectNote={handleSelectNoteById}
+                                        onToggleCompleted={handleToggleCompletedWithNavigation}
+                                        onDelete={handleDeleteWithToast}
+                                        onEdit={onEdit}
+                                        onAddLabel={handleAddLabelToNote}
+                                        onCreateLabelAndAdd={handleCreateLabelAndAdd}
+                                        onAddAssignee={onAddAssignee}
+                                        onTogglePin={(noteId) => {
+                                            const note = deletedNotes.find(n => n.id === noteId);
+                                            if (note) onTogglePinned(noteId, !note.pinned);
+                                        }}
+                                        onToggleFixInSidebar={handleToggleFixInSidebarById}
+                                    />
                                 </div>
                             </div>
                         ) : hasActiveFilters ? (
