@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Codebase Visualizer</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #1a1a2e;
+        color: #eee;
+        overflow: hidden;
+      }
+
+      #app {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 12px 20px;
+        background: #16213e;
+        border-bottom: 1px solid #0f3460;
+      }
+
+      header h1 {
+        font-size: 18px;
+        font-weight: 600;
+      }
+
+      #open-folder {
+        padding: 8px 16px;
+        background: #e94560;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      #open-folder:hover {
+        background: #ff6b6b;
+      }
+
+      #stats {
+        margin-left: auto;
+        font-size: 13px;
+        color: #888;
+      }
+
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .control-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .control-group label {
+        font-size: 12px;
+        color: #888;
+      }
+
+      .control-group input[type="checkbox"] {
+        cursor: pointer;
+      }
+
+      .control-group input[type="range"] {
+        width: 80px;
+        cursor: pointer;
+      }
+
+      .main-content {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+      }
+
+      #canvas-container {
+        flex: 1;
+        position: relative;
+      }
+
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      /* Patterns Sidebar */
+      #patterns-sidebar {
+        width: 280px;
+        background: #16213e;
+        border-left: 1px solid #0f3460;
+        overflow-y: auto;
+        padding: 16px;
+      }
+
+      #patterns-sidebar h2 {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      #patterns {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .pattern-group {
+        background: rgba(15, 52, 96, 0.5);
+        border-radius: 8px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .pattern-group:hover {
+        background: rgba(15, 52, 96, 0.8);
+      }
+
+      .pattern-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        background: rgba(0, 0, 0, 0.2);
+      }
+
+      .pattern-name {
+        font-weight: 500;
+        font-size: 13px;
+      }
+
+      .pattern-count {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        color: #888;
+      }
+
+      .pattern-files {
+        padding: 8px 12px;
+      }
+
+      .pattern-file {
+        font-size: 11px;
+        color: #aaa;
+        padding: 3px 0;
+        font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .pattern-more {
+        font-size: 11px;
+        color: #666;
+        padding-top: 4px;
+      }
+
+      /* Legend */
+      #legend {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        background: rgba(22, 33, 62, 0.9);
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 12px;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+
+      .legend-item:last-child {
+        margin-bottom: 0;
+      }
+
+      .legend-color {
+        width: 16px;
+        height: 10px;
+        border-radius: 2px;
+      }
+
+      /* Tooltip */
+      #tooltip {
+        position: absolute;
+        background: rgba(22, 33, 62, 0.95);
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        pointer-events: none;
+        display: none;
+        max-width: 300px;
+        border: 1px solid #0f3460;
+        z-index: 100;
+      }
+
+      #tooltip .name {
+        font-weight: 600;
+        font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      }
+
+      #tooltip .path {
+        color: #888;
+        font-size: 11px;
+        margin-top: 4px;
+        font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      }
+
+      /* Error */
+      #error {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        display: none;
+      }
+
+      #error h2 {
+        color: #e94560;
+        margin-bottom: 8px;
+      }
+
+      /* Empty state */
+      .empty-patterns {
+        color: #666;
+        font-size: 12px;
+        text-align: center;
+        padding: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <h1>Codebase Visualizer</h1>
+        <button id="open-folder">Open Folder</button>
+        <div class="controls">
+          <div class="control-group">
+            <input type="checkbox" id="show-edges" checked>
+            <label for="show-edges">Show edges</label>
+          </div>
+          <div class="control-group">
+            <label for="edge-opacity">Opacity:</label>
+            <input type="range" id="edge-opacity" min="0" max="100" value="15">
+          </div>
+        </div>
+        <div id="stats"></div>
+      </header>
+      <div class="main-content">
+        <div id="canvas-container">
+          <canvas id="canvas"></canvas>
+          <div id="legend">
+            <div class="legend-item">
+              <div class="legend-color" style="background: #61B8F2"></div>
+              <span>Component</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background: #AB82E6"></div>
+              <span>Hook</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background: #4DCC8D"></div>
+              <span>Data</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background: #F39C52"></div>
+              <span>API</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background: #999999"></div>
+              <span>Utility</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background: #CCB873"></div>
+              <span>Type</span>
+            </div>
+          </div>
+          <div id="tooltip">
+            <div class="name"></div>
+            <div class="path"></div>
+          </div>
+          <div id="error">
+            <h2>WebGPU Not Supported</h2>
+            <p>Please use Chrome 113+ or Edge 113+ with WebGPU enabled.</p>
+          </div>
+        </div>
+        <div id="patterns-sidebar">
+          <h2>Architectural Patterns</h2>
+          <div id="patterns">
+            <div class="empty-patterns">Load a codebase to detect patterns</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { nanoid } from 'nanoid';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { eventBus } from '@/events';
 import type { Note, NoteCategory } from '@/types/note';
 import { formatLocalDate } from '@/utils/dateUtils';
 
@@ -153,6 +154,34 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       }
     };
   }, [user, fetchNotes]);
+
+  // Listen to CQRS events to refresh data immediately (without waiting for realtime)
+  useEffect(() => {
+    const unsubscribeCreated = eventBus.subscribe('note:created', (event) => {
+      // Only refetch if the event came from CQRS command (not from this hook)
+      if (event.payload.source === 'command') {
+        fetchNotes();
+      }
+    });
+
+    const unsubscribeUpdated = eventBus.subscribe('note:updated', (event) => {
+      if (event.payload.source === 'command') {
+        fetchNotes();
+      }
+    });
+
+    const unsubscribeDeleted = eventBus.subscribe('note:deleted', (event) => {
+      if (event.payload.source === 'command') {
+        fetchNotes();
+      }
+    });
+
+    return () => {
+      unsubscribeCreated();
+      unsubscribeUpdated();
+      unsubscribeDeleted();
+    };
+  }, [fetchNotes]);
 
   /**
    * Create initial version for a note

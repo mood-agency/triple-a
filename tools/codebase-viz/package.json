@@ -1,0 +1,19 @@
+{
+  "name": "codebase-viz",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "elkjs": "^0.11.0",
+    "typescript": "~5.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@webgpu/types": "^0.1.40",
+    "vite": "^5.0.0"
+  }
+}

@@ -25,9 +25,10 @@ import {
   CreateLabelAndAddToNoteCommand,
 } from '@/cqrs/commands/labels';
 import { AddAssigneeToNoteCommand } from '@/cqrs/commands/assignees';
+import { useActiveProject } from '@/contexts/ProjectContext';
 import type { Note, Label, NoteCategory } from '@/types/note';
 import type { Contact } from '@/types/contact';
-import { useRegisterNavigationRegion, type RegionHandler } from './navigation';
+import { useRegisterNavigationRegion, useNavigationMediatorContext, type RegionHandler, type FocusRestorationContext } from './navigation';
 
 // Debug flags
 const DEBUG_BLOCKNOTE = false;
@@ -62,6 +63,12 @@ export const BlockNoteNoteList = ({
   // Get labels and contacts for hashtag/mention parsing
   const { labels, createLabel } = useLabels();
   const { contacts } = useContacts();
+
+  // Get active project for new note creation
+  const { activeProjectId } = useActiveProject();
+
+  // Navigation mediator for focus history
+  const navigationMediator = useNavigationMediatorContext();
 
   // CQRS command dispatch for data mutations
   const dispatch = useCommandDispatch();
@@ -120,6 +127,10 @@ export const BlockNoteNoteList = ({
 
   // Track content changes for auto-save
   const pendingChangesRef = useRef(false);
+
+  // Cache for newly created notes that haven't appeared in props yet
+  // Maps blockId -> { category, deadline } for notes created via Enter key
+  const newlyCreatedNotesRef = useRef<Map<string, { category: NoteCategory; deadline: string | null }>>(new Map());
 
   // Track previous note IDs to detect actual filtering changes
   const previousNoteIdsRef = useRef<string>('');
@@ -222,18 +233,90 @@ export const BlockNoteNoteList = ({
     animationFrameRef.current = timerId as any;
   }, [notes.length]);
 
+  // Helper function to set cursor position within a block (same logic as NavigateBlockCommand)
+  const setCursorAtOffset = useCallback((blockId: string, targetOffset: number): boolean => {
+    // Find the block's content element
+    const blockElement = document.querySelector(`[data-id="${blockId}"]`);
+    if (!blockElement) return false;
+
+    const contentElement = blockElement.querySelector('.notepad-content');
+    if (!contentElement) return false;
+
+    // Get the text content length of the target block
+    const textContent = contentElement.textContent || "";
+    const maxOffset = textContent.length;
+
+    // Clamp the offset to the available text length
+    const actualOffset = Math.min(targetOffset, maxOffset);
+
+    // Walk through text nodes to find the right position
+    const walker = document.createTreeWalker(
+      contentElement,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+
+    let currentOffset = 0;
+    let targetNode: Text | null = null;
+    let nodeOffset = 0;
+
+    while (walker.nextNode()) {
+      const textNode = walker.currentNode as Text;
+      const nodeLength = textNode.length;
+
+      if (currentOffset + nodeLength >= actualOffset) {
+        targetNode = textNode;
+        nodeOffset = actualOffset - currentOffset;
+        break;
+      }
+
+      currentOffset += nodeLength;
+    }
+
+    if (targetNode) {
+      const selection = window.getSelection();
+      if (selection) {
+        const range = document.createRange();
+        range.setStart(targetNode, nodeOffset);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return true;
+      }
+    }
+    return false;
+  }, []);
+
   // Register this component as the task list region in the navigation mediator
   const taskListRegionHandler = useMemo<RegionHandler>(() => ({
     region: 'taskList',
-    focusFirst: () => {
-      if (notes.length > 0) {
-        const firstBlock = editor.document[0];
-        if (firstBlock) {
-          // Focus the editor and set cursor to the start of the first block
-          editor.setTextCursorPosition(firstBlock, 'start');
-          editor.focus();
+    focusFirst: (_column?: number, context?: FocusRestorationContext) => {
+      if (notes.length === 0) return false;
+
+      // If a specific noteId is provided, focus that block
+      if (context?.noteId) {
+        const targetBlock = editor.document.find(block => block.id === context.noteId);
+        if (targetBlock) {
+          // First set cursor to start (same pattern as NavigateBlockCommand)
+          editor.setTextCursorPosition(targetBlock, 'start');
+
+          // If we have a specific column/offset, adjust position after focus
+          if (context.column !== undefined) {
+            // Use requestAnimationFrame to ensure editor is focused first
+            requestAnimationFrame(() => {
+              setCursorAtOffset(targetBlock.id, context.column!);
+            });
+          }
           return true;
         }
+      }
+
+      // Default: focus the first block
+      const firstBlock = editor.document[0];
+      if (firstBlock) {
+        editor.setTextCursorPosition(firstBlock, 'start');
+        editor.focus();
+        return true;
       }
       return false;
     },
@@ -250,18 +333,22 @@ export const BlockNoteNoteList = ({
       return false;
     },
     canReceiveFocus: () => notes.length > 0,
-  }), [editor, notes]);
+  }), [editor, notes, setCursorAtOffset]);
 
   useRegisterNavigationRegion(taskListRegionHandler);
 
   // Function to flush pending saves immediately
   const flushPendingSaves = useCallback(() => {
+    console.log('[flushPendingSaves] Called, pendingChanges:', pendingChangesRef.current);
     if (!pendingChangesRef.current) {
+      console.log('[flushPendingSaves] No pending changes, skipping');
       return;
     }
 
     const blocks = editor.document;
     let savedCount = 0;
+
+    console.log('[flushPendingSaves] Checking', blocks.length, 'blocks against', notes.length, 'notes, newlyCreated:', newlyCreatedNotesRef.current.size);
 
     // Save each block that has changed
     blocks.forEach((block) => {
@@ -269,14 +356,29 @@ export const BlockNoteNoteList = ({
         const content = getBlockContent(block);
         const note = notes.find(n => n.id === block.id);
 
-        // Only save if content has changed
+        // Check if this is a newly created note not yet in props
+        const newlyCreatedInfo = newlyCreatedNotesRef.current.get(block.id);
+
+        console.log('[flushPendingSaves] Block:', block.id, 'content:', JSON.stringify(content), 'note found:', !!note, 'newlyCreated:', !!newlyCreatedInfo);
+
         if (note && content !== note.content) {
-          // Use CQRS command for update
+          // Existing note with changed content
+          console.log('[flushPendingSaves] Saving existing block:', block.id);
           dispatch(new UpdateNoteCommand({
             noteId: block.id,
             content,
             category: note.category,
             description: note.description,
+          }));
+          savedCount++;
+        } else if (!note && newlyCreatedInfo && content) {
+          // Newly created note not yet in props - save its content
+          console.log('[flushPendingSaves] Saving newly created block:', block.id, 'content:', content);
+          dispatch(new UpdateNoteCommand({
+            noteId: block.id,
+            content,
+            category: newlyCreatedInfo.category,
+            description: null,
           }));
           savedCount++;
         }
@@ -288,6 +390,7 @@ export const BlockNoteNoteList = ({
       eventBus.emit('editor:saveSuccess', { savedCount });
     }
 
+    console.log('[flushPendingSaves] Saved', savedCount, 'blocks');
     pendingChangesRef.current = false;
   }, [editor, notes, dispatch]);
 
@@ -300,13 +403,26 @@ export const BlockNoteNoteList = ({
   // Track changes via onChange (just mark as dirty, don't save)
   useEffect(() => {
     const unsubscribe = editor.onChange(() => {
+      console.log('[onChange] Triggered, isSyncing:', isSyncingRef.current);
       if (!isSyncingRef.current) {
         pendingChangesRef.current = true;
+        console.log('[onChange] Marked pendingChanges as true');
       }
     });
 
     return () => unsubscribe();
   }, [editor]);
+
+  // Clean up newly created notes cache when they appear in props
+  useEffect(() => {
+    const noteIds = new Set(notes.map(n => n.id));
+    for (const cachedId of newlyCreatedNotesRef.current.keys()) {
+      if (noteIds.has(cachedId)) {
+        newlyCreatedNotesRef.current.delete(cachedId);
+        console.log('[cleanup] Removed from cache (now in props):', cachedId);
+      }
+    }
+  }, [notes]);
 
   // Flush saves on unmount only (use ref to avoid triggering on every flushPendingSaves change)
   useEffect(() => {
@@ -804,6 +920,15 @@ export const BlockNoteNoteList = ({
     // Save content before navigating away
     flushPendingSavesRef.current();
 
+    // Push current position to history before navigating away (including cursor offset)
+    if (navigationMediator) {
+      navigationMediator.pushFocusHistory({
+        region: 'taskList',
+        noteId: event.payload.noteId,
+        column: event.payload.cursorOffset,
+      });
+    }
+
     // First, select the note that triggered the event
     if (onSelectNote) {
       onSelectNote(event.payload.noteId);
@@ -949,20 +1074,48 @@ export const BlockNoteNoteList = ({
   useEventSubscription('editor:createNoteAfter', async (event) => {
     flushPendingSavesRef.current();
 
+    // Find the note we're creating after - could be in props or in our cache
     const afterNote = notes.find(n => n.id === event.payload.afterNoteId);
+    const afterNoteFromCache = newlyCreatedNotesRef.current.get(event.payload.afterNoteId);
+
+    // Determine category and deadline from either source
+    const category = afterNote?.category || afterNoteFromCache?.category || (event.payload.category as NoteCategory) || 'todo';
+    const deadline = afterNote?.deadline || afterNoteFromCache?.deadline || null;
+
+    // Add the new note to our cache so we can save its content later
+    newlyCreatedNotesRef.current.set(event.payload.newNoteId, {
+      category,
+      deadline,
+    });
+    console.log('[createNoteAfter] Added to cache:', event.payload.newNoteId, 'category:', category);
+
     if (afterNote) {
-      // Process the block the user just finished
+      // Process the block the user just finished (parse hashtags, etc.)
       const result = await processNoteBlock(afterNote.id);
 
       // Use CQRS command for create note after
       await dispatch(new CreateNoteAfterCommand({
         afterNoteId: afterNote.id,
         content: '',
-        category: result?.finalCategory || (event.payload.category as NoteCategory) || afterNote.category,
-        deadline: afterNote.deadline,
+        category: result?.finalCategory || category,
+        deadline,
         labelIds: result?.labelIds || [],
         assigneeId: result?.parsedAssigneeId || null,
         newNoteId: event.payload.newNoteId,
+        projectId: activeProjectId,
+      }));
+    } else if (afterNoteFromCache) {
+      // The afterNote is a newly created note not yet in props
+      // Still create the new note with inherited properties
+      await dispatch(new CreateNoteAfterCommand({
+        afterNoteId: event.payload.afterNoteId,
+        content: '',
+        category,
+        deadline,
+        labelIds: [],
+        assigneeId: null,
+        newNoteId: event.payload.newNoteId,
+        projectId: activeProjectId,
       }));
     }
   });
