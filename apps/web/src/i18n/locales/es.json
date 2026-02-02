@@ -593,6 +593,7 @@
     "today": "Hoy",
     "tomorrow": "Mañana",
     "yesterday": "Ayer",
+    "daysShort": " días",
     "inDays": "En {{count}} días",
     "daysAgo": "Hace {{count}} días",
     "inAWeek": "En una semana",

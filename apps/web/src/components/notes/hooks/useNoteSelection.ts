@@ -33,37 +33,23 @@ export function useNoteSelection({
     const hasLocalChangeRef = useRef(false);
     // Timer for debounced save when editor is not focused
     const unfocusedSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    // Track the last saved value to prevent race conditions with external sync
-    const lastSavedValueRef = useRef<string | null>(null);
-    // Timestamp of last save to prevent reverting recent changes
-    const lastSaveTimestampRef = useRef<number>(0);
 
     // Wrapper to track local changes and trigger save when not focused
     const setDescriptionValue = useCallback((value: string) => {
-        console.log('[NoteSelection] setDescriptionValue called:', {
-            valueLength: value.length,
-            isDescriptionFocused,
-            hasLocalChange: hasLocalChangeRef.current,
-            noteId: selectedNote?.id,
-        });
         hasLocalChangeRef.current = true;
         setDescriptionValueInternal(value);
 
         // If editor is not focused (e.g., checkbox click), save after a short debounce
         if (!isDescriptionFocused && selectedNote && onEdit) {
-            console.log('[NoteSelection] Scheduling unfocused save (500ms debounce)');
             // Clear previous timer
             if (unfocusedSaveTimerRef.current) {
                 clearTimeout(unfocusedSaveTimerRef.current);
             }
-            // Save after 500ms debounce
+            // Save after 300ms debounce
             unfocusedSaveTimerRef.current = setTimeout(() => {
-                console.log('[NoteSelection] Unfocused save EXECUTING for note:', selectedNote?.id);
-                lastSavedValueRef.current = value;
-                lastSaveTimestampRef.current = Date.now();
                 onEdit(selectedNote.id, selectedNote.content, selectedNote.category, value || null);
                 unfocusedSaveTimerRef.current = null;
-            }, 500);
+            }, 300);
         }
     }, [isDescriptionFocused, selectedNote, onEdit]);
 
@@ -96,74 +82,29 @@ export function useNoteSelection({
     // Track the note ID to detect when we switch to a different note
     const selectedNoteIdRef = useRef<string | null>(null);
 
-    // Update description and title values when selected note changes
+    // SIMPLE APPROACH: Only sync description when switching notes
+    // Don't try to sync in real-time - just save periodically and load on note change
     useEffect(() => {
         const newNoteId = selectedNote?.id ?? null;
         const noteIdChanged = selectedNoteIdRef.current !== newNoteId;
         selectedNoteIdRef.current = newNoteId;
 
-        // Only sync values if note changed or we're not editing
         if (noteIdChanged) {
-            // Cancel any pending unfocused save and reset local change flag when switching notes
+            // Switching to a different note - load its description
             if (unfocusedSaveTimerRef.current) {
                 clearTimeout(unfocusedSaveTimerRef.current);
                 unfocusedSaveTimerRef.current = null;
             }
             hasLocalChangeRef.current = false;
-            lastSavedValueRef.current = null;
-            lastSaveTimestampRef.current = 0;
             setDescriptionValueInternal(selectedNote?.description || '');
             setTitleValue(selectedNote?.content || '');
-            // Don't auto-show description panel on click; user opens it with Tab
             setShowDescriptionPanel(false);
         } else {
-            // Always sync title when it changes (it's edited in a different component)
+            // Same note - only sync title (edited in a different component)
+            // DON'T sync description - let the editor keep its local state
             setTitleValue(selectedNote?.content || '');
-
-            // Only sync description if:
-            // 1. Not focused AND no pending local change
-            // 2. AND not a stale update that reverts our recent save
-            const externalDesc = selectedNote?.description || '';
-            const timeSinceLastSave = Date.now() - lastSaveTimestampRef.current;
-            const isStaleUpdate = timeSinceLastSave < 3000 &&
-                lastSavedValueRef.current !== null &&
-                externalDesc !== lastSavedValueRef.current &&
-                descriptionValue === lastSavedValueRef.current;
-
-            console.log('[NoteSelection] useEffect sync check:', {
-                noteId: selectedNote?.id,
-                isDescriptionFocused,
-                hasLocalChange: hasLocalChangeRef.current,
-                isStaleUpdate,
-                timeSinceLastSave,
-                lastSavedValueLength: lastSavedValueRef.current?.length ?? 'null',
-                externalDescLength: externalDesc.length,
-                descriptionValueLength: descriptionValue.length,
-                externalDescPreview: externalDesc.substring(0, 100),
-                descriptionValuePreview: descriptionValue.substring(0, 100),
-            });
-
-            if (!isDescriptionFocused && !hasLocalChangeRef.current && !isStaleUpdate) {
-                console.log('[NoteSelection] ⚠️ SYNCING external description to local state');
-                setDescriptionValueInternal(externalDesc);
-            } else {
-                console.log('[NoteSelection] ✓ NOT syncing (protected)', {
-                    reason: isDescriptionFocused ? 'focused' : hasLocalChangeRef.current ? 'hasLocalChange' : 'isStaleUpdate'
-                });
-            }
-
-            // Clear local change flag once the external value matches (save completed)
-            if (hasLocalChangeRef.current && externalDesc === descriptionValue) {
-                console.log('[NoteSelection] Clearing hasLocalChangeRef (external matches local)');
-                hasLocalChangeRef.current = false;
-            }
-            // Clear lastSavedValue if external value now matches what we saved (sync complete)
-            if (lastSavedValueRef.current !== null && externalDesc === lastSavedValueRef.current) {
-                console.log('[NoteSelection] Clearing lastSavedValueRef (sync complete)');
-                lastSavedValueRef.current = null;
-            }
         }
-    }, [selectedNote?.id, selectedNote?.description, selectedNote?.content, isDescriptionFocused, descriptionValue]);
+    }, [selectedNote?.id, selectedNote?.description, selectedNote?.content]);
 
     // Handle Focus Target
     useEffect(() => {

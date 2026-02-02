@@ -118,13 +118,13 @@ function WeekStrip({
 
         {/* Days container */}
         <div ref={daysContainerRef} className="relative flex min-w-0 flex-1 items-center overflow-hidden h-12">
-          <AnimatePresence initial={false} mode="popLayout" custom={direction}>
+          <AnimatePresence initial={true} mode="sync" custom={direction}>
             <motion.div
               key={centerDate.toISOString()}
               custom={direction}
               variants={{
                 enter: (direction: number) => ({
-                  x: direction > 0 ? 100 : -100,
+                  x: direction > 0 ? 50 : direction < 0 ? -50 : 0,
                   opacity: 0,
                 }),
                 center: {
@@ -134,7 +134,7 @@ function WeekStrip({
                 },
                 exit: (direction: number) => ({
                   zIndex: 0,
-                  x: direction < 0 ? 100 : -100,
+                  x: direction < 0 ? 50 : direction > 0 ? -50 : 0,
                   opacity: 0,
                 }),
               }}
@@ -164,17 +164,17 @@ function WeekStrip({
                     key={day.toISOString()}
                     type="button"
                     onClick={() => onSelectDate?.(day)}
-                    initial={{ opacity: 0, scale: 0.8, y: 5 }}
+                    initial={{ opacity: 0, scale: 0.9, y: 10 }}
                     animate={{
                       opacity: 1,
                       scale: 1,
                       y: 0,
-                      transition: {
-                        delay,
-                        type: "spring",
-                        stiffness: 400,
-                        damping: 25
-                      }
+                    }}
+                    transition={{
+                      delay,
+                      type: "spring",
+                      stiffness: 400,
+                      damping: 30
                     }}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
