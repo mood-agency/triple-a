@@ -255,27 +255,46 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
       editorRef.current = editor
     }, [editor])
 
-    // Handle paste for Markdown tables
+    // Handle paste - always use plain text to prevent formatted content (HTML with animations, etc.)
     useEffect(() => {
       if (!editor || !containerRef.current) return
 
       const handlePaste = (event: ClipboardEvent) => {
         const text = event.clipboardData?.getData('text/plain')
-        if (!text || !isMarkdownTable(text)) return
+        if (!text) return
 
-        const tableBlock = parseMarkdownTable(text)
-        if (!tableBlock) return
-
-        // Prevent default paste behavior
+        // Always prevent default to avoid pasting formatted HTML content
         event.preventDefault()
         event.stopPropagation()
 
-        // Insert the table block at current cursor position
+        // Check if it's a Markdown table
+        if (isMarkdownTable(text)) {
+          const tableBlock = parseMarkdownTable(text)
+          if (tableBlock) {
+            // Insert the table block at current cursor position
+            const currentBlock = editor.getTextCursorPosition()?.block
+            if (currentBlock) {
+              editor.insertBlocks([tableBlock as Parameters<typeof editor.insertBlocks>[0][0]], currentBlock, 'after')
+            } else {
+              editor.insertBlocks([tableBlock as Parameters<typeof editor.insertBlocks>[0][0]], editor.document[0], 'before')
+            }
+            return
+          }
+        }
+
+        // For all other content, insert as plain text using the editor's API
+        // This ensures no HTML formatting (animations, styles, etc.) is preserved
         const currentBlock = editor.getTextCursorPosition()?.block
         if (currentBlock) {
-          editor.insertBlocks([tableBlock as Parameters<typeof editor.insertBlocks>[0][0]], currentBlock, 'after')
-        } else {
-          editor.insertBlocks([tableBlock as Parameters<typeof editor.insertBlocks>[0][0]], editor.document[0], 'before')
+          // Split text into lines and create paragraph blocks for each
+          const lines = text.split('\n')
+          const blocks = lines.map(line => ({
+            type: 'paragraph' as const,
+            content: line || undefined,
+          }))
+
+          // Insert all blocks after current position
+          editor.insertBlocks(blocks, currentBlock, 'after')
         }
       }
 

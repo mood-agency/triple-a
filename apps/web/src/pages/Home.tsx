@@ -3,7 +3,7 @@ import { useSearchParams, useOutletContext } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { Loader2 } from 'lucide-react';
-import { NoteList, type NoteListHandle } from '@/components/notes/NoteList';
+import { NotesWorkspace, type NotesWorkspaceHandle } from '@/components/notes/NotesWorkspace';
 import { CommandPalette } from '@/components/CommandPalette';
 import { CreateProjectDialog } from '@/components/projects/CreateProjectDialog';
 import { HotkeysHelper } from '@/components/HotkeysHelper';
@@ -34,7 +34,7 @@ export function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
   // Optimized: Store only the ID to avoid unnecessary re-renders when note object changes
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(() => searchParams.get('note'));
-  const noteListRef = useRef<NoteListHandle>(null);
+  const noteListRef = useRef<NotesWorkspaceHandle>(null);
   const { labels } = useLabels();
   const { contacts } = useContacts();
   const { addAssigneeToNote, removeAssigneeFromNote } = useAssignees();
@@ -422,7 +422,7 @@ export function Home() {
         commands: filterCommands.commands,
       }}
     >
-      <NoteList
+      <NotesWorkspace
         ref={noteListRef}
         notes={notes}
         onEdit={handleUpdateNote}

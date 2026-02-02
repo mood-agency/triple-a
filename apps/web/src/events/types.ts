@@ -127,6 +127,10 @@ export interface EditorFocusLostEvent
 export interface EditorNavigateToDescriptionEvent
   extends DomainEvent<{
     noteId: string;
+    /** Cursor offset within the block content for focus restoration */
+    cursorOffset?: number;
+    /** Current content of the note (for immediate UI update before async save completes) */
+    content?: string;
   }> {
   type: 'editor:navigateToDescription';
 }
@@ -172,6 +176,32 @@ export interface TimelineCreateTaskEvent
   type: 'timeline:createTask';
 }
 
+// Navigation Events (for mediator coordination without direct coupling)
+export interface NavigationItemChangedEvent
+  extends DomainEvent<{
+    region: 'search' | 'taskList' | 'editor' | 'sidebar' | 'toolbar';
+    itemId: string | null;
+  }> {
+  type: 'navigation:itemChanged';
+}
+
+export interface NavigationPushHistoryEvent
+  extends DomainEvent<{
+    region: 'search' | 'taskList' | 'editor' | 'sidebar' | 'toolbar';
+    noteId?: string;
+    column?: number;
+    context?: Record<string, unknown>;
+  }> {
+  type: 'navigation:pushHistory';
+}
+
+export interface NavigationSaveCurrentItemEvent
+  extends DomainEvent<{
+    region: 'search' | 'taskList' | 'editor' | 'sidebar' | 'toolbar';
+  }> {
+  type: 'navigation:saveCurrentItem';
+}
+
 // Union type for all events
 export type AppEvent =
   | NoteCreatedEvent
@@ -192,7 +222,10 @@ export type AppEvent =
   | EditorSelectNoteEvent
   | EditorSaveSuccessEvent
   | EditorBlockSelectionEvent
-  | TimelineCreateTaskEvent;
+  | TimelineCreateTaskEvent
+  | NavigationItemChangedEvent
+  | NavigationPushHistoryEvent
+  | NavigationSaveCurrentItemEvent;
 
 // Type-safe event map for subscribe/publish
 export type EventMap = {
@@ -215,6 +248,9 @@ export type EventMap = {
   'editor:saveSuccess': EditorSaveSuccessEvent;
   'editor:blockSelection': EditorBlockSelectionEvent;
   'timeline:createTask': TimelineCreateTaskEvent;
+  'navigation:itemChanged': NavigationItemChangedEvent;
+  'navigation:pushHistory': NavigationPushHistoryEvent;
+  'navigation:saveCurrentItem': NavigationSaveCurrentItemEvent;
 };
 
 export type EventType = keyof EventMap;

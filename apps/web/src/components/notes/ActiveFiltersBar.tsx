@@ -12,7 +12,7 @@ interface ActiveFiltersBarProps {
   searchQuery: string;
   labels: Label[];
   contacts: Contact[];
-  sortConfig: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null };
+  sortConfig: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null; createdAt: 'asc' | 'desc' | null };
   taskStatusFilter: 'active' | 'completed' | 'deleted';
   showOverdueOnly: boolean;
   onClearCategory: () => void;
@@ -47,7 +47,7 @@ export function ActiveFiltersBar({
   const { t } = useTranslation();
 
   const trimmedSearch = searchQuery.trim();
-  const hasSort = sortConfig.deadline !== null || sortConfig.assignee !== null || sortConfig.category !== null;
+  const hasSort = sortConfig.deadline !== null || sortConfig.assignee !== null || sortConfig.category !== null || sortConfig.createdAt !== null;
   const hasStatusFilter = taskStatusFilter !== 'active';
   const hasFilters = categoryFilter !== 'all' || labelFilter.length > 0 || assigneeFilter.length > 0 || trimmedSearch !== '' || hasSort || hasStatusFilter || showOverdueOnly;
 
@@ -133,6 +133,7 @@ export function ActiveFiltersBar({
             sortConfig.deadline && (sortConfig.deadline === 'asc' ? t('sort.deadlineAsc') : t('sort.deadlineDesc')),
             sortConfig.assignee && (sortConfig.assignee === 'asc' ? t('sort.assigneeAsc') : t('sort.assigneeDesc')),
             sortConfig.category && (sortConfig.category === 'asc' ? t('sort.categoryAsc') : t('sort.categoryDesc')),
+            sortConfig.createdAt && (sortConfig.createdAt === 'asc' ? t('sort.createdAtAsc') : t('sort.createdAtDesc')),
           ].filter(Boolean).join(', ')}
           <button
             type="button"

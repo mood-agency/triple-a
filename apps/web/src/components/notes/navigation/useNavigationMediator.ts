@@ -8,6 +8,8 @@ import {
   type NavigationRule,
   type RegionHandler,
   type FocusTarget,
+  type FocusHistoryEntry,
+  type ItemSaveData,
 } from './types';
 
 interface UseNavigationMediatorOptions {
@@ -15,6 +17,12 @@ interface UseNavigationMediatorOptions {
   rules?: NavigationRule[];
   /** Callback when navigation occurs */
   onNavigate?: (request: NavigationRequest, result: NavigationResult) => void;
+  /**
+   * Callback when the focused item changes within a region.
+   * The mediator calls this with the previous item's data so the parent can coordinate saving.
+   * This centralizes save coordination in the mediator, keeping regions unaware of CQRS.
+   */
+  onSaveItem?: (region: NavigationRegion, itemId: string, data: ItemSaveData) => void | Promise<void>;
 }
 
 /**
@@ -29,7 +37,7 @@ interface UseNavigationMediatorOptions {
 export function useNavigationMediator(
   options: UseNavigationMediatorOptions = {}
 ): NavigationMediator {
-  const { rules = [], onNavigate } = options;
+  const { rules = [], onNavigate, onSaveItem } = options;
 
   // Merge custom rules with defaults (custom rules take precedence)
   const navigationRules = useRef<NavigationRule[]>([...DEFAULT_NAVIGATION_RULES, ...rules]);
@@ -37,9 +45,15 @@ export function useNavigationMediator(
   // Registry of region handlers
   const regionHandlers = useRef<Map<NavigationRegion, RegionHandler>>(new Map());
 
+  // Focus history stack for navigation restoration (e.g., Escape to return)
+  const focusHistoryStack = useRef<FocusHistoryEntry[]>([]);
+
   // Track current focused region (state triggers re-renders, ref for sync access)
   const [_currentRegion, setCurrentRegion] = useState<NavigationRegion | null>(null);
   const currentRegionRef = useRef<NavigationRegion | null>(null);
+
+  // Track current focused item ID per region (for coordinating saves)
+  const currentItemByRegion = useRef<Map<NavigationRegion, string | null>>(new Map());
 
   // Keep ref in sync with state
   const updateCurrentRegion = useCallback((region: NavigationRegion | null) => {
@@ -161,6 +175,106 @@ export function useNavigationMediator(
    */
   const getCurrentRegion = useCallback(() => currentRegionRef.current, []);
 
+  /**
+   * Push a focus entry to the history stack
+   */
+  const pushFocusHistory = useCallback((entry: FocusHistoryEntry) => {
+    focusHistoryStack.current.push(entry);
+  }, []);
+
+  /**
+   * Return to the previous focus location (pop from history stack)
+   */
+  const returnToPrevious = useCallback((): boolean => {
+    const entry = focusHistoryStack.current.pop();
+
+    if (!entry) {
+      return false;
+    }
+
+    const handler = regionHandlers.current.get(entry.region);
+
+    if (!handler || !handler.canReceiveFocus()) {
+      return false;
+    }
+
+    // Focus the region with the stored context (column, noteId, etc.)
+    const success = handler.focusFirst(entry.column, {
+      column: entry.column,
+      noteId: entry.noteId,
+      context: entry.context,
+    });
+
+    if (success) {
+      updateCurrentRegion(entry.region);
+    }
+
+    return success;
+  }, [updateCurrentRegion]);
+
+  /**
+   * Clear the focus history stack
+   */
+  const clearFocusHistory = useCallback(() => {
+    focusHistoryStack.current = [];
+  }, []);
+
+  /**
+   * Set the current focused item within a region.
+   * If the item changed, coordinates saving the previous item via onSaveItem callback.
+   * The mediator gets the item data from the handler and passes it to the callback,
+   * keeping the region handler unaware of CQRS/save logic.
+   */
+  const setCurrentItem = useCallback(
+    (region: NavigationRegion, itemId: string | null) => {
+      const previousItemId = currentItemByRegion.current.get(region) ?? null;
+
+      // If item changed and there was a previous item, coordinate saving
+      if (previousItemId !== itemId && previousItemId !== null) {
+        const handler = regionHandlers.current.get(region);
+        if (handler?.getItemData && onSaveItem) {
+          // Get data from handler and pass to save callback
+          const data = handler.getItemData(previousItemId);
+          if (data) {
+            // Call save asynchronously but don't block
+            onSaveItem(region, previousItemId, data);
+          }
+        }
+      }
+
+      currentItemByRegion.current.set(region, itemId);
+    },
+    [onSaveItem]
+  );
+
+  /**
+   * Get the currently focused item ID for a region
+   */
+  const getCurrentItem = useCallback(
+    (region: NavigationRegion) => currentItemByRegion.current.get(region) ?? null,
+    []
+  );
+
+  /**
+   * Explicitly save the current item without changing it.
+   * Used for action-based saves (toggle complete, pin, window blur, etc.)
+   */
+  const saveCurrentItem = useCallback(
+    (region: NavigationRegion) => {
+      const currentItemId = currentItemByRegion.current.get(region);
+      if (!currentItemId) return;
+
+      const handler = regionHandlers.current.get(region);
+      if (handler?.getItemData && onSaveItem) {
+        const data = handler.getItemData(currentItemId);
+        if (data) {
+          onSaveItem(region, currentItemId, data);
+        }
+      }
+    },
+    [onSaveItem]
+  );
+
   return {
     registerRegion,
     unregisterRegion,
@@ -168,5 +282,11 @@ export function useNavigationMediator(
     focusRegion,
     getCurrentRegion,
     setCurrentRegion: updateCurrentRegion,
+    pushFocusHistory,
+    returnToPrevious,
+    clearFocusHistory,
+    setCurrentItem,
+    getCurrentItem,
+    saveCurrentItem,
   };
 }

@@ -12,23 +12,9 @@ import { parseHashtags } from '@/utils/hashtagParser';
 import { useLabels } from '@/hooks/useLabels';
 import { useContacts } from '@/hooks/useContacts';
 import { useEventSubscription, eventBus } from '@/events';
-import { useCommandDispatch } from '@/cqrs';
-import {
-  UpdateNoteCommand,
-  DeleteNoteCommand,
-  ToggleCompletedCommand,
-  TogglePinnedCommand,
-  CreateNoteAfterCommand,
-} from '@/cqrs/commands/notes';
-import {
-  AddLabelToNoteCommand,
-  CreateLabelAndAddToNoteCommand,
-} from '@/cqrs/commands/labels';
-import { AddAssigneeToNoteCommand } from '@/cqrs/commands/assignees';
-import { useActiveProject } from '@/contexts/ProjectContext';
 import type { Note, Label, NoteCategory } from '@/types/note';
 import type { Contact } from '@/types/contact';
-import { useRegisterNavigationRegion, useNavigationMediatorContext, type RegionHandler, type FocusRestorationContext } from './navigation';
+import { useRegisterNavigationRegion, type RegionHandler, type FocusRestorationContext, type ItemSaveData } from './navigation';
 
 // Debug flags
 const DEBUG_BLOCKNOTE = false;
@@ -47,6 +33,23 @@ interface BlockNoteNoteListProps {
   compactView?: boolean;
   fixedNoteId?: string | null;
   hideDate?: boolean;
+  // Data mutation callbacks - BlockNoteNoteList calls these when it receives domain events
+  /** Edit note content/category/description */
+  onEdit?: (noteId: string, content: string, category?: NoteCategory, description?: string | null) => void;
+  /** Toggle completed status of a note */
+  onToggleCompleted?: (noteId: string, completed: boolean) => void;
+  /** Delete a note */
+  onDelete?: (noteId: string, reason: string) => void;
+  /** Toggle pinned status of a note */
+  onTogglePinned?: (noteId: string, pinned: boolean) => void;
+  /** Create a new note after another */
+  onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[], assigneeId?: string | null, newNoteId?: string) => Promise<Note>;
+  /** Add existing label to note */
+  onAddLabel?: (noteId: string, labelId: string) => void | Promise<void>;
+  /** Create new label and add to note */
+  onCreateLabelAndAdd?: (noteId: string, labelName: string) => void | Promise<void>;
+  /** Add assignee to note */
+  onAddAssignee?: (noteId: string, contactId: string) => void;
 }
 
 export const BlockNoteNoteList = ({
@@ -58,20 +61,19 @@ export const BlockNoteNoteList = ({
   onToggleFixInSidebar,
   compactView = false,
   fixedNoteId = null,
-  hideDate = false
+  hideDate = false,
+  onEdit,
+  onToggleCompleted,
+  onDelete,
+  onTogglePinned,
+  onCreateNoteAfter,
+  onAddLabel,
+  onCreateLabelAndAdd,
+  onAddAssignee,
 }: BlockNoteNoteListProps) => {
   // Get labels and contacts for hashtag/mention parsing
-  const { labels, createLabel } = useLabels();
+  const { labels } = useLabels();
   const { contacts } = useContacts();
-
-  // Get active project for new note creation
-  const { activeProjectId } = useActiveProject();
-
-  // Navigation mediator for focus history
-  const navigationMediator = useNavigationMediatorContext();
-
-  // CQRS command dispatch for data mutations
-  const dispatch = useCommandDispatch();
 
   // Create schema with notepad block
   const schema = useMemo(
@@ -125,9 +127,6 @@ export const BlockNoteNoteList = ({
     },
   });
 
-  // Track content changes for auto-save
-  const pendingChangesRef = useRef(false);
-
   // Cache for newly created notes that haven't appeared in props yet
   // Maps blockId -> { category, deadline } for notes created via Enter key
   const newlyCreatedNotesRef = useRef<Map<string, { category: NoteCategory; deadline: string | null }>>(new Map());
@@ -144,6 +143,14 @@ export const BlockNoteNoteList = ({
 
   // Flag to prevent sync when deleting blocks
   const isDeletingRef = useRef(false);
+
+  // Flag to prevent order-change sync during internal saves
+  // When we save a note, updated_at changes which may reorder the notes array
+  // We don't want to replace the document just because of our own save
+  const isSavingInternallyRef = useRef(false);
+
+  // Ref for processNoteBlock (assigned later, used by region handler)
+  const processNoteBlockRef = useRef<((noteId: string) => Promise<{ finalCategory: string; labelIds: string[]; parsedAssigneeId: string | null; parsed: any } | null>) | null>(null);
 
   // Track if we're syncing filter changes to hide content during transition
   const [isSyncingFilter, setIsSyncingFilter] = useState(false);
@@ -333,85 +340,52 @@ export const BlockNoteNoteList = ({
       return false;
     },
     canReceiveFocus: () => notes.length > 0,
+
+    // Get data for an item to be saved (mediator calls this, then passes to onSaveItem callback)
+    getItemData: (itemId: string): ItemSaveData | null => {
+      if (!itemId || isDeletingRef.current) return null;
+
+      const note = notes.find(n => n.id === itemId);
+      if (!note) return null;
+
+      // Get content from editor (try BlockNote data first, fall back to DOM)
+      const block = editor.getBlock(itemId);
+      if (!block) return null;
+
+      let content = getBlockContent(block);
+      if (!content) {
+        content = getBlockContentFromDOM(itemId);
+      }
+
+      // Set flag to prevent order-change sync from replacing the document after save
+      isSavingInternallyRef.current = true;
+      setTimeout(() => {
+        isSavingInternallyRef.current = false;
+      }, 500);
+
+      return {
+        content,
+        category: note.category,
+        description: note.description,
+      };
+    },
+
+    getCurrentItemId: () => {
+      const cursor = editor.getTextCursorPosition();
+      return cursor?.block.id ?? null;
+    },
   }), [editor, notes, setCursorAtOffset]);
 
   useRegisterNavigationRegion(taskListRegionHandler);
 
-  // Function to flush pending saves immediately
-  const flushPendingSaves = useCallback(() => {
-    console.log('[flushPendingSaves] Called, pendingChanges:', pendingChangesRef.current);
-    if (!pendingChangesRef.current) {
-      console.log('[flushPendingSaves] No pending changes, skipping');
-      return;
-    }
+  // Helper to read content directly from DOM (fallback when BlockNote hasn't synced)
+  const getBlockContentFromDOM = useCallback((blockId: string): string => {
+    const blockElement = document.querySelector(`[data-id="${blockId}"]`);
+    if (!blockElement) return '';
+    const contentElement = blockElement.querySelector('.notepad-content');
+    return contentElement?.textContent || '';
+  }, []);
 
-    const blocks = editor.document;
-    let savedCount = 0;
-
-    console.log('[flushPendingSaves] Checking', blocks.length, 'blocks against', notes.length, 'notes, newlyCreated:', newlyCreatedNotesRef.current.size);
-
-    // Save each block that has changed
-    blocks.forEach((block) => {
-      if (block.type === 'notepad') {
-        const content = getBlockContent(block);
-        const note = notes.find(n => n.id === block.id);
-
-        // Check if this is a newly created note not yet in props
-        const newlyCreatedInfo = newlyCreatedNotesRef.current.get(block.id);
-
-        console.log('[flushPendingSaves] Block:', block.id, 'content:', JSON.stringify(content), 'note found:', !!note, 'newlyCreated:', !!newlyCreatedInfo);
-
-        if (note && content !== note.content) {
-          // Existing note with changed content
-          console.log('[flushPendingSaves] Saving existing block:', block.id);
-          dispatch(new UpdateNoteCommand({
-            noteId: block.id,
-            content,
-            category: note.category,
-            description: note.description,
-          }));
-          savedCount++;
-        } else if (!note && newlyCreatedInfo && content) {
-          // Newly created note not yet in props - save its content
-          console.log('[flushPendingSaves] Saving newly created block:', block.id, 'content:', content);
-          dispatch(new UpdateNoteCommand({
-            noteId: block.id,
-            content,
-            category: newlyCreatedInfo.category,
-            description: null,
-          }));
-          savedCount++;
-        }
-      }
-    });
-
-    // Emit save success event for UI feedback
-    if (savedCount > 0) {
-      eventBus.emit('editor:saveSuccess', { savedCount });
-    }
-
-    console.log('[flushPendingSaves] Saved', savedCount, 'blocks');
-    pendingChangesRef.current = false;
-  }, [editor, notes, dispatch]);
-
-  // Stable reference to avoid re-subscribing to onChange
-  const flushPendingSavesRef = useRef(flushPendingSaves);
-  useEffect(() => {
-    flushPendingSavesRef.current = flushPendingSaves;
-  }, [flushPendingSaves]);
-
-  // Track changes via onChange (just mark as dirty, don't save)
-  useEffect(() => {
-    const unsubscribe = editor.onChange(() => {
-      console.log('[onChange] Triggered, isSyncing:', isSyncingRef.current);
-      if (!isSyncingRef.current) {
-        pendingChangesRef.current = true;
-        console.log('[onChange] Marked pendingChanges as true');
-      }
-    });
-
-    return () => unsubscribe();
-  }, [editor]);
 
   // Clean up newly created notes cache when they appear in props
   useEffect(() => {
@@ -419,17 +393,14 @@ export const BlockNoteNoteList = ({
     for (const cachedId of newlyCreatedNotesRef.current.keys()) {
       if (noteIds.has(cachedId)) {
         newlyCreatedNotesRef.current.delete(cachedId);
-        console.log('[cleanup] Removed from cache (now in props):', cachedId);
       }
     }
   }, [notes]);
 
-  // Flush saves on unmount only (use ref to avoid triggering on every flushPendingSaves change)
+  // Save current item on unmount
   useEffect(() => {
     return () => {
-      if (pendingChangesRef.current) {
-        flushPendingSavesRef.current();
-      }
+      eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
     };
   }, []);
 
@@ -719,7 +690,14 @@ export const BlockNoteNoteList = ({
 
       // Only emit if selection actually changed
       if (blockId !== previousBlockId) {
-        // Emit centralized selection event for blocks to consume
+        // Emit navigation event - mediator will coordinate saving the previous item
+        // This unifies the save flow for all navigation: Enter, Tab, Arrow keys
+        eventBus.emit('navigation:itemChanged', {
+          region: 'taskList',
+          itemId: blockId,
+        });
+
+        // Emit centralized selection event for blocks to consume (UI updates like isEditing)
         eventBus.emit('editor:blockSelection', {
           selectedBlockId: blockId,
           previousBlockId: previousBlockId,
@@ -794,7 +772,8 @@ export const BlockNoteNoteList = ({
 
       // Detect if only the order changed (same notes, different order)
       // This happens when user applies a sort filter
-      const orderChanged = removedIds.length === 0 && previousIds.size === noteIds.size && previousIds.size > 0;
+      // BUT ignore order changes caused by our own saves (updated_at changes)
+      const orderChanged = removedIds.length === 0 && previousIds.size === noteIds.size && previousIds.size > 0 && !isSavingInternallyRef.current;
 
       // Sync on filtering (notes removed), initial load, or order change (sorting)
       if (notesWereFiltered || isInitialLoad || orderChanged) {
@@ -896,14 +875,14 @@ export const BlockNoteNoteList = ({
       if (isOutside) {
         // Small delay to let any pending BlockNote operations complete
         setTimeout(() => {
-          flushPendingSavesRef.current();
+          eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
         }, 50);
       }
     };
 
     // Also save on blur from the window (e.g., switching tabs)
     const handleWindowBlur = () => {
-      flushPendingSavesRef.current();
+      eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -916,18 +895,17 @@ export const BlockNoteNoteList = ({
   }, []);
 
   // Listen for Tab navigation events from blocks (via event bus)
+  // Note: NotesWorkspace also listens to this event to update titleValue for immediate UI sync
   useEventSubscription('editor:navigateToDescription', (event) => {
     // Save content before navigating away
-    flushPendingSavesRef.current();
+    eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
 
     // Push current position to history before navigating away (including cursor offset)
-    if (navigationMediator) {
-      navigationMediator.pushFocusHistory({
-        region: 'taskList',
-        noteId: event.payload.noteId,
-        column: event.payload.cursorOffset,
-      });
-    }
+    eventBus.emit('navigation:pushHistory', {
+      region: 'taskList',
+      noteId: event.payload.noteId,
+      column: event.payload.cursorOffset,
+    });
 
     // First, select the note that triggered the event
     if (onSelectNote) {
@@ -941,30 +919,42 @@ export const BlockNoteNoteList = ({
   });
 
   // Listen for toggle completed events from blocks (via event bus)
+  // Handles local state and calls callback for persistence
   useEventSubscription('note:completed', (event) => {
-    // Save content before toggling complete
-    flushPendingSavesRef.current();
+    // Skip if this event came from a command (avoid infinite loop)
+    if (event.source === 'command') {
+      return;
+    }
 
-    // Use CQRS command for toggle completed
-    dispatch(new ToggleCompletedCommand({
-      noteId: event.payload.noteId,
-      completed: event.payload.completed,
-    }));
+    // Save content before toggling complete
+    eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
+
+    // Call callback for persistence
+    if (onToggleCompleted) {
+      onToggleCompleted(event.payload.noteId, event.payload.completed);
+    }
   });
 
-  // Listen for lost focus events from blocks to trigger auto-save (via event bus)
-  useEventSubscription('editor:focusLost', (event) => {
+  // Listen for lost focus events from blocks to trigger auto-save with hashtag parsing (via event bus)
+  useEventSubscription('editor:focusLost', async (event) => {
     // Skip save if we're in the process of deleting
     if (isDeletingRef.current) {
       if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Block lost focus during delete, skipping save');
       return;
     }
-    if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Block lost focus, saving:', event.payload.noteId);
-    // Save content when block loses focus
-    flushPendingSavesRef.current();
+    if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Block lost focus, processing hashtags and saving:', event.payload.noteId);
+
+    // Process the note block (parses hashtags, creates labels, assigns contacts)
+    // If processNoteBlock returns null (note not found in props yet), use mediator save
+    const result = await processNoteBlock(event.payload.noteId);
+    if (!result) {
+      // Note is newly created and not in props yet, use mediator save
+      eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
+    }
   });
 
-  // Process a block: parse hashtags/mentions, update editor, and update DB
+  // Process a block: parse hashtags/mentions, update editor, and call callbacks for persistence
+  // This function handles editor updates locally and calls callbacks for data changes
   const processNoteBlock = useCallback(async (noteId: string) => {
     const note = notes.find(n => n.id === noteId);
     if (!note) return null;
@@ -972,7 +962,12 @@ export const BlockNoteNoteList = ({
     const block = editor.getBlock(noteId);
     if (!block) return null;
 
-    const content = getBlockContent(block);
+    // Try BlockNote's data structure first, fall back to DOM if empty
+    let content = getBlockContent(block);
+    if (!content) {
+      // BlockNote may not have synced yet, read directly from DOM
+      content = getBlockContentFromDOM(noteId);
+    }
 
     const parseContext = {
       labels: labels,
@@ -990,55 +985,43 @@ export const BlockNoteNoteList = ({
     // 2. Determine final category
     const finalCategory = parsed.category || note.category;
 
-    // 3. Update the note in the database via CQRS command
-    if (parsed.cleanedContent !== content || finalCategory !== note.category) {
-      dispatch(new UpdateNoteCommand({
-        noteId: note.id,
-        content: parsed.cleanedContent,
-        category: finalCategory,
-        description: note.description,
-      }));
-    }
+    // 3. Save note if content or category changed (via callback)
+    if (parsed.cleanedContent !== note.content || finalCategory !== note.category) {
+      // Set flag to prevent order-change sync from replacing the document
+      isSavingInternallyRef.current = true;
+      setTimeout(() => {
+        isSavingInternallyRef.current = false;
+      }, 500);
 
-    // 4. Handle labels
-    const inheritedLabels = noteLabelsCache.get(note.id) ?? [];
-    const labelIds = inheritedLabels.map(l => l.id);
-
-    // Create new labels via CQRS command
-    if (parsed.newLabelNames.length > 0) {
-      for (const labelName of parsed.newLabelNames) {
-        try {
-          const newLabel = await createLabel(labelName);
-          if (newLabel) {
-            labelIds.push(newLabel.id);
-            // Use CQRS command to add label to note
-            dispatch(new CreateLabelAndAddToNoteCommand({
-              noteId: note.id,
-              name: labelName,
-              color: newLabel.color,
-            }));
-          }
-        } catch (error) {
-          console.error('[BlockNoteNoteList] ❌ Error creating label:', error);
-        }
+      if (onEdit) {
+        onEdit(note.id, parsed.cleanedContent, finalCategory, note.description);
       }
     }
 
-    // Add matched labels from hashtags via CQRS commands
+    // 4. Handle labels - call callbacks for persistence
+    const inheritedLabels = noteLabelsCache.get(note.id) ?? [];
+    const labelIds = inheritedLabels.map(l => l.id);
+
+    // Create new labels via callback
+    if (parsed.newLabelNames.length > 0 && onCreateLabelAndAdd) {
+      for (const labelName of parsed.newLabelNames) {
+        await onCreateLabelAndAdd(note.id, labelName);
+      }
+    }
+
+    // Add existing labels from hashtags via callback
     for (const hashtag of parsed.parsedHashtags) {
       if (hashtag.type === 'label' && hashtag.matchedId) {
-        dispatch(new AddLabelToNoteCommand({
-          noteId: note.id,
-          labelId: hashtag.matchedId,
-        }));
+        if (onAddLabel) {
+          await onAddLabel(note.id, hashtag.matchedId);
+        }
         if (!labelIds.includes(hashtag.matchedId)) {
           labelIds.push(hashtag.matchedId);
         }
       } else if (hashtag.type === 'contact' && hashtag.matchedId) {
-        dispatch(new AddAssigneeToNoteCommand({
-          noteId: note.id,
-          contactId: hashtag.matchedId,
-        }));
+        if (onAddAssignee) {
+          onAddAssignee(note.id, hashtag.matchedId);
+        }
       }
     }
 
@@ -1048,21 +1031,28 @@ export const BlockNoteNoteList = ({
       parsedAssigneeId: parsed.assigneeId,
       parsed
     };
-  }, [notes, editor, labels, contacts, noteLabelsCache, createLabel, dispatch]);
+  }, [notes, editor, labels, contacts, noteLabelsCache, getBlockContentFromDOM, onEdit, onAddLabel, onCreateLabelAndAdd, onAddAssignee]);
+
+  // Keep ref in sync for use by region handler
+  useEffect(() => {
+    processNoteBlockRef.current = processNoteBlock;
+  }, [processNoteBlock]);
 
   // Listen for delete events from blocks (via event bus)
+  // Handles local state and calls callback for persistence
   useEventSubscription('note:deleted', (event) => {
+    // Skip if this event came from a command (avoid infinite loop)
+    if (event.source === 'command') {
+      return;
+    }
+
     // Set flag to prevent sync from replacing blocks during delete
     isDeletingRef.current = true;
 
-    // Clear pending saves to avoid showing "saved" toast when deleting
-    pendingChangesRef.current = false;
-
-    // Use CQRS command for delete
-    dispatch(new DeleteNoteCommand({
-      noteId: event.payload.noteId,
-      reason: event.payload.reason,
-    }));
+    // Call callback for persistence
+    if (onDelete) {
+      onDelete(event.payload.noteId, event.payload.reason);
+    }
 
     // Reset flag after delete is processed (allow next render cycle to complete)
     setTimeout(() => {
@@ -1071,8 +1061,9 @@ export const BlockNoteNoteList = ({
   });
 
   // Listen for create note events from blocks (Enter key) (via event bus)
+  // Handles local state (cache) and calls callback for note creation
   useEventSubscription('editor:createNoteAfter', async (event) => {
-    flushPendingSavesRef.current();
+    eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
 
     // Find the note we're creating after - could be in props or in our cache
     const afterNote = notes.find(n => n.id === event.payload.afterNoteId);
@@ -1083,49 +1074,48 @@ export const BlockNoteNoteList = ({
     const deadline = afterNote?.deadline || afterNoteFromCache?.deadline || null;
 
     // Add the new note to our cache so we can save its content later
-    newlyCreatedNotesRef.current.set(event.payload.newNoteId, {
+    newlyCreatedNotesRef.current.set(event.payload.newNoteId!, {
       category,
       deadline,
     });
-    console.log('[createNoteAfter] Added to cache:', event.payload.newNoteId, 'category:', category);
+
+    let labelIds: string[] = [];
+    let assigneeId: string | null = null;
 
     if (afterNote) {
       // Process the block the user just finished (parse hashtags, etc.)
       const result = await processNoteBlock(afterNote.id);
+      if (result) {
+        labelIds = result.labelIds;
+        assigneeId = result.parsedAssigneeId;
+      }
+    }
 
-      // Use CQRS command for create note after
-      await dispatch(new CreateNoteAfterCommand({
-        afterNoteId: afterNote.id,
-        content: '',
-        category: result?.finalCategory || category,
-        deadline,
-        labelIds: result?.labelIds || [],
-        assigneeId: result?.parsedAssigneeId || null,
-        newNoteId: event.payload.newNoteId,
-        projectId: activeProjectId,
-      }));
-    } else if (afterNoteFromCache) {
-      // The afterNote is a newly created note not yet in props
-      // Still create the new note with inherited properties
-      await dispatch(new CreateNoteAfterCommand({
-        afterNoteId: event.payload.afterNoteId,
-        content: '',
+    // Call callback for persistence
+    if (onCreateNoteAfter) {
+      await onCreateNoteAfter(
+        event.payload.afterNoteId,
         category,
         deadline,
-        labelIds: [],
-        assigneeId: null,
-        newNoteId: event.payload.newNoteId,
-        projectId: activeProjectId,
-      }));
+        labelIds,
+        assigneeId,
+        event.payload.newNoteId
+      );
     }
   });
 
   // Listen for toggle pin events from blocks (via event bus)
+  // Handles local editor state and calls callback for persistence
   useEventSubscription('note:pinned', (event) => {
+    // Skip if this event came from a command (avoid infinite loop)
+    if (event.source === 'command') {
+      return;
+    }
+
     const noteId = event.payload.noteId;
 
     // Save current content before toggling pin
-    flushPendingSavesRef.current();
+    eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
 
     // Update block's pinned prop with the new state from the event
     const block = editor.getBlock(noteId);
@@ -1135,17 +1125,16 @@ export const BlockNoteNoteList = ({
       } as any);
     }
 
-    // Use CQRS command for toggle pinned
-    dispatch(new TogglePinnedCommand({
-      noteId,
-      pinned: event.payload.pinned,
-    }));
+    // Call callback for persistence
+    if (onTogglePinned) {
+      onTogglePinned(noteId, event.payload.pinned);
+    }
   });
 
   // Listen for toggle fix in sidebar events from blocks (via event bus)
   useEventSubscription('note:fixedInSidebar', (event) => {
     // Save current content before toggling sidebar fix
-    flushPendingSavesRef.current();
+    eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
 
     if (onToggleFixInSidebar) {
       onToggleFixInSidebar(event.payload.noteId);
@@ -1159,7 +1148,7 @@ export const BlockNoteNoteList = ({
       onBlur={(e) => {
         // Only save if focus is leaving the editor entirely (not moving between blocks)
         if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-          flushPendingSavesRef.current();
+          eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
         }
       }}
     >

@@ -1,3 +1,5 @@
+import type { NoteCategory } from '@/types/note';
+
 /**
  * Navigation Mediator Types
  *
@@ -9,7 +11,30 @@
 /**
  * Navigation regions in the notes interface
  */
-export type NavigationRegion = 'search' | 'taskList' | 'editor' | 'toolbar';
+export type NavigationRegion = 'search' | 'taskList' | 'editor' | 'sidebar' | 'toolbar';
+
+/**
+ * Data returned by getItemData for saving
+ */
+export interface ItemSaveData {
+  content: string;
+  category: NoteCategory;
+  description: string | null;
+}
+
+/**
+ * Entry in the focus history stack for navigation restoration
+ */
+export interface FocusHistoryEntry {
+  /** The region that had focus */
+  region: NavigationRegion;
+  /** Optional note/block ID to restore focus to */
+  noteId?: string;
+  /** Cursor column position for maintaining horizontal position */
+  column?: number;
+  /** Additional context for focus restoration */
+  context?: Record<string, unknown>;
+}
 
 /**
  * Focus target within a region
@@ -48,13 +73,25 @@ export interface NavigationResult {
 }
 
 /**
+ * Focus restoration context passed to region handlers
+ */
+export interface FocusRestorationContext {
+  /** Column position to restore */
+  column?: number;
+  /** Specific note/item ID to focus */
+  noteId?: string;
+  /** Additional context data */
+  context?: Record<string, unknown>;
+}
+
+/**
  * Region handler that the mediator can call
  */
 export interface RegionHandler {
   /** Unique identifier for the region */
   region: NavigationRegion;
-  /** Focus the first element in this region */
-  focusFirst: (column?: number) => boolean;
+  /** Focus the first element in this region (or specific element if context.noteId provided) */
+  focusFirst: (column?: number, context?: FocusRestorationContext) => boolean;
   /** Focus the last element in this region */
   focusLast: (column?: number) => boolean;
   /** Check if the region can receive focus */
@@ -63,10 +100,22 @@ export interface RegionHandler {
   onEscape?: () => void;
   /** Optional: Get current focus info */
   getCurrentFocusInfo?: () => { column: number; position: 'start' | 'end' | 'middle' };
+  /**
+   * Optional: Get data for an item to be saved.
+   * Used by the mediator's onSaveItem callback to get content before dispatching save commands.
+   */
+  getItemData?: (itemId: string) => ItemSaveData | null;
+  /** Optional: Get the ID of the currently focused item within this region */
+  getCurrentItemId?: () => string | null;
 }
 
 /**
  * Navigation Mediator interface
+ *
+ * The mediator acts as a central coordinator that:
+ * - Manages navigation between regions
+ * - Tracks the currently focused item within each region
+ * - Coordinates saving when focus changes (calls handler.saveCurrentItem)
  */
 export interface NavigationMediator {
   /** Register a region handler */
@@ -81,6 +130,24 @@ export interface NavigationMediator {
   getCurrentRegion: () => NavigationRegion | null;
   /** Set the currently focused region */
   setCurrentRegion: (region: NavigationRegion | null) => void;
+  /** Push a focus entry to the history stack (for later restoration) */
+  pushFocusHistory: (entry: FocusHistoryEntry) => void;
+  /** Return to the previous focus location (pop from history stack) */
+  returnToPrevious: () => boolean;
+  /** Clear the focus history stack */
+  clearFocusHistory: () => void;
+  /**
+   * Notify the mediator that the focused item changed within a region.
+   * The mediator will call handler.saveCurrentItem() for the previous item if needed.
+   */
+  setCurrentItem: (region: NavigationRegion, itemId: string | null) => void;
+  /** Get the currently focused item ID for a region */
+  getCurrentItem: (region: NavigationRegion) => string | null;
+  /**
+   * Explicitly save the current item without changing it.
+   * Used for action-based saves (toggle complete, pin, window blur, etc.)
+   */
+  saveCurrentItem: (region: NavigationRegion) => void;
 }
 
 /**
@@ -108,6 +175,10 @@ export const DEFAULT_NAVIGATION_RULES: NavigationRule[] = [
   // Editor -> Task List
   { from: 'editor', direction: 'left', to: 'taskList' },
   { from: 'editor', direction: 'previous', to: 'taskList' },
+
+  // Sidebar navigation (fixed sidebar panel)
+  { from: 'sidebar', direction: 'left', to: 'taskList' },
+  { from: 'sidebar', direction: 'previous', to: 'taskList' },
 
   // Toolbar -> Task List
   { from: 'toolbar', direction: 'down', to: 'taskList' },
