@@ -50,6 +50,7 @@ import {
   NavigationMediatorProvider,
 } from './navigation';
 import { CreateInitialNoteCommand } from '@/components/blocknote/commands';
+import { useNotePersistence } from '@/hooks/useNotePersistence';
 
 // Re-export types if needed
 export interface NoteListHandle {
@@ -353,6 +354,44 @@ export const NoteList = forwardRef<NoteListHandle, NoteListProps>(function NoteL
       setSidebarClosing(false);
     }
   }, [fixedNoteId, setFixedNoteId, setShowSidebar, closeSidebar, notes]);
+
+  // Note persistence via Event Bus pattern
+  // This hook subscribes to events from BlockNoteNoteList and handles database operations
+  useNotePersistence({
+    notes,
+    onEdit,
+    onCreateNoteAfter,
+    onDelete: (note, reason) => onDelete(note.id, reason),
+    onToggleCompleted,
+    onTogglePin: (noteId) => {
+      const note = notes.find(n => n.id === noteId);
+      if (note) onTogglePinned(noteId, !note.pinned);
+    },
+    onToggleFixInSidebar: handleToggleFixInSidebarById,
+    onAddLabel: addLabelToNote,
+    onCreateLabelAndAdd: async (noteId, labelName) => {
+      const newLabel = await createLabel(labelName);
+      if (newLabel) await addLabelToNote(noteId, newLabel.id);
+    },
+    onAddAssignee,
+    onSelectNote: (noteId) => {
+      const note = notes.find(n => n.id === noteId);
+      if (note) {
+        if (selectedNote?.id !== noteId && !fixedNoteId) {
+          setShowSidebar(false);
+          setSidebarClosing(false);
+        }
+        onSelectNote(note);
+      }
+    },
+    onNavigateToDescription: () => {
+      navigationMediator.requestNavigation('taskList', 'description', 'down');
+    },
+    onSaveSuccess: (savedCount) => {
+      toast.success(t('toast.noteSaved', { count: savedCount }));
+    },
+    debug: true,
+  });
 
   // History (versions and actions) - always use selectedNote to show history for the note being edited
   const { versions, actions, deleteAction, updateReason, reload: reloadHistory } = useNoteVersionsAndActions(selectedNote?.id ?? null);

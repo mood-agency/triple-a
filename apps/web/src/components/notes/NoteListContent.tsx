@@ -140,15 +140,15 @@ export const NoteListContent = memo(function NoteListContent({
     activeId: _activeId,
     labels,
     noteLabelsCache,
-    handleAddLabelToNote,
+    handleAddLabelToNote: _handleAddLabelToNote,
     handleRemoveLabelFromNote: _handleRemoveLabelFromNote,
     handleCreateLabelClick: _handleCreateLabelClick,
-    handleCreateLabelAndAdd,
+    handleCreateLabelAndAdd: _handleCreateLabelAndAdd,
     handleEditLabel: _handleEditLabel,
     contacts,
     assigneeNamesCache: _assigneeNamesCache,
     noteAssigneesCache,
-    onAddAssignee,
+    onAddAssignee: _onAddAssignee,
     onRemoveAssignee: _onRemoveAssignee,
     onUpdateAssignee: _onUpdateAssignee,
     fixedNoteId,
@@ -279,23 +279,6 @@ export const NoteListContent = memo(function NoteListContent({
                                         noteAssigneesCache={noteAssigneesCache}
                                         compactView={compactTaskView}
                                         fixedNoteId={fixedNoteId}
-                                        onNavigateToDescription={handleNavigateToDescription}
-                                        onSelectNote={handleSelectNoteById}
-                                        onToggleCompleted={handleToggleCompletedWithNavigation}
-                                        onDelete={handleDeleteWithToast}
-                                        onCreateNoteAfter={onCreateNoteAfter}
-                                        onEdit={onEdit}
-                                        onAddLabel={handleAddLabelToNote}
-                                        onCreateLabelAndAdd={handleCreateLabelAndAdd}
-                                        onAddAssignee={onAddAssignee}
-                                        onTogglePin={(noteId) => {
-                                            const note = activeNotes.find(n => n.id === noteId);
-                                            if (note) onTogglePinned(noteId, !note.pinned);
-                                        }}
-                                        onToggleFixInSidebar={handleToggleFixInSidebarById}
-                                        onSaveSuccess={(savedCount) => {
-                                            toast.success(t('toast.noteSaved', { count: savedCount }));
-                                        }}
                                     />
                                     {/* Show no results message after pinned notes when they don't match filters */}
                                     {shouldShowNoResultsWithPinnedVisible && (
@@ -320,19 +303,6 @@ export const NoteListContent = memo(function NoteListContent({
                                         noteAssigneesCache={noteAssigneesCache}
                                         compactView={compactTaskView}
                                         fixedNoteId={fixedNoteId}
-                                        onNavigateToDescription={handleNavigateToDescription}
-                                        onSelectNote={handleSelectNoteById}
-                                        onToggleCompleted={handleToggleCompletedWithNavigation}
-                                        onDelete={handleDeleteWithToast}
-                                        onEdit={onEdit}
-                                        onAddLabel={handleAddLabelToNote}
-                                        onCreateLabelAndAdd={handleCreateLabelAndAdd}
-                                        onAddAssignee={onAddAssignee}
-                                        onTogglePin={(noteId) => {
-                                            const note = completedNotes.find(n => n.id === noteId);
-                                            if (note) onTogglePinned(noteId, !note.pinned);
-                                        }}
-                                        onToggleFixInSidebar={handleToggleFixInSidebarById}
                                     />
                                 </div>
                             </div>
@@ -355,19 +325,6 @@ export const NoteListContent = memo(function NoteListContent({
                                         noteAssigneesCache={noteAssigneesCache}
                                         compactView={compactTaskView}
                                         fixedNoteId={fixedNoteId}
-                                        onNavigateToDescription={handleNavigateToDescription}
-                                        onSelectNote={handleSelectNoteById}
-                                        onToggleCompleted={handleToggleCompletedWithNavigation}
-                                        onDelete={handleDeleteWithToast}
-                                        onEdit={onEdit}
-                                        onAddLabel={handleAddLabelToNote}
-                                        onCreateLabelAndAdd={handleCreateLabelAndAdd}
-                                        onAddAssignee={onAddAssignee}
-                                        onTogglePin={(noteId) => {
-                                            const note = deletedNotes.find(n => n.id === noteId);
-                                            if (note) onTogglePinned(noteId, !note.pinned);
-                                        }}
-                                        onToggleFixInSidebar={handleToggleFixInSidebarById}
                                     />
                                 </div>
                             </div>

@@ -60,10 +60,8 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                 let wasEditing = isEditing;
 
                 const checkSelection = () => {
-                    // Only consider a block as "editing" if the editor actually has focus
-                    const editorHasFocus = props.editor._tiptapEditor?.isFocused ?? false;
                     const textCursorPosition = props.editor.getTextCursorPosition();
-                    const isThisBlockSelected = editorHasFocus && textCursorPosition.block.id === props.block.id;
+                    const isThisBlockSelected = textCursorPosition.block.id === props.block.id;
 
                     // Early return if this block isn't selected and wasn't selected before (optimization)
                     if (!isThisBlockSelected && !wasEditing) {

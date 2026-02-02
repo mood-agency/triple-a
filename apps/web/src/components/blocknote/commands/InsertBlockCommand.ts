@@ -34,6 +34,12 @@ export class InsertBlockCommand implements BlockCommand {
 
     // Move cursor to the start of the newly created block
     if (insertedBlocks.length > 0) {
+      // Mark as pending BEFORE moving cursor (to prevent lostFocus from trying to save it)
+      // This must happen synchronously before setTextCursorPosition which triggers focus events
+      window.dispatchEvent(new CustomEvent('notepad:markPending', {
+        detail: { blockId: insertedBlocks[0].id }
+      }));
+
       editor.setTextCursorPosition(insertedBlocks[0], "start");
 
       // Dispatch event with the new block's ID so the database can use it

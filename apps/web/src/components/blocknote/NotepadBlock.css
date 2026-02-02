@@ -75,8 +75,9 @@
 }
 
 /* Specific targeting of BlockNote's internal content div for robust ellipsis */
-/* Only truncate when NOT editing */
-.notepad-content:not(.is-editing) {
+/* Truncate when: NOT editing OR when editor doesn't have focus */
+.notepad-content:not(.is-editing),
+.blocknote-note-list:not(.has-focus) .notepad-content {
     max-width: 280px;
     white-space: nowrap;
     overflow: hidden;
@@ -86,7 +87,10 @@
 /* Ensure BlockNote's internal elements don't wrap and inherit truncation */
 .notepad-content:not(.is-editing) *,
 .notepad-content:not(.is-editing) .bn-inline-content,
-.notepad-content:not(.is-editing) [data-content-type] {
+.notepad-content:not(.is-editing) [data-content-type],
+.blocknote-note-list:not(.has-focus) .notepad-content *,
+.blocknote-note-list:not(.has-focus) .notepad-content .bn-inline-content,
+.blocknote-note-list:not(.has-focus) .notepad-content [data-content-type] {
     display: inline !important;
     white-space: nowrap !important;
     overflow: hidden !important;
@@ -94,8 +98,8 @@
     max-width: 100%;
 }
 
-/* Keep same width when editing, stay on single line */
-.notepad-content.is-editing {
+/* Keep same width when editing (only when editor has focus), stay on single line */
+.blocknote-note-list.has-focus .notepad-content.is-editing {
     max-width: 280px;
     white-space: nowrap !important;
     overflow: hidden !important;
@@ -136,12 +140,6 @@
     display: none !important;
 }
 
-/* Ensure items are visible during animation to allow motion.animate to work */
-.blocknote-note-list.animating-to-full .is-compact,
-.blocknote-note-list.animating-to-compact .is-compact {
-    display: flex !important;
-}
-
 .blocknote-note-list.compact-view .notepad-content {
     flex: 1 1 0;
     min-width: 0;
@@ -150,14 +148,4 @@
 
 .blocknote-note-list.compact-view .notepad-content.is-editing {
     max-width: none !important;
-}
-
-/* Hide elements during compact-to-full animation to prevent flash */
-.blocknote-note-list.animating-to-full .notepad-category-checkbox,
-.blocknote-note-list.animating-to-full .notepad-metadata,
-.blocknote-note-list.animating-to-full .notepad-deadline,
-.blocknote-note-list.animating-to-full .notepad-pin-btn,
-.blocknote-note-list.animating-to-full .notepad-sidebar-btn,
-.blocknote-note-list.animating-to-full .notepad-trash-btn {
-    opacity: 0;
 }
