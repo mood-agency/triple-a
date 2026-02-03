@@ -1,4 +1,3 @@
-import "@blocknote/core/fonts/inter.css";
 import "@blocknote/shadcn/style.css";
 import { useState, useMemo } from "react";
 import { TimelineBlockNoteList } from "../components/notes/TimelineBlockNoteList";

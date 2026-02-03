@@ -215,7 +215,7 @@ body {
 
 /* BlockNote theme overrides - compact */
 .bn-container {
-  --bn-font-family: var(--font-sans);
+  --bn-font-family: var(--font-sans) !important;
   --bn-colors-editor-background: transparent;
   --bn-colors-editor-text: black;
   --bn-colors-menu-background: var(--color-popover);

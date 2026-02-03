@@ -12,6 +12,13 @@
     box-shadow: none !important;
     contain: layout style;
     isolation: isolate;
+    min-height: 22px;
+}
+
+/* Prevent margin transition on block-outer during compact/full switch */
+.blocknote-note-list .bn-block-outer,
+.timeline-blocknote-list .bn-block-outer {
+    transition: none;
 }
 
 .category-icon {
