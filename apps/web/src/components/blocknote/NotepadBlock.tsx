@@ -352,13 +352,13 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                             <button
                                 contentEditable={false}
                                 onClick={handleTogglePin}
-                                className={`p-1 hover:bg-gray-200 rounded transition-all ml-auto flex-shrink-0 ${isPinned
+                                className={`p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-all ml-auto flex-shrink-0 ${isPinned
                                     ? 'opacity-100'
                                     : 'opacity-0 group-hover:opacity-100'
                                     }`}
                                 style={{ userSelect: "none", display: (isCompact && !isPinned) ? "none" : undefined }}
                             >
-                                <Pin size={14} className={isPinned ? "text-black" : "text-gray-600"} />
+                                <Pin size={14} className={isPinned ? "text-black dark:text-white" : "text-gray-600 dark:text-gray-400"} />
                             </button>
                         </LazyTooltip>
                     )}

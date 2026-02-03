@@ -772,7 +772,10 @@ export const BlockNoteNoteList = ({
       const notesWereFiltered = removedIdsStillInDocument.length > 0;
 
       // Detect if notes were added back (e.g., search text was deleted, broadening filter)
-      const notesWereAdded = notes.some(note => !previousIds.has(note.id));
+      // Exclude notes that were created locally via Enter key (already in BlockNote's document)
+      const notesWereAdded = notes.some(note =>
+        !previousIds.has(note.id) && !editor.document.some(block => block.id === note.id)
+      );
 
       // Also sync if this is initial load (no previous IDs) and we have notes
       const isInitialLoad = previousIds.size === 0 && notes.length > 0;
