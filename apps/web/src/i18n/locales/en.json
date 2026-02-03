@@ -308,6 +308,8 @@
   "postponeReasons": "Postponement reasons",
   "noPostponeReasons": "No reasons recorded",
   "noPostponeHistoryYet": "No postpone history yet",
+  "postponedLabel": "postponed for",
+  "noReasonProvided": "No reason provided",
   "deletePostponeReason": "Delete reason",
   "editPostponeReason": "Edit reason",
   "confirmDeletePostpone": "Are you sure you want to delete this postponement reason?",

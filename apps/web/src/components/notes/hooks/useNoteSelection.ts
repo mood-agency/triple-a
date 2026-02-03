@@ -97,11 +97,14 @@ export function useNoteSelection({
             setDescriptionValueInternal(selectedNote?.description || '');
             setTitleValue(selectedNote?.content || '');
             setShowDescriptionPanel(false);
-        } else {
-            // Same note - only sync title (edited in a different component)
-            // DON'T sync description - let the editor keep its local state
-            setTitleValue(selectedNote?.content || '');
         }
+        // NOTE: We removed the automatic sync of titleValue when content changes for the same note.
+        // This was causing issues when Tab navigation sets titleValue from the event
+        // (with the new content) but then this effect overwrote it with the old selectedNote.content
+        // before the save completed. Now titleValue is only set via:
+        // 1. Note ID change (above)
+        // 2. Event handler in NotesWorkspace (editor:navigateToDescription)
+        // 3. Manual calls to setTitleValue
     }, [selectedNote?.id, selectedNote?.description, selectedNote?.content]);
 
     // Handle Focus Target

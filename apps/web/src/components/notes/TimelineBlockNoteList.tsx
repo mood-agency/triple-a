@@ -17,6 +17,7 @@ import { useEventSubscription, eventBus } from '@/events';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { useNavigationMediatorContext } from './navigation';
+import { DeleteTaskDialog } from './DeleteTaskDialog';
 
 interface TimelineBlockNoteListProps {
   notes: Note[];
@@ -65,6 +66,9 @@ export const TimelineBlockNoteList = ({
 }: TimelineBlockNoteListProps) => {
   // Navigation mediator for focus history
   const navigationMediator = useNavigationMediatorContext();
+
+  // Delete dialog state
+  const [deleteDialogNoteId, setDeleteDialogNoteId] = useState<string | null>(null);
   // Create schema with notepad and hourDivider blocks
   const schema = useMemo(
     () =>
@@ -310,10 +314,11 @@ export const TimelineBlockNoteList = ({
 
       const noteIds = new Set(notes.map(note => note.id));
       const notesWereFiltered = [...previousIds].some(id => !noteIds.has(id));
+      const notesWereAdded = notes.some(note => !previousIds.has(note.id));
       const isInitialLoad = previousIds.size === 0 && notes.length > 0;
 
-      if ((notesWereFiltered || isInitialLoad) && !isDeletingRef.current) {
-        if (notesWereFiltered) {
+      if ((notesWereFiltered || notesWereAdded || isInitialLoad) && !isDeletingRef.current) {
+        if (notesWereFiltered || notesWereAdded) {
           setIsSyncingFilter(true);
         }
 
@@ -434,6 +439,41 @@ export const TimelineBlockNoteList = ({
     }, 200);
   });
 
+  // Listen for delete request events from blocks (via event bus)
+  // Shows the delete dialog instead of deleting immediately
+  useEventSubscription('note:requestDelete', (event) => {
+    setDeleteDialogNoteId(event.payload.noteId);
+  });
+
+  // Handle confirmed deletion from the dialog
+  const handleConfirmDelete = useCallback((reason: string) => {
+    if (!deleteDialogNoteId) return;
+
+    const block = editor.getBlock(deleteDialogNoteId);
+
+    // Move cursor to adjacent block before removing
+    if (block) {
+      const cursorInfo = editor.getTextCursorPosition();
+      const prevBlock = cursorInfo?.prevBlock;
+      const nextBlock = cursorInfo?.nextBlock;
+
+      if (prevBlock) {
+        editor.setTextCursorPosition(prevBlock, 'end');
+      } else if (nextBlock) {
+        editor.setTextCursorPosition(nextBlock, 'start');
+      }
+
+      editor.removeBlocks([block]);
+    }
+
+    eventBus.emit('note:deleted', {
+      noteId: deleteDialogNoteId,
+      reason,
+    });
+
+    setDeleteDialogNoteId(null);
+  }, [deleteDialogNoteId, editor]);
+
   // Listen for create note events from blocks (via event bus)
   useEventSubscription('editor:createNoteAfter', async (event) => {
     flushPendingSavesRef.current();
@@ -493,6 +533,19 @@ export const TimelineBlockNoteList = ({
         formattingToolbar={false}
         slashMenu={false}
         sideMenu={false}
+      />
+      <DeleteTaskDialog
+        open={deleteDialogNoteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteDialogNoteId(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        taskContent={
+          deleteDialogNoteId
+            ? (notes.find(n => n.id === deleteDialogNoteId)?.content
+              ?? getBlockContent(editor.getBlock(deleteDialogNoteId) ?? { content: '' }))
+            : ''
+        }
       />
     </div>
   );

@@ -126,7 +126,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   onDescriptionBlur,
   onDescriptionFocus,
   onDescriptionKeyDown,
-  onTogglePostponeHistory,
+  onTogglePostponeHistory: _onTogglePostponeHistory,
   onToggleVersionHistory,
   onRestoreVersion,
   onAddLabel,
@@ -600,47 +600,47 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
         {note.category !== 'notes' && (
           <>
             <span>{t('expiresOnDate')}</span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeadlinePickerOpenChange(!deadlinePickerOpen);
-              }}
-              className="font-medium text-foreground hover:underline cursor-pointer"
-            >
-              {note.deadline
-                ? formatRelativeDateEnhanced(
-                  parseLocalDate(note.deadline),
-                  i18n.language,
-                  {
-                    today: t('date.today'),
-                    tomorrow: t('date.tomorrow'),
-                    yesterday: t('date.yesterday'),
-                    inDays: t('date.inDays'),
-                    daysAgo: t('date.daysAgo'),
-                    inAWeek: t('date.inAWeek'),
-                    aWeekAgo: t('date.aWeekAgo'),
-                    inWeeks: t('date.inWeeks'),
-                    weeksAgo: t('date.weeksAgo'),
-                    nextWeek: t('date.nextWeek'),
-                    lastWeek: t('date.lastWeek'),
-                    thisWeekday: t('date.thisWeekday'),
-                    nextWeekday: t('date.nextWeekday'),
-                    lastWeekday: t('date.lastWeekday'),
-                    inAMonth: t('date.inAMonth'),
-                    aMonthAgo: t('date.aMonthAgo'),
-                    inMonths: t('date.inMonths'),
-                    monthsAgo: t('date.monthsAgo'),
-                    inAYear: t('date.inAYear'),
-                    aYearAgo: t('date.aYearAgo'),
-                    inYears: t('date.inYears'),
-                    yearsAgo: t('date.yearsAgo'),
-                  },
-                  true
-                )
-                : t('setDeadline')}
-            </button>
-            <span className="sr-only">
+            <span className="relative inline-flex">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeadlinePickerOpenChange(!deadlinePickerOpen);
+                }}
+                className="font-medium text-foreground hover:underline cursor-pointer"
+              >
+                {note.deadline
+                  ? formatRelativeDateEnhanced(
+                    parseLocalDate(note.deadline),
+                    i18n.language,
+                    {
+                      today: t('date.today'),
+                      tomorrow: t('date.tomorrow'),
+                      yesterday: t('date.yesterday'),
+                      inDays: t('date.inDays'),
+                      daysAgo: t('date.daysAgo'),
+                      inAWeek: t('date.inAWeek'),
+                      aWeekAgo: t('date.aWeekAgo'),
+                      inWeeks: t('date.inWeeks'),
+                      weeksAgo: t('date.weeksAgo'),
+                      nextWeek: t('date.nextWeek'),
+                      lastWeek: t('date.lastWeek'),
+                      thisWeekday: t('date.thisWeekday'),
+                      nextWeekday: t('date.nextWeekday'),
+                      lastWeekday: t('date.lastWeekday'),
+                      inAMonth: t('date.inAMonth'),
+                      aMonthAgo: t('date.aMonthAgo'),
+                      inMonths: t('date.inMonths'),
+                      monthsAgo: t('date.monthsAgo'),
+                      inAYear: t('date.inAYear'),
+                      aYearAgo: t('date.aYearAgo'),
+                      inYears: t('date.inYears'),
+                      yearsAgo: t('date.yearsAgo'),
+                    },
+                    true
+                  )
+                  : t('setDeadline')}
+              </button>
               <DatePicker
                 date={note.deadline ? parseLocalDate(note.deadline) : undefined}
                 onDateChange={onDeadlineChange}
@@ -650,6 +650,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                 onOpenChange={onDeadlinePickerOpenChange}
                 showTime
                 hideIcon
+                className="!absolute !inset-0 !opacity-0 !p-0 !m-0 !h-full !w-full"
               />
             </span>
           </>
@@ -710,6 +711,61 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                 </p>
               </TooltipContent>
             </Tooltip>
+          </>
+        )}
+        {actions.length > 0 && (
+          <>
+            <span>·</span>
+            <span>{t('postponedLabel')}</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button type="button" className="font-medium text-foreground truncate max-w-[200px] hover:underline cursor-pointer">
+                  {actions[0]?.reason || t('noReasonProvided')}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="bottom" align="start" className="max-w-sm p-0 w-auto">
+                <div className="p-2.5 space-y-2 max-h-60 overflow-y-auto">
+                  {actions.map((action) => (
+                    <div key={action.id} className="flex items-baseline justify-between gap-3 text-xs">
+                      <p className="italic flex-1 min-w-0 truncate">
+                        {action.reason ? `"${action.reason}"` : t('noReasonProvided')}
+                      </p>
+                      <span className="text-muted-foreground whitespace-nowrap shrink-0">
+                        {formatRelativeDateEnhanced(
+                          new Date(action.created_at),
+                          i18n.language,
+                          {
+                            today: t('date.today'),
+                            tomorrow: t('date.tomorrow'),
+                            yesterday: t('date.yesterday'),
+                            inDays: t('date.inDays'),
+                            daysAgo: t('date.daysAgo'),
+                            inAWeek: t('date.inAWeek'),
+                            aWeekAgo: t('date.aWeekAgo'),
+                            inWeeks: t('date.inWeeks'),
+                            weeksAgo: t('date.weeksAgo'),
+                            nextWeek: t('date.nextWeek'),
+                            lastWeek: t('date.lastWeek'),
+                            thisWeekday: t('date.thisWeekday'),
+                            nextWeekday: t('date.nextWeekday'),
+                            lastWeekday: t('date.lastWeekday'),
+                            inAMonth: t('date.inAMonth'),
+                            aMonthAgo: t('date.aMonthAgo'),
+                            inMonths: t('date.inMonths'),
+                            monthsAgo: t('date.monthsAgo'),
+                            inAYear: t('date.inAYear'),
+                            aYearAgo: t('date.aYearAgo'),
+                            inYears: t('date.inYears'),
+                            yearsAgo: t('date.yearsAgo'),
+                          },
+                          true
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           </>
         )}
       </div>
@@ -874,44 +930,20 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
         </div>
       </div>
 
-      {/* Footer: Postpone reason and version history */}
-      {(note.last_postpone_reason || versions.length > 0) && (
+      {/* Footer: Version history */}
+      {versions.length > 0 && (
         <div className="border-t border-muted-foreground/20 pt-2 mt-2 space-y-1 shrink-0">
-          {note.last_postpone_reason && (
-            <button
-              type="button"
-              onClick={() => {
-                console.log('[NoteEditorPanel] Postpone history button clicked');
-                console.log('[NoteEditorPanel] Current showPostponeHistory:', showPostponeHistory);
-                console.log('[NoteEditorPanel] Total versions:', versions.length, 'actions:', actions.length);
-                console.log('[NoteEditorPanel] Postponed entries:', actions.length);
-                onTogglePostponeHistory();
-              }}
-              className="flex items-center gap-2 text-xs font-normal text-muted-foreground/70 italic hover:text-muted-foreground transition-colors text-left w-full"
-            >
-              <CalendarClock className="h-3 w-3 shrink-0" />
-              <span className="flex-1 truncate">{note.last_postpone_reason}</span>
-              {actions.length > 0 && (
-                <span className="text-[10px] text-muted-foreground/50 bg-muted px-1.5 py-0.5 rounded-full shrink-0">
-                  {actions.length}
-                </span>
-              )}
-            </button>
-          )}
-          {/* Version history toggle */}
-          {versions.length > 0 && (
-            <button
-              type="button"
-              onClick={onToggleVersionHistory}
-              className="flex items-center gap-2 text-xs font-normal text-muted-foreground/70 hover:text-muted-foreground transition-colors text-left w-full"
-            >
-              <History className="h-3 w-3 shrink-0" />
-              <span className="flex-1">{t('versionHistory')}</span>
-              <span className="text-[10px] text-muted-foreground/50 bg-muted px-1.5 py-0.5 rounded-full shrink-0">
-                {versions.length}
-              </span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={onToggleVersionHistory}
+            className="flex items-center gap-2 text-xs font-normal text-muted-foreground/70 hover:text-muted-foreground transition-colors text-left w-full"
+          >
+            <History className="h-3 w-3 shrink-0" />
+            <span className="flex-1">{t('versionHistory')}</span>
+            <span className="text-[10px] text-muted-foreground/50 bg-muted px-1.5 py-0.5 rounded-full shrink-0">
+              {versions.length}
+            </span>
+          </button>
         </div>
       )}
 

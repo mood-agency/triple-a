@@ -308,6 +308,8 @@
   "postponeReasons": "Motivos de aplazamiento",
   "noPostponeReasons": "Sin motivos registrados",
   "noPostponeHistoryYet": "Aún no hay historial de posponer",
+  "postponedLabel": "pospuesta por",
+  "noReasonProvided": "Sin motivo",
   "deletePostponeReason": "Eliminar motivo",
   "editPostponeReason": "Editar motivo",
   "confirmDeletePostpone": "¿Estás seguro de que deseas eliminar este motivo de aplazamiento?",

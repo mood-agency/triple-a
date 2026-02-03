@@ -192,9 +192,8 @@ export const NotepadBlock = (createReactBlockSpec as any)(
             const handleDelete = (e: React.MouseEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
-                eventBus.emit('note:deleted', {
+                eventBus.emit('note:requestDelete', {
                     noteId: props.block.id,
-                    reason: 'Deleted via trash icon',
                 });
             };
 

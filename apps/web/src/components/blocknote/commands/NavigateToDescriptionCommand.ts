@@ -19,8 +19,11 @@ function getCursorOffsetInBlock(context: BlockCommandContext): number {
     if (!blockPos) return 0;
 
     // Get the DOM node for the block and calculate offset
+    // context.node might itself be contenteditable, or have a contenteditable child
     const blockElement = context.node;
-    const editableElement = blockElement.querySelector('[contenteditable="true"]');
+    const editableElement = blockElement.isContentEditable
+        ? blockElement
+        : blockElement.querySelector('[contenteditable="true"]');
 
     if (!editableElement) return 0;
 
@@ -42,9 +45,8 @@ function getCursorOffsetInBlock(context: BlockCommandContext): number {
  * Get the current text content of a block
  */
 function getBlockContent(context: BlockCommandContext): string {
-    const blockElement = context.node;
-    const contentElement = blockElement.querySelector('.notepad-content');
-    return contentElement?.textContent || '';
+    // context.node IS the .notepad-content element itself (see NotepadBlock.tsx combinedRef)
+    return context.node?.textContent || '';
 }
 
 /**

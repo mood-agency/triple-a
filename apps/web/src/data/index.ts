@@ -3,7 +3,17 @@ export { DataProvider, useData, useNoteRepository, useLabelRepository, useAssign
 export { RepositoryProvider } from './RepositoryProvider';
 
 // Factory
-export { createSupabaseRepositories, type CreateRepositoriesOptions } from './createRepositories';
+export {
+  createSupabaseRepositories,
+  createConvexRepositories,
+  createRepositories,
+  isConvexOptions,
+  isSupabaseOptions,
+  type BackendType,
+  type CreateRepositoriesOptions,
+  type CreateSupabaseRepositoriesOptions,
+  type CreateConvexRepositoriesOptions,
+} from './createRepositories';
 
 // Types
 export type {
@@ -28,3 +38,10 @@ export {
   SupabaseLabelRepository,
   SupabaseAssigneeRepository,
 } from './supabase';
+
+// Convex Implementations
+export {
+  ConvexNoteRepository,
+  ConvexLabelRepository,
+  ConvexAssigneeRepository,
+} from './convex';

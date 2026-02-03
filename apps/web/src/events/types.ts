@@ -40,6 +40,13 @@ export interface NoteDeletedEvent
   type: 'note:deleted';
 }
 
+export interface NoteRequestDeleteEvent
+  extends DomainEvent<{
+    noteId: string;
+  }> {
+  type: 'note:requestDelete';
+}
+
 export interface NoteCompletedEvent
   extends DomainEvent<{
     noteId: string;
@@ -207,6 +214,7 @@ export type AppEvent =
   | NoteCreatedEvent
   | NoteUpdatedEvent
   | NoteDeletedEvent
+  | NoteRequestDeleteEvent
   | NoteCompletedEvent
   | NotePinnedEvent
   | NoteFixedInSidebarEvent
@@ -232,6 +240,7 @@ export type EventMap = {
   'note:created': NoteCreatedEvent;
   'note:updated': NoteUpdatedEvent;
   'note:deleted': NoteDeletedEvent;
+  'note:requestDelete': NoteRequestDeleteEvent;
   'note:completed': NoteCompletedEvent;
   'note:pinned': NotePinnedEvent;
   'note:fixedInSidebar': NoteFixedInSidebarEvent;
