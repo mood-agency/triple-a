@@ -13,7 +13,6 @@ import { BlockNoteSchema, defaultBlockSpecs, createCodeBlockSpec, type BlockNote
 import { codeBlockOptions } from '@blocknote/code-block'
 import { en as enLocale, es as esLocale } from '@blocknote/core/locales'
 import '@blocknote/shadcn/style.css'
-import '@blocknote/core/fonts/inter.css'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/i18n'

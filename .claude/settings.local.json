@@ -142,7 +142,21 @@
       "Bash(npm:*)",
       "Bash(brv --version:*)",
       "Bash(brv:*)",
-      "Bash(pnpm lint:*)"
+      "Bash(pnpm lint:*)",
+      "Bash(\" with tooltip displaying full names. Applied\nconsistently across NotepadBlock, NoteEditorPanel, and NoteRow.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git restore:*)",
+      "WebFetch(domain:ui.shadcn.com)",
+      "Bash(pnpm dlx:*)",
+      "Bash(git branch:*)",
+      "Bash(git worktree:*)",
+      "Bash(npx convex init --help:*)",
+      "Bash(pnpm storybook:*)",
+      "Bash(ping:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh api:*)",
+      "WebFetch(domain:gist.github.com)",
+      "Bash(pnpm --filter @triple-a/web exec tsc:*)",
+      "Bash(pnpm --filter @triple-a/api lint:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\argen\\Documents\\GitHub\\triple-a",
