@@ -27,7 +27,13 @@ export class DeleteBlockCommand implements BlockCommand {
     event.preventDefault();
     event.stopPropagation();
 
-    // Get cursor position info to determine where to move the cursor
+    // Non-empty block with Ctrl/Cmd+Backspace: show delete dialog
+    if (!isEmpty) {
+      eventBus.emit('note:requestDelete', { noteId: block.id });
+      return true;
+    }
+
+    // Empty block: auto-delete without dialog
     const cursorInfo = editor.getTextCursorPosition();
     const prevBlock = cursorInfo?.prevBlock;
     const nextBlock = cursorInfo?.nextBlock;
@@ -43,13 +49,11 @@ export class DeleteBlockCommand implements BlockCommand {
     if (!prevBlock && !nextBlock) {
       editor.updateBlock(block, { type: "paragraph" } as any);
     } else {
-      // Emit event to notify parent that note should be deleted
       eventBus.emit('note:deleted', {
         noteId: block.id,
-        reason: 'Deleted via keyboard',
+        reason: 'empty',
       });
 
-      // Remove the block from the editor
       editor.removeBlocks([block]);
     }
 

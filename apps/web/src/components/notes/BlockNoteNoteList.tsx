@@ -15,6 +15,7 @@ import { useEventSubscription, eventBus } from '@/events';
 import type { Note, Label, NoteCategory } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { useRegisterNavigationRegion, type RegionHandler, type FocusRestorationContext, type ItemSaveData } from './navigation';
+import { DeleteTaskDialog } from './DeleteTaskDialog';
 
 // Debug flags
 const DEBUG_BLOCKNOTE = false;
@@ -74,6 +75,9 @@ export const BlockNoteNoteList = ({
   // Get labels and contacts for hashtag/mention parsing
   const { labels } = useLabels();
   const { contacts } = useContacts();
+
+  // Delete dialog state
+  const [deleteDialogNoteId, setDeleteDialogNoteId] = useState<string | null>(null);
 
   // Create schema with notepad block
   const schema = useMemo(
@@ -767,6 +771,9 @@ export const BlockNoteNoteList = ({
 
       const notesWereFiltered = removedIdsStillInDocument.length > 0;
 
+      // Detect if notes were added back (e.g., search text was deleted, broadening filter)
+      const notesWereAdded = notes.some(note => !previousIds.has(note.id));
+
       // Also sync if this is initial load (no previous IDs) and we have notes
       const isInitialLoad = previousIds.size === 0 && notes.length > 0;
 
@@ -775,10 +782,10 @@ export const BlockNoteNoteList = ({
       // BUT ignore order changes caused by our own saves (updated_at changes)
       const orderChanged = removedIds.length === 0 && previousIds.size === noteIds.size && previousIds.size > 0 && !isSavingInternallyRef.current;
 
-      // Sync on filtering (notes removed), initial load, or order change (sorting)
-      if (notesWereFiltered || isInitialLoad || orderChanged) {
+      // Sync on filtering (notes removed), notes added back, initial load, or order change (sorting)
+      if (notesWereFiltered || notesWereAdded || isInitialLoad || orderChanged) {
         // Hide content immediately to prevent flash during transition
-        if (notesWereFiltered || orderChanged) {
+        if (notesWereFiltered || notesWereAdded || orderChanged) {
           setIsSyncingFilter(true);
         }
 
@@ -1060,6 +1067,41 @@ export const BlockNoteNoteList = ({
     }, 200);
   });
 
+  // Listen for delete request events from blocks (via event bus)
+  // Shows the delete dialog instead of deleting immediately
+  useEventSubscription('note:requestDelete', (event) => {
+    setDeleteDialogNoteId(event.payload.noteId);
+  });
+
+  // Handle confirmed deletion from the dialog
+  const handleConfirmDelete = useCallback((reason: string) => {
+    if (!deleteDialogNoteId) return;
+
+    const block = editor.getBlock(deleteDialogNoteId);
+
+    // Move cursor to adjacent block before removing
+    if (block) {
+      const cursorInfo = editor.getTextCursorPosition();
+      const prevBlock = cursorInfo?.prevBlock;
+      const nextBlock = cursorInfo?.nextBlock;
+
+      if (prevBlock) {
+        editor.setTextCursorPosition(prevBlock, 'end');
+      } else if (nextBlock) {
+        editor.setTextCursorPosition(nextBlock, 'start');
+      }
+
+      editor.removeBlocks([block]);
+    }
+
+    eventBus.emit('note:deleted', {
+      noteId: deleteDialogNoteId,
+      reason,
+    });
+
+    setDeleteDialogNoteId(null);
+  }, [deleteDialogNoteId, editor]);
+
   // Listen for create note events from blocks (Enter key) (via event bus)
   // Handles local state (cache) and calls callback for note creation
   useEventSubscription('editor:createNoteAfter', async (event) => {
@@ -1158,6 +1200,19 @@ export const BlockNoteNoteList = ({
         formattingToolbar={false}
         slashMenu={false}
         sideMenu={false}
+      />
+      <DeleteTaskDialog
+        open={deleteDialogNoteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteDialogNoteId(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        taskContent={
+          deleteDialogNoteId
+            ? (notes.find(n => n.id === deleteDialogNoteId)?.content
+              ?? getBlockContent(editor.getBlock(deleteDialogNoteId) ?? { content: '' }))
+            : ''
+        }
       />
     </div>
   );
