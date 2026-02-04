@@ -23,7 +23,8 @@
     "bcrypt": "^6.0.0",
     "dotenv": "^17.2.3",
     "hono": "^4.11.6",
-    "hono-rate-limiter": "^0.5.3"
+    "hono-rate-limiter": "^0.5.3",
+    "node-cron": "^4.2.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

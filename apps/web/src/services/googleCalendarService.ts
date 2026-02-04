@@ -437,6 +437,14 @@ class GoogleCalendarService {
     }
   }
 
+  /**
+   * Trigger a full calendar sync on the backend.
+   * Replaces the previous frontend-side sync logic.
+   */
+  async triggerSync(): Promise<{ success: boolean; eventsImported: number; eventsUpdated: number; eventsDeleted: number; errors: string[] }> {
+    return callApi('gcal-sync', {});
+  }
+
   // ============================================
   // Multi-account support methods
   // ============================================
