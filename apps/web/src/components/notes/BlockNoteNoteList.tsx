@@ -55,6 +55,8 @@ interface BlockNoteNoteListProps {
   selectedNoteId?: string | null;
   /** Live title from editor panel for real-time sync */
   selectedNoteTitleValue?: string;
+  /** Callback when selected note content changes in the task list (for real-time title sync to editor panel) */
+  onContentChange?: (content: string) => void;
 }
 
 export const BlockNoteNoteList = ({
@@ -77,6 +79,7 @@ export const BlockNoteNoteList = ({
   onAddAssignee,
   selectedNoteId,
   selectedNoteTitleValue,
+  onContentChange,
 }: BlockNoteNoteListProps) => {
   // Get labels and contacts for hashtag/mention parsing
   const { labels } = useLabels();
@@ -971,9 +974,15 @@ export const BlockNoteNoteList = ({
     const blockContent = getBlockContent(block);
     if (blockContent === selectedNoteTitleValue) return;
 
-    // Don't update if the cursor is in this block (user is editing inline)
-    const cursorBlockId = editor.getTextCursorPosition()?.block.id ?? null;
-    if (cursorBlockId === selectedNoteId) return;
+    // Don't update if the user is actively editing this block inline in BlockNote.
+    // Check actual DOM focus — ProseMirror retains cursor position even when unfocused,
+    // so we must verify the editor has focus before skipping the sync.
+    const editorElement = document.querySelector('.blocknote-note-list');
+    const editorHasFocus = editorElement?.contains(document.activeElement) ?? false;
+    if (editorHasFocus) {
+      const cursorBlockId = editor.getTextCursorPosition()?.block.id ?? null;
+      if (cursorBlockId === selectedNoteId) return;
+    }
 
     isSyncingRef.current = true;
     const updatePayload: any = {
@@ -984,6 +993,28 @@ export const BlockNoteNoteList = ({
       isSyncingRef.current = false;
     }, 100);
   }, [editor, selectedNoteId, selectedNoteTitleValue]);
+
+  // Sync task list content changes back to the editor panel in real-time
+  // When user edits a note title inline in BlockNote, notify the parent so titleValue updates
+  const onContentChangeRef = useRef(onContentChange);
+  onContentChangeRef.current = onContentChange;
+
+  useEffect(() => {
+    if (!onContentChange || !selectedNoteId) return;
+
+    const unsubscribe = editor.onChange(() => {
+      // Skip if this change was caused by a programmatic sync (e.g., from editor panel)
+      if (isSyncingRef.current) return;
+
+      const block = editor.getBlock(selectedNoteIdRef.current ?? '');
+      if (!block) return;
+
+      const content = getBlockContent(block);
+      onContentChangeRef.current?.(content);
+    });
+
+    return () => unsubscribe();
+  }, [editor, selectedNoteId, onContentChange]);
 
   // Save when clicking outside the editor (more reliable than focusout for ProseMirror)
   useEffect(() => {
