@@ -489,10 +489,24 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   );
 
   /**
-   * Delete a note (soft delete)
+   * Delete a note (soft delete, or hard delete if content is empty)
    */
   const deleteNote = useCallback(async (id: string, reason: string): Promise<void> => {
     if (!supabase) return;
+
+    // Check if note has content — empty notes get hard-deleted so they
+    // don't clutter the deleted-notes view.
+    const { data: existing } = await supabase
+      .from('notes')
+      .select('content')
+      .eq('id', id)
+      .single();
+
+    if (existing && !existing.content?.trim()) {
+      const { error } = await supabase.from('notes').delete().eq('id', id);
+      if (error) console.error('[useNotesSupabase] Hard-delete error:', error);
+      return;
+    }
 
     const { error } = await supabase
       .from('notes')

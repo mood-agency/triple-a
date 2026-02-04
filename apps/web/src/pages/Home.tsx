@@ -514,7 +514,6 @@ export function Home() {
         showOverdueOnly={showOverdueOnly}
         onShowOverdueOnlyChange={setShowOverdueOnly}
         hasCompletedTasks={notes.some(n => n.completed)}
-        hasDeletedTasks={notes.some(n => n.deleted_at)}
         sortConfig={sortConfig}
         onSortChange={handleSortConfigChange}
       />

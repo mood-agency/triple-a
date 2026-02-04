@@ -299,6 +299,8 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
     showOverdueOnly: filters.showOverdueOnly,
     viewMode: filters.viewMode,
     calendarSelectedDate: filters.calendarSelectedDate?.getTime(),
+    taskStatusFilter: filters.taskStatusFilter,
+    sortConfig: JSON.stringify(filters.sortConfig),
   });
 
   // Refs for current values to use in setTimeout
@@ -315,7 +317,9 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
       prev.assigneeFilter !== JSON.stringify(filters.assigneeFilter) ||
       prev.showOverdueOnly !== filters.showOverdueOnly ||
       prev.viewMode !== filters.viewMode ||
-      prev.calendarSelectedDate !== filters.calendarSelectedDate?.getTime();
+      prev.calendarSelectedDate !== filters.calendarSelectedDate?.getTime() ||
+      prev.taskStatusFilter !== filters.taskStatusFilter ||
+      prev.sortConfig !== JSON.stringify(filters.sortConfig);
 
     if (hasFilterChanged) {
       // Use setTimeout to ensure selection happens after dialogs/modals close
@@ -338,8 +342,10 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
       showOverdueOnly: filters.showOverdueOnly,
       viewMode: filters.viewMode,
       calendarSelectedDate: filters.calendarSelectedDate?.getTime(),
+      taskStatusFilter: filters.taskStatusFilter,
+      sortConfig: JSON.stringify(filters.sortConfig),
     };
-  }, [filters.categoryFilter, filters.labelFilter, filters.assigneeFilter, filters.showOverdueOnly, filters.viewMode, filters.calendarSelectedDate, filters.activeNotesRef, onSelectNote, selection]);
+  }, [filters.categoryFilter, filters.labelFilter, filters.assigneeFilter, filters.showOverdueOnly, filters.viewMode, filters.calendarSelectedDate, filters.taskStatusFilter, filters.sortConfig, filters.activeNotesRef, onSelectNote, selection]);
 
   const operations = useNoteOperations({
     filteredNotesRef: filters.filteredNotesRef,
@@ -964,7 +970,6 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
           taskStatusFilter={filters.taskStatusFilter}
           setTaskStatusFilter={filters.setTaskStatusFilter}
           hasCompletedTasks={filters.completedNotes.length > 0}
-          hasDeletedTasks={deletedNotes.length > 0}
           onSearchKeyDown={handleSearchKeyDown}
         />
 

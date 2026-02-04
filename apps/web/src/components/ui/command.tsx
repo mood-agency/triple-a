@@ -24,7 +24,10 @@ Command.displayName = CommandPrimitive.displayName
 const CommandDialog = ({ children, ...props }: DialogProps) => {
   return (
     <Dialog {...props}>
-      <DialogContent className="overflow-hidden p-0 w-[calc(100%-2rem)] sm:w-full top-[20%] translate-y-0 data-[state=closed]:slide-out-to-top-[20%] data-[state=open]:slide-in-from-top-[20%]">
+      <DialogContent
+        className="overflow-hidden p-0 w-[calc(100%-2rem)] sm:w-full top-[20%] translate-y-0 data-[state=closed]:slide-out-to-top-[20%] data-[state=open]:slide-in-from-top-[20%]"
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogTitle className="sr-only">Command palette</DialogTitle>
         <DialogDescription className="sr-only">
           Search for commands and actions

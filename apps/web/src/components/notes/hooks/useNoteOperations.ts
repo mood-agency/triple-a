@@ -89,12 +89,15 @@ export function useNoteOperations({
             }
         }, 150);
 
-        toast(t('taskDeleted'), {
-            action: {
-                label: t('undo'),
-                onClick: () => onRestore(note),
-            },
-        });
+        // Only show undo toast for notes with content — empty notes are hard-deleted
+        if (note.content.trim()) {
+            toast(t('taskDeleted'), {
+                action: {
+                    label: t('undo'),
+                    onClick: () => onRestore(note),
+                },
+            });
+        }
     }, [onDelete, onSelectNote, onNavigateToEditor, onRestore, t, activeNotesRef, setDesiredColumn, setFocusTarget]);
 
     const handleToggleCompletedWithNavigation = useCallback((noteId: string, completed: boolean) => {

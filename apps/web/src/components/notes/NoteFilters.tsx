@@ -85,7 +85,6 @@ interface NoteFiltersProps {
   taskStatusFilter: 'active' | 'completed' | 'deleted';
   onTaskStatusFilterChange: (status: 'active' | 'completed' | 'deleted') => void;
   hasCompletedTasks?: boolean;
-  hasDeletedTasks?: boolean;
 }
 
 export const NoteFilters = memo(function NoteFilters({
@@ -119,7 +118,6 @@ export const NoteFilters = memo(function NoteFilters({
   taskStatusFilter,
   onTaskStatusFilterChange,
   hasCompletedTasks = false,
-  hasDeletedTasks = false,
 }: NoteFiltersProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'es' ? es : enUS;
@@ -150,7 +148,6 @@ export const NoteFilters = memo(function NoteFilters({
   void taskStatusFilter;
   void onTaskStatusFilterChange;
   void hasCompletedTasks;
-  void hasDeletedTasks;
 
   return (
     <>
