@@ -19,12 +19,18 @@ export interface CreateNoteAfterPayload extends CreateNotePayload {
 
 export class CreateNoteCommand implements Command<CreateNotePayload, Note> {
   readonly type = 'CreateNote';
+  readonly payload: CreateNotePayload;
 
-  constructor(public readonly payload: CreateNotePayload) {}
+  constructor(payload: CreateNotePayload) {
+    this.payload = payload;
+  }
 }
 
 export class CreateNoteAfterCommand implements Command<CreateNoteAfterPayload, Note> {
   readonly type = 'CreateNoteAfter';
+  readonly payload: CreateNoteAfterPayload;
 
-  constructor(public readonly payload: CreateNoteAfterPayload) {}
+  constructor(payload: CreateNoteAfterPayload) {
+    this.payload = payload;
+  }
 }

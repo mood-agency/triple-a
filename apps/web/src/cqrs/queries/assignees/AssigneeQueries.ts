@@ -12,8 +12,11 @@ export interface GetAssigneesForNotePayload {
 
 export class GetAssigneesForNoteQuery implements Query<GetAssigneesForNotePayload, Contact[]> {
   readonly type = 'GetAssigneesForNote';
+  readonly payload: GetAssigneesForNotePayload;
 
-  constructor(public readonly payload: GetAssigneesForNotePayload) {}
+  constructor(payload: GetAssigneesForNotePayload) {
+    this.payload = payload;
+  }
 }
 
 export class GetNoteAssigneesMapQuery implements Query<void, Map<string, Contact[]>> {

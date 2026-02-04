@@ -21,8 +21,7 @@ export function createAssigneeCommandHandlers(assigneeRepository: IAssigneeRepos
     eventBus.emit('assignee:added', {
       noteId: command.payload.noteId,
       contactId: command.payload.contactId,
-      source: 'command',
-    });
+    }, 'command');
   };
 
   const handleRemoveAssigneeFromNote: CommandHandler<RemoveAssigneeFromNoteCommand> = async (command) => {
@@ -34,8 +33,7 @@ export function createAssigneeCommandHandlers(assigneeRepository: IAssigneeRepos
     eventBus.emit('assignee:removed', {
       noteId: command.payload.noteId,
       contactId: command.payload.contactId,
-      source: 'command',
-    });
+    }, 'command');
   };
 
   const handleSetNoteAssignees: CommandHandler<SetNoteAssigneesCommand> = async (command) => {
@@ -48,8 +46,7 @@ export function createAssigneeCommandHandlers(assigneeRepository: IAssigneeRepos
     eventBus.emit('assignee:added', {
       noteId: command.payload.noteId,
       contactId: command.payload.contactIds[0] || '',
-      source: 'command',
-    });
+    }, 'command');
   };
 
   return {

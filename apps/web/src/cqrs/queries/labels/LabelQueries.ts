@@ -12,8 +12,11 @@ export interface GetLabelsForNotePayload {
 
 export class GetLabelsForNoteQuery implements Query<GetLabelsForNotePayload, Label[]> {
   readonly type = 'GetLabelsForNote';
+  readonly payload: GetLabelsForNotePayload;
 
-  constructor(public readonly payload: GetLabelsForNotePayload) {}
+  constructor(payload: GetLabelsForNotePayload) {
+    this.payload = payload;
+  }
 }
 
 export class GetNoteLabelsMapQuery implements Query<void, Map<string, Label[]>> {

@@ -13,6 +13,9 @@ export interface UpdateNotePayload {
 
 export class UpdateNoteCommand implements Command<UpdateNotePayload, void> {
   readonly type = 'UpdateNote';
+  readonly payload: UpdateNotePayload;
 
-  constructor(public readonly payload: UpdateNotePayload) {}
+  constructor(payload: UpdateNotePayload) {
+    this.payload = payload;
+  }
 }

@@ -159,19 +159,19 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   useEffect(() => {
     const unsubscribeCreated = eventBus.subscribe('note:created', (event) => {
       // Only refetch if the event came from CQRS command (not from this hook)
-      if (event.payload.source === 'command') {
+      if (event.source === 'command') {
         fetchNotes();
       }
     });
 
     const unsubscribeUpdated = eventBus.subscribe('note:updated', (event) => {
-      if (event.payload.source === 'command') {
+      if (event.source === 'command') {
         fetchNotes();
       }
     });
 
     const unsubscribeDeleted = eventBus.subscribe('note:deleted', (event) => {
-      if (event.payload.source === 'command') {
+      if (event.source === 'command') {
         fetchNotes();
       }
     });
@@ -439,6 +439,17 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     ): Promise<void> => {
       if (!user || !supabase) return;
 
+      // Optimistic update: immediately update local state so UI reflects changes
+      setNotes(prev => prev.map(n => {
+        if (n.id !== id) return n;
+        return {
+          ...n,
+          content,
+          ...(category !== undefined && { category }),
+          ...(description !== undefined && { description }),
+        };
+      }));
+
       // Get current note state to check if description changed
       const { data: currentNote } = await supabase
         .from('notes')
@@ -517,12 +528,14 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   const toggleCompleted = useCallback(async (id: string, completed: boolean): Promise<void> => {
     if (!supabase) return;
 
+    const completed_at = completed ? new Date().toISOString() : null;
+
+    // Optimistic update
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, completed, completed_at } : n));
+
     const { error } = await supabase
       .from('notes')
-      .update({
-        completed,
-        completed_at: completed ? new Date().toISOString() : null,
-      })
+      .update({ completed, completed_at })
       .eq('id', id);
 
     if (error) console.error('[useNotesSupabase] Toggle completed error:', error);
@@ -534,6 +547,9 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   const togglePinned = useCallback(async (id: string, pinned: boolean): Promise<void> => {
     if (!supabase) return;
 
+    // Optimistic update
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, pinned } : n));
+
     const { error } = await supabase.from('notes').update({ pinned }).eq('id', id);
 
     if (error) console.error('[useNotesSupabase] Toggle pinned error:', error);
@@ -544,6 +560,9 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
    */
   const updateDeadline = useCallback(async (id: string, deadline: string | null): Promise<void> => {
     if (!supabase) return;
+
+    // Optimistic update
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, deadline } : n));
 
     const { error } = await supabase.from('notes').update({ deadline }).eq('id', id);
 

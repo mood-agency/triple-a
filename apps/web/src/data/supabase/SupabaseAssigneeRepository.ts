@@ -293,7 +293,7 @@ export class SupabaseAssigneeRepository implements IAssigneeRepository {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (supabase) supabase.removeChannel(channel);
     };
   }
 
@@ -321,7 +321,7 @@ export class SupabaseAssigneeRepository implements IAssigneeRepository {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (supabase) supabase.removeChannel(channel);
     };
   }
 }

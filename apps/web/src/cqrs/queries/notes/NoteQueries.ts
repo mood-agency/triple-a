@@ -10,8 +10,11 @@ export interface GetNotesPayload {
 
 export class GetNotesQuery implements Query<GetNotesPayload, Note[]> {
   readonly type = 'GetNotes';
+  readonly payload: GetNotesPayload;
 
-  constructor(public readonly payload: GetNotesPayload = {}) {}
+  constructor(payload: GetNotesPayload = {}) {
+    this.payload = payload;
+  }
 }
 
 export interface GetNoteByIdPayload {
@@ -20,8 +23,11 @@ export interface GetNoteByIdPayload {
 
 export class GetNoteByIdQuery implements Query<GetNoteByIdPayload, Note | null> {
   readonly type = 'GetNoteById';
+  readonly payload: GetNoteByIdPayload;
 
-  constructor(public readonly payload: GetNoteByIdPayload) {}
+  constructor(payload: GetNoteByIdPayload) {
+    this.payload = payload;
+  }
 }
 
 export interface GetNoteVersionsPayload {
@@ -30,8 +36,11 @@ export interface GetNoteVersionsPayload {
 
 export class GetNoteVersionsQuery implements Query<GetNoteVersionsPayload, NoteVersion[]> {
   readonly type = 'GetNoteVersions';
+  readonly payload: GetNoteVersionsPayload;
 
-  constructor(public readonly payload: GetNoteVersionsPayload) {}
+  constructor(payload: GetNoteVersionsPayload) {
+    this.payload = payload;
+  }
 }
 
 export interface GetNoteActionsPayload {
@@ -40,6 +49,9 @@ export interface GetNoteActionsPayload {
 
 export class GetNoteActionsQuery implements Query<GetNoteActionsPayload, NoteAction[]> {
   readonly type = 'GetNoteActions';
+  readonly payload: GetNoteActionsPayload;
 
-  constructor(public readonly payload: GetNoteActionsPayload) {}
+  constructor(payload: GetNoteActionsPayload) {
+    this.payload = payload;
+  }
 }

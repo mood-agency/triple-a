@@ -14,12 +14,8 @@ import type {
  * All methods interact with Convex queries and mutations.
  */
 export class ConvexLabelRepository implements ILabelRepository {
-  private convex: ConvexReactClient;
-  private userId: string;
-
-  constructor(convex: ConvexReactClient, userId: string) {
-    this.convex = convex;
-    this.userId = userId;
+  constructor(_convex: ConvexReactClient, _userId: string) {
+    // Properties stored when Convex is implemented
   }
 
   // ============================================

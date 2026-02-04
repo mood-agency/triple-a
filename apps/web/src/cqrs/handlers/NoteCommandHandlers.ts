@@ -30,9 +30,11 @@ export function createNoteCommandHandlers(noteRepository: INoteRepository) {
     });
 
     eventBus.emit('note:created', {
-      note,
-      source: 'command',
-    });
+      noteId: note.id,
+      content: note.content,
+      category: note.category,
+      projectId: note.project_id,
+    }, 'command');
 
     return note;
   };
@@ -50,9 +52,11 @@ export function createNoteCommandHandlers(noteRepository: INoteRepository) {
     });
 
     eventBus.emit('note:created', {
-      note,
-      source: 'command',
-    });
+      noteId: note.id,
+      content: note.content,
+      category: note.category,
+      projectId: note.project_id,
+    }, 'command');
 
     return note;
   };
@@ -69,9 +73,10 @@ export function createNoteCommandHandlers(noteRepository: INoteRepository) {
 
     eventBus.emit('note:updated', {
       noteId: command.payload.noteId,
-      changes: command.payload,
-      source: 'command',
-    });
+      content: command.payload.content,
+      category: command.payload.category,
+      description: command.payload.description,
+    }, 'command');
   };
 
   const handleDeleteNote: CommandHandler<DeleteNoteCommand> = async (command) => {
@@ -79,8 +84,8 @@ export function createNoteCommandHandlers(noteRepository: INoteRepository) {
 
     eventBus.emit('note:deleted', {
       noteId: command.payload.noteId,
-      source: 'command',
-    });
+      reason: command.payload.reason,
+    }, 'command');
   };
 
   const handleRestoreNote: CommandHandler<RestoreNoteCommand> = async (command) => {
@@ -99,8 +104,7 @@ export function createNoteCommandHandlers(noteRepository: INoteRepository) {
       noteId: command.payload.noteId,
       completed: command.payload.completed,
       completedAt: command.payload.completed ? new Date().toISOString() : null,
-      source: 'command',
-    });
+    }, 'command');
   };
 
   const handleTogglePinned: CommandHandler<TogglePinnedCommand> = async (command) => {
@@ -112,8 +116,7 @@ export function createNoteCommandHandlers(noteRepository: INoteRepository) {
     eventBus.emit('note:pinned', {
       noteId: command.payload.noteId,
       pinned: command.payload.pinned,
-      source: 'command',
-    });
+    }, 'command');
   };
 
   const handleReorderNotes: CommandHandler<ReorderNotesCommand> = async (command) => {
@@ -129,9 +132,7 @@ export function createNoteCommandHandlers(noteRepository: INoteRepository) {
 
     eventBus.emit('note:updated', {
       noteId: command.payload.noteId,
-      changes: { date: command.payload.newDate },
-      source: 'command',
-    });
+    }, 'command');
   };
 
   return {

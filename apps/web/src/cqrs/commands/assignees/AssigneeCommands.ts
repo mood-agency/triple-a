@@ -7,8 +7,11 @@ export interface AddAssigneeToNotePayload {
 
 export class AddAssigneeToNoteCommand implements Command<AddAssigneeToNotePayload, void> {
   readonly type = 'AddAssigneeToNote';
+  readonly payload: AddAssigneeToNotePayload;
 
-  constructor(public readonly payload: AddAssigneeToNotePayload) {}
+  constructor(payload: AddAssigneeToNotePayload) {
+    this.payload = payload;
+  }
 }
 
 export interface RemoveAssigneeFromNotePayload {
@@ -18,8 +21,11 @@ export interface RemoveAssigneeFromNotePayload {
 
 export class RemoveAssigneeFromNoteCommand implements Command<RemoveAssigneeFromNotePayload, void> {
   readonly type = 'RemoveAssigneeFromNote';
+  readonly payload: RemoveAssigneeFromNotePayload;
 
-  constructor(public readonly payload: RemoveAssigneeFromNotePayload) {}
+  constructor(payload: RemoveAssigneeFromNotePayload) {
+    this.payload = payload;
+  }
 }
 
 export interface SetNoteAssigneesPayload {
@@ -29,6 +35,9 @@ export interface SetNoteAssigneesPayload {
 
 export class SetNoteAssigneesCommand implements Command<SetNoteAssigneesPayload, void> {
   readonly type = 'SetNoteAssignees';
+  readonly payload: SetNoteAssigneesPayload;
 
-  constructor(public readonly payload: SetNoteAssigneesPayload) {}
+  constructor(payload: SetNoteAssigneesPayload) {
+    this.payload = payload;
+  }
 }
