@@ -18,7 +18,7 @@ import {
 import { DatePicker } from '@/components/ui/date-picker';
 import { BlockNoteEditor, type BlockNoteEditorHandle } from '@/components/ui/BlockNoteEditor';
 import { AssigneePicker } from '@/components/notes/AssigneePicker';
-import { EditableTitle } from '@/components/notes/EditableTitle';
+import { EditableTitle, type EditableTitleHandle } from '@/components/notes/EditableTitle';
 import type { Note, NoteCategory, Label, NoteVersion, NoteAction } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { parseLocalDate, formatRelativeDateEnhanced } from '@/utils/dateUtils';
@@ -213,6 +213,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   const searchInputRef = useRef<HTMLInputElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<BlockNoteEditorHandle | null>(null);
+  const titleRef = useRef<EditableTitleHandle>(null);
 
   // Reset isCompleting when note changes or completed state changes
   useEffect(() => {
@@ -407,6 +408,16 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
     // Call the original handler for any local state updates
     onDescriptionBlur();
   }, [onDescriptionBlur, navigationRegion]);
+
+  // Navigate from title (ArrowDown) → focus description editor
+  const handleNavigateToDescription = useCallback(() => {
+    editorRef.current?.focus();
+  }, []);
+
+  // Navigate from description (ArrowUp at top) → focus title
+  const handleNavigateUp = useCallback(() => {
+    titleRef.current?.focus();
+  }, []);
 
   // Wrapped keydown handler - emits save before Escape navigation
   const handleDescriptionKeyDownInternal = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -815,6 +826,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
       <div className="flex items-start gap-2 mb-8">
         <div className="flex-1 min-w-0">
           <EditableTitle
+            ref={titleRef}
             noteId={note.id}
             content={note.content}
             completed={note.completed}
@@ -823,6 +835,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             autoSaveInterval={autoSaveInterval}
             showCheckbox={note.category === 'todo' || note.category === 'followup'}
             isCompletingExternal={isCompleting}
+            onNavigateToDescription={handleNavigateToDescription}
           />
         </div>
       </div>
@@ -900,6 +913,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             onBlur={handleDescriptionBlurInternal}
             onFocus={handleDescriptionFocusInternal}
             onKeyDown={handleDescriptionKeyDownInternal}
+            onNavigateUp={handleNavigateUp}
             placeholder={t('writeDescription')}
             className="h-full w-full text-base bg-transparent text-muted-foreground overflow-y-auto"
             noteId={note.id}

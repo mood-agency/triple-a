@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Trash2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,9 +18,14 @@ interface EditableTitleProps {
   autoSaveInterval?: number; // in seconds, 0 = disabled
   showCheckbox?: boolean;
   isCompletingExternal?: boolean; // Optional external control for completion animation
+  onNavigateToDescription?: () => void;
 }
 
-export function EditableTitle({
+export interface EditableTitleHandle {
+  focus: () => void;
+}
+
+export const EditableTitle = forwardRef<EditableTitleHandle, EditableTitleProps>(function EditableTitle({
   noteId,
   content,
   completed,
@@ -30,7 +35,8 @@ export function EditableTitle({
   autoSaveInterval = 3,
   showCheckbox = true,
   isCompletingExternal = false,
-}: EditableTitleProps) {
+  onNavigateToDescription,
+}, ref) {
   const { t } = useTranslation();
   // Read title from the store map by noteId — undefined if not in store (e.g. completed/deleted rows)
   const titleValue = useNoteFieldsStore(s => s.notes[noteId]?.titleValue);
@@ -46,6 +52,14 @@ export function EditableTitle({
 
   // Combine internal and external completing states
   const isCompleting = isCompletingInternal || isCompletingExternal;
+
+  // Expose focus method so parent can navigate to this title
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      setIsEditing(true);
+      // clickXRef left null → cursor will go to end by default via useEffect
+    },
+  }), []);
 
   // Handle checkbox change with animation
   const handleCheckedChange = useCallback(() => {
@@ -179,6 +193,10 @@ export function EditableTitle({
     } else if (e.key === 'Escape') {
       setEditedTitle(content);
       setIsEditing(false);
+    } else if (e.key === 'ArrowDown' && onNavigateToDescription) {
+      e.preventDefault();
+      handleSave();
+      onNavigateToDescription();
     }
   };
 
@@ -255,4 +273,4 @@ export function EditableTitle({
       </div>
     </div>
   );
-}
+});
