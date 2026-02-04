@@ -21,15 +21,16 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null);
+  // Synchronous mirror of notes — updated immediately in createNoteAfter so
+  // rapid successive calls always see the latest array (React state is batched).
+  const latestNotesRef = useRef<Note[]>([]);
+  // Track note IDs created locally but not yet confirmed by Supabase insert.
+  // fetchNotes merges these so realtime full-refetches don't wipe in-flight notes.
+  const pendingNoteIdsRef = useRef<Set<string>>(new Set());
   // Track the projectId we're currently fetching for to avoid race conditions
   const requestedProjectIdRef = useRef<string | null | undefined>(projectId);
   // Track the projectId that the current notes belong to
   const [notesProjectId, setNotesProjectId] = useState<string | null | undefined>(projectId);
-
-  // Cache recently created notes' sort_orders for correct ordering during rapid creation
-  // When notes are created faster than Supabase realtime can deliver, the `notes` array
-  // is stale and sort_order calculations use wrong values. This ref bridges the gap.
-  const recentlyCreatedRef = useRef<Map<string, { sort_order: number }>>(new Map());
 
   // If projectId changed, notes are stale - treat as loading
   const notesAreStale = projectId !== notesProjectId;
@@ -112,22 +113,30 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       public_slug: row.public_slug || null,
     }));
 
+    // Merge: keep locally-created notes whose inserts haven't been confirmed yet.
+    // Once the insert completes the ID is removed from pendingNoteIdsRef and the
+    // next fetchNotes will naturally include it from the DB.
+    const pendingIds = pendingNoteIdsRef.current;
+    if (pendingIds.size > 0) {
+      const dbIds = new Set(notesList.map(n => n.id));
+      const stillPending = latestNotesRef.current.filter(
+        n => pendingIds.has(n.id) && !dbIds.has(n.id)
+      );
+      if (stillPending.length > 0) {
+        notesList = [...notesList, ...stillPending];
+      }
+    }
+
+    latestNotesRef.current = notesList;
     setNotes(notesList);
     setNotesProjectId(requestProjectId);
     setLoading(false);
-
-    // Clean up recently created cache — entries that now exist in fetched notes
-    const fetchedIds = new Set(notesList.map(n => n.id));
-    for (const id of recentlyCreatedRef.current.keys()) {
-      if (fetchedIds.has(id)) {
-        recentlyCreatedRef.current.delete(id);
-      }
-    }
   }, [user, date, projectId]);
 
   // Clear notes and refetch when projectId changes
   useEffect(() => {
     // Clear notes immediately to avoid showing stale data from different project
+    latestNotesRef.current = [];
     setNotes([]);
     setLoading(true);
     fetchNotes();
@@ -153,7 +162,8 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
           filter: `user_id=eq.${user.id}`,
         },
         () => {
-          // Refetch on any change
+          // fetchNotes merges pending local notes so this is safe even
+          // when inserts are still in-flight (see pendingNoteIdsRef).
           fetchNotes();
         }
       )
@@ -312,14 +322,14 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     ): Promise<Note> => {
       if (!user || !supabase) throw new Error('Not authenticated');
 
-      // Look up the after note in props, falling back to recently-created cache
-      // During rapid creation, the note may not have appeared in the `notes` array yet
-      const afterNote = notes.find((n) => n.id === afterNoteId);
-      const afterFromCache = !afterNote ? recentlyCreatedRef.current.get(afterNoteId) : null;
-      const afterSortOrder = afterNote?.sort_order ?? afterFromCache?.sort_order ?? 0;
+      // 1. Calculate sort_order from the synchronous ref (not the stale closure)
+      //    React batches setNotes updates, so `notes` can be stale during rapid calls.
+      //    latestNotesRef is updated synchronously in this function, so it's always current.
+      const currentNotes = latestNotesRef.current;
+      const afterNote = currentNotes.find((n) => n.id === afterNoteId);
+      const afterSortOrder = afterNote?.sort_order || 0;
 
-      // Find next note's sort order
-      const sortedNotes = [...notes].sort((a, b) => a.sort_order - b.sort_order);
+      const sortedNotes = [...currentNotes].sort((a, b) => a.sort_order - b.sort_order);
       const afterIndex = sortedNotes.findIndex((n) => n.id === afterNoteId);
       let newSortOrder: number;
 
@@ -327,14 +337,45 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         const nextSortOrder = sortedNotes[afterIndex + 1].sort_order;
         newSortOrder = (afterSortOrder + nextSortOrder) / 2;
       } else {
-        // Note not in the array (or is the last one) — place after it
         newSortOrder = afterSortOrder + 1;
       }
 
-      const { data, error } = await supabase
+      // 2. Construct note locally — no DB round-trip needed
+      const noteId = newNoteId || crypto.randomUUID();
+      const now = new Date().toISOString();
+      const note: Note = {
+        id: noteId,
+        date: effectiveDate,
+        content: '',
+        description: null,
+        category,
+        completed: false,
+        completed_at: null,
+        deadline: deadline || null,
+        is_all_day: false,
+        pinned: false,
+        sort_order: newSortOrder,
+        created_at: now,
+        updated_at: now,
+        deleted_at: null,
+        deleted_reason: null,
+        project_id: projectId || null,
+        remote_id: noteId,
+        sync_status: 'pending',
+        is_public: false,
+        public_slug: null,
+      };
+
+      // 3. Add to local state IMMEDIATELY — next Enter press will find it
+      pendingNoteIdsRef.current.add(noteId);
+      latestNotesRef.current = [...latestNotesRef.current, note];
+      setNotes(prev => [...prev, note]);
+
+      // 4. Persist to Supabase in background (fire-and-forget)
+      supabase
         .from('notes')
         .insert({
-          ...(newNoteId && { id: newNoteId }),  // Use provided ID if available
+          id: noteId,
           user_id: user.id,
           date: effectiveDate,
           content: '',
@@ -346,60 +387,32 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
           project_id: projectId || null,
           is_public: false,
         })
-        .select()
-        .single();
+        .then(({ error }) => {
+          pendingNoteIdsRef.current.delete(noteId);
+          if (error) console.error('[useNotesSupabase] createNoteAfter error:', error);
+        });
 
-      if (error) throw error;
-
-      // Add labels
-      if (labelIds.length > 0 && data) {
-        const labelInserts = labelIds.map((labelId) => ({
-          note_id: data.id,
-          label_id: labelId,
-          user_id: user.id,
-        }));
-        await supabase.from('note_labels').insert(labelInserts);
-      }
-
-      // Add assignee
-      if (assigneeId && data) {
-        await supabase.from('note_assignees').insert({
-          note_id: data.id,
-          contact_id: assigneeId,
-          user_id: user.id,
+      // 6. Labels/assignees — fire-and-forget
+      if (labelIds.length > 0) {
+        supabase.from('note_labels').insert(
+          labelIds.map((labelId) => ({ note_id: noteId, label_id: labelId, user_id: user.id }))
+        ).then(({ error }) => {
+          if (error) console.error('[useNotesSupabase] Label insert error:', error);
         });
       }
 
-      const row = data as any;
-      const note: Note = {
-        id: row.id,
-        date: row.date,
-        content: row.content || '',
-        description: row.description,
-        category: row.category as NoteCategory,
-        completed: row.completed,
-        completed_at: row.completed_at,
-        deadline: row.deadline,
-        is_all_day: row.is_all_day || false,
-        pinned: row.pinned,
-        sort_order: row.sort_order ?? 0,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-        deleted_at: null,
-        deleted_reason: null,
-        project_id: row.project_id,
-        remote_id: row.id,
-        sync_status: 'synced',
-        is_public: row.is_public || false,
-        public_slug: row.public_slug || null,
-      };
+      if (assigneeId) {
+        supabase.from('note_assignees').insert({
+          note_id: noteId, contact_id: assigneeId, user_id: user.id,
+        }).then(({ error }) => {
+          if (error) console.error('[useNotesSupabase] Assignee insert error:', error);
+        });
+      }
 
-      // Cache sort_order so subsequent rapid creations can find this note
-      recentlyCreatedRef.current.set(note.id, { sort_order: newSortOrder });
-
+      // 6. Return immediately — no waiting for network
       return note;
     },
-    [user, notes, effectiveDate, projectId]
+    [user, effectiveDate, projectId]
   );
 
   /**

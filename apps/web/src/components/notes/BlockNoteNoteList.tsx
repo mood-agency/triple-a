@@ -139,8 +139,8 @@ export const BlockNoteNoteList = ({
   });
 
   // Cache for newly created notes that haven't appeared in props yet
-  // Maps blockId -> { category, deadline, sortOrder } for notes created via Enter key
-  const newlyCreatedNotesRef = useRef<Map<string, { category: NoteCategory; deadline: string | null; sortOrder: number }>>(new Map());
+  // Maps blockId -> { category, deadline } for notes created via Enter key
+  const newlyCreatedNotesRef = useRef<Map<string, { category: NoteCategory; deadline: string | null }>>(new Map());
 
   // Track previous note IDs to detect actual filtering changes
   const previousNoteIdsRef = useRef<string>('');
@@ -360,10 +360,7 @@ export const BlockNoteNoteList = ({
       if (!itemId || isDeletingRef.current) return null;
 
       const note = notes.find(n => n.id === itemId);
-      // Fallback to cache for notes created via Enter that haven't appeared in props yet
-      const cachedNote = !note ? newlyCreatedNotesRef.current.get(itemId) : null;
-
-      if (!note && !cachedNote) return null;
+      if (!note) return null;
 
       // Get content from editor (try BlockNote data first, fall back to DOM)
       const block = editor.getBlock(itemId);
@@ -382,8 +379,8 @@ export const BlockNoteNoteList = ({
 
       return {
         content,
-        category: note?.category ?? cachedNote?.category ?? 'todo',
-        description: note?.description ?? null,
+        category: note.category,
+        description: note.description,
       };
     },
 
@@ -1111,10 +1108,7 @@ export const BlockNoteNoteList = ({
   // This function handles editor updates locally and calls callbacks for data changes
   const processNoteBlock = useCallback(async (noteId: string) => {
     const note = notes.find(n => n.id === noteId);
-    // Fallback to cache for notes created via Enter that haven't appeared in props yet
-    const cachedNote = !note ? newlyCreatedNotesRef.current.get(noteId) : null;
-
-    if (!note && !cachedNote) return null;
+    if (!note) return null;
 
     const block = editor.getBlock(noteId);
     if (!block) return null;
@@ -1140,13 +1134,10 @@ export const BlockNoteNoteList = ({
     }
 
     // 2. Determine final category
-    const noteCategory = note?.category ?? cachedNote?.category ?? 'todo';
-    const finalCategory = parsed.category || noteCategory;
+    const finalCategory = parsed.category || note.category;
 
     // 3. Save note if content or category changed (via callback)
-    // For cached notes (not yet in props), always save since DB has content: ''
-    const noteContent = note?.content ?? '';
-    if (parsed.cleanedContent !== noteContent || finalCategory !== noteCategory) {
+    if (parsed.cleanedContent !== note.content || finalCategory !== note.category) {
       // Set flag to prevent order-change sync from replacing the document
       isSavingInternallyRef.current = true;
       setTimeout(() => {
@@ -1154,18 +1145,18 @@ export const BlockNoteNoteList = ({
       }, 500);
 
       if (onEdit) {
-        onEdit(noteId, parsed.cleanedContent, finalCategory as NoteCategory, note?.description ?? null);
+        onEdit(note.id, parsed.cleanedContent, finalCategory, note.description);
       }
     }
 
     // 4. Handle labels - call callbacks for persistence
-    const inheritedLabels = noteLabelsCache.get(noteId) ?? [];
+    const inheritedLabels = noteLabelsCache.get(note.id) ?? [];
     const labelIds = inheritedLabels.map(l => l.id);
 
     // Create new labels via callback
     if (parsed.newLabelNames.length > 0 && onCreateLabelAndAdd) {
       for (const labelName of parsed.newLabelNames) {
-        await onCreateLabelAndAdd(noteId, labelName);
+        await onCreateLabelAndAdd(note.id, labelName);
       }
     }
 
@@ -1173,14 +1164,14 @@ export const BlockNoteNoteList = ({
     for (const hashtag of parsed.parsedHashtags) {
       if (hashtag.type === 'label' && hashtag.matchedId) {
         if (onAddLabel) {
-          await onAddLabel(noteId, hashtag.matchedId);
+          await onAddLabel(note.id, hashtag.matchedId);
         }
         if (!labelIds.includes(hashtag.matchedId)) {
           labelIds.push(hashtag.matchedId);
         }
       } else if (hashtag.type === 'contact' && hashtag.matchedId) {
         if (onAddAssignee) {
-          onAddAssignee(noteId, hashtag.matchedId);
+          onAddAssignee(note.id, hashtag.matchedId);
         }
       }
     }
@@ -1269,19 +1260,16 @@ export const BlockNoteNoteList = ({
     const deadline = afterNote?.deadline || afterNoteFromCache?.deadline || null;
 
     // Add the new note to our cache so we can save its content later
-    // sortOrder starts at 0 and is updated after the Supabase insert returns
     newlyCreatedNotesRef.current.set(event.payload.newNoteId!, {
       category,
       deadline,
-      sortOrder: 0,
     });
 
     let labelIds: string[] = [];
     let assigneeId: string | null = null;
 
-    // Process the block the user just finished (parse hashtags, etc.)
-    // Check both props and cache — note may not be in props yet during rapid creation
-    if (afterNote || afterNoteFromCache) {
+    if (afterNote) {
+      // Process the block the user just finished (parse hashtags, etc.)
       const result = await processNoteBlock(event.payload.afterNoteId);
       if (result) {
         labelIds = result.labelIds;
@@ -1291,7 +1279,7 @@ export const BlockNoteNoteList = ({
 
     // Call callback for persistence
     if (onCreateNoteAfter) {
-      const newNote = await onCreateNoteAfter(
+      await onCreateNoteAfter(
         event.payload.afterNoteId,
         category,
         deadline,
@@ -1299,11 +1287,6 @@ export const BlockNoteNoteList = ({
         assigneeId,
         event.payload.newNoteId
       );
-      // Update cache with actual sort_order for correct ordering of subsequent notes
-      const cached = newlyCreatedNotesRef.current.get(event.payload.newNoteId!);
-      if (cached && newNote) {
-        cached.sortOrder = newNote.sort_order;
-      }
     }
   });
 

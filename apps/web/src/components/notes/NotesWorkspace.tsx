@@ -190,14 +190,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
       if (region === 'taskList') {
         // Compare with current note to avoid unnecessary saves
         const note = notes.find(n => n.id === itemId);
-        if (note) {
-          if (data.content !== note.content || data.category !== note.category) {
-            onEdit(itemId, data.content, data.category, data.description);
-            didSave = true;
-          }
-        } else if (data.content.trim()) {
-          // Note not in props yet (newly created via rapid Enter) — save content
-          // The note exists in the DB with content: '', so any typed content needs saving
+        if (note && (data.content !== note.content || data.category !== note.category)) {
           onEdit(itemId, data.content, data.category, data.description);
           didSave = true;
         }
