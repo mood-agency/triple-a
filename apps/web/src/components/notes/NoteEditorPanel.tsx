@@ -28,7 +28,7 @@ import { ShareDialog } from './ShareDialog';
 import type { AIProviderConfig } from '@/hooks/useSettings';
 import { useRegisterNavigationRegion, type RegionHandler, type FocusRestorationContext, type ItemSaveData } from './navigation';
 import { eventBus } from '@/events';
-import { useNoteFieldsStore } from '@/stores/useNoteFieldsStore';
+import { useNoteFieldsStore, EMPTY_LABELS, EMPTY_ASSIGNEES } from '@/stores/useNoteFieldsStore';
 
 interface NoteEditorPanelProps {
   note: Note;
@@ -155,8 +155,8 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
 }, ref) {
   const { t, i18n } = useTranslation();
   // Read from the store map by note ID — any panel showing the same task shares one entry
-  const noteLabels = useNoteFieldsStore(s => s.notes[note.id]?.labelsValue ?? []);
-  const noteAssignees = useNoteFieldsStore(s => s.notes[note.id]?.assigneesValue ?? []);
+  const noteLabels = useNoteFieldsStore(s => s.notes[note.id]?.labelsValue ?? EMPTY_LABELS);
+  const noteAssignees = useNoteFieldsStore(s => s.notes[note.id]?.assigneesValue ?? EMPTY_ASSIGNEES);
   const deadlineValue = useNoteFieldsStore(s => s.notes[note.id]?.deadlineValue ?? null);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
