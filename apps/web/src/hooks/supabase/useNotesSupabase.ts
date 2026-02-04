@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { nanoid } from 'nanoid';
 import { useAuth } from '@/contexts/AuthContext';
+import { useActiveProject } from '@/contexts/ProjectContext';
 import { supabase } from '@/lib/supabase';
 import { eventBus } from '@/events';
 import type { Note, NoteCategory } from '@/types/note';
 import { formatLocalDate } from '@/utils/dateUtils';
 import { useNotesStore } from '@/stores/useNotesStore';
 
+const DEFAULT_VERSION_THROTTLE_SECONDS = 30;
+
 interface UseNotesSupabaseOptions {
   date?: string;
-  projectId?: string | null;
+  versionThrottleSeconds?: number;
 }
 
 /**
@@ -19,8 +22,16 @@ interface UseNotesSupabaseOptions {
  * with Supabase persistence.
  */
 export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
-  const { date, projectId } = options;
+  const { date, versionThrottleSeconds = DEFAULT_VERSION_THROTTLE_SECONDS } = options;
   const { user } = useAuth();
+  const { activeProjectId, loading: projectLoading } = useActiveProject();
+
+  // Use a stable project ID — only use validated activeProjectId after projects load.
+  // This prevents querying with an invalid project ID from localStorage.
+  const projectId = useMemo(() => {
+    if (projectLoading) return undefined;
+    return activeProjectId;
+  }, [projectLoading, activeProjectId]);
 
   // Read state from Zustand store
   const notes = useNotesStore(s => s.notes);
@@ -34,7 +45,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
 
   // If scope changed, notes are stale - treat as loading
   const notesAreStale = date !== currentDate || projectId !== currentProjectId;
-  const effectiveLoading = loading || notesAreStale;
+  const effectiveLoading = loading || notesAreStale || projectLoading;
 
   const defaultDate = formatLocalDate(new Date());
   const effectiveDate = date || defaultDate;
@@ -294,6 +305,13 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         public_slug: row.public_slug || null,
       };
 
+      eventBus.emit('note:created', {
+        noteId: note.id,
+        content: note.content,
+        category: note.category,
+        projectId: note.project_id,
+      }, 'ui');
+
       return note;
     },
     [user, effectiveDate, projectId, createInitialVersion]
@@ -378,21 +396,13 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
           if (error) console.error('[useNotesSupabase] createNoteAfter error:', error);
         });
 
-      // Labels/assignees — fire-and-forget
+      // Labels/assignees — emit events, persisted by useNoteSideEffects listener
       if (labelIds.length > 0) {
-        supabase.from('note_labels').insert(
-          labelIds.map((labelId) => ({ note_id: noteId, label_id: labelId, user_id: user.id }))
-        ).then(({ error }) => {
-          if (error) console.error('[useNotesSupabase] Label insert error:', error);
-        });
+        eventBus.emit('note:labelsAttached', { noteId, labelIds, userId: user.id });
       }
 
       if (assigneeId) {
-        supabase.from('note_assignees').insert({
-          note_id: noteId, contact_id: assigneeId, user_id: user.id,
-        }).then(({ error }) => {
-          if (error) console.error('[useNotesSupabase] Assignee insert error:', error);
-        });
+        eventBus.emit('assignee:added', { noteId, contactId: assigneeId });
       }
 
       return note;
@@ -423,8 +433,8 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         const now = Date.now();
         const secondsSinceLastVersion = (now - lastVersionTime) / 1000;
 
-        if (secondsSinceLastVersion < 30) {
-          console.log('[useNotesSupabase] Skipping version creation - last version was', Math.round(secondsSinceLastVersion), 'seconds ago');
+        if (secondsSinceLastVersion < versionThrottleSeconds) {
+          console.log('[useNotesSupabase] Skipping version creation - last version was', Math.round(secondsSinceLastVersion), 'seconds ago (throttle:', versionThrottleSeconds + 's)');
           return;
         }
       }
@@ -445,7 +455,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         console.error('[useNotesSupabase] Error creating version:', error);
       }
     },
-    [user]
+    [user, versionThrottleSeconds]
   );
 
   /**
@@ -500,6 +510,13 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
           );
         }
       }
+
+      eventBus.emit('note:updated', {
+        noteId: id,
+        content,
+        category,
+        description,
+      }, 'ui');
     },
     [user, createVersion]
   );
@@ -602,6 +619,8 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     const { error } = await supabase.from('notes').update(updates).eq('id', id);
 
     if (error) console.error('[useNotesSupabase] Update deadline error:', error);
+
+    eventBus.emit('note:deadlineUpdated', { noteId: id, deadline, isAllDay }, 'ui');
   }, []);
 
   /**

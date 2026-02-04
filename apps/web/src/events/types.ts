@@ -79,6 +79,15 @@ export interface NoteReorderedEvent
   type: 'note:reordered';
 }
 
+export interface NoteDeadlineUpdatedEvent
+  extends DomainEvent<{
+    noteId: string;
+    deadline: string | null;
+    isAllDay?: boolean;
+  }> {
+  type: 'note:deadlineUpdated';
+}
+
 // Label Events
 export interface LabelAddedToNoteEvent
   extends DomainEvent<{
@@ -104,6 +113,15 @@ export interface LabelCreatedAndAddedEvent
     labelName: string;
   }> {
   type: 'label:createdAndAdded';
+}
+
+export interface NoteLabelsAttachedEvent
+  extends DomainEvent<{
+    noteId: string;
+    labelIds: string[];
+    userId: string;
+  }> {
+  type: 'note:labelsAttached';
 }
 
 // Assignee Events
@@ -219,9 +237,11 @@ export type AppEvent =
   | NotePinnedEvent
   | NoteFixedInSidebarEvent
   | NoteReorderedEvent
+  | NoteDeadlineUpdatedEvent
   | LabelAddedToNoteEvent
   | LabelRemovedFromNoteEvent
   | LabelCreatedAndAddedEvent
+  | NoteLabelsAttachedEvent
   | AssigneeAddedEvent
   | AssigneeRemovedEvent
   | EditorFocusLostEvent
@@ -245,9 +265,11 @@ export type EventMap = {
   'note:pinned': NotePinnedEvent;
   'note:fixedInSidebar': NoteFixedInSidebarEvent;
   'note:reordered': NoteReorderedEvent;
+  'note:deadlineUpdated': NoteDeadlineUpdatedEvent;
   'label:addedToNote': LabelAddedToNoteEvent;
   'label:removedFromNote': LabelRemovedFromNoteEvent;
   'label:createdAndAdded': LabelCreatedAndAddedEvent;
+  'note:labelsAttached': NoteLabelsAttachedEvent;
   'assignee:added': AssigneeAddedEvent;
   'assignee:removed': AssigneeRemovedEvent;
   'editor:focusLost': EditorFocusLostEvent;

@@ -41,7 +41,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { WeekStrip } from '@/components/ui/week-strip';
 import { cn } from '@/lib/utils';
-import { useNotesWithCalendarSync } from '@/hooks/useNotesWithCalendarSync';
+import { useNotes } from '@/hooks/useNotes';
 import { useLabels } from '@/hooks/useLabels';
 import { useContacts } from '@/hooks/useContacts';
 import { useAssignees } from '@/hooks/useAssignees';
@@ -65,7 +65,7 @@ export function MobileTaskCreate() {
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   // Get ALL notes (no date filter) - we'll filter by deadline client-side like CalendarView does
-  const { notes, createNote, toggleCompleted, updateDeadline } = useNotesWithCalendarSync();
+  const { notes, createNote, toggleCompleted, updateDeadline } = useNotes();
   const { labels, getLabelsForNote } = useLabels();
   const { contacts } = useContacts();
   const { setAssigneesForNote, getAssigneesForNote } = useAssignees();
