@@ -35,6 +35,9 @@ interface NoteFieldsState {
     setAssigneesValue: (noteId: string, value: Contact[] | ((prev: Contact[]) => Contact[])) => void;
 }
 
+export const EMPTY_LABELS: Label[] = [];
+export const EMPTY_ASSIGNEES: Contact[] = [];
+
 export const useNoteFieldsStore = create<NoteFieldsState>((set) => ({
     selectedNoteId: null,
     fixedNoteId: null,
