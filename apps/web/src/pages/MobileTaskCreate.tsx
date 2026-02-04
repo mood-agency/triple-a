@@ -132,7 +132,7 @@ export function MobileTaskCreate() {
 
       // Set deadline to the selected date so the task appears in the calendar view
       const deadlineDate = formatLocalDate(selectedDate);
-      await updateDeadline(note.id, deadlineDate);
+      await updateDeadline(note.id, deadlineDate, true);
 
       // Set assignees if any selected
       if (selectedAssignees.length > 0) {

@@ -74,6 +74,7 @@ async function createNoteFromEvent(supabase, userId, event, projectId) {
       sort_order: 0,
       project_id: projectId,
       gcal_event_id: event.id,
+      is_all_day: isAllDay,
     })
     .select('id')
     .single();
@@ -94,6 +95,7 @@ async function updateNoteFromEvent(supabase, noteId, event, projectId) {
     deadline,
     category: 'meeting',
     gcal_event_id: event.id,
+    is_all_day: isAllDay,
   };
 
   if (projectId !== null) {

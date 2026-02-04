@@ -13,6 +13,7 @@ export interface Note {
   completed: boolean;
   completed_at: string | null;
   deadline: string | null;
+  is_all_day: boolean;
   pinned: boolean;
   sort_order: number;
   created_at: string;
@@ -101,6 +102,7 @@ export interface PublicNote {
   description: string | null;
   category: NoteCategory;
   deadline: string | null;
+  is_all_day: boolean;
   created_at: string;
   labels: { name: string; color: string }[];
 }

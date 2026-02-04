@@ -1,5 +1,5 @@
 import type { Note } from '@/types/note';
-import { hasTimeComponent, getHourFromDeadline } from './dateUtils';
+import { getHourFromDeadline } from './dateUtils';
 
 /**
  * Adapter pattern: Converts Note entities to BlockNote block format
@@ -19,6 +19,7 @@ export interface NotepadBlockProps {
   isChecked: boolean;
   category: string;
   date: string | null;
+  isAllDay: boolean;
   labels: LabelData[];
   assignees: AssigneeData[];
   pinned: boolean;
@@ -63,6 +64,7 @@ export function noteToBlock(
       isChecked: note.completed,
       category: note.category,
       date: note.deadline,
+      isAllDay: note.is_all_day,
       labels,
       assignees,
       pinned: note.pinned,
@@ -220,7 +222,7 @@ export function separateNotesByTime(notes: Note[]): { timedNotes: Note[]; allDay
   const allDayNotes: Note[] = [];
 
   for (const note of notes) {
-    if (note.deadline && hasTimeComponent(note.deadline)) {
+    if (note.deadline && !note.is_all_day) {
       timedNotes.push(note);
     } else {
       allDayNotes.push(note);

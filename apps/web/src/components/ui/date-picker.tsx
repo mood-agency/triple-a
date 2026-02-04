@@ -26,7 +26,7 @@ import { hasTimeComponent } from "@/utils/dateUtils"
 
 interface DatePickerProps {
   date: Date | undefined
-  onDateChange: (date: Date | undefined) => void
+  onDateChange: (date: Date | undefined, isAllDay?: boolean) => void
   placeholder?: string
   className?: string
   open?: boolean
@@ -34,6 +34,8 @@ interface DatePickerProps {
   iconOnly?: boolean
   showTime?: boolean
   hideIcon?: boolean
+  /** Externally controlled all-day state. When provided, overrides internal inference. */
+  isAllDay?: boolean
   /** Called when user clicks Save button (only with showTime). If provided, postpone logic should use this instead of onDateChange */
   onSave?: (date: Date) => void
 }
@@ -48,6 +50,7 @@ export function DatePicker({
   iconOnly = false,
   showTime = false,
   hideIcon = false,
+  isAllDay: externalIsAllDay,
   onSave,
 }: DatePickerProps) {
   const { t, i18n } = useTranslation()
@@ -56,8 +59,9 @@ export function DatePicker({
   const [inputValue, setInputValue] = React.useState("")
   const [parsedDate, setParsedDate] = React.useState<Date | null>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
-  // All day checkbox - default to true if date has no time component (or no date)
+  // All day checkbox - use external prop if available, otherwise infer from time component
   const [isAllDay, setIsAllDay] = React.useState(() => {
+    if (externalIsAllDay !== undefined) return externalIsAllDay
     if (!date) return true
     return !hasTimeComponent(date.toISOString())
   })
@@ -92,12 +96,14 @@ export function DatePicker({
     baseSetOpen(newOpen)
   }, [baseSetOpen, date, onSave])
 
-  // Update isAllDay when date changes externally
+  // Update isAllDay when external prop or date changes
   React.useEffect(() => {
-    if (date) {
+    if (externalIsAllDay !== undefined) {
+      setIsAllDay(externalIsAllDay)
+    } else if (date) {
       setIsAllDay(!hasTimeComponent(date.toISOString()))
     }
-  }, [date])
+  }, [date, externalIsAllDay])
 
   // Get current hours and minutes from date
   const hours = date ? date.getHours() : 12
@@ -121,7 +127,7 @@ export function DatePicker({
     } else {
       newDate.setMinutes(parseInt(value, 10))
     }
-    onDateChange(newDate)
+    onDateChange(newDate, false)
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -150,7 +156,7 @@ export function DatePicker({
           finalDate.setHours(now.getHours(), now.getMinutes())
         }
       }
-      onDateChange(finalDate)
+      onDateChange(finalDate, isAllDay)
       setOpen(false)
     }
     if (e.key === "Escape") {
@@ -241,7 +247,9 @@ export function DatePicker({
           selected={parsedDate ?? date}
           onSelect={(newDate) => {
             if (newDate && showTime) {
-              if (date) {
+              if (isAllDay) {
+                newDate.setHours(0, 0, 0, 0)
+              } else if (date) {
                 // Preserve time from existing date
                 newDate.setHours(date.getHours(), date.getMinutes())
               } else {
@@ -250,7 +258,7 @@ export function DatePicker({
                 newDate.setHours(now.getHours(), now.getMinutes())
               }
             }
-            onDateChange(newDate)
+            onDateChange(newDate, isAllDay)
             if (!showTime) {
               setOpen(false)
             }
@@ -268,12 +276,16 @@ export function DatePicker({
                     id="allDay"
                     checked={isAllDay}
                     onCheckedChange={(checked) => {
-                      setIsAllDay(checked === true)
-                      if (checked && date) {
+                      const allDay = checked === true
+                      setIsAllDay(allDay)
+                      if (allDay && date) {
                         // Set time to midnight for all-day
                         const newDate = new Date(date)
                         newDate.setHours(0, 0, 0, 0)
-                        onDateChange(newDate)
+                        onDateChange(newDate, true)
+                      } else if (!allDay && date) {
+                        // Switching from all-day to timed - keep current date
+                        onDateChange(date, false)
                       }
                     }}
                   />

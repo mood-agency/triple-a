@@ -56,7 +56,7 @@ interface NoteEditorPanelProps {
   onRemoveLabel: (labelId: string) => void;
   onEditLabel: (label: Label) => void;
   onCreateLabel: () => void;
-  onDeadlineChange: (date: Date | undefined) => void;
+  onDeadlineChange: (date: Date | undefined, isAllDay?: boolean) => void;
   onDeadlineSave?: (date: Date) => void;
   onAddAssignee: (id: string, contactId: string) => void;
   onRemoveAssignee: (id: string, contactId: string) => void;
@@ -690,7 +690,8 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                       inYears: t('date.inYears'),
                       yearsAgo: t('date.yearsAgo'),
                     },
-                    true
+                    true,
+                    note.is_all_day
                   )
                   : t('setDeadline')}
               </button>
@@ -698,6 +699,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                 date={(deadlineValue ?? note.deadline) ? parseLocalDate((deadlineValue ?? note.deadline)!) : undefined}
                 onDateChange={onDeadlineChange}
                 onSave={onDeadlineSave}
+                isAllDay={note.is_all_day}
                 placeholder=""
                 open={deadlinePickerOpen}
                 onOpenChange={onDeadlinePickerOpenChange}

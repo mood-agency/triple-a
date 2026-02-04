@@ -64,7 +64,7 @@ interface NotesWorkspaceProps {
   onRestore: (note: Note) => void;
   onToggleCompleted: (id: string, completed: boolean) => void;
   onTogglePinned: (id: string, pinned: boolean) => void;
-  onUpdateDeadline: (id: string, deadline: string | null) => void;
+  onUpdateDeadline: (id: string, deadline: string | null, isAllDay?: boolean) => void;
   onAddAssignee: (id: string, contactId: string) => void;
   onRemoveAssignee: (id: string, contactId: string) => void;
   onUpdateAssignee?: (id: string, contactId: string | null) => void;
@@ -190,7 +190,14 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
       if (region === 'taskList') {
         // Compare with current note to avoid unnecessary saves
         const note = notes.find(n => n.id === itemId);
-        if (note && (data.content !== note.content || data.category !== note.category)) {
+        if (note) {
+          if (data.content !== note.content || data.category !== note.category) {
+            onEdit(itemId, data.content, data.category, data.description);
+            didSave = true;
+          }
+        } else if (data.content.trim()) {
+          // Note not in props yet (newly created via rapid Enter) — save content
+          // The note exists in the DB with content: '', so any typed content needs saving
           onEdit(itemId, data.content, data.category, data.description);
           didSave = true;
         }
@@ -710,11 +717,11 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
   };
 
   // Deadline Handlers
-  const handleDeadlineChange = (date: Date | undefined) => {
+  const handleDeadlineChange = (date: Date | undefined, isAllDay?: boolean) => {
     if (!selectedNote) return;
     const newDeadline = date ? date.toISOString() : null;
     useNoteFieldsStore.getState().setDeadlineValue(selectedNote.id, newDeadline);
-    onUpdateDeadline(selectedNote.id, newDeadline);
+    onUpdateDeadline(selectedNote.id, newDeadline, isAllDay);
   };
   const handleDeadlinePickerOpenChange = (open: boolean) => {
     if (open && selectedNote) originalDeadlineRef.current = selectedNote.deadline;
@@ -726,11 +733,11 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
     originalDeadlineRef.current = null;
   };
 
-  const handleFixedNoteDeadlineChange = (date: Date | undefined) => {
+  const handleFixedNoteDeadlineChange = (date: Date | undefined, isAllDay?: boolean) => {
     if (!fixedNote) return;
     const newDeadline = date ? date.toISOString() : null;
     useNoteFieldsStore.getState().setDeadlineValue(fixedNote.id, newDeadline);
-    onUpdateDeadline(fixedNote.id, newDeadline);
+    onUpdateDeadline(fixedNote.id, newDeadline, isAllDay);
   };
   const handleFixedNoteDeadlinePickerOpenChange = (open: boolean) => {
     if (open && fixedNote) fixedNoteOriginalDeadlineRef.current = fixedNote.deadline;
