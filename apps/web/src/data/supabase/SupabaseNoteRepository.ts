@@ -20,6 +20,7 @@ function mapRowToNote(row: Record<string, unknown>): Note {
     completed: row.completed as boolean,
     completed_at: (row.completed_at as string) || null,
     deadline: (row.deadline as string) || null,
+    is_all_day: (row.is_all_day as boolean) || false,
     pinned: row.pinned as boolean,
     sort_order: (row.sort_order as number) ?? 0,
     created_at: row.created_at as string,

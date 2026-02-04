@@ -39,6 +39,7 @@ export function useDeletedNotes() {
       completed: Boolean(row.completed),
       completed_at: row.completed_at || null,
       deadline: row.deadline || null,
+      is_all_day: Boolean(row.is_all_day) || false,
       pinned: Boolean(row.pinned),
       sort_order: row.sort_order || 0,
       created_at: row.created_at,
