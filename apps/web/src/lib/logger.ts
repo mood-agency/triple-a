@@ -18,11 +18,6 @@ let isInitialized = false;
  * Intercepts console.log/warn/error and sends to Abbacchio dashboard
  */
 export function initLogger(): void {
-  if (!ABBACCHIO_ENABLED) {
-    console.log('[Logger] Abbacchio disabled via VITE_ABBACCHIO_ENABLED=false');
-    return;
-  }
-
   if (isInitialized) {
     return;
   }
@@ -30,8 +25,9 @@ export function initLogger(): void {
   interceptConsole({
     url: ABBACCHIO_URL,
     channel: ABBACCHIO_CHANNEL,
-    appName: 'triple-a-web',
+    namespace: 'triple-a-web',
     secretKey: ABBACCHIO_SECRET_KEY,
+    enabled: ABBACCHIO_ENABLED,
     passthrough: true, // Still log to browser console
     batchSize: 10,
     flushInterval: 1000,
@@ -58,8 +54,9 @@ export function stopLogger(): void {
 export const log = createLogger({
   url: ABBACCHIO_URL,
   channel: ABBACCHIO_CHANNEL,
-  name: 'triple-a-web',
+  namespace: 'triple-a-web',
   secretKey: ABBACCHIO_SECRET_KEY,
+  enabled: ABBACCHIO_ENABLED,
 });
 
 /**
