@@ -25,7 +25,7 @@ function mapRowToLabel(row: Record<string, unknown>): Label {
 export class SupabaseLabelRepository implements ILabelRepository {
   private userId: string;
   private cachedLabels: Label[] = [];
-  private cachedNoteLabelsMap: Map<string, string[]> = new Map();
+  // cachedNoteLabelsMap reserved for future optimization
 
   constructor(userId: string) {
     this.userId = userId;
@@ -275,7 +275,7 @@ export class SupabaseLabelRepository implements ILabelRepository {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (supabase) supabase.removeChannel(channel);
     };
   }
 
@@ -303,7 +303,7 @@ export class SupabaseLabelRepository implements ILabelRepository {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (supabase) supabase.removeChannel(channel);
     };
   }
 }

@@ -15,21 +15,13 @@ import type {
  * All methods interact with Convex queries and mutations.
  */
 export class ConvexNoteRepository implements INoteRepository {
-  private convex: ConvexReactClient;
-  private userId: string;
-  private projectId: string | null;
-  private date: string;
-
   constructor(
-    convex: ConvexReactClient,
-    userId: string,
-    projectId: string | null = null,
-    date: string
+    _convex: ConvexReactClient,
+    _userId: string,
+    _projectId: string | null = null,
+    _date: string
   ) {
-    this.convex = convex;
-    this.userId = userId;
-    this.projectId = projectId;
-    this.date = date;
+    // Properties stored when Convex is implemented
   }
 
   // ============================================

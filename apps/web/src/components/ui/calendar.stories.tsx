@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
+import type { DateRange } from 'react-day-picker'
 import { Calendar } from './calendar'
 import { useState } from 'react'
 
@@ -41,7 +42,13 @@ export const WithDateRange: Story = {
       <Calendar
         mode="range"
         selected={range}
-        onSelect={setRange}
+        onSelect={(value: DateRange | undefined) => {
+          if (value?.from) {
+            setRange({ from: value.from, to: value.to });
+          } else {
+            setRange(undefined);
+          }
+        }}
       />
     )
   },

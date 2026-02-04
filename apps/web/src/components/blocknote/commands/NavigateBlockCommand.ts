@@ -88,7 +88,7 @@ export class NavigateBlockCommand implements BlockCommand {
   /**
    * Set the cursor at a specific character offset within a block
    */
-  private setCursorAtOffset(editor: any, blockId: string, targetOffset: number): void {
+  private setCursorAtOffset(_editor: any, blockId: string, targetOffset: number): void {
     // Find the block's content element
     const blockElement = document.querySelector(`[data-id="${blockId}"]`);
     if (!blockElement) return;

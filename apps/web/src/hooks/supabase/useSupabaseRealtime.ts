@@ -5,7 +5,7 @@ import { eventBus } from '@/events';
 import type { NoteCategory } from '@/types/note';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
-type PostgresChangePayload<T> = RealtimePostgresChangesPayload<T>;
+type PostgresChangePayload<T extends { [key: string]: any }> = RealtimePostgresChangesPayload<T>;
 
 interface NoteRow {
   id: string;
@@ -145,7 +145,7 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
             eventBus.emit(
               'note:deleted',
               {
-                noteId: oldRecord.id,
+                noteId: oldRecord.id!,
                 reason: 'hard_delete',
               },
               'realtime'
@@ -188,8 +188,8 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
             eventBus.emit(
               'label:removedFromNote',
               {
-                noteId: oldRecord.note_id,
-                labelId: oldRecord.label_id,
+                noteId: oldRecord.note_id!,
+                labelId: oldRecord.label_id!,
               },
               'realtime'
             );
@@ -229,8 +229,8 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions = {}) {
             eventBus.emit(
               'assignee:removed',
               {
-                noteId: oldRecord.note_id,
-                contactId: oldRecord.contact_id,
+                noteId: oldRecord.note_id!,
+                contactId: oldRecord.contact_id!,
               },
               'realtime'
             );

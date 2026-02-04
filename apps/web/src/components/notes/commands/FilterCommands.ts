@@ -2,6 +2,7 @@ import type {
   FilterCommand,
   FilterState,
   SerializableFilterCommand,
+  SerializableFilterState,
   SortConfigType,
 } from './types';
 import type { NoteCategory } from '@/types/note';
@@ -35,6 +36,18 @@ abstract class BaseFilterCommand implements FilterCommand {
       to: range.to?.toISOString() ?? null,
     };
   }
+
+  protected serializePreviousState(): Partial<SerializableFilterState> {
+    const state = { ...this.previousState };
+    if (state.dateRangeFilter) {
+      const { dateRangeFilter, ...rest } = state;
+      return {
+        ...rest,
+        dateRangeFilter: this.serializeDateRange(dateRangeFilter),
+      } as Partial<SerializableFilterState>;
+    }
+    return state as Partial<SerializableFilterState>;
+  }
 }
 
 /**
@@ -43,12 +56,14 @@ abstract class BaseFilterCommand implements FilterCommand {
 export class SetCategoryFilterCommand extends BaseFilterCommand {
   readonly type = 'SET_CATEGORY_FILTER';
   readonly description: string;
+  private readonly newCategory: NoteCategory | 'all';
 
   constructor(
-    private readonly newCategory: NoteCategory | 'all',
+    newCategory: NoteCategory | 'all',
     t: TranslationFn
   ) {
     super();
+    this.newCategory = newCategory;
     this.description =
       newCategory === 'all'
         ? t('commands.clearCategoryFilter')
@@ -66,7 +81,7 @@ export class SetCategoryFilterCommand extends BaseFilterCommand {
       description: this.description,
       timestamp: this.timestamp,
       payload: { newCategory: this.newCategory },
-      previousState: this.previousState,
+      previousState: this.serializePreviousState(),
     };
   }
 }
@@ -77,13 +92,17 @@ export class SetCategoryFilterCommand extends BaseFilterCommand {
 export class ToggleLabelFilterCommand extends BaseFilterCommand {
   readonly type = 'TOGGLE_LABEL_FILTER';
   readonly description: string;
+  private readonly labelId: string;
+  private readonly labelName: string;
 
   constructor(
-    private readonly labelId: string,
-    private readonly labelName: string,
+    labelId: string,
+    labelName: string,
     t: TranslationFn
   ) {
     super();
+    this.labelId = labelId;
+    this.labelName = labelName;
     this.description = t('commands.toggleLabelFilter', { label: labelName });
   }
 
@@ -104,7 +123,7 @@ export class ToggleLabelFilterCommand extends BaseFilterCommand {
       description: this.description,
       timestamp: this.timestamp,
       payload: { labelId: this.labelId, labelName: this.labelName },
-      previousState: this.previousState,
+      previousState: this.serializePreviousState(),
     };
   }
 }
@@ -115,13 +134,17 @@ export class ToggleLabelFilterCommand extends BaseFilterCommand {
 export class RemoveLabelFilterCommand extends BaseFilterCommand {
   readonly type = 'REMOVE_LABEL_FILTER';
   readonly description: string;
+  private readonly labelId: string;
+  private readonly labelName: string;
 
   constructor(
-    private readonly labelId: string,
-    private readonly labelName: string,
+    labelId: string,
+    labelName: string,
     t: TranslationFn
   ) {
     super();
+    this.labelId = labelId;
+    this.labelName = labelName;
     this.description = t('commands.removeLabelFilter', { label: labelName });
   }
 
@@ -139,7 +162,7 @@ export class RemoveLabelFilterCommand extends BaseFilterCommand {
       description: this.description,
       timestamp: this.timestamp,
       payload: { labelId: this.labelId, labelName: this.labelName },
-      previousState: this.previousState,
+      previousState: this.serializePreviousState(),
     };
   }
 }
@@ -150,13 +173,17 @@ export class RemoveLabelFilterCommand extends BaseFilterCommand {
 export class AddAssigneeFilterCommand extends BaseFilterCommand {
   readonly type = 'ADD_ASSIGNEE_FILTER';
   readonly description: string;
+  private readonly assigneeId: string;
+  private readonly assigneeName: string;
 
   constructor(
-    private readonly assigneeId: string,
-    private readonly assigneeName: string,
+    assigneeId: string,
+    assigneeName: string,
     t: TranslationFn
   ) {
     super();
+    this.assigneeId = assigneeId;
+    this.assigneeName = assigneeName;
     this.description = t('commands.addAssigneeFilter', { assignee: assigneeName });
   }
 
@@ -177,7 +204,7 @@ export class AddAssigneeFilterCommand extends BaseFilterCommand {
       description: this.description,
       timestamp: this.timestamp,
       payload: { assigneeId: this.assigneeId, assigneeName: this.assigneeName },
-      previousState: this.previousState,
+      previousState: this.serializePreviousState(),
     };
   }
 }
@@ -188,13 +215,17 @@ export class AddAssigneeFilterCommand extends BaseFilterCommand {
 export class RemoveAssigneeFilterCommand extends BaseFilterCommand {
   readonly type = 'REMOVE_ASSIGNEE_FILTER';
   readonly description: string;
+  private readonly assigneeId: string;
+  private readonly assigneeName: string;
 
   constructor(
-    private readonly assigneeId: string,
-    private readonly assigneeName: string,
+    assigneeId: string,
+    assigneeName: string,
     t: TranslationFn
   ) {
     super();
+    this.assigneeId = assigneeId;
+    this.assigneeName = assigneeName;
     this.description = t('commands.removeAssigneeFilter', { assignee: assigneeName });
   }
 
@@ -212,7 +243,7 @@ export class RemoveAssigneeFilterCommand extends BaseFilterCommand {
       description: this.description,
       timestamp: this.timestamp,
       payload: { assigneeId: this.assigneeId, assigneeName: this.assigneeName },
-      previousState: this.previousState,
+      previousState: this.serializePreviousState(),
     };
   }
 }
@@ -223,13 +254,15 @@ export class RemoveAssigneeFilterCommand extends BaseFilterCommand {
 export class SetSearchQueryCommand extends BaseFilterCommand {
   readonly type = 'SET_SEARCH_QUERY';
   readonly description: string;
+  private readonly newQuery: string;
 
   constructor(
-    private readonly newQuery: string,
-    private readonly prevQuery: string,
+    newQuery: string,
+    prevQuery: string,
     t: TranslationFn
   ) {
     super();
+    this.newQuery = newQuery;
     this.description = newQuery ? t('commands.setSearchQuery') : t('commands.clearSearchQuery');
     // Store previous state immediately since we know it
     this.previousState = { searchQuery: prevQuery };
@@ -245,7 +278,7 @@ export class SetSearchQueryCommand extends BaseFilterCommand {
       description: this.description,
       timestamp: this.timestamp,
       payload: { newQuery: this.newQuery },
-      previousState: this.previousState,
+      previousState: this.serializePreviousState(),
     };
   }
 }
@@ -256,12 +289,14 @@ export class SetSearchQueryCommand extends BaseFilterCommand {
 export class SetSortConfigCommand extends BaseFilterCommand {
   readonly type = 'SET_SORT_CONFIG';
   readonly description: string;
+  private readonly newConfig: SortConfigType;
 
   constructor(
-    private readonly newConfig: SortConfigType,
+    newConfig: SortConfigType,
     t: TranslationFn
   ) {
     super();
+    this.newConfig = newConfig;
     const activeSort = Object.entries(newConfig).find(([, v]) => v !== null);
     this.description = activeSort
       ? t(`commands.setSortBy${capitalize(activeSort[0])}`)
@@ -279,7 +314,7 @@ export class SetSortConfigCommand extends BaseFilterCommand {
       description: this.description,
       timestamp: this.timestamp,
       payload: { newConfig: this.newConfig },
-      previousState: this.previousState,
+      previousState: this.serializePreviousState(),
     };
   }
 }
@@ -290,12 +325,14 @@ export class SetSortConfigCommand extends BaseFilterCommand {
 export class SetDateRangeFilterCommand extends BaseFilterCommand {
   readonly type = 'SET_DATE_RANGE_FILTER';
   readonly description: string;
+  private readonly newRange: { from: Date | undefined; to: Date | undefined };
 
   constructor(
-    private readonly newRange: { from: Date | undefined; to: Date | undefined },
+    newRange: { from: Date | undefined; to: Date | undefined },
     t: TranslationFn
   ) {
     super();
+    this.newRange = newRange;
     this.description =
       newRange.from || newRange.to
         ? t('commands.setDateRangeFilter')
@@ -313,12 +350,7 @@ export class SetDateRangeFilterCommand extends BaseFilterCommand {
       description: this.description,
       timestamp: this.timestamp,
       payload: this.serializeDateRange(this.newRange),
-      previousState: {
-        ...this.previousState,
-        dateRangeFilter: this.serializeDateRange(
-          (this.previousState as FilterState).dateRangeFilter ?? { from: undefined, to: undefined }
-        ),
-      },
+      previousState: this.serializePreviousState(),
     };
   }
 }
@@ -329,12 +361,14 @@ export class SetDateRangeFilterCommand extends BaseFilterCommand {
 export class SetTaskStatusFilterCommand extends BaseFilterCommand {
   readonly type = 'SET_TASK_STATUS_FILTER';
   readonly description: string;
+  private readonly newStatus: 'active' | 'completed' | 'deleted';
 
   constructor(
-    private readonly newStatus: 'active' | 'completed' | 'deleted',
+    newStatus: 'active' | 'completed' | 'deleted',
     t: TranslationFn
   ) {
     super();
+    this.newStatus = newStatus;
     this.description = t(`commands.setTaskStatus${capitalize(newStatus)}`);
   }
 
@@ -349,7 +383,7 @@ export class SetTaskStatusFilterCommand extends BaseFilterCommand {
       description: this.description,
       timestamp: this.timestamp,
       payload: { newStatus: this.newStatus },
-      previousState: this.previousState,
+      previousState: this.serializePreviousState(),
     };
   }
 }
@@ -377,7 +411,7 @@ export class ToggleOverdueOnlyCommand extends BaseFilterCommand {
       description: this.description,
       timestamp: this.timestamp,
       payload: {},
-      previousState: this.previousState,
+      previousState: this.serializePreviousState(),
     };
   }
 }
@@ -388,12 +422,14 @@ export class ToggleOverdueOnlyCommand extends BaseFilterCommand {
 export class SetOverdueOnlyCommand extends BaseFilterCommand {
   readonly type = 'SET_OVERDUE_ONLY';
   readonly description: string;
+  private readonly newValue: boolean;
 
   constructor(
-    private readonly newValue: boolean,
+    newValue: boolean,
     t: TranslationFn
   ) {
     super();
+    this.newValue = newValue;
     this.description = newValue
       ? t('commands.showOverdueOnly')
       : t('commands.clearOverdueOnly');
@@ -410,7 +446,7 @@ export class SetOverdueOnlyCommand extends BaseFilterCommand {
       description: this.description,
       timestamp: this.timestamp,
       payload: { newValue: this.newValue },
-      previousState: this.previousState,
+      previousState: this.serializePreviousState(),
     };
   }
 }
@@ -444,18 +480,12 @@ export class ClearAllFiltersCommand extends BaseFilterCommand {
   }
 
   toJSON(): SerializableFilterCommand {
-    const prevState = this.previousState as FilterState;
     return {
       type: this.type,
       description: this.description,
       timestamp: this.timestamp,
       payload: {},
-      previousState: {
-        ...prevState,
-        dateRangeFilter: this.serializeDateRange(
-          prevState.dateRangeFilter ?? { from: undefined, to: undefined }
-        ),
-      },
+      previousState: this.serializePreviousState(),
     };
   }
 }

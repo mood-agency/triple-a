@@ -60,7 +60,7 @@ export class PreventNavigateOutCommand implements BlockCommand {
     // Walk up from startContainer to node, checking if we're at the first position
     let current: Node | null = startContainer;
     while (current && current !== node) {
-      const parent = current.parentNode;
+      const parent: ParentNode | null = current.parentNode;
       if (!parent) break;
 
       // Check if current is the first child
@@ -87,7 +87,7 @@ export class PreventNavigateOutCommand implements BlockCommand {
     // Check if the cursor is at the very end of the editable content
     let current: Node | null = startContainer;
     while (current && current !== node) {
-      const parent = current.parentNode;
+      const parent: ParentNode | null = current.parentNode;
       if (!parent) break;
 
       // Check if current is the last child

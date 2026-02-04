@@ -84,6 +84,14 @@ export function Home() {
     return assigneesParam ? assigneesParam.split(',').filter(Boolean) : [];
   }, [searchParams]);
 
+  const getInitialTaskStatusFilter = useCallback((): 'active' | 'completed' | 'deleted' => {
+    const statusParam = searchParams.get('status');
+    if (statusParam === 'active' || statusParam === 'completed' || statusParam === 'deleted') {
+      return statusParam;
+    }
+    return 'active';
+  }, [searchParams]);
+
   const getInitialSortConfig = useCallback(() => {
     const deadline = searchParams.get('sortDeadline') as 'asc' | 'desc' | null;
     const assignee = searchParams.get('sortAssignee') as 'asc' | 'desc' | null;
@@ -114,7 +122,7 @@ export function Home() {
   const [labelFilter, setLabelFilter] = useState<string[]>(getInitialLabelFilter);
   const [categoryFilter, setCategoryFilter] = useState<NoteCategory | 'all'>(getInitialCategoryFilter);
   const [assigneeFilter, setAssigneeFilter] = useState<string[]>(getInitialAssigneeFilter);
-  const [taskStatusFilter, setTaskStatusFilter] = useState<'active' | 'completed' | 'deleted'>('active');
+  const [taskStatusFilter, setTaskStatusFilter] = useState<'active' | 'completed' | 'deleted'>(getInitialTaskStatusFilter);
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null; createdAt: 'asc' | 'desc' | null }>(getInitialSortConfig);
   const [showCreateProjectDialog, setShowCreateProjectDialog] = useState(false);
@@ -130,7 +138,8 @@ export function Home() {
     labelFilter,
     assigneeFilter,
     sortConfig,
-    activeProjectId
+    activeProjectId,
+    taskStatusFilter
   });
 
   // Keep ref in sync with latest state for next renders
@@ -143,9 +152,10 @@ export function Home() {
       labelFilter,
       assigneeFilter,
       sortConfig,
-      activeProjectId
+      activeProjectId,
+      taskStatusFilter
     };
-  }, [viewMode, selectedDate, selectedNoteId, categoryFilter, labelFilter, assigneeFilter, sortConfig, activeProjectId]);
+  }, [viewMode, selectedDate, selectedNoteId, categoryFilter, labelFilter, assigneeFilter, sortConfig, activeProjectId, taskStatusFilter]);
 
   // Canonical function to update URL from current state
   const syncStateToURL = useCallback((overrides: Record<string, any> = {}) => {
@@ -198,7 +208,11 @@ export function Home() {
       if (sort.createdAt) newParams.set('sortCreatedAt', sort.createdAt);
       else newParams.delete('sortCreatedAt');
 
-      // 8. Project (Preserve from context if not in URL, but ProjectContext usually handles this)
+      // 8. Task Status Filter
+      if (s.taskStatusFilter && s.taskStatusFilter !== 'active') newParams.set('status', s.taskStatusFilter);
+      else newParams.delete('status');
+
+      // 9. Project (Preserve from context if not in URL, but ProjectContext usually handles this)
       if (s.activeProjectId && !newParams.has('project')) {
         newParams.set('project', s.activeProjectId);
       }
@@ -334,6 +348,13 @@ export function Home() {
     syncStateToURL({ assignees: newAssignees });
   }, [syncStateToURL]);
 
+  // Update URL when task status filter changes
+  const handleTaskStatusFilterChange = useCallback((newStatus: 'active' | 'completed' | 'deleted') => {
+    setTaskStatusFilter(newStatus);
+    stateRef.current.taskStatusFilter = newStatus;
+    syncStateToURL({ taskStatusFilter: newStatus });
+  }, [syncStateToURL]);
+
   // Update URL when sort config changes
   const handleSortConfigChange = useCallback((newSortConfig: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null; createdAt: 'asc' | 'desc' | null }) => {
     setSortConfig(newSortConfig);
@@ -395,7 +416,7 @@ export function Home() {
     setSearchQuery,
     setSortConfig: handleSortConfigChange as any,
     setDateRangeFilter,
-    setTaskStatusFilter,
+    setTaskStatusFilter: handleTaskStatusFilterChange,
     setShowOverdueOnly,
     labels,
     contacts,
@@ -451,7 +472,7 @@ export function Home() {
         externalSelectedDate={selectedDate}
         onSelectedDateChange={setSelectedDate}
         externalTaskStatusFilter={taskStatusFilter}
-        onTaskStatusFilterChange={setTaskStatusFilter}
+        onTaskStatusFilterChange={handleTaskStatusFilterChange}
         externalShowOverdueOnly={showOverdueOnly}
         onShowOverdueOnlyChange={setShowOverdueOnly}
         externalSortConfig={sortConfig}
@@ -489,7 +510,7 @@ export function Home() {
         }}
         onClearAssignees={() => handleAssigneeFilterChange([])}
         taskStatusFilter={taskStatusFilter}
-        onTaskStatusFilterChange={setTaskStatusFilter}
+        onTaskStatusFilterChange={handleTaskStatusFilterChange}
         showOverdueOnly={showOverdueOnly}
         onShowOverdueOnlyChange={setShowOverdueOnly}
         hasCompletedTasks={notes.some(n => n.completed)}

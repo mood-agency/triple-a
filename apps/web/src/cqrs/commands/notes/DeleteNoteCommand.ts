@@ -7,8 +7,11 @@ export interface DeleteNotePayload {
 
 export class DeleteNoteCommand implements Command<DeleteNotePayload, void> {
   readonly type = 'DeleteNote';
+  readonly payload: DeleteNotePayload;
 
-  constructor(public readonly payload: DeleteNotePayload) {}
+  constructor(payload: DeleteNotePayload) {
+    this.payload = payload;
+  }
 }
 
 export interface RestoreNotePayload {
@@ -17,6 +20,9 @@ export interface RestoreNotePayload {
 
 export class RestoreNoteCommand implements Command<RestoreNotePayload, void> {
   readonly type = 'RestoreNote';
+  readonly payload: RestoreNotePayload;
 
-  constructor(public readonly payload: RestoreNotePayload) {}
+  constructor(payload: RestoreNotePayload) {
+    this.payload = payload;
+  }
 }

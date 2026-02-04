@@ -251,7 +251,7 @@ export class SupabaseNoteRepository implements INoteRepository {
 
     const { data: row, error } = await supabase
       .from('notes')
-      .insert(insertData)
+      .insert(insertData as never)
       .select()
       .single();
 
@@ -371,7 +371,7 @@ export class SupabaseNoteRepository implements INoteRepository {
     if (!supabase) return;
 
     const updates = noteIds.map((id, index) =>
-      supabase.from('notes').update({ sort_order: index }).eq('id', id)
+      supabase!.from('notes').update({ sort_order: index }).eq('id', id)
     );
 
     await Promise.all(updates);
@@ -434,7 +434,7 @@ export class SupabaseNoteRepository implements INoteRepository {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (supabase) supabase.removeChannel(channel);
     };
   }
 

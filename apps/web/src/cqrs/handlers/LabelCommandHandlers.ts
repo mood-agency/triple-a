@@ -22,8 +22,9 @@ export function createLabelCommandHandlers(labelRepository: ILabelRepository) {
     eventBus.emit('label:addedToNote', {
       noteId: command.payload.noteId,
       labelId: command.payload.labelId,
-      source: 'command',
-    });
+      labelName: '',
+      labelColor: '',
+    }, 'command');
   };
 
   const handleRemoveLabelFromNote: CommandHandler<RemoveLabelFromNoteCommand> = async (command) => {
@@ -35,8 +36,7 @@ export function createLabelCommandHandlers(labelRepository: ILabelRepository) {
     eventBus.emit('label:removedFromNote', {
       noteId: command.payload.noteId,
       labelId: command.payload.labelId,
-      source: 'command',
-    });
+    }, 'command');
   };
 
   const handleCreateLabel: CommandHandler<CreateLabelCommand> = async (command) => {
@@ -60,8 +60,9 @@ export function createLabelCommandHandlers(labelRepository: ILabelRepository) {
     eventBus.emit('label:addedToNote', {
       noteId: command.payload.noteId,
       labelId: label.id,
-      source: 'command',
-    });
+      labelName: label.name,
+      labelColor: label.color,
+    }, 'command');
 
     return label;
   };

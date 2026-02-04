@@ -7,8 +7,11 @@ export interface ToggleCompletedPayload {
 
 export class ToggleCompletedCommand implements Command<ToggleCompletedPayload, void> {
   readonly type = 'ToggleCompleted';
+  readonly payload: ToggleCompletedPayload;
 
-  constructor(public readonly payload: ToggleCompletedPayload) {}
+  constructor(payload: ToggleCompletedPayload) {
+    this.payload = payload;
+  }
 }
 
 export interface TogglePinnedPayload {
@@ -18,8 +21,11 @@ export interface TogglePinnedPayload {
 
 export class TogglePinnedCommand implements Command<TogglePinnedPayload, void> {
   readonly type = 'TogglePinned';
+  readonly payload: TogglePinnedPayload;
 
-  constructor(public readonly payload: TogglePinnedPayload) {}
+  constructor(payload: TogglePinnedPayload) {
+    this.payload = payload;
+  }
 }
 
 export interface ReorderNotesPayload {
@@ -28,8 +34,11 @@ export interface ReorderNotesPayload {
 
 export class ReorderNotesCommand implements Command<ReorderNotesPayload, void> {
   readonly type = 'ReorderNotes';
+  readonly payload: ReorderNotesPayload;
 
-  constructor(public readonly payload: ReorderNotesPayload) {}
+  constructor(payload: ReorderNotesPayload) {
+    this.payload = payload;
+  }
 }
 
 export interface PostponeNotePayload {
@@ -40,6 +49,9 @@ export interface PostponeNotePayload {
 
 export class PostponeNoteCommand implements Command<PostponeNotePayload, void> {
   readonly type = 'PostponeNote';
+  readonly payload: PostponeNotePayload;
 
-  constructor(public readonly payload: PostponeNotePayload) {}
+  constructor(payload: PostponeNotePayload) {
+    this.payload = payload;
+  }
 }
