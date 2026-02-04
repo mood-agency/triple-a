@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { Note, NoteCategory } from '@/types/note';
 import type { BlockNoteEditorHandle } from '@/components/ui/BlockNoteEditor';
 import { useAutoSave } from '@/hooks/useAutoSave';
+import { useNoteFieldsStore } from '@/stores/useNoteFieldsStore';
 
 type FocusTarget = 'title' | 'description-start' | 'description-end' | null;
 
@@ -24,20 +25,37 @@ export function useNoteSelection({
     focusTargetRef.current = focusTarget;
 
     const [desiredColumn, setDesiredColumn] = useState<number>(0);
-    const [descriptionValue, setDescriptionValueInternal] = useState('');
-    const [titleValue, setTitleValue] = useState('');
     const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
     const [showDescriptionPanel, setShowDescriptionPanel] = useState(false);
+
+    // Read from Zustand store — keyed by note ID
+    const noteId = selectedNote?.id ?? null;
+    const titleValue = useNoteFieldsStore(s => noteId ? s.notes[noteId]?.titleValue ?? '' : '');
+    const descriptionValue = useNoteFieldsStore(s => noteId ? s.notes[noteId]?.descriptionValue ?? '' : '');
+    const storeSetTitleValue = useNoteFieldsStore(s => s.setTitleValue);
+    const storeSetDescriptionValue = useNoteFieldsStore(s => s.setDescriptionValue);
+    const selectNote = useNoteFieldsStore(s => s.selectNote);
 
     // Track if there's a pending local change (e.g., checkbox click in BlockNote)
     const hasLocalChangeRef = useRef(false);
     // Timer for debounced save when editor is not focused
     const unfocusedSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    // Track the note ID to detect when we switch to a different note
+    const selectedNoteIdRef = useRef<string | null>(null);
+
+    // Bound setters that use the current noteId via ref (stable references)
+    const setTitleValue = useCallback((value: string) => {
+        const id = selectedNoteIdRef.current;
+        if (id) storeSetTitleValue(id, value);
+    }, [storeSetTitleValue]);
+
     // Wrapper to track local changes and trigger save when not focused
     const setDescriptionValue = useCallback((value: string) => {
+        const id = selectedNoteIdRef.current;
+        if (!id) return;
         hasLocalChangeRef.current = true;
-        setDescriptionValueInternal(value);
+        storeSetDescriptionValue(id, value);
 
         // If editor is not focused (e.g., checkbox click), save after a short debounce
         if (!isDescriptionFocused && selectedNote && onEdit) {
@@ -51,7 +69,7 @@ export function useNoteSelection({
                 unfocusedSaveTimerRef.current = null;
             }, 300);
         }
-    }, [isDescriptionFocused, selectedNote, onEdit]);
+    }, [isDescriptionFocused, selectedNote, onEdit, storeSetDescriptionValue]);
 
     // Auto-save for description while editing (when focused)
     const descriptionAutoSave = useAutoSave({
@@ -77,35 +95,35 @@ export function useNoteSelection({
         };
     }, []);
 
-    // Track the note ID to detect when we switch to a different note
-    const selectedNoteIdRef = useRef<string | null>(null);
-
-    // SIMPLE APPROACH: Only sync description when switching notes
-    // Don't try to sync in real-time - just save periodically and load on note change
+    // Sync store when switching notes
     useEffect(() => {
         const newNoteId = selectedNote?.id ?? null;
         const noteIdChanged = selectedNoteIdRef.current !== newNoteId;
         selectedNoteIdRef.current = newNoteId;
 
         if (noteIdChanged) {
-            // Switching to a different note - load its description
+            // Switching to a different note - reset store with new note data
             if (unfocusedSaveTimerRef.current) {
                 clearTimeout(unfocusedSaveTimerRef.current);
                 unfocusedSaveTimerRef.current = null;
             }
             hasLocalChangeRef.current = false;
-            setDescriptionValueInternal(selectedNote?.description || '');
-            setTitleValue(selectedNote?.content || '');
+            selectNote(selectedNote ? {
+                id: selectedNote.id,
+                content: selectedNote.content,
+                description: selectedNote.description,
+                deadline: selectedNote.deadline,
+            } : null);
             setShowDescriptionPanel(false);
         }
         // NOTE: We removed the automatic sync of titleValue when content changes for the same note.
         // This was causing issues when Tab navigation sets titleValue from the event
         // (with the new content) but then this effect overwrote it with the old selectedNote.content
         // before the save completed. Now titleValue is only set via:
-        // 1. Note ID change (above)
+        // 1. Note ID change (above via selectNote)
         // 2. Event handler in NotesWorkspace (editor:navigateToDescription)
         // 3. Manual calls to setTitleValue
-    }, [selectedNote?.id, selectedNote?.description, selectedNote?.content]);
+    }, [selectedNote?.id, selectedNote?.description, selectedNote?.content, selectNote]);
 
     // Handle Focus Target
     useEffect(() => {
@@ -190,7 +208,7 @@ export function useNoteSelection({
         // Auto-save flush handler for description
         flushDescriptionAutoSave: descriptionAutoSave.handleBlur,
     }), [
-        focusTarget, desiredColumn, descriptionValue, setDescriptionValue, titleValue, isDescriptionFocused, showDescriptionPanel,
+        focusTarget, desiredColumn, descriptionValue, setDescriptionValue, titleValue, setTitleValue, isDescriptionFocused, showDescriptionPanel,
         handleTitleFocused, handleNavigateToDescription, restoreDescriptionCaret, descriptionAutoSave.handleBlur
     ]);
 }

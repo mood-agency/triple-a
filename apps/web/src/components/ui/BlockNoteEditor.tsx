@@ -125,6 +125,10 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
     const currentNoteIdRef = useRef<string | undefined>(undefined)
     const { debugMode, debugDescriptionFocusClass } = useDebugNavigation()
     const [isFocused, setIsFocused] = useState(false)
+    const isFocusedRef = useRef(false)
+    // Track what this editor instance last emitted via onChange, so we can
+    // distinguish our own writes from external changes (e.g. another panel).
+    const lastEmittedValueRef = useRef<string>('')
     const { theme } = useTheme()
     const { i18n: i18nInstance } = useTranslation()
 
@@ -308,6 +312,7 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
     const handleChange = useCallback(() => {
       if (!editor) return
       const json = JSON.stringify(editor.document)
+      lastEmittedValueRef.current = json
       onChange(json)
     }, [editor, onChange])
 
@@ -320,8 +325,10 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
     // Track if we've loaded content for this note
     const hasLoadedContentRef = useRef(false)
 
-    // SIMPLE: Only sync when noteId changes (switching notes) or initial content load
-    // Don't try to sync value changes in real-time - that causes race conditions
+    // Sync content when:
+    // 1. noteId changes (switching notes)
+    // 2. Initial content load
+    // 3. External value change while this editor is NOT focused (e.g. another panel edited same note)
     useEffect(() => {
       if (!editor || !isInitializedRef.current) return
 
@@ -331,8 +338,15 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
       // Also sync if we haven't loaded content yet and value is now available
       const needsInitialLoad = !hasLoadedContentRef.current && value
 
-      // Only replace content when switching to a different note OR initial load
-      if (noteIdChanged || needsInitialLoad) {
+      // Check for external changes: same note, content loaded, not focused,
+      // and value differs from what this editor last emitted
+      const isExternalChange =
+        !noteIdChanged &&
+        hasLoadedContentRef.current &&
+        !isFocusedRef.current &&
+        value !== lastEmittedValueRef.current
+
+      if (noteIdChanged || needsInitialLoad || isExternalChange) {
         const format = detectContentFormat(value)
         let blocks
 
@@ -361,6 +375,8 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
         }
 
         editor.replaceBlocks(editor.document, blocks)
+        // Keep lastEmittedValueRef in sync so we don't re-trigger
+        lastEmittedValueRef.current = value
         hasLoadedContentRef.current = true
       }
 
@@ -368,7 +384,6 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
       if (noteIdChanged) {
         hasLoadedContentRef.current = !!value
       }
-      // When noteId is the same and content loaded, DON'T sync - let the editor keep its local state
     }, [value, editor, noteId])
 
     // Handle keyboard events
@@ -397,11 +412,13 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
 
     // Handle focus/blur
     const handleFocus = useCallback(() => {
+      isFocusedRef.current = true
       setIsFocused(true)
       onFocus?.()
     }, [onFocus])
 
     const handleBlur = useCallback(() => {
+      isFocusedRef.current = false
       setIsFocused(false)
       onBlur?.()
     }, [onBlur])

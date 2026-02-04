@@ -16,6 +16,7 @@ import type { Note, Label, NoteCategory } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { useRegisterNavigationRegion, type RegionHandler, type FocusRestorationContext, type ItemSaveData } from './navigation';
 import { DeleteTaskDialog } from './DeleteTaskDialog';
+import { useNoteFieldsStore } from '@/stores/useNoteFieldsStore';
 
 // Debug flags
 const DEBUG_BLOCKNOTE = false;
@@ -53,10 +54,6 @@ interface BlockNoteNoteListProps {
   onAddAssignee?: (noteId: string, contactId: string) => void;
   /** ID of the currently selected note */
   selectedNoteId?: string | null;
-  /** Live title from editor panel for real-time sync */
-  selectedNoteTitleValue?: string;
-  /** Callback when selected note content changes in the task list (for real-time title sync to editor panel) */
-  onContentChange?: (content: string) => void;
 }
 
 export const BlockNoteNoteList = ({
@@ -78,9 +75,10 @@ export const BlockNoteNoteList = ({
   onCreateLabelAndAdd,
   onAddAssignee,
   selectedNoteId,
-  selectedNoteTitleValue,
-  onContentChange,
 }: BlockNoteNoteListProps) => {
+  // Read/write title from Zustand store map by selected note ID
+  const selectedNoteTitleValue = useNoteFieldsStore(s => selectedNoteId ? s.notes[selectedNoteId]?.titleValue ?? '' : '');
+  const storeSetTitleValue = useNoteFieldsStore(s => s.setTitleValue);
   // Get labels and contacts for hashtag/mention parsing
   const { labels } = useLabels();
   const { contacts } = useContacts();
@@ -995,12 +993,9 @@ export const BlockNoteNoteList = ({
   }, [editor, selectedNoteId, selectedNoteTitleValue]);
 
   // Sync task list content changes back to the editor panel in real-time
-  // When user edits a note title inline in BlockNote, notify the parent so titleValue updates
-  const onContentChangeRef = useRef(onContentChange);
-  onContentChangeRef.current = onContentChange;
-
+  // When user edits a note title inline in BlockNote, write to Zustand store so EditableTitle updates
   useEffect(() => {
-    if (!onContentChange || !selectedNoteId) return;
+    if (!selectedNoteId) return;
 
     const unsubscribe = editor.onChange(() => {
       // Skip if this change was caused by a programmatic sync (e.g., from editor panel)
@@ -1010,11 +1005,12 @@ export const BlockNoteNoteList = ({
       if (!block) return;
 
       const content = getBlockContent(block);
-      onContentChangeRef.current?.(content);
+      const id = selectedNoteIdRef.current;
+      if (id) storeSetTitleValue(id, content);
     });
 
     return () => unsubscribe();
-  }, [editor, selectedNoteId, onContentChange]);
+  }, [editor, selectedNoteId, storeSetTitleValue]);
 
   // Save when clicking outside the editor (more reliable than focusout for ProseMirror)
   useEffect(() => {

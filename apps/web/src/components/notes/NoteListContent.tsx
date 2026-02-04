@@ -78,7 +78,6 @@ interface NoteListContentProps {
     handleToggleFixInSidebarById: (id: string) => void;
 
     // Other
-    handleContentChange: (content: string) => void;
     compactTaskView: boolean;
     isDescriptionFocused: boolean;
     onRestore: (note: Note) => void;
@@ -104,9 +103,6 @@ interface NoteListContentProps {
 
     // Auto-save settings
     autoSaveInterval?: number; // in seconds, 0 = disabled
-
-    // Live title from editor panel for real-time sync in task list
-    selectedNoteTitleValue?: string;
 }
 
 export const NoteListContent = memo(function NoteListContent({
@@ -161,7 +157,6 @@ export const NoteListContent = memo(function NoteListContent({
     onUpdateAssignee,
     fixedNoteId,
     handleToggleFixInSidebarById,
-    handleContentChange,
     compactTaskView,
     isDescriptionFocused,
     onRestore,
@@ -179,7 +174,6 @@ export const NoteListContent = memo(function NoteListContent({
     onClearOverdue,
     onClearAllFilters,
     autoSaveInterval = 3,
-    selectedNoteTitleValue,
 }: NoteListContentProps) {
     const { t } = useTranslation();
 
@@ -310,8 +304,6 @@ export const NoteListContent = memo(function NoteListContent({
                                         onCreateLabelAndAdd={handleCreateLabelAndAdd}
                                         onAddAssignee={onAddAssignee}
                                         selectedNoteId={selectedNote?.id}
-                                        selectedNoteTitleValue={selectedNoteTitleValue}
-                                        onContentChange={handleContentChange}
                                     />
                                     {/* Show no results message after pinned notes when they don't match filters */}
                                     {shouldShowNoResultsWithPinnedVisible && (
@@ -357,8 +349,6 @@ export const NoteListContent = memo(function NoteListContent({
                                             onEditLabel={handleEditLabel}
                                             isFixedInSidebar={fixedNoteId === note.id}
                                             onToggleFixInSidebar={handleToggleFixInSidebarById}
-                                            onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
-                                            editorTitleValue={selectedNote?.id === note.id ? selectedNoteTitleValue : undefined}
                                             assignees={noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES}
                                             contacts={contacts}
                                             onAddAssignee={onAddAssignee}
@@ -410,8 +400,6 @@ export const NoteListContent = memo(function NoteListContent({
                                             onEditLabel={handleEditLabel}
                                             isFixedInSidebar={fixedNoteId === note.id}
                                             onToggleFixInSidebar={handleToggleFixInSidebarById}
-                                            onContentChange={selectedNote?.id === note.id ? handleContentChange : undefined}
-                                            editorTitleValue={selectedNote?.id === note.id ? selectedNoteTitleValue : undefined}
                                             assigneeName={assigneeNamesCache.get(note.id)}
                                             assignees={noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES}
                                             isDeleted={true}

@@ -25,18 +25,15 @@ import type { Contact } from '@/types/contact';
 import { parseLocalDate, formatRelativeDateEnhanced } from '@/utils/dateUtils';
 import { AIAssistantDialog } from './AIAssistantDialog';
 import { ShareDialog } from './ShareDialog';
-import { useAssignees } from '@/hooks/useAssignees';
 import type { AIProviderConfig } from '@/hooks/useSettings';
 import { useRegisterNavigationRegion, type RegionHandler, type FocusRestorationContext, type ItemSaveData } from './navigation';
 import { eventBus } from '@/events';
+import { useNoteFieldsStore } from '@/stores/useNoteFieldsStore';
 
 interface NoteEditorPanelProps {
   note: Note;
-  noteLabels: Label[];
   allLabels: Label[];
   descriptionValue: string;
-  titleValue?: string;
-  onTitleChange?: (value: string) => void;
   showPostponeHistory: boolean;
   showVersionHistory: boolean;
   versions: NoteVersion[];
@@ -108,11 +105,8 @@ const parseDescriptionPreview = (description: string): string => {
 
 export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditorPanelProps>(function NoteEditorPanel({
   note,
-  noteLabels,
   allLabels,
   descriptionValue,
-  titleValue,
-  onTitleChange,
   showPostponeHistory,
   showVersionHistory,
   versions,
@@ -160,8 +154,10 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   navigationRegion,
 }, ref) {
   const { t, i18n } = useTranslation();
-  const { getAssigneesForNote, noteAssigneeVersion } = useAssignees();
-  const [noteAssignees, setNoteAssignees] = useState<Contact[]>([]);
+  // Read from the store map by note ID — any panel showing the same task shares one entry
+  const noteLabels = useNoteFieldsStore(s => s.notes[note.id]?.labelsValue ?? []);
+  const noteAssignees = useNoteFieldsStore(s => s.notes[note.id]?.assigneesValue ?? []);
+  const deadlineValue = useNoteFieldsStore(s => s.notes[note.id]?.deadlineValue ?? null);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
 
@@ -218,11 +214,6 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   const searchInputRef = useRef<HTMLInputElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<BlockNoteEditorHandle | null>(null);
-
-  // Load assignees when note or assignee version changes
-  useEffect(() => {
-    setNoteAssignees(getAssigneesForNote(note.id));
-  }, [note.id, noteAssigneeVersion, getAssigneesForNote]);
 
   // Reset isCompleting when note changes or completed state changes
   useEffect(() => {
@@ -431,75 +422,158 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
 
   return (
     <>
-      {/* Labels row */}
-      <div className="flex gap-1.5 flex-shrink-0 items-center mb-2">
-        <Popover open={labelDropdownOpen} onOpenChange={onLabelDropdownOpenChange}>
+      {/* Top row: Labels + Actions */}
+      <div className="flex items-center justify-between gap-2 flex-shrink-0 mb-2">
+        {/* Labels */}
+        <div className="flex gap-1.5 items-center min-w-0 flex-1">
+          <Popover open={labelDropdownOpen} onOpenChange={onLabelDropdownOpenChange}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-4 flex justify-center shrink-0 hover:text-foreground transition-colors"
+                  >
+                    <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                  </button>
+                </PopoverTrigger>
+              </TooltipTrigger>
+              <TooltipContent className="flex items-center gap-2">
+                <p>{t('addLabel')}</p>
+                <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>L</Kbd></span>
+              </TooltipContent>
+            </Tooltip>
+            <PopoverContent className="w-52 p-0" align="start">
+              <Command>
+                <CommandInput placeholder={t('searchLabels')} className="h-9" />
+                <CommandList>
+                  <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
+                  {allLabels.filter(l => !noteLabels.some(nl => nl.id === l.id)).length > 0 && (
+                    <CommandGroup heading={t('available')}>
+                      {allLabels.filter(l => !noteLabels.some(nl => nl.id === l.id)).map((label) => (
+                        <CommandItem key={label.id} value={label.name} onSelect={() => onAddLabel(label.id)} className="group flex items-center justify-between">
+                          <div className="flex items-center">
+                            <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
+                            {label.name}
+                          </div>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); onEditLabel(label); }} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity">
+                            <Pencil className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+                  <CommandSeparator />
+                  <CommandGroup>
+                    <CommandItem onSelect={() => { onCreateLabel(); onLabelDropdownOpenChange(false); }}>
+                      <Plus className="h-3 w-3 mr-2" />
+                      {t('createLabel')}
+                    </CommandItem>
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          <AnimatePresence mode="popLayout">
+            {noteLabels.map((label) => (
+              <motion.span
+                key={label.id}
+                layout
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.2 }}
+                className="chip-label"
+                style={{ backgroundColor: label.color }}
+              >
+                {label.name}
+                <button type="button" onClick={() => onRemoveLabel(label.id)} className="chip-label-btn">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </motion.span>
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {/* Actions: Share, AI, Pin, Sidebar, Delete */}
+        <div className="flex items-center gap-1 shrink-0">
+          {onTogglePublic && (
+            <ShareDialog
+              isPublic={note.is_public ?? false}
+              publicSlug={note.public_slug ?? null}
+              onTogglePublic={async () => {
+                const slug = await onTogglePublic(note.id, !note.is_public);
+                return slug;
+              }}
+            />
+          )}
+          {aiProvider && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setAiDialogOpen(true)}
+                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t('ai.assistant.title')}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {onTogglePinned && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onTogglePinned(note.id, !note.pinned)}
+                  className={`h-6 w-6 ${note.pinned ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
+                >
+                  <Pin className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{note.pinned ? t('unpin') : t('pin')}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {onToggleFixInSidebar && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onToggleFixInSidebar(note.id)}
+                  className={`h-6 w-6 ${isFixedInSidebar ? 'text-blue-500' : 'text-muted-foreground hover:text-blue-500'}`}
+                >
+                  <PanelRightOpen className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{isFixedInSidebar ? t('unfixFromSidebar') : t('fixToSidebar')}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="w-4 flex justify-center shrink-0 hover:text-foreground transition-colors"
-                >
-                  <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                </button>
-              </PopoverTrigger>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onDelete}
+                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </TooltipTrigger>
-            <TooltipContent className="flex items-center gap-2">
-              <p>{t('addLabel')}</p>
-              <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>L</Kbd></span>
+            <TooltipContent>
+              <p>{t('delete')}</p>
             </TooltipContent>
           </Tooltip>
-          <PopoverContent className="w-52 p-0" align="start">
-            <Command>
-              <CommandInput placeholder={t('searchLabels')} className="h-9" />
-              <CommandList>
-                <CommandEmpty>{t('noLabelsFound')}</CommandEmpty>
-                {allLabels.filter(l => !noteLabels.some(nl => nl.id === l.id)).length > 0 && (
-                  <CommandGroup heading={t('available')}>
-                    {allLabels.filter(l => !noteLabels.some(nl => nl.id === l.id)).map((label) => (
-                      <CommandItem key={label.id} value={label.name} onSelect={() => onAddLabel(label.id)} className="group flex items-center justify-between">
-                        <div className="flex items-center">
-                          <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: label.color }} />
-                          {label.name}
-                        </div>
-                        <button type="button" onClick={(e) => { e.stopPropagation(); onEditLabel(label); }} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity">
-                          <Pencil className="h-3 w-3 text-muted-foreground" />
-                        </button>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                )}
-                <CommandSeparator />
-                <CommandGroup>
-                  <CommandItem onSelect={() => { onCreateLabel(); onLabelDropdownOpenChange(false); }}>
-                    <Plus className="h-3 w-3 mr-2" />
-                    {t('createLabel')}
-                  </CommandItem>
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-        <AnimatePresence mode="popLayout">
-          {noteLabels.map((label) => (
-            <motion.span
-              key={label.id}
-              layout
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.2 }}
-              className="chip-label"
-              style={{ backgroundColor: label.color }}
-            >
-              {label.name}
-              <button type="button" onClick={() => onRemoveLabel(label.id)} className="chip-label-btn">
-                <X className="h-2.5 w-2.5" />
-              </button>
-            </motion.span>
-          ))}
-        </AnimatePresence>
+        </div>
       </div>
 
       {/* Assignee row */}
@@ -544,23 +618,6 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
           )}
         </div>
       )}
-
-      <div className="flex items-start gap-2">
-        <div className="flex-1 min-w-0">
-          <EditableTitle
-            noteId={note.id}
-            content={note.content}
-            completed={note.completed}
-            onEdit={handleTitleEdit}
-            onToggleComplete={onToggleComplete}
-            titleValue={titleValue}
-            onTitleChange={onTitleChange}
-            autoSaveInterval={autoSaveInterval}
-            showCheckbox={note.category === 'todo' || note.category === 'followup'}
-            isCompletingExternal={isCompleting}
-          />
-        </div>
-      </div>
 
       {/* Category, created date, and deadline - single line */}
       <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2 flex-wrap">
@@ -612,9 +669,9 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                 }}
                 className="font-medium text-foreground hover:underline cursor-pointer"
               >
-                {note.deadline
+                {(deadlineValue ?? note.deadline)
                   ? formatRelativeDateEnhanced(
-                    parseLocalDate(note.deadline),
+                    parseLocalDate((deadlineValue ?? note.deadline)!),
                     i18n.language,
                     {
                       today: t('date.today'),
@@ -645,7 +702,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                   : t('setDeadline')}
               </button>
               <DatePicker
-                date={note.deadline ? parseLocalDate(note.deadline) : undefined}
+                date={(deadlineValue ?? note.deadline) ? parseLocalDate((deadlineValue ?? note.deadline)!) : undefined}
                 onDateChange={onDeadlineChange}
                 onSave={onDeadlineSave}
                 placeholder=""
@@ -773,84 +830,19 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
         )}
       </div>
 
-      {/* Actions row: Share, AI, Pin, Sidebar, Delete */}
-      <div className="flex items-center gap-1 mb-2">
-        {onTogglePublic && (
-          <ShareDialog
-            isPublic={note.is_public ?? false}
-            publicSlug={note.public_slug ?? null}
-            onTogglePublic={async () => {
-              const slug = await onTogglePublic(note.id, !note.is_public);
-              return slug;
-            }}
+      <div className="flex items-start gap-2 mb-8">
+        <div className="flex-1 min-w-0">
+          <EditableTitle
+            noteId={note.id}
+            content={note.content}
+            completed={note.completed}
+            onEdit={handleTitleEdit}
+            onToggleComplete={onToggleComplete}
+            autoSaveInterval={autoSaveInterval}
+            showCheckbox={note.category === 'todo' || note.category === 'followup'}
+            isCompletingExternal={isCompleting}
           />
-        )}
-        {aiProvider && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setAiDialogOpen(true)}
-                className="h-6 w-6 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('ai.assistant.title')}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
-        {onTogglePinned && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onTogglePinned(note.id, !note.pinned)}
-                className={`h-6 w-6 ${note.pinned ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
-              >
-                <Pin className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{note.pinned ? t('unpin') : t('pin')}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
-        {onToggleFixInSidebar && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onToggleFixInSidebar(note.id)}
-                className={`h-6 w-6 ${isFixedInSidebar ? 'text-blue-500' : 'text-muted-foreground hover:text-blue-500'}`}
-              >
-                <PanelRightOpen className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{isFixedInSidebar ? t('unfixFromSidebar') : t('fixToSidebar')}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onDelete}
-              className="h-6 w-6 text-muted-foreground hover:text-destructive"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{t('delete')}</p>
-          </TooltipContent>
-        </Tooltip>
+        </div>
       </div>
 
       {/* Editor with in-editor search */}

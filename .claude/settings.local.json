@@ -156,7 +156,9 @@
       "Bash(gh api:*)",
       "WebFetch(domain:gist.github.com)",
       "Bash(pnpm --filter @triple-a/web exec tsc:*)",
-      "Bash(pnpm --filter @triple-a/api lint:*)"
+      "Bash(pnpm --filter @triple-a/api lint:*)",
+      "Bash(npx vite build)",
+      "Bash(pnpm --filter @triple-a/api type-check:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\argen\\Documents\\GitHub\\triple-a",

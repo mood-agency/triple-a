@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Kbd } from '@/components/ui/kbd';
 import { getCursorPosition, getFontString } from '@/utils/cursorUtils';
 import { useAutoSave } from '@/hooks/useAutoSave';
+import { useNoteFieldsStore } from '@/stores/useNoteFieldsStore';
 
 interface EditableTitleProps {
   noteId: string;
@@ -14,8 +15,6 @@ interface EditableTitleProps {
   onEdit: (id: string, content: string) => void;
   onToggleComplete: (id: string) => void;
   onDelete?: () => void;
-  titleValue?: string;
-  onTitleChange?: (value: string) => void; // fires on every keystroke for real-time sync
   autoSaveInterval?: number; // in seconds, 0 = disabled
   showCheckbox?: boolean;
   isCompletingExternal?: boolean; // Optional external control for completion animation
@@ -28,13 +27,15 @@ export function EditableTitle({
   onEdit,
   onToggleComplete,
   onDelete,
-  titleValue,
-  onTitleChange,
   autoSaveInterval = 3,
   showCheckbox = true,
   isCompletingExternal = false,
 }: EditableTitleProps) {
   const { t } = useTranslation();
+  // Read title from the store map by noteId — undefined if not in store (e.g. completed/deleted rows)
+  const titleValue = useNoteFieldsStore(s => s.notes[noteId]?.titleValue);
+  const storeSetTitleValue = useNoteFieldsStore(s => s.setTitleValue);
+  const setTitleValue = useCallback((value: string) => storeSetTitleValue(noteId, value), [noteId, storeSetTitleValue]);
   // Don't auto-start editing - let the NoteRow handle focus for new tasks
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(titleValue ?? content);
@@ -186,11 +187,16 @@ export function EditableTitle({
       {showCheckbox && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="pt-1.5">
+            <div
+              className="pt-1.5 cursor-pointer"
+              role="checkbox"
+              aria-checked={completed}
+              onClick={handleCheckedChange}
+            >
               <Checkbox
-                checked={completed}
-                onCheckedChange={handleCheckedChange}
-                className="h-5 w-5"
+                checked={completed || isCompleting}
+                className="h-5 w-5 pointer-events-none"
+                tabIndex={-1}
               />
             </div>
           </TooltipTrigger>
@@ -208,7 +214,7 @@ export function EditableTitle({
             value={editedTitle}
             onChange={(e) => {
               setEditedTitle(e.target.value);
-              onTitleChange?.(e.target.value);
+              if (titleValue !== undefined) setTitleValue(e.target.value);
             }}
             onBlur={() => {
               // Ignore blur if it was caused by Alt+key combination

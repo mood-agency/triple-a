@@ -50,6 +50,7 @@ import {
   NavigationMediatorProvider,
 } from './navigation';
 import { useEventSubscription, eventBus } from '@/events';
+import { useNoteFieldsStore } from '@/stores/useNoteFieldsStore';
 
 // Re-export types if needed
 export interface NotesWorkspaceHandle {
@@ -417,8 +418,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
   const [editingFixedNoteHistoryEntry, setEditingFixedNoteHistoryEntry] = useState<{ id: string; reason: string } | null>(null);
 
   // Dialogs & Local State
-  const [noteLabels, setNoteLabels] = useState<Label[]>([]);
-  const [fixedNoteLabels, setFixedNoteLabels] = useState<Label[]>([]);
+  // fixedNoteLabels removed — now managed via useNoteFieldsStore fixed slot
   const [showCreateLabelDialog, setShowCreateLabelDialog] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
   const [newLabelColor, setNewLabelColor] = useState('#6b7280');
@@ -444,22 +444,63 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
   const [fixedNoteDeadlinePickerOpen, setFixedNoteDeadlinePickerOpen] = useState(false);
   const fixedNoteOriginalDeadlineRef = useRef<string | null>(null);
   const [fixedNoteAssigneePickerOpen, setFixedNoteAssigneePickerOpen] = useState(false);
-  const [fixedNoteDescriptionValue, setFixedNoteDescriptionValue] = useState('');
   const [fixedNoteShowPostponeHistory, setFixedNoteShowPostponeHistory] = useState(false);
   const [fixedNoteShowVersionHistory, setFixedNoteShowVersionHistory] = useState(false);
   const fixedNoteDescriptionRef = useRef<any>(null);
   const [showFixedNoteDeleteDialog, setShowFixedNoteDeleteDialog] = useState(false);
 
-  // --- Effects & Handlers ---
-  useEffect(() => {
-    if (selectedNote) setNoteLabels(getLabelsForNote(selectedNote.id));
-    else setNoteLabels([]);
-  }, [selectedNote, getLabelsForNote]);
+  // Read fixed note description from store (same entry as selected note if IDs match)
+  const displayedNoteId = displayedNote?.id ?? null;
+  const fixedNoteDescriptionStoreValue = useNoteFieldsStore(s => displayedNoteId ? s.notes[displayedNoteId]?.descriptionValue ?? '' : '');
+  const handleFixedNoteDescriptionChange = useCallback((value: string) => {
+    if (displayedNoteId) {
+      useNoteFieldsStore.getState().setDescriptionValue(displayedNoteId, value);
+    }
+  }, [displayedNoteId]);
 
+  // --- Effects & Handlers ---
+  // Sync labels for selected note via store
   useEffect(() => {
-    if (fixedNote) setFixedNoteLabels(getLabelsForNote(fixedNote.id));
-    else setFixedNoteLabels([]);
-  }, [fixedNote, getLabelsForNote]);
+    const store = useNoteFieldsStore.getState();
+    if (selectedNote) store.setLabelsValue(selectedNote.id, getLabelsForNote(selectedNote.id));
+  }, [selectedNote?.id, getLabelsForNote, noteLabelVersion]);
+
+  // Sync assignees for selected note via store
+  useEffect(() => {
+    const store = useNoteFieldsStore.getState();
+    if (selectedNote) store.setAssigneesValue(selectedNote.id, getAssigneesForNote(selectedNote.id));
+  }, [selectedNote?.id, noteAssigneeVersion, getAssigneesForNote]);
+
+  // Initialize fixed note in store when fixed note changes
+  useEffect(() => {
+    if (sidebarClosing) return; // Don't clean up store during close animation
+    const store = useNoteFieldsStore.getState();
+    if (fixedNote) {
+      store.selectFixedNote({ id: fixedNote.id, content: fixedNote.content, description: fixedNote.description, deadline: fixedNote.deadline });
+    } else {
+      store.selectFixedNote(null);
+    }
+  }, [fixedNote?.id, sidebarClosing]);
+
+  // Sync fixed note content/deadline when updated externally (e.g., edited in task list)
+  // Skip if the fixed note is also the selected note (selected note's fields are managed by useNoteSelection/BlockNoteNoteList)
+  useEffect(() => {
+    if (!fixedNote) return;
+    const store = useNoteFieldsStore.getState();
+    if (store.notes[fixedNote.id] && fixedNote.id !== store.selectedNoteId) {
+      store.setTitleValue(fixedNote.id, fixedNote.content);
+      store.setDeadlineValue(fixedNote.id, fixedNote.deadline);
+    }
+  }, [fixedNote?.content, fixedNote?.deadline]);
+
+  // Sync fixed note labels and assignees via store
+  useEffect(() => {
+    const store = useNoteFieldsStore.getState();
+    if (fixedNote) {
+      store.setLabelsValue(fixedNote.id, getLabelsForNote(fixedNote.id));
+      store.setAssigneesValue(fixedNote.id, getAssigneesForNote(fixedNote.id));
+    }
+  }, [fixedNote?.id, getLabelsForNote, getAssigneesForNote, noteLabelVersion, noteAssigneeVersion]);
 
   useEffect(() => {
     setShowPostponeHistory(false);
@@ -467,31 +508,36 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
   }, [selectedNote]);
 
   useEffect(() => {
-    setFixedNoteDescriptionValue(fixedNote?.description || '');
     setFixedNoteShowPostponeHistory(false);
     setFixedNoteShowVersionHistory(false);
-  }, [fixedNote]);
+  }, [fixedNote?.id]);
 
   // Label Handlers
   const handleAddLabel = async (labelId: string) => {
     if (!selectedNote) return;
+    const label = labels.find(l => l.id === labelId);
+    if (label) useNoteFieldsStore.getState().setLabelsValue(selectedNote.id, prev => [...prev, label]);
     await addLabelToNote(selectedNote.id, labelId);
-    setNoteLabels(getLabelsForNote(selectedNote.id));
+    useNoteFieldsStore.getState().setLabelsValue(selectedNote.id, getLabelsForNote(selectedNote.id));
   };
   const handleRemoveLabel = async (labelId: string) => {
     if (!selectedNote) return;
+    useNoteFieldsStore.getState().setLabelsValue(selectedNote.id, prev => prev.filter(l => l.id !== labelId));
     await removeLabelFromNote(selectedNote.id, labelId);
-    setNoteLabels(getLabelsForNote(selectedNote.id));
+    useNoteFieldsStore.getState().setLabelsValue(selectedNote.id, getLabelsForNote(selectedNote.id));
   };
   const handleFixedNoteAddLabel = async (labelId: string) => {
     if (!fixedNote) return;
+    const label = labels.find(l => l.id === labelId);
+    if (label) useNoteFieldsStore.getState().setLabelsValue(fixedNote.id, prev => [...prev, label]);
     await addLabelToNote(fixedNote.id, labelId);
-    setFixedNoteLabels(getLabelsForNote(fixedNote.id));
+    useNoteFieldsStore.getState().setLabelsValue(fixedNote.id, getLabelsForNote(fixedNote.id));
   };
   const handleFixedNoteRemoveLabel = async (labelId: string) => {
     if (!fixedNote) return;
+    useNoteFieldsStore.getState().setLabelsValue(fixedNote.id, prev => prev.filter(l => l.id !== labelId));
     await removeLabelFromNote(fixedNote.id, labelId);
-    setFixedNoteLabels(getLabelsForNote(fixedNote.id));
+    useNoteFieldsStore.getState().setLabelsValue(fixedNote.id, getLabelsForNote(fixedNote.id));
   };
 
   const handleCreateLabel = async () => {
@@ -514,7 +560,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
     setEditingLabel(null);
     setEditLabelName('');
     setEditLabelColor('#6b7280');
-    if (selectedNote) setNoteLabels(getLabelsForNote(selectedNote.id));
+    if (selectedNote) useNoteFieldsStore.getState().setLabelsValue(selectedNote.id, getLabelsForNote(selectedNote.id));
   };
 
   const handleAddLabelToNote = useCallback(async (noteId: string, labelId: string) => {
@@ -542,7 +588,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
 
   const handleFixedNoteRestoreVersion = useCallback((entry: NoteVersion) => {
     if (fixedNote) {
-      setFixedNoteDescriptionValue(entry.description || '');
+      useNoteFieldsStore.getState().setDescriptionValue(fixedNote.id, entry.description || '');
       onEdit(fixedNote.id, fixedNote.content, fixedNote.category, entry.description);
       setFixedNoteShowVersionHistory(false);
     }
@@ -567,9 +613,17 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
     toast.success(pinned ? t('notePinned') : t('noteUnpinned'));
   }, [onTogglePinned, t]);
 
-  const handleContentChange = useCallback((c: string) => {
-    selection.setTitleValue(c);
-  }, [selection]);
+  // Wrap assignee callbacks with optimistic store updates
+  const handleEditorAddAssignee = useCallback((id: string, contactId: string) => {
+    const contact = contacts.find(c => c.id === contactId);
+    if (contact) useNoteFieldsStore.getState().setAssigneesValue(id, prev => [...prev, contact]);
+    onAddAssignee(id, contactId);
+  }, [onAddAssignee, contacts]);
+
+  const handleEditorRemoveAssignee = useCallback((id: string, contactId: string) => {
+    useNoteFieldsStore.getState().setAssigneesValue(id, prev => prev.filter(a => a.id !== contactId));
+    onRemoveAssignee(id, contactId);
+  }, [onRemoveAssignee]);
 
   const handleClearCategory = useCallback(() => {
     filters.setCategoryFilter('all');
@@ -652,7 +706,9 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
   // Deadline Handlers
   const handleDeadlineChange = (date: Date | undefined) => {
     if (!selectedNote) return;
-    onUpdateDeadline(selectedNote.id, date ? date.toISOString() : null);
+    const newDeadline = date ? date.toISOString() : null;
+    useNoteFieldsStore.getState().setDeadlineValue(selectedNote.id, newDeadline);
+    onUpdateDeadline(selectedNote.id, newDeadline);
   };
   const handleDeadlinePickerOpenChange = (open: boolean) => {
     if (open && selectedNote) originalDeadlineRef.current = selectedNote.deadline;
@@ -666,7 +722,9 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
 
   const handleFixedNoteDeadlineChange = (date: Date | undefined) => {
     if (!fixedNote) return;
-    onUpdateDeadline(fixedNote.id, date ? date.toISOString() : null);
+    const newDeadline = date ? date.toISOString() : null;
+    useNoteFieldsStore.getState().setDeadlineValue(fixedNote.id, newDeadline);
+    onUpdateDeadline(fixedNote.id, newDeadline);
   };
   const handleFixedNoteDeadlinePickerOpenChange = (open: boolean) => {
     if (open && fixedNote) fixedNoteOriginalDeadlineRef.current = fixedNote.deadline;
@@ -964,7 +1022,6 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
             onUpdateAssignee={onUpdateAssignee}
             fixedNoteId={fixedNoteId}
             handleToggleFixInSidebarById={handleToggleFixInSidebarById}
-            handleContentChange={handleContentChange}
             compactTaskView={compactTaskView}
             isDescriptionFocused={selection.isDescriptionFocused}
             onRestore={onRestore}
@@ -982,7 +1039,6 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
             onClearOverdue={handleClearOverdue}
             onClearAllFilters={handleClearAllFilters}
             autoSaveInterval={settings.autoSaveInterval}
-            selectedNoteTitleValue={selection.titleValue}
           />
 
           <AnimatePresence>
@@ -1009,11 +1065,8 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
                 <NoteEditorPanel
                   ref={selection.descriptionRef}
                   note={selectedNote}
-                  noteLabels={noteLabels}
                   allLabels={labels}
                   descriptionValue={selection.descriptionValue}
-                  titleValue={selection.titleValue}
-                  onTitleChange={selection.setTitleValue}
                   showPostponeHistory={showPostponeHistory}
                   showVersionHistory={showVersionHistory}
                   versions={versions}
@@ -1038,8 +1091,8 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
                   onCreateLabel={() => setShowCreateLabelDialog(true)}
                   onDeadlineChange={handleDeadlineChange}
                   onDeadlineSave={handleDeadlineSave}
-                  onAddAssignee={onAddAssignee}
-                  onRemoveAssignee={onRemoveAssignee}
+                  onAddAssignee={handleEditorAddAssignee}
+                  onRemoveAssignee={handleEditorRemoveAssignee}
                   onUpdateAssignee={onUpdateAssignee}
                   onDelete={() => setShowEditorDeleteDialog(true)}
                   onLabelDropdownOpenChange={handleLabelDropdownOpenChange}
@@ -1091,9 +1144,8 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
                   <NoteEditorPanel
                     ref={fixedNoteDescriptionRef}
                     note={displayedNote}
-                    noteLabels={fixedNoteLabels}
                     allLabels={labels}
-                    descriptionValue={fixedNoteDescriptionValue}
+                    descriptionValue={fixedNoteDescriptionStoreValue}
                     showPostponeHistory={fixedNoteShowPostponeHistory}
                     showVersionHistory={fixedNoteShowVersionHistory}
                     versions={fixedNoteVersions}
@@ -1105,7 +1157,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
                     editingHistoryEntry={editingFixedNoteHistoryEntry}
                     contacts={contacts}
                     onEdit={onEdit}
-                    onDescriptionChange={setFixedNoteDescriptionValue}
+                    onDescriptionChange={handleFixedNoteDescriptionChange}
                     onDescriptionBlur={handleFixedNoteDescriptionBlur}
                     onDescriptionKeyDown={handleFixedNoteDescriptionKeyDown}
                     onTogglePostponeHistory={() => setFixedNoteShowPostponeHistory(!fixedNoteShowPostponeHistory)}
