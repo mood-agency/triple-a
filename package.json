@@ -17,6 +17,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "dependency-cruiser": "^17.3.7",
     "husky": "^9.1.7",
     "turbo": "^2.3.0",
     "typescript": "~5.9.3"
