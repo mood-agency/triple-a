@@ -1,10 +1,11 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { nanoid } from 'nanoid';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { eventBus } from '@/events';
 import type { Note, NoteCategory } from '@/types/note';
 import { formatLocalDate } from '@/utils/dateUtils';
+import { useNotesStore } from '@/stores/useNotesStore';
 
 interface UseNotesSupabaseOptions {
   date?: string;
@@ -12,28 +13,27 @@ interface UseNotesSupabaseOptions {
 }
 
 /**
- * Supabase-direct notes hook
- * Provides the same API as useNotesStore but queries Supabase directly
+ * Supabase-direct notes hook.
+ * State lives in useNotesStore (Zustand); this hook manages side effects
+ * (fetch, realtime subscription, CQRS events) and wraps store actions
+ * with Supabase persistence.
  */
 export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   const { date, projectId } = options;
   const { user } = useAuth();
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // Read state from Zustand store
+  const notes = useNotesStore(s => s.notes);
+  const loading = useNotesStore(s => s.loading);
+  const currentDate = useNotesStore(s => s.currentDate);
+  const currentProjectId = useNotesStore(s => s.currentProjectId);
+
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null);
-  // Synchronous mirror of notes — updated immediately in createNoteAfter so
-  // rapid successive calls always see the latest array (React state is batched).
-  const latestNotesRef = useRef<Note[]>([]);
-  // Track note IDs created locally but not yet confirmed by Supabase insert.
-  // fetchNotes merges these so realtime full-refetches don't wipe in-flight notes.
-  const pendingNoteIdsRef = useRef<Set<string>>(new Set());
   // Track the projectId we're currently fetching for to avoid race conditions
   const requestedProjectIdRef = useRef<string | null | undefined>(projectId);
-  // Track the projectId that the current notes belong to
-  const [notesProjectId, setNotesProjectId] = useState<string | null | undefined>(projectId);
 
-  // If projectId changed, notes are stale - treat as loading
-  const notesAreStale = projectId !== notesProjectId;
+  // If scope changed, notes are stale - treat as loading
+  const notesAreStale = date !== currentDate || projectId !== currentProjectId;
   const effectiveLoading = loading || notesAreStale;
 
   const defaultDate = formatLocalDate(new Date());
@@ -44,7 +44,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
    */
   const fetchNotes = useCallback(async () => {
     if (!user || !supabase) {
-      setLoading(false);
+      useNotesStore.getState().setLoading(false);
       return;
     }
 
@@ -52,7 +52,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     const requestProjectId = projectId;
     requestedProjectIdRef.current = requestProjectId;
 
-    setLoading(true);
+    useNotesStore.getState().setLoading(true);
 
     let query = supabase
       .from('notes')
@@ -83,7 +83,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
 
     if (error) {
       console.error('[useNotesSupabase] Fetch error:', error);
-      setLoading(false);
+      useNotesStore.getState().setLoading(false);
       return;
     }
 
@@ -113,43 +113,21 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       public_slug: row.public_slug || null,
     }));
 
-    // Merge: keep locally-created notes whose inserts haven't been confirmed yet.
-    // A note is removed from pendingNoteIdsRef only when it appears in DB results,
-    // not when the insert promise resolves (to avoid a race condition).
-    let mergedNotes = notesList;
-    const pendingIds = pendingNoteIdsRef.current;
-    if (pendingIds.size > 0) {
-      const dbIds = new Set(notesList.map(n => n.id));
-      // Clean up: remove IDs that are now in the DB
-      for (const id of pendingIds) {
-        if (dbIds.has(id)) pendingIds.delete(id);
-      }
-      // Keep notes still not in DB
-      const stillPending = latestNotesRef.current.filter(
-        n => pendingIds.has(n.id)
-      );
-      if (stillPending.length > 0) {
-        mergedNotes = [...notesList, ...stillPending];
-      }
-    }
-
-    latestNotesRef.current = mergedNotes;
-    setNotes(mergedNotes);
-    setNotesProjectId(requestProjectId);
-    setLoading(false);
+    // mergeFetchedNotes handles pending note preservation
+    const store = useNotesStore.getState();
+    store.mergeFetchedNotes(notesList);
+    store.setScope(date, requestProjectId);
+    store.setLoading(false);
   }, [user, date, projectId]);
 
-  // Clear notes and refetch when projectId changes
+  // Clear notes and refetch when scope changes
   useEffect(() => {
-    // Clear notes immediately to avoid showing stale data from different project
-    latestNotesRef.current = [];
-    setNotes([]);
-    setLoading(true);
+    useNotesStore.getState().clearNotes();
+    useNotesStore.getState().setLoading(true);
     fetchNotes();
   }, [fetchNotes]);
 
   // Realtime subscription — debounced to avoid flickering during rapid creation.
-  // Multiple INSERT events within the debounce window collapse into one fetchNotes.
   useEffect(() => {
     if (!user || !supabase) return;
 
@@ -172,11 +150,11 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         },
         () => {
           // Debounce: batch rapid realtime events into a single fetchNotes.
-          // pendingNoteIdsRef protects in-flight notes from being wiped.
           if (debounceTimer) clearTimeout(debounceTimer);
+          const pendingCount = useNotesStore.getState().pendingNoteIds.size;
           debounceTimer = setTimeout(() => {
             fetchNotes();
-          }, pendingNoteIdsRef.current.size > 0 ? 2000 : 300);
+          }, pendingCount > 0 ? 2000 : 300);
         }
       )
       .subscribe();
@@ -195,7 +173,6 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   // Listen to CQRS events to refresh data immediately (without waiting for realtime)
   useEffect(() => {
     const unsubscribeCreated = eventBus.subscribe('note:created', (event) => {
-      // Only refetch if the event came from CQRS command (not from this hook)
       if (event.source === 'command') {
         fetchNotes();
       }
@@ -256,8 +233,9 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     ): Promise<Note> => {
       if (!user || !supabase) throw new Error('Not authenticated');
 
-      // Calculate sort_order
-      const maxSortOrder = notes.reduce((max, n) => Math.max(max, n.sort_order || 0), -1);
+      // Use store for synchronous access
+      const currentNotes = useNotesStore.getState().notes;
+      const maxSortOrder = currentNotes.reduce((max, n) => Math.max(max, n.sort_order || 0), -1);
 
       const { data, error } = await supabase
         .from('notes')
@@ -318,11 +296,11 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
 
       return note;
     },
-    [user, notes, effectiveDate, projectId, createInitialVersion]
+    [user, effectiveDate, projectId, createInitialVersion]
   );
 
   /**
-   * Create a note after a specific note
+   * Create a note after a specific note (local-first, optimistic)
    */
   const createNoteAfter = useCallback(
     async (
@@ -335,10 +313,8 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     ): Promise<Note> => {
       if (!user || !supabase) throw new Error('Not authenticated');
 
-      // 1. Calculate sort_order from the synchronous ref (not the stale closure)
-      //    React batches setNotes updates, so `notes` can be stale during rapid calls.
-      //    latestNotesRef is updated synchronously in this function, so it's always current.
-      const currentNotes = latestNotesRef.current;
+      // getState() is always synchronous and current — no refs needed
+      const currentNotes = useNotesStore.getState().notes;
       const afterNote = currentNotes.find((n) => n.id === afterNoteId);
       const afterSortOrder = afterNote?.sort_order || 0;
 
@@ -353,7 +329,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         newSortOrder = afterSortOrder + 1;
       }
 
-      // 2. Construct note locally — no DB round-trip needed
+      // Construct note locally — no DB round-trip needed
       const noteId = newNoteId || crypto.randomUUID();
       const now = new Date().toISOString();
       const note: Note = {
@@ -379,12 +355,10 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         public_slug: null,
       };
 
-      // 3. Add to local state IMMEDIATELY — next Enter press will find it
-      pendingNoteIdsRef.current.add(noteId);
-      latestNotesRef.current = [...latestNotesRef.current, note];
-      setNotes(prev => [...prev, note]);
+      // Add to store immediately — next Enter press will find it via getState()
+      useNotesStore.getState().addNote(note);
 
-      // 4. Persist to Supabase in background (fire-and-forget)
+      // Persist to Supabase in background (fire-and-forget)
       supabase
         .from('notes')
         .insert({
@@ -402,12 +376,9 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         })
         .then(({ error }) => {
           if (error) console.error('[useNotesSupabase] createNoteAfter error:', error);
-          // Don't remove from pendingNoteIdsRef here — fetchNotes handles cleanup
-          // when the note actually appears in DB results. Removing here creates a
-          // race: the note may not yet be in the next fetchNotes result set.
         });
 
-      // 6. Labels/assignees — fire-and-forget
+      // Labels/assignees — fire-and-forget
       if (labelIds.length > 0) {
         supabase.from('note_labels').insert(
           labelIds.map((labelId) => ({ note_id: noteId, label_id: labelId, user_id: user.id }))
@@ -424,7 +395,6 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         });
       }
 
-      // 6. Return immediately — no waiting for network
       return note;
     },
     [user, effectiveDate, projectId]
@@ -490,16 +460,12 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     ): Promise<void> => {
       if (!user || !supabase) return;
 
-      // Optimistic update: immediately update local state so UI reflects changes
-      setNotes(prev => prev.map(n => {
-        if (n.id !== id) return n;
-        return {
-          ...n,
-          content,
-          ...(category !== undefined && { category }),
-          ...(description !== undefined && { description }),
-        };
-      }));
+      // Optimistic update via store
+      useNotesStore.getState().updateNote(id, {
+        content,
+        ...(category !== undefined && { category }),
+        ...(description !== undefined && { description }),
+      });
 
       // Get current note state to check if description changed
       const { data: currentNote } = await supabase
@@ -521,7 +487,6 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
 
       // Create a new version if description changed (and has content)
       if (currentNote && description !== undefined && description !== currentNote.description) {
-        // Only create version if description has actual content
         const hasNewContent = description && description.trim().length > 0;
         const hadPreviousContent = currentNote.description && currentNote.description.trim().length > 0;
 
@@ -545,8 +510,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   const deleteNote = useCallback(async (id: string, reason: string): Promise<void> => {
     if (!supabase) return;
 
-    // Check if note has content — empty notes get hard-deleted so they
-    // don't clutter the deleted-notes view.
+    // Check if note has content — empty notes get hard-deleted
     const { data: existing } = await supabase
       .from('notes')
       .select('content')
@@ -595,8 +559,8 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
 
     const completed_at = completed ? new Date().toISOString() : null;
 
-    // Optimistic update
-    setNotes(prev => prev.map(n => n.id === id ? { ...n, completed, completed_at } : n));
+    // Optimistic update via store
+    useNotesStore.getState().updateNote(id, { completed, completed_at });
 
     const { error } = await supabase
       .from('notes')
@@ -612,8 +576,8 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   const togglePinned = useCallback(async (id: string, pinned: boolean): Promise<void> => {
     if (!supabase) return;
 
-    // Optimistic update
-    setNotes(prev => prev.map(n => n.id === id ? { ...n, pinned } : n));
+    // Optimistic update via store
+    useNotesStore.getState().updateNote(id, { pinned });
 
     const { error } = await supabase.from('notes').update({ pinned }).eq('id', id);
 
@@ -629,8 +593,11 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     const updates: Record<string, unknown> = { deadline };
     if (isAllDay !== undefined) updates.is_all_day = isAllDay;
 
-    // Optimistic update
-    setNotes(prev => prev.map(n => n.id === id ? { ...n, deadline, ...(isAllDay !== undefined && { is_all_day: isAllDay }) } : n));
+    // Optimistic update via store
+    useNotesStore.getState().updateNote(id, {
+      deadline,
+      ...(isAllDay !== undefined && { is_all_day: isAllDay }),
+    });
 
     const { error } = await supabase.from('notes').update(updates).eq('id', id);
 
@@ -658,7 +625,9 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     async (id: string, newDeadline: string, reason?: string): Promise<void> => {
       if (!user || !supabase) return;
 
-      const note = notes.find((n) => n.id === id);
+      // Use store for synchronous access
+      const currentNotes = useNotesStore.getState().notes;
+      const note = currentNotes.find((n) => n.id === id);
       const previousDeadline = note?.deadline || null;
 
       // Update note deadline
@@ -684,7 +653,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
 
       if (actionError) console.error('[useNotesSupabase] Create action error:', actionError);
     },
-    [user, notes]
+    [user]
   );
 
   /**
@@ -693,7 +662,6 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   const reorderNotes = useCallback(async (orderedIds: string[]): Promise<void> => {
     if (!supabase) return;
 
-    // Update each note's sort_order
     const sb = supabase;
     const updates = orderedIds.map((noteId, index) =>
       sb.from('notes').update({ sort_order: index }).eq('id', noteId)
