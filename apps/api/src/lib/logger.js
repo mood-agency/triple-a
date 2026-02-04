@@ -17,11 +17,6 @@ let isIntercepting = false;
  * Initialize Abbacchio console interception
  */
 export function initLogger() {
-  if (!ABBACCHIO_ENABLED) {
-    console.log('[Logger] Abbacchio disabled via ABBACCHIO_ENABLED=false');
-    return;
-  }
-
   if (isIntercepting) {
     return;
   }
@@ -29,7 +24,9 @@ export function initLogger() {
   interceptConsole({
     url: ABBACCHIO_URL,
     channel: ABBACCHIO_CHANNEL,
+    namespace: 'triple-a-api',
     secretKey: ABBACCHIO_SECRET_KEY,
+    enabled: ABBACCHIO_ENABLED,
     passthrough: true, // Still output to terminal
     batchSize: 10,
     interval: 1000,

@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'motion/react';
 import { Calendar, StickyNote, Users, Pickaxe, Forward } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -223,22 +222,15 @@ function NoteRow(props: NoteRowProps) {
         {/* Labels column */}
         {!compactView && (
           <div className="flex gap-1 shrink-0 justify-end px-1">
-            <AnimatePresence mode="popLayout">
-              {labels.map((label) => (
-                <motion.span
-                  key={label.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.2 }}
-                  className="chip-label"
-                  style={{ backgroundColor: label.color }}
-                >
-                  {label.name}
-                </motion.span>
-              ))}
-            </AnimatePresence>
+            {labels.map((label) => (
+              <span
+                key={label.id}
+                className="chip-label"
+                style={{ backgroundColor: label.color }}
+              >
+                {label.name}
+              </span>
+            ))}
           </div>
         )}
 
@@ -305,27 +297,16 @@ function NoteRow(props: NoteRowProps) {
         {!compactView && note.category !== 'notes' && (
           <div className="shrink-0 flex justify-end px-1 gap-0.5">
             {noteAssignees.length > 0 && (
-              <AnimatePresence mode="popLayout">
-                <motion.div
-                  key="assignees-chip"
-                  layout
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="chip-assignee cursor-default">
-                        {noteAssignees.map(contact => getInitials(contact.name, contact.lastname)).join(' | ')}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{noteAssignees.map(contact => `${contact.name} ${contact.lastname}`.trim()).join(', ')}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </motion.div>
-              </AnimatePresence>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="chip-assignee cursor-default">
+                    {noteAssignees.map(contact => getInitials(contact.name, contact.lastname)).join(' | ')}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{noteAssignees.map(contact => `${contact.name} ${contact.lastname}`.trim()).join(', ')}</p>
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
         )}
