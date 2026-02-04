@@ -55,7 +55,6 @@ interface NoteListToolbarProps {
     taskStatusFilter: 'active' | 'completed' | 'deleted';
     setTaskStatusFilter: (status: 'active' | 'completed' | 'deleted') => void;
     hasCompletedTasks: boolean;
-    hasDeletedTasks: boolean;
 
     // Keyboard handlers for search
     onSearchKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
@@ -100,7 +99,6 @@ export const NoteListToolbar = memo(function NoteListToolbar({
     taskStatusFilter,
     setTaskStatusFilter,
     hasCompletedTasks,
-    hasDeletedTasks,
     onSearchKeyDown,
 }: NoteListToolbarProps) {
     const { t } = useTranslation();
@@ -247,7 +245,6 @@ export const NoteListToolbar = memo(function NoteListToolbar({
                         taskStatusFilter={taskStatusFilter}
                         onTaskStatusFilterChange={setTaskStatusFilter}
                         hasCompletedTasks={hasCompletedTasks}
-                        hasDeletedTasks={hasDeletedTasks}
                     />
                 </div>
             </div>

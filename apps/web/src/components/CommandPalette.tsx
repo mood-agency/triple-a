@@ -45,7 +45,6 @@ interface CommandPaletteProps {
   showOverdueOnly?: boolean;
   onShowOverdueOnlyChange?: (show: boolean) => void;
   hasCompletedTasks?: boolean;
-  hasDeletedTasks?: boolean;
 }
 
 export const CommandPalette = memo(function CommandPalette({
@@ -73,7 +72,6 @@ export const CommandPalette = memo(function CommandPalette({
   showOverdueOnly = false,
   onShowOverdueOnlyChange,
   hasCompletedTasks = false,
-  hasDeletedTasks = false,
 }: CommandPaletteProps) {
   const { t } = useTranslation();
   const { isOpen, mode, handleOpenChange, close, closeWithoutFocusRestore } = useCommandPalette();
@@ -319,26 +317,24 @@ export const CommandPalette = memo(function CommandPalette({
             <CommandSeparator />
 
             <CommandGroup heading={t('taskStatus.title')}>
-              <CommandItem onSelect={() => { onTaskStatusFilterChange?.('active'); closeWithoutFocusRestore(); }}>
+              <CommandItem onSelect={() => { onTaskStatusFilterChange?.('active'); onShowOverdueOnlyChange?.(false); closeWithoutFocusRestore(); }}>
                 <CircleDot />
                 {t('taskStatus.active')}
                 {taskStatusFilter === 'active' && !showOverdueOnly && <Check className="text-primary" />}
               </CommandItem>
               {hasCompletedTasks && (
-                <CommandItem onSelect={() => { onTaskStatusFilterChange?.('completed'); closeWithoutFocusRestore(); }}>
+                <CommandItem onSelect={() => { onTaskStatusFilterChange?.('completed'); onShowOverdueOnlyChange?.(false); closeWithoutFocusRestore(); }}>
                   <CheckCircle2 />
                   {t('taskStatus.completed')}
-                  {taskStatusFilter === 'completed' && <Check className="text-primary" />}
+                  {taskStatusFilter === 'completed' && !showOverdueOnly && <Check className="text-primary" />}
                 </CommandItem>
               )}
-              {hasDeletedTasks && (
-                <CommandItem onSelect={() => { onTaskStatusFilterChange?.('deleted'); closeWithoutFocusRestore(); }}>
-                  <Trash2 />
-                  {t('taskStatus.deleted')}
-                  {taskStatusFilter === 'deleted' && <Check className="text-primary" />}
-                </CommandItem>
-              )}
-              <CommandItem onSelect={() => { onShowOverdueOnlyChange?.(!showOverdueOnly); closeWithoutFocusRestore(); }}>
+              <CommandItem onSelect={() => { onTaskStatusFilterChange?.('deleted'); onShowOverdueOnlyChange?.(false); closeWithoutFocusRestore(); }}>
+                <Trash2 />
+                {t('taskStatus.deleted')}
+                {taskStatusFilter === 'deleted' && !showOverdueOnly && <Check className="text-primary" />}
+              </CommandItem>
+              <CommandItem onSelect={() => { onShowOverdueOnlyChange?.(!showOverdueOnly); if (!showOverdueOnly) onTaskStatusFilterChange?.('active'); closeWithoutFocusRestore(); }}>
                 <AlertTriangle />
                 {t('taskStatus.overdue')}
                 {showOverdueOnly && <Check className="text-primary" />}

@@ -373,8 +373,8 @@ export class SetTaskStatusFilterCommand extends BaseFilterCommand {
   }
 
   execute(currentState: FilterState): FilterState {
-    this.previousState = { taskStatusFilter: currentState.taskStatusFilter };
-    return { ...currentState, taskStatusFilter: this.newStatus };
+    this.previousState = { taskStatusFilter: currentState.taskStatusFilter, showOverdueOnly: currentState.showOverdueOnly };
+    return { ...currentState, taskStatusFilter: this.newStatus, showOverdueOnly: false };
   }
 
   toJSON(): SerializableFilterCommand {
@@ -401,8 +401,9 @@ export class ToggleOverdueOnlyCommand extends BaseFilterCommand {
   }
 
   execute(currentState: FilterState): FilterState {
-    this.previousState = { showOverdueOnly: currentState.showOverdueOnly };
-    return { ...currentState, showOverdueOnly: !currentState.showOverdueOnly };
+    const newOverdue = !currentState.showOverdueOnly;
+    this.previousState = { showOverdueOnly: currentState.showOverdueOnly, taskStatusFilter: currentState.taskStatusFilter };
+    return { ...currentState, showOverdueOnly: newOverdue, ...(newOverdue ? { taskStatusFilter: 'active' as const } : {}) };
   }
 
   toJSON(): SerializableFilterCommand {
@@ -436,8 +437,8 @@ export class SetOverdueOnlyCommand extends BaseFilterCommand {
   }
 
   execute(currentState: FilterState): FilterState {
-    this.previousState = { showOverdueOnly: currentState.showOverdueOnly };
-    return { ...currentState, showOverdueOnly: this.newValue };
+    this.previousState = { showOverdueOnly: currentState.showOverdueOnly, taskStatusFilter: currentState.taskStatusFilter };
+    return { ...currentState, showOverdueOnly: this.newValue, ...(this.newValue ? { taskStatusFilter: 'active' as const } : {}) };
   }
 
   toJSON(): SerializableFilterCommand {
