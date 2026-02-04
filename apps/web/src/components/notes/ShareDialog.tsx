@@ -63,7 +63,7 @@ export function ShareDialog({
       <DialogTrigger asChild>
         {trigger ?? (
           <Button variant="ghost" size="icon" className="h-6 w-6">
-            <Globe className={`h-3.5 w-3.5 ${isPublic ? 'text-green-600' : ''}`} />
+            <Globe className={`h-3.5 w-3.5 ${isPublic ? 'text-green-600' : 'text-muted-foreground'}`} />
           </Button>
         )}
       </DialogTrigger>
