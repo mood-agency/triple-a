@@ -114,14 +114,19 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     }));
 
     // Merge: keep locally-created notes whose inserts haven't been confirmed yet.
-    // Once the insert completes the ID is removed from pendingNoteIdsRef and the
-    // next fetchNotes will naturally include it from the DB.
+    // A note is removed from pendingNoteIdsRef only when it appears in DB results,
+    // not when the insert promise resolves (to avoid a race condition).
     let mergedNotes = notesList;
     const pendingIds = pendingNoteIdsRef.current;
     if (pendingIds.size > 0) {
       const dbIds = new Set(notesList.map(n => n.id));
+      // Clean up: remove IDs that are now in the DB
+      for (const id of pendingIds) {
+        if (dbIds.has(id)) pendingIds.delete(id);
+      }
+      // Keep notes still not in DB
       const stillPending = latestNotesRef.current.filter(
-        n => pendingIds.has(n.id) && !dbIds.has(n.id)
+        n => pendingIds.has(n.id)
       );
       if (stillPending.length > 0) {
         mergedNotes = [...notesList, ...stillPending];
@@ -143,7 +148,8 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     fetchNotes();
   }, [fetchNotes]);
 
-  // Realtime subscription
+  // Realtime subscription — debounced to avoid flickering during rapid creation.
+  // Multiple INSERT events within the debounce window collapse into one fetchNotes.
   useEffect(() => {
     if (!user || !supabase) return;
 
@@ -151,6 +157,8 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
     }
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
     const channel = supabase
       .channel(`notes-${user.id}`)
@@ -163,9 +171,12 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
           filter: `user_id=eq.${user.id}`,
         },
         () => {
-          // fetchNotes merges pending local notes so this is safe even
-          // when inserts are still in-flight (see pendingNoteIdsRef).
-          fetchNotes();
+          // Debounce: batch rapid realtime events into a single fetchNotes.
+          // pendingNoteIdsRef protects in-flight notes from being wiped.
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            fetchNotes();
+          }, pendingNoteIdsRef.current.size > 0 ? 2000 : 300);
         }
       )
       .subscribe();
@@ -173,6 +184,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     channelRef.current = channel;
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       if (channelRef.current && supabase) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
@@ -389,8 +401,10 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
           is_public: false,
         })
         .then(({ error }) => {
-          pendingNoteIdsRef.current.delete(noteId);
           if (error) console.error('[useNotesSupabase] createNoteAfter error:', error);
+          // Don't remove from pendingNoteIdsRef here — fetchNotes handles cleanup
+          // when the note actually appears in DB results. Removing here creates a
+          // race: the note may not yet be in the next fetchNotes result set.
         });
 
       // 6. Labels/assignees — fire-and-forget
