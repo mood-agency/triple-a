@@ -31,6 +31,10 @@ export function useBlockCommands(
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!editor || !block) return;
 
+      // Skip when a dialog/modal is open — capture phase fires before
+      // the dialog can stopPropagation, so we must check here
+      if ((e.target as HTMLElement).closest?.('[role="dialog"]')) return;
+
       // Check if the event originated from inside this block
       const selection = window.getSelection();
       const anchorNode = selection?.anchorNode;

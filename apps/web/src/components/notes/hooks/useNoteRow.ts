@@ -276,7 +276,7 @@ export function useNoteRow({
         if (isDeletingRef.current) return;
         if (isCommandPaletteOpen) return;
 
-        if (showLabelDropdown || showCategoryDropdown || showAssigneeDropdown) return;
+        if (showLabelDropdown || showCategoryDropdown || showAssigneeDropdown || showDeleteDialog) return;
 
         // Flush any pending auto-save
         autoSave.handleBlur();
@@ -301,7 +301,7 @@ export function useNoteRow({
             setContentValue(note.content);
         }
         setIsEditingContent(false);
-    }, [contentValue, note.content, isCommandPaletteOpen, saveContentWithHashtagParsing, showLabelDropdown, showCategoryDropdown, showAssigneeDropdown, autoSave, contacts]);
+    }, [contentValue, note.content, isCommandPaletteOpen, saveContentWithHashtagParsing, showLabelDropdown, showCategoryDropdown, showAssigneeDropdown, showDeleteDialog, autoSave, contacts]);
 
     const handleCheckedChange = useCallback(() => {
         // If completing a task (not already completed), animate first
@@ -333,7 +333,6 @@ export function useNoteRow({
         if (e.key === 'Backspace' && e.ctrlKey) {
             e.preventDefault();
             e.stopPropagation();
-            setIsEditingContent(false);
             setShowDeleteDialog(true);
             return;
         }
