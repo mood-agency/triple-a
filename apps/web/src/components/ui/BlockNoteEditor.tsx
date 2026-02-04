@@ -402,16 +402,23 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
 
         // ArrowUp at the top boundary → navigate to title
         if (event.key === 'ArrowUp' && onNavigateUp && editor) {
-          const tiptapEditor = (editor as unknown as { _tiptapEditor?: { state: { selection: { from: number } } } })._tiptapEditor
-          if (tiptapEditor) {
-            const beforePos = tiptapEditor.state.selection.from
-            // Let the browser handle the arrow key, then check if cursor moved
-            requestAnimationFrame(() => {
-              const afterPos = tiptapEditor.state.selection.from
-              if (beforePos === afterPos) {
+          // Use BlockNote public API to check if cursor is in the first block
+          const cursor = editor.getTextCursorPosition()
+          if (cursor && !cursor.prevBlock) {
+            // Cursor is in the first block — check if on the first visual line
+            // by comparing y-coordinates of cursor vs start of paragraph content
+            const tiptapEditor = (editor as unknown as { _tiptapEditor?: { view: { coordsAtPos: (pos: number) => { top: number } }; state: { selection: { from: number; $from: { depth: number; start: (depth: number) => number } } } } })._tiptapEditor
+            if (tiptapEditor) {
+              const { view, state } = tiptapEditor
+              const { $from } = state.selection
+              const cursorCoords = view.coordsAtPos(state.selection.from)
+              const paragraphStart = $from.start($from.depth)
+              const startCoords = view.coordsAtPos(paragraphStart)
+              if (Math.abs(cursorCoords.top - startCoords.top) < 2) {
+                event.preventDefault()
                 onNavigateUp()
               }
-            })
+            }
           }
         }
 

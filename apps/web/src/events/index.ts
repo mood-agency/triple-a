@@ -18,10 +18,12 @@ export type {
   NotePinnedEvent,
   NoteFixedInSidebarEvent,
   NoteReorderedEvent,
+  NoteDeadlineUpdatedEvent,
   // Label events
   LabelAddedToNoteEvent,
   LabelRemovedFromNoteEvent,
   LabelCreatedAndAddedEvent,
+  NoteLabelsAttachedEvent,
   // Assignee events
   AssigneeAddedEvent,
   AssigneeRemovedEvent,

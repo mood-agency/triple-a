@@ -4,9 +4,20 @@ import { AssigneesProvider } from '@/contexts/AssigneesContext';
 import { ProjectProvider } from '@/contexts/ProjectContext';
 import { GoogleCalendarProvider } from '@/contexts/GoogleCalendarContext';
 import { RepositoryProvider } from '@/data';
+import { useNoteSideEffects } from '@/hooks/useNoteSideEffects';
+import { useCalendarSyncListener } from '@/hooks/useCalendarSyncListener';
 
 interface AuthenticatedProvidersProps {
   children: ReactNode;
+}
+
+/**
+ * Mounts event-driven side-effect listeners (label/assignee persistence, calendar sync).
+ */
+function SideEffectListeners({ children }: { children: ReactNode }) {
+  useNoteSideEffects();
+  useCalendarSyncListener();
+  return <>{children}</>;
 }
 
 /**
@@ -20,7 +31,9 @@ export function AuthenticatedProviders({ children }: AuthenticatedProvidersProps
         <ProjectProvider>
           <GoogleCalendarProvider>
             <RepositoryProvider>
-              {children}
+              <SideEffectListeners>
+                {children}
+              </SideEffectListeners>
             </RepositoryProvider>
           </GoogleCalendarProvider>
         </ProjectProvider>

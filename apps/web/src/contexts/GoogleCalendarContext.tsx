@@ -160,15 +160,15 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
       try {
         const accountsList = await googleCalendarService.getAccounts();
         setAccounts(accountsList);
-        setIsConnected(accountsList.length > 0);
+        const connected = accountsList.length > 0;
+        setIsConnected(connected);
 
-        if (accountsList.length === 0) {
-          const status = await googleCalendarService.getConnectionStatus();
-          setIsConnected(status.isConnected && !status.isExpired);
+        // Only fetch config if user has Google Calendar accounts connected.
+        // This avoids unnecessary queries to google_calendar_config on every page load.
+        if (connected) {
+          const configData = await googleCalendarService.getConfig();
+          setConfig(configData);
         }
-
-        const configData = await googleCalendarService.getConfig();
-        setConfig(configData);
       } catch (err) {
         reportError('connection', err instanceof Error ? err.message : 'Failed to check status');
       } finally {

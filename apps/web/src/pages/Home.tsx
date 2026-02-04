@@ -7,7 +7,7 @@ import { NotesWorkspace, type NotesWorkspaceHandle } from '@/components/notes/No
 import { CommandPalette } from '@/components/CommandPalette';
 import { CreateProjectDialog } from '@/components/projects/CreateProjectDialog';
 import { HotkeysHelper } from '@/components/HotkeysHelper';
-import { useNotesWithCalendarSync } from '@/hooks/useNotesWithCalendarSync';
+import { useNotes } from '@/hooks/useNotes';
 import { useLabels } from '@/hooks/useLabels';
 import { useSettings } from '@/hooks/useSettings';
 import { useContacts } from '@/hooks/useContacts';
@@ -253,7 +253,7 @@ export function Home() {
 
   // Load ALL notes without date filtering (filtered by active project)
   // Uses calendar sync enabled hook to auto-sync meetings to Google Calendar
-  const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote, togglePublic } = useNotesWithCalendarSync();
+  const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote, togglePublic } = useNotes();
 
   // Derive the full note object from the ID (memoized)
   // This prevents re-renders when the note object reference changes but ID stays the same
