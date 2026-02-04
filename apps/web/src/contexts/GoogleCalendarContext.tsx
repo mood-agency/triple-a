@@ -7,13 +7,11 @@ import { toast } from 'sonner';
 import type {
   GCalCalendarWithAccount,
   GCalConfig,
-  GCalEvent,
   GCalSyncStatus,
   GCalSyncResult,
   GCalCreateEventRequest,
   GCalAccount,
 } from '@/types/googleCalendar';
-import type { Project } from '@/types/project';
 
 const OAUTH_REDIRECT_PATH = '/settings/calendar/callback';
 
@@ -94,102 +92,9 @@ function parseDeadlineToEventTimes(deadline: string | null): {
   };
 }
 
-async function createNoteFromEvent(
-  userId: string,
-  event: GCalEvent,
-  projectId: string | null = null
-): Promise<string> {
-  if (!supabase) throw new Error('Supabase not configured');
-
-  const isAllDay = !event.start.dateTime;
-  const deadline = isAllDay
-    ? `${event.start.date}T00:00:00`
-    : event.start.dateTime!;
-
-  const date = deadline.split('T')[0];
-
-  const { data, error } = await supabase
-    .from('notes')
-    .insert({
-      user_id: userId,
-      date,
-      content: event.summary || 'Untitled Event',
-      description: event.description || null,
-      category: 'meeting',
-      completed: false,
-      deadline,
-      pinned: false,
-      sort_order: 0,
-      project_id: projectId,
-      gcal_event_id: event.id,
-    })
-    .select('id')
-    .single();
-
-  if (error) throw error;
-  return data.id;
-}
-
-async function updateNoteFromEvent(
-  noteId: string,
-  event: GCalEvent,
-  projectId: string | null = null
-): Promise<void> {
-  if (!supabase) return;
-
-  const isAllDay = !event.start.dateTime;
-  const deadline = isAllDay
-    ? `${event.start.date}T00:00:00`
-    : event.start.dateTime!;
-
-  const updates: Record<string, unknown> = {
-    content: event.summary || 'Untitled Event',
-    description: event.description || null,
-    deadline,
-    category: 'meeting',
-    gcal_event_id: event.id,
-  };
-
-  if (projectId !== null) {
-    updates.project_id = projectId;
-  }
-
-  await supabase.from('notes').update(updates).eq('id', noteId);
-}
-
-async function getProjectsWithCalendarSync(userId: string): Promise<Project[]> {
-  if (!supabase) return [];
-
-  const { data } = await supabase
-    .from('projects')
-    .select('*')
-    .eq('user_id', userId)
-    .not('gcal_calendar_id', 'is', null);
-
-  return (data || []) as Project[];
-}
-
-async function getNoteByGCalEventId(gcalEventId: string): Promise<{ id: string } | null> {
-  if (!supabase) return null;
-
-  const { data } = await supabase
-    .from('notes')
-    .select('id')
-    .eq('gcal_event_id', gcalEventId)
-    .is('deleted_at', null)
-    .maybeSingle();
-
-  return data;
-}
-
-async function markNoteAsDeleted(noteId: string): Promise<void> {
-  if (!supabase) return;
-
-  await supabase
-    .from('notes')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', noteId);
-}
+// Note: createNoteFromEvent, updateNoteFromEvent, getProjectsWithCalendarSync,
+// getNoteByGCalEventId, and markNoteAsDeleted have been moved to the backend
+// (apps/api/src/lib/gcal-sync.js). The frontend now calls POST /api/gcal-sync.
 
 // ============================================================================
 // Provider Component
@@ -305,7 +210,7 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
   // ============================================================================
 
   const syncNow = useCallback(async (): Promise<GCalSyncResult> => {
-    const result: GCalSyncResult = {
+    const emptyResult: GCalSyncResult = {
       success: false,
       eventsImported: 0,
       eventsUpdated: 0,
@@ -314,14 +219,8 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
     };
 
     if (!user || !isConnected || !config?.enabled) {
-      result.errors.push('Not ready to sync');
-      return result;
-    }
-
-    const projectsWithCalendarSync = await getProjectsWithCalendarSync(user.id);
-    if (projectsWithCalendarSync.length === 0) {
-      result.errors.push('No projects configured with calendar sync');
-      return result;
+      emptyResult.errors.push('Not ready to sync');
+      return emptyResult;
     }
 
     setSyncState(prev => ({ ...prev, status: 'syncing' }));
@@ -329,90 +228,10 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
     lastSyncTimeRef.current = Date.now();
 
     try {
-      const mappings = await googleCalendarService.getEventMappings();
-      const mappingByGCalId = new Map(mappings.map((m) => [m.gcal_event_id, m]));
-      const seenEventIds = new Set<string>();
-
-      for (const project of projectsWithCalendarSync) {
-        const calendarId = project.gcal_calendar_id!;
-        const accountId = project.gcal_account_id;
-
-        const eventsResult = accountId
-          ? await googleCalendarService.getEventsForAccount(accountId, { calendarIds: [calendarId] })
-          : await googleCalendarService.getEvents({ calendarIds: [calendarId] });
-
-        if (eventsResult.error) {
-          result.errors.push(`Error syncing calendar for project "${project.name}": ${eventsResult.error}`);
-          continue;
-        }
-
-        for (const event of eventsResult.events) {
-          if (seenEventIds.has(event.id)) continue;
-          seenEventIds.add(event.id);
-
-          const existingMapping = mappingByGCalId.get(event.id);
-          const existingNote = await getNoteByGCalEventId(event.id);
-
-          try {
-            if (existingMapping) {
-              if (existingMapping.etag !== event.etag) {
-                await updateNoteFromEvent(existingMapping.local_note_id, event, project.id);
-                await googleCalendarService.saveEventMapping({
-                  ...existingMapping,
-                  etag: event.etag,
-                  event_status: event.status,
-                  last_synced_at: new Date().toISOString(),
-                });
-                result.eventsUpdated++;
-              }
-            } else if (existingNote) {
-              await updateNoteFromEvent(existingNote.id, event, project.id);
-              await googleCalendarService.saveEventMapping({
-                user_id: user.id,
-                gcal_event_id: event.id,
-                gcal_calendar_id: calendarId,
-                local_note_id: existingNote.id,
-                etag: event.etag,
-                event_status: event.status,
-                last_synced_at: new Date().toISOString(),
-              });
-              result.eventsUpdated++;
-            } else {
-              const noteId = await createNoteFromEvent(user.id, event, project.id);
-              await googleCalendarService.saveEventMapping({
-                user_id: user.id,
-                gcal_event_id: event.id,
-                gcal_calendar_id: calendarId,
-                local_note_id: noteId,
-                etag: event.etag,
-                event_status: event.status,
-                last_synced_at: new Date().toISOString(),
-              });
-              result.eventsImported++;
-            }
-          } catch (_err) {
-            result.errors.push(`Failed to process event: ${event.summary}`);
-          }
-        }
-      }
-
-      // Handle deleted events
-      for (const mapping of mappings) {
-        if (!seenEventIds.has(mapping.gcal_event_id)) {
-          try {
-            await markNoteAsDeleted(mapping.local_note_id);
-            await googleCalendarService.deleteEventMapping(mapping.gcal_event_id);
-            result.eventsDeleted++;
-          } catch (err) {
-            console.error(`Error deleting mapping:`, err);
-          }
-        }
-      }
-
-      await googleCalendarService.updateLastSyncTime();
-      result.success = true;
+      const result = await googleCalendarService.triggerSync();
       setSyncState({ status: 'success', lastResult: result });
 
+      // Refresh config to get updated last_sync_at
       const newConfig = await googleCalendarService.getConfig();
       setConfig(newConfig);
 
@@ -423,13 +242,16 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
           deleted: result.eventsDeleted,
         }));
       }
-    } catch (err) {
-      result.errors.push(err instanceof Error ? err.message : 'Unknown error');
-      setSyncState(prev => ({ ...prev, status: 'error' }));
-    }
 
-    setTimeout(() => setSyncState(prev => ({ ...prev, status: 'idle' })), 3000);
-    return result;
+      return result;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+      emptyResult.errors.push(errorMsg);
+      setSyncState(prev => ({ ...prev, status: 'error' }));
+      return emptyResult;
+    } finally {
+      setTimeout(() => setSyncState(prev => ({ ...prev, status: 'idle' })), 3000);
+    }
   }, [user, isConnected, config, t]);
 
   // Auto-sync interval

@@ -43,6 +43,8 @@ import { rateLimitKeyExtractor, apiLimiter } from './middleware/rateLimit.js';
 
 // Import shared helpers
 import { decodeHtmlEntities, parseJsonResponse, extractEmail } from './lib/server-helpers.js';
+import { syncUserCalendar } from './lib/gcal-sync.js';
+import { startGCalSyncScheduler } from './lib/gcal-scheduler.js';
 
 // Environment variables
 const PORT = process.env.PORT || 3000;
@@ -1271,6 +1273,27 @@ app.post('/api/gcal-delete-event', async (c) => {
     return c.json({ success: true }, 200);
   } catch (error) {
     console.error('Error in gcal-delete-event:', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
+/**
+ * Google Calendar Sync endpoint
+ * POST /api/gcal-sync
+ * Triggers a full calendar sync for the authenticated user.
+ * This replaces the frontend-side sync logic.
+ */
+app.post('/api/gcal-sync', async (c) => {
+  try {
+    const user = await verifyUser(c.req.header('Authorization'), supabaseAdmin);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const result = await syncUserCalendar(supabaseAdmin, user.id);
+    return c.json(result, 200);
+  } catch (error) {
+    console.error('Error in gcal-sync:', error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 });
@@ -2740,7 +2763,11 @@ serve(
     console.log(`🔗 Supabase URL: ${supabaseUrl}`);
     console.log('\nEndpoints:');
     console.log(`  GET  /api/health - Health check`);
+    console.log(`  POST /api/gcal-sync - Google Calendar sync`);
     console.log('\nServer is ready to accept connections.\n');
+
+    // Start background Google Calendar sync scheduler
+    startGCalSyncScheduler(supabaseAdmin);
   }
 );
 
