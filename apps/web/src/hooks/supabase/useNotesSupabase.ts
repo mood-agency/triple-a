@@ -26,6 +26,11 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   // Track the projectId that the current notes belong to
   const [notesProjectId, setNotesProjectId] = useState<string | null | undefined>(projectId);
 
+  // Cache recently created notes' sort_orders for correct ordering during rapid creation
+  // When notes are created faster than Supabase realtime can deliver, the `notes` array
+  // is stale and sort_order calculations use wrong values. This ref bridges the gap.
+  const recentlyCreatedRef = useRef<Map<string, { sort_order: number }>>(new Map());
+
   // If projectId changed, notes are stale - treat as loading
   const notesAreStale = projectId !== notesProjectId;
   const effectiveLoading = loading || notesAreStale;
@@ -90,6 +95,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       completed: row.completed,
       completed_at: row.completed_at || null,
       deadline: row.deadline || null,
+      is_all_day: row.is_all_day || false,
       pinned: row.pinned,
       sort_order: row.sort_order ?? 0,
       created_at: row.created_at,
@@ -109,6 +115,14 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     setNotes(notesList);
     setNotesProjectId(requestProjectId);
     setLoading(false);
+
+    // Clean up recently created cache — entries that now exist in fetched notes
+    const fetchedIds = new Set(notesList.map(n => n.id));
+    for (const id of recentlyCreatedRef.current.keys()) {
+      if (fetchedIds.has(id)) {
+        recentlyCreatedRef.current.delete(id);
+      }
+    }
   }, [user, date, projectId]);
 
   // Clear notes and refetch when projectId changes
@@ -265,6 +279,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         completed: row.completed,
         completed_at: row.completed_at,
         deadline: row.deadline,
+        is_all_day: row.is_all_day || false,
         pinned: row.pinned,
         sort_order: row.sort_order ?? 0,
         created_at: row.created_at,
@@ -297,8 +312,11 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     ): Promise<Note> => {
       if (!user || !supabase) throw new Error('Not authenticated');
 
+      // Look up the after note in props, falling back to recently-created cache
+      // During rapid creation, the note may not have appeared in the `notes` array yet
       const afterNote = notes.find((n) => n.id === afterNoteId);
-      const afterSortOrder = afterNote?.sort_order || 0;
+      const afterFromCache = !afterNote ? recentlyCreatedRef.current.get(afterNoteId) : null;
+      const afterSortOrder = afterNote?.sort_order ?? afterFromCache?.sort_order ?? 0;
 
       // Find next note's sort order
       const sortedNotes = [...notes].sort((a, b) => a.sort_order - b.sort_order);
@@ -309,6 +327,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         const nextSortOrder = sortedNotes[afterIndex + 1].sort_order;
         newSortOrder = (afterSortOrder + nextSortOrder) / 2;
       } else {
+        // Note not in the array (or is the last one) — place after it
         newSortOrder = afterSortOrder + 1;
       }
 
@@ -361,6 +380,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         completed: row.completed,
         completed_at: row.completed_at,
         deadline: row.deadline,
+        is_all_day: row.is_all_day || false,
         pinned: row.pinned,
         sort_order: row.sort_order ?? 0,
         created_at: row.created_at,
@@ -373,6 +393,9 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         is_public: row.is_public || false,
         public_slug: row.public_slug || null,
       };
+
+      // Cache sort_order so subsequent rapid creations can find this note
+      recentlyCreatedRef.current.set(note.id, { sort_order: newSortOrder });
 
       return note;
     },
@@ -572,13 +595,16 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   /**
    * Update deadline
    */
-  const updateDeadline = useCallback(async (id: string, deadline: string | null): Promise<void> => {
+  const updateDeadline = useCallback(async (id: string, deadline: string | null, isAllDay?: boolean): Promise<void> => {
     if (!supabase) return;
 
-    // Optimistic update
-    setNotes(prev => prev.map(n => n.id === id ? { ...n, deadline } : n));
+    const updates: Record<string, unknown> = { deadline };
+    if (isAllDay !== undefined) updates.is_all_day = isAllDay;
 
-    const { error } = await supabase.from('notes').update({ deadline }).eq('id', id);
+    // Optimistic update
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, deadline, ...(isAllDay !== undefined && { is_all_day: isAllDay }) } : n));
+
+    const { error } = await supabase.from('notes').update(updates).eq('id', id);
 
     if (error) console.error('[useNotesSupabase] Update deadline error:', error);
   }, []);

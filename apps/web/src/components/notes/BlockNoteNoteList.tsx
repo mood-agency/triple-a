@@ -139,8 +139,8 @@ export const BlockNoteNoteList = ({
   });
 
   // Cache for newly created notes that haven't appeared in props yet
-  // Maps blockId -> { category, deadline } for notes created via Enter key
-  const newlyCreatedNotesRef = useRef<Map<string, { category: NoteCategory; deadline: string | null }>>(new Map());
+  // Maps blockId -> { category, deadline, sortOrder } for notes created via Enter key
+  const newlyCreatedNotesRef = useRef<Map<string, { category: NoteCategory; deadline: string | null; sortOrder: number }>>(new Map());
 
   // Track previous note IDs to detect actual filtering changes
   const previousNoteIdsRef = useRef<string>('');
@@ -360,7 +360,10 @@ export const BlockNoteNoteList = ({
       if (!itemId || isDeletingRef.current) return null;
 
       const note = notes.find(n => n.id === itemId);
-      if (!note) return null;
+      // Fallback to cache for notes created via Enter that haven't appeared in props yet
+      const cachedNote = !note ? newlyCreatedNotesRef.current.get(itemId) : null;
+
+      if (!note && !cachedNote) return null;
 
       // Get content from editor (try BlockNote data first, fall back to DOM)
       const block = editor.getBlock(itemId);
@@ -379,8 +382,8 @@ export const BlockNoteNoteList = ({
 
       return {
         content,
-        category: note.category,
-        description: note.description,
+        category: note?.category ?? cachedNote?.category ?? 'todo',
+        description: note?.description ?? null,
       };
     },
 
@@ -1108,7 +1111,10 @@ export const BlockNoteNoteList = ({
   // This function handles editor updates locally and calls callbacks for data changes
   const processNoteBlock = useCallback(async (noteId: string) => {
     const note = notes.find(n => n.id === noteId);
-    if (!note) return null;
+    // Fallback to cache for notes created via Enter that haven't appeared in props yet
+    const cachedNote = !note ? newlyCreatedNotesRef.current.get(noteId) : null;
+
+    if (!note && !cachedNote) return null;
 
     const block = editor.getBlock(noteId);
     if (!block) return null;
@@ -1134,10 +1140,13 @@ export const BlockNoteNoteList = ({
     }
 
     // 2. Determine final category
-    const finalCategory = parsed.category || note.category;
+    const noteCategory = note?.category ?? cachedNote?.category ?? 'todo';
+    const finalCategory = parsed.category || noteCategory;
 
     // 3. Save note if content or category changed (via callback)
-    if (parsed.cleanedContent !== note.content || finalCategory !== note.category) {
+    // For cached notes (not yet in props), always save since DB has content: ''
+    const noteContent = note?.content ?? '';
+    if (parsed.cleanedContent !== noteContent || finalCategory !== noteCategory) {
       // Set flag to prevent order-change sync from replacing the document
       isSavingInternallyRef.current = true;
       setTimeout(() => {
@@ -1145,18 +1154,18 @@ export const BlockNoteNoteList = ({
       }, 500);
 
       if (onEdit) {
-        onEdit(note.id, parsed.cleanedContent, finalCategory, note.description);
+        onEdit(noteId, parsed.cleanedContent, finalCategory as NoteCategory, note?.description ?? null);
       }
     }
 
     // 4. Handle labels - call callbacks for persistence
-    const inheritedLabels = noteLabelsCache.get(note.id) ?? [];
+    const inheritedLabels = noteLabelsCache.get(noteId) ?? [];
     const labelIds = inheritedLabels.map(l => l.id);
 
     // Create new labels via callback
     if (parsed.newLabelNames.length > 0 && onCreateLabelAndAdd) {
       for (const labelName of parsed.newLabelNames) {
-        await onCreateLabelAndAdd(note.id, labelName);
+        await onCreateLabelAndAdd(noteId, labelName);
       }
     }
 
@@ -1164,14 +1173,14 @@ export const BlockNoteNoteList = ({
     for (const hashtag of parsed.parsedHashtags) {
       if (hashtag.type === 'label' && hashtag.matchedId) {
         if (onAddLabel) {
-          await onAddLabel(note.id, hashtag.matchedId);
+          await onAddLabel(noteId, hashtag.matchedId);
         }
         if (!labelIds.includes(hashtag.matchedId)) {
           labelIds.push(hashtag.matchedId);
         }
       } else if (hashtag.type === 'contact' && hashtag.matchedId) {
         if (onAddAssignee) {
-          onAddAssignee(note.id, hashtag.matchedId);
+          onAddAssignee(noteId, hashtag.matchedId);
         }
       }
     }
@@ -1260,17 +1269,20 @@ export const BlockNoteNoteList = ({
     const deadline = afterNote?.deadline || afterNoteFromCache?.deadline || null;
 
     // Add the new note to our cache so we can save its content later
+    // sortOrder starts at 0 and is updated after the Supabase insert returns
     newlyCreatedNotesRef.current.set(event.payload.newNoteId!, {
       category,
       deadline,
+      sortOrder: 0,
     });
 
     let labelIds: string[] = [];
     let assigneeId: string | null = null;
 
-    if (afterNote) {
-      // Process the block the user just finished (parse hashtags, etc.)
-      const result = await processNoteBlock(afterNote.id);
+    // Process the block the user just finished (parse hashtags, etc.)
+    // Check both props and cache — note may not be in props yet during rapid creation
+    if (afterNote || afterNoteFromCache) {
+      const result = await processNoteBlock(event.payload.afterNoteId);
       if (result) {
         labelIds = result.labelIds;
         assigneeId = result.parsedAssigneeId;
@@ -1279,7 +1291,7 @@ export const BlockNoteNoteList = ({
 
     // Call callback for persistence
     if (onCreateNoteAfter) {
-      await onCreateNoteAfter(
+      const newNote = await onCreateNoteAfter(
         event.payload.afterNoteId,
         category,
         deadline,
@@ -1287,6 +1299,11 @@ export const BlockNoteNoteList = ({
         assigneeId,
         event.payload.newNoteId
       );
+      // Update cache with actual sort_order for correct ordering of subsequent notes
+      const cached = newlyCreatedNotesRef.current.get(event.payload.newNoteId!);
+      if (cached && newNote) {
+        cached.sortOrder = newNote.sort_order;
+      }
     }
   });
 

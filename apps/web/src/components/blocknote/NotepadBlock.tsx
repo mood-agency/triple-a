@@ -30,6 +30,7 @@ export const NotepadBlock = (createReactBlockSpec as any)(
             isChecked: { default: false },
             category: { default: "todo" },
             date: { default: null as string | null },
+            isAllDay: { default: false },
             labels: { default: [] as Array<{ name: string; color: string }> },
             assignees: { default: [] as Array<{ initials: string; fullName: string }> },
             pinned: { default: false },
@@ -254,8 +255,8 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                 targetDate.setHours(0, 0, 0, 0);
                 const daysDiff = Math.round((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-                // Check if it's not an all-day task (not midnight)
-                const isAllDay = date.getHours() === 0 && date.getMinutes() === 0;
+                // Check if it's an all-day task using the explicit field
+                const isAllDay = props.block.props.isAllDay as boolean;
 
                 if (Math.abs(daysDiff) <= 7 && !isAllDay) {
                     const timeStr = date.toLocaleTimeString(i18n.language, {

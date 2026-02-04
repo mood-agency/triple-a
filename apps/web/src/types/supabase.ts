@@ -422,6 +422,7 @@ export type Database = {
                     description: string | null
                     gcal_event_id: string | null
                     id: string
+                    is_all_day: boolean
                     is_public: boolean
                     pinned: boolean
                     project_id: string | null
@@ -443,6 +444,7 @@ export type Database = {
                     description?: string | null
                     gcal_event_id?: string | null
                     id?: string
+                    is_all_day?: boolean
                     is_public?: boolean
                     pinned?: boolean
                     project_id?: string | null
@@ -464,6 +466,7 @@ export type Database = {
                     description?: string | null
                     gcal_event_id?: string | null
                     id?: string
+                    is_all_day?: boolean
                     is_public?: boolean
                     pinned?: boolean
                     project_id?: string | null

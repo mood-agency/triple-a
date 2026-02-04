@@ -287,7 +287,8 @@ function NoteRow(props: NoteRowProps) {
                   inYears: t('date.inYears'),
                   yearsAgo: t('date.yearsAgo'),
                 },
-                true
+                true,
+                note.is_all_day
               )}
             </span>
           )}

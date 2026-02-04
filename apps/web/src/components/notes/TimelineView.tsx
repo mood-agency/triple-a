@@ -4,7 +4,7 @@ import { Plus } from 'lucide-react';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { MemoizedNoteRow } from './NoteRow';
-import { hasTimeComponent, getHourFromDeadline } from '@/utils/dateUtils';
+import { getHourFromDeadline } from '@/utils/dateUtils';
 import { sortNotesByCategory } from '@/utils/noteUtils';
 import { useNoteRowProps } from '@/hooks/useNoteRowProps';
 import { useRegisterNavigationRegion, type RegionHandler } from './navigation';
@@ -184,7 +184,7 @@ export function TimelineView({
     const timed: Note[] = [];
 
     for (const note of currentNotes) {
-      if (note.deadline && hasTimeComponent(note.deadline)) {
+      if (note.deadline && !note.is_all_day) {
         timed.push(note);
       } else {
         allDay.push(note);

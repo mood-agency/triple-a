@@ -1545,7 +1545,7 @@ app.get('/api/v1/notes/:id', async (c) => {
  */
 app.post('/api/v1/notes', async (c) => {
   try {
-    const { content, description, category, date, deadline, project_id, assignee_ids, labels } =
+    const { content, description, category, date, deadline, is_all_day, project_id, assignee_ids, labels } =
       await c.req.json();
 
     if (!content || !category || !date) {
@@ -1579,6 +1579,7 @@ app.post('/api/v1/notes', async (c) => {
         category,
         completed: false,
         deadline: deadline || null,
+        is_all_day: is_all_day || false,
         pinned: false,
         sort_order: sortOrder,
         project_id: project_id || null,
@@ -1631,7 +1632,7 @@ app.post('/api/v1/notes', async (c) => {
 app.put('/api/v1/notes/:id', async (c) => {
   try {
     const id = c.req.param('id');
-    const { content, description, category, date, deadline, completed, pinned, project_id, assignee_ids, labels } =
+    const { content, description, category, date, deadline, is_all_day, completed, pinned, project_id, assignee_ids, labels } =
       await c.req.json();
 
     const userId = c.get('user').id;
@@ -1658,6 +1659,7 @@ app.put('/api/v1/notes/:id', async (c) => {
         category,
         date,
         deadline: deadline !== undefined ? deadline : null,
+        is_all_day: is_all_day !== undefined ? is_all_day : false,
         completed: completed !== undefined ? completed : false,
         pinned: pinned !== undefined ? pinned : false,
         project_id: project_id !== undefined ? project_id : null,

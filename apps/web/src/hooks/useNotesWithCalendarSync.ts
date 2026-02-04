@@ -113,9 +113,10 @@ export function useNotesWithCalendarSync(options: UseNotesWithCalendarSyncOption
    */
   const updateDeadlineWithSync = useCallback((
     id: string,
-    deadline: string | null
+    deadline: string | null,
+    isAllDay?: boolean
   ): void => {
-    updateDeadline(id, deadline);
+    updateDeadline(id, deadline, isAllDay);
 
     const note = notesRef.current.find(n => n.id === id);
     if (note?.category === 'meeting' && isSyncEnabledRef.current) {

@@ -353,7 +353,8 @@ export function formatRelativeDateEnhanced(
   date: Date,
   language: string,
   translations: RelativeDateTranslations,
-  includeTime: boolean = false
+  includeTime: boolean = false,
+  isAllDay: boolean = false
 ): string {
   const relativeStr = formatRelativeDate(date, language, translations);
 
@@ -368,11 +369,10 @@ export function formatRelativeDateEnhanced(
 
   // Don't show time if:
   // 1. It's too far away (more than 6 days)
-  // 2. It's exactly midnight (00:00) which often means no time was set/all-day
+  // 2. It's an all-day task
   const isTooDistant = Math.abs(daysDiff) > 6;
-  const isMidnight = date.getHours() === 0 && date.getMinutes() === 0;
 
-  if (isTooDistant || isMidnight) {
+  if (isTooDistant || isAllDay) {
     return relativeStr;
   }
 
