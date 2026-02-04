@@ -98,6 +98,7 @@ interface BlockNoteEditorProps {
   onBlur?: () => void
   onFocus?: () => void
   onKeyDown?: (e: React.KeyboardEvent<HTMLDivElement>) => void
+  onNavigateUp?: () => void
   placeholder?: string
   className?: string
   noteId?: string
@@ -115,7 +116,7 @@ export interface BlockNoteEditorHandle {
 
 export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditorProps>(
   function BlockNoteEditor(
-    { value, onChange, onBlur, onFocus, onKeyDown, placeholder, className = '', noteId },
+    { value, onChange, onBlur, onFocus, onKeyDown, onNavigateUp, placeholder, className = '', noteId },
     ref
   ) {
     const isInitializedRef = useRef(false)
@@ -389,7 +390,7 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
     // Handle keyboard events
     const handleKeyDown = useCallback(
       (event: React.KeyboardEvent<HTMLDivElement>) => {
-        // Prevent browser's bookmark (Ctrl+D), print (Ctrl+P), save (Ctrl+S), 
+        // Prevent browser's bookmark (Ctrl+D), print (Ctrl+P), save (Ctrl+S),
         // or other defaults that conflict with our task shortcuts
         if ((event.ctrlKey || event.metaKey) &&
           (event.key.toLowerCase() === 'd' ||
@@ -397,6 +398,21 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
             event.key.toLowerCase() === 's' ||
             event.key === 'Backspace')) {
           event.preventDefault();
+        }
+
+        // ArrowUp at the top boundary → navigate to title
+        if (event.key === 'ArrowUp' && onNavigateUp && editor) {
+          const tiptapEditor = (editor as unknown as { _tiptapEditor?: { state: { selection: { from: number } } } })._tiptapEditor
+          if (tiptapEditor) {
+            const beforePos = tiptapEditor.state.selection.from
+            // Let the browser handle the arrow key, then check if cursor moved
+            requestAnimationFrame(() => {
+              const afterPos = tiptapEditor.state.selection.from
+              if (beforePos === afterPos) {
+                onNavigateUp()
+              }
+            })
+          }
         }
 
         if (onKeyDown) {
@@ -407,7 +423,7 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
           }
         }
       },
-      [onKeyDown]
+      [onKeyDown, onNavigateUp, editor]
     )
 
     // Handle focus/blur
