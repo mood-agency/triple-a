@@ -362,11 +362,6 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
   const setShowSidebar = (value: boolean) => updateSettings({ showSidebar: value });
   const [sidebarClosing, setSidebarClosing] = useState(false);
 
-  const closeSidebar = useCallback(() => {
-    setSidebarClosing(true);
-    setShowSidebar(false);
-  }, [setShowSidebar]);
-
   const compactTaskView = settings.compactTaskView;
   const setCompactTaskView = (value: boolean) => updateSettings({ compactTaskView: value });
 
@@ -383,13 +378,26 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
   // Use closingNote during animation, otherwise use fixedNote
   const displayedNote = sidebarClosing ? closingNote : fixedNote;
 
+  // Ensure sidebar is visible when a note is pinned (handles state desync on page refresh)
+  // Multiple useSettings() instances across the app sync independently with Supabase,
+  // which can cause showSidebar to be overwritten to false while fixedNoteId remains set.
+  useEffect(() => {
+    if (fixedNoteId && fixedNote && !showSidebar && !sidebarClosing) {
+      setShowSidebar(true);
+    }
+  }, [fixedNoteId, fixedNote, showSidebar, sidebarClosing]);
+
+  const closeSidebar = useCallback(() => {
+    setSidebarClosing(true);
+    setShowSidebar(false);
+    setFixedNoteId(null);
+  }, [setShowSidebar, setFixedNoteId]);
+
   const handleToggleFixInSidebarById = useCallback((noteId: string) => {
     if (fixedNoteId === noteId) {
       // Save the current note for display during closing animation
       const noteToClose = notes.find(n => n.id === noteId) ?? null;
       setClosingNote(noteToClose);
-      // Clear fixedNoteId immediately so the button unhighlights right away
-      setFixedNoteId(null);
       closeSidebar();
     } else {
       setClosingNote(null);
@@ -753,6 +761,17 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
   useHotkeys('alt+p', () => { setAssigneeFilterPopoverOpen(true); }, hotkeyOptions);
 
 
+  // Wrapper for onEdit passed to NoteEditorPanel (main editor panel)
+  // When the title is edited from the editor panel, also update selection.titleValue
+  // so the task list stays in sync and EditableTitle doesn't revert to the old value
+  const handleEditorOnEdit = useCallback((id: string, content: string, category?: NoteCategory, description?: string | null) => {
+    onEdit(id, content, category, description);
+    const note = notesRef.current.find(n => n.id === id);
+    if (note && content !== note.content) {
+      selection.setTitleValue(content);
+    }
+  }, [onEdit, selection]);
+
   // Editor Handlers wrapper
   // Note: The actual save is now handled by the navigation mediator via event bus
   // NoteEditorPanel emits 'navigation:saveCurrentItem' on blur, which triggers the mediator's onSaveItem callback
@@ -866,7 +885,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
           labelFilter={filters.labelFilter}
           setLabelFilter={filters.setLabelFilter}
           sortConfig={filters.sortConfig}
-          onSortConfigChange={onSortConfigChange}
+          onSortConfigChange={onSortConfigChange ?? (() => {})}
           sortByDeadline={filters.sortByDeadline}
           setSortByDeadline={filters.setSortByDeadline}
           showOverdueOnly={filters.showOverdueOnly}
@@ -963,6 +982,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
             onClearOverdue={handleClearOverdue}
             onClearAllFilters={handleClearAllFilters}
             autoSaveInterval={settings.autoSaveInterval}
+            selectedNoteTitleValue={selection.titleValue}
           />
 
           <AnimatePresence>
@@ -993,6 +1013,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
                   allLabels={labels}
                   descriptionValue={selection.descriptionValue}
                   titleValue={selection.titleValue}
+                  onTitleChange={selection.setTitleValue}
                   showPostponeHistory={showPostponeHistory}
                   showVersionHistory={showVersionHistory}
                   versions={versions}
@@ -1003,7 +1024,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
                   assigneePickerOpen={assigneePickerOpen}
                   editingHistoryEntry={editingHistoryEntry}
                   contacts={contacts}
-                  onEdit={onEdit}
+                  onEdit={handleEditorOnEdit}
                   onDescriptionChange={selection.setDescriptionValue}
                   onDescriptionBlur={handleDescriptionBlur}
                   onDescriptionFocus={handleDescriptionFocus}
@@ -1066,7 +1087,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
                 }}
                 className="ml-auto -my-4 -mr-4 w-[calc(35%+2rem)]"
               >
-                <div className="w-[calc(35vw+2rem)] min-w-[400px] h-full flex flex-col rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30 overflow-y-auto p-4 py-4 pr-8">
+                <div className="w-full min-w-[400px] h-full flex flex-col rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30 overflow-y-auto p-4 py-4 pr-8">
                   <NoteEditorPanel
                     ref={fixedNoteDescriptionRef}
                     note={displayedNote}

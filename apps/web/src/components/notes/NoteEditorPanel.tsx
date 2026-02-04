@@ -1,7 +1,7 @@
 import { forwardRef, memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, Tag, User, Trash2, History, RotateCcw, Sparkles, Pin, PanelRightOpen, Search, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -36,6 +36,7 @@ interface NoteEditorPanelProps {
   allLabels: Label[];
   descriptionValue: string;
   titleValue?: string;
+  onTitleChange?: (value: string) => void;
   showPostponeHistory: boolean;
   showVersionHistory: boolean;
   versions: NoteVersion[];
@@ -111,6 +112,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   allLabels,
   descriptionValue,
   titleValue,
+  onTitleChange,
   showPostponeHistory,
   showVersionHistory,
   versions,
@@ -387,7 +389,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   }, { preventDefault: true, enableOnFormTags: true }, [note.category, handleCheckedChange]);
 
   const handleTitleEdit = (id: string, content: string) => {
-    onEdit(id, content, note.category, note.description);
+    onEdit(id, content, note.category, descriptionValue || null);
   };
 
   // Wrapped focus handler - emits navigation event when editor receives focus
@@ -552,6 +554,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             onEdit={handleTitleEdit}
             onToggleComplete={onToggleComplete}
             titleValue={titleValue}
+            onTitleChange={onTitleChange}
             autoSaveInterval={autoSaveInterval}
             showCheckbox={note.category === 'todo' || note.category === 'followup'}
             isCompletingExternal={isCompleting}
@@ -576,19 +579,19 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
               <CommandList>
                 <CommandEmpty>{t('noCategoriesFound')}</CommandEmpty>
                 <CommandGroup>
-                  <CommandItem value="todo" onSelect={() => { onEdit(note.id, note.content, 'todo', note.description); onCategoryDropdownOpenChange(false); }} className="flex items-center justify-between">
+                  <CommandItem value="todo" onSelect={() => { onEdit(note.id, note.content, 'todo', descriptionValue || null); onCategoryDropdownOpenChange(false); }} className="flex items-center justify-between">
                     <div className="flex items-center"><Pickaxe className="h-4 w-4 mr-2" />{t('categoryTodo')}</div>
                     {note.category === 'todo' && <Check className="h-4 w-4" />}
                   </CommandItem>
-                  <CommandItem value="followup" onSelect={() => { onEdit(note.id, note.content, 'followup', note.description); onCategoryDropdownOpenChange(false); }} className="flex items-center justify-between">
+                  <CommandItem value="followup" onSelect={() => { onEdit(note.id, note.content, 'followup', descriptionValue || null); onCategoryDropdownOpenChange(false); }} className="flex items-center justify-between">
                     <div className="flex items-center"><Forward className="h-4 w-4 mr-2" />{t('categoryFollowUp')}</div>
                     {note.category === 'followup' && <Check className="h-4 w-4" />}
                   </CommandItem>
-                  <CommandItem value="notes" onSelect={() => { onEdit(note.id, note.content, 'notes', note.description); onCategoryDropdownOpenChange(false); }} className="flex items-center justify-between">
+                  <CommandItem value="notes" onSelect={() => { onEdit(note.id, note.content, 'notes', descriptionValue || null); onCategoryDropdownOpenChange(false); }} className="flex items-center justify-between">
                     <div className="flex items-center"><StickyNote className="h-4 w-4 mr-2" />{t('categoryNotes')}</div>
                     {note.category === 'notes' && <Check className="h-4 w-4" />}
                   </CommandItem>
-                  <CommandItem value="meeting" onSelect={() => { onEdit(note.id, note.content, 'meeting', note.description); onCategoryDropdownOpenChange(false); }} className="flex items-center justify-between">
+                  <CommandItem value="meeting" onSelect={() => { onEdit(note.id, note.content, 'meeting', descriptionValue || null); onCategoryDropdownOpenChange(false); }} className="flex items-center justify-between">
                     <div className="flex items-center"><Users className="h-4 w-4 mr-2" />{t('categoryMeeting')}</div>
                     {note.category === 'meeting' && <Check className="h-4 w-4" />}
                   </CommandItem>

@@ -15,6 +15,7 @@ interface EditableTitleProps {
   onToggleComplete: (id: string) => void;
   onDelete?: () => void;
   titleValue?: string;
+  onTitleChange?: (value: string) => void; // fires on every keystroke for real-time sync
   autoSaveInterval?: number; // in seconds, 0 = disabled
   showCheckbox?: boolean;
   isCompletingExternal?: boolean; // Optional external control for completion animation
@@ -28,6 +29,7 @@ export function EditableTitle({
   onToggleComplete,
   onDelete,
   titleValue,
+  onTitleChange,
   autoSaveInterval = 3,
   showCheckbox = true,
   isCompletingExternal = false,
@@ -204,7 +206,10 @@ export function EditableTitle({
             ref={inputRef}
             type="text"
             value={editedTitle}
-            onChange={(e) => setEditedTitle(e.target.value)}
+            onChange={(e) => {
+              setEditedTitle(e.target.value);
+              onTitleChange?.(e.target.value);
+            }}
             onBlur={() => {
               // Ignore blur if it was caused by Alt+key combination
               if (ignoreBlurRef.current) return;

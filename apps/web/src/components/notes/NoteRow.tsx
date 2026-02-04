@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { Calendar, StickyNote, Users, Pickaxe, Forward } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -57,6 +57,7 @@ export interface NoteRowProps {
   hideDeadline?: boolean;
   assignees?: Contact[];
   autoSaveInterval?: number; // in seconds, 0 = disabled
+  editorTitleValue?: string; // live title from editor panel for real-time sync
 }
 
 function NoteRow(props: NoteRowProps) {

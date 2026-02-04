@@ -39,6 +39,7 @@ interface UseNoteRowProps {
     isCommandPaletteOpen?: boolean;
     onContentChange?: (content: string) => void;
     autoSaveInterval?: number; // in seconds, 0 = disabled
+    editorTitleValue?: string; // live title from editor panel for real-time sync
 }
 
 export function useNoteRow({
@@ -63,6 +64,7 @@ export function useNoteRow({
     onCreateLabelAndAdd,
     isCommandPaletteOpen,
     autoSaveInterval = 3,
+    editorTitleValue,
 }: UseNoteRowProps) {
     const { t } = useTranslation();
     // Start in editing mode for newly created empty notes to avoid a
@@ -102,11 +104,12 @@ export function useNoteRow({
     });
 
     // Sync content value when note changes (but not while editing)
+    // If editorTitleValue is provided (from the editor panel), prefer it for real-time sync
     useEffect(() => {
         if (!isEditingContent) {
-            setContentValue(note.content);
+            setContentValue(editorTitleValue !== undefined ? editorTitleValue : note.content);
         }
-    }, [note.content, isEditingContent]);
+    }, [note.content, isEditingContent, editorTitleValue]);
 
     // Auto-focus empty notes when selected (newly created notes)
     useEffect(() => {
