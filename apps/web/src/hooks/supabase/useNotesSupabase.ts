@@ -116,6 +116,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     // Merge: keep locally-created notes whose inserts haven't been confirmed yet.
     // Once the insert completes the ID is removed from pendingNoteIdsRef and the
     // next fetchNotes will naturally include it from the DB.
+    let mergedNotes = notesList;
     const pendingIds = pendingNoteIdsRef.current;
     if (pendingIds.size > 0) {
       const dbIds = new Set(notesList.map(n => n.id));
@@ -123,12 +124,12 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         n => pendingIds.has(n.id) && !dbIds.has(n.id)
       );
       if (stillPending.length > 0) {
-        notesList = [...notesList, ...stillPending];
+        mergedNotes = [...notesList, ...stillPending];
       }
     }
 
-    latestNotesRef.current = notesList;
-    setNotes(notesList);
+    latestNotesRef.current = mergedNotes;
+    setNotes(mergedNotes);
     setNotesProjectId(requestProjectId);
     setLoading(false);
   }, [user, date, projectId]);
