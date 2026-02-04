@@ -253,7 +253,13 @@ body {
   --bn-colors-editor-text: white;
 }
 
+/* Ensure BlockNote/Radix tooltips appear above sidebar (z-10/z-20) */
+[data-radix-popper-content-wrapper] {
+  z-index: 50 !important;
+}
+
 /* Hide side menu by default, show on hover */
+
 .bn-side-menu {
   opacity: 0;
   transition: opacity 0.15s ease;

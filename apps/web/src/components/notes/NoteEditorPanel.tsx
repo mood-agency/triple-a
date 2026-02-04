@@ -604,11 +604,14 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
               </button>
             }
           />
-          {noteAssignees.length > 0 && (
-            <span className="chip-assignee">
-              {noteAssignees.map(a => `${a.name} ${a.lastname}`.trim()).join(' | ')}
+          {noteAssignees.map((assignee) => (
+            <span key={assignee.id} className="chip-assignee">
+              {`${assignee.name} ${assignee.lastname}`.trim()}
+              <button type="button" onClick={() => onRemoveAssignee(note.id, assignee.id)} className="chip-assignee-btn">
+                <X className="h-2.5 w-2.5" />
+              </button>
             </span>
-          )}
+          ))}
         </div>
       )}
 

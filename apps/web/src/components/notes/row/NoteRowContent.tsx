@@ -95,7 +95,7 @@ export function NoteRowContent({
     const { debugMode, debugTitleFocusClass } = useDebugNavigation();
 
     return (
-        <div className={`group/title relative select-none flex items-center gap-1.5 flex-1 min-w-0 ${!compactView ? 'pl-1.5' : ''} overflow-hidden`} onClick={onContentClick}>
+        <div className={`group/title relative select-none flex items-center gap-1.5 flex-1 min-w-0 ${!compactView ? 'pl-1.5' : ''} ${isCompleting ? 'overflow-visible' : 'overflow-hidden'}`} onClick={onContentClick}>
             {isEditingContent ? (
                 <>
                     <input
@@ -114,7 +114,7 @@ export function NoteRowContent({
                             e.target.scrollLeft = 0;
                         }}
 
-                        className={`flex-1 min-w-0 text-sm leading-4 bg-transparent border-none outline-none p-0 m-0 text-foreground caret-foreground placeholder:text-muted-foreground/50 cursor-text ${debugMode ? debugTitleFocusClass : ''}`}
+                        className={`flex-1 min-w-0 text-sm leading-4 bg-transparent border-none outline-none p-0 m-0 text-foreground caret-foreground placeholder:text-muted-foreground/50 cursor-text ${debugMode ? debugTitleFocusClass : ''} ${isCompleting ? 'completing-task' : ''}`}
                     />
 
                     {/* Label Dropdown */}
@@ -259,7 +259,7 @@ export function NoteRowContent({
                 </>
             ) : (
                 <span
-                    className={`flex-1 min-w-0 text-sm leading-4 truncate ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} hover:cursor-text ${note.completed && !isCompleting ? 'line-through text-muted-foreground' : ''} ${isSelected && isDescriptionFocused ? 'cursor-text underline decoration-primary decoration-2 underline-offset-2' : ''} ${!contentValue ? 'text-muted-foreground/50 italic' : ''} ${isPastDeadline && note.category === 'meeting' ? 'opacity-50' : ''} ${isCompleting ? 'completing-task' : ''}`}
+                    className={`flex-1 min-w-0 text-sm leading-4 ${isCompleting ? 'overflow-visible' : 'truncate'} ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} hover:cursor-text ${note.completed && !isCompleting ? 'line-through text-muted-foreground' : ''} ${isSelected && isDescriptionFocused ? 'cursor-text underline decoration-primary decoration-2 underline-offset-2' : ''} ${!contentValue ? 'text-muted-foreground/50 italic' : ''} ${isPastDeadline && note.category === 'meeting' ? 'opacity-50' : ''} ${isCompleting ? 'completing-task' : ''}`}
                     {...attributes}
                     {...listeners}
                 >
