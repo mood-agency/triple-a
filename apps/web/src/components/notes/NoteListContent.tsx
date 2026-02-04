@@ -311,6 +311,7 @@ export const NoteListContent = memo(function NoteListContent({
                                         onAddAssignee={onAddAssignee}
                                         selectedNoteId={selectedNote?.id}
                                         selectedNoteTitleValue={selectedNoteTitleValue}
+                                        onContentChange={handleContentChange}
                                     />
                                     {/* Show no results message after pinned notes when they don't match filters */}
                                     {shouldShowNoResultsWithPinnedVisible && (
