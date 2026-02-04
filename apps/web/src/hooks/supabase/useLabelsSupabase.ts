@@ -11,11 +11,14 @@ import type { Label } from '@/types/note';
  */
 export function useLabelsSupabase() {
   const { user } = useAuth();
+  const userId = user?.id;
   const { t } = useTranslation();
   const [labels, setLabels] = useState<Label[]>([]);
   const [loading, setLoading] = useState(true);
   const [noteLabelVersion, setNoteLabelVersion] = useState(0);
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null);
+  // Ref to always hold the latest fetchLabels — avoids re-subscribing realtime on fetch changes
+  const fetchLabelsRef = useRef<() => Promise<void>>(() => Promise.resolve());
   // Cache for note-label relationships
   const [noteLabelsMap, setNoteLabelsMap] = useState<Record<string, string[]>>({});
 
@@ -23,7 +26,7 @@ export function useLabelsSupabase() {
    * Fetch labels and note_labels from Supabase
    */
   const fetchLabels = useCallback(async () => {
-    if (!user || !supabase) {
+    if (!userId || !supabase) {
       setLoading(false);
       return;
     }
@@ -33,7 +36,7 @@ export function useLabelsSupabase() {
       supabase
         .from('labels')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .is('deleted_at', null)
         .order('name'),
       supabase
@@ -76,7 +79,10 @@ export function useLabelsSupabase() {
     setLabels(labelsList);
     setNoteLabelsMap(newNoteLabelsMap);
     setLoading(false);
-  }, [user]);
+  }, [userId]);
+
+  // Keep ref in sync so realtime handlers always call the latest version
+  fetchLabelsRef.current = fetchLabels;
 
   // Initial fetch
   useEffect(() => {
@@ -84,24 +90,25 @@ export function useLabelsSupabase() {
   }, [fetchLabels]);
 
   // Realtime subscription for labels and note_labels
+  // Uses fetchLabelsRef so subscription doesn't need to be torn down on fetch fn change
   useEffect(() => {
-    if (!user || !supabase) return;
+    if (!userId || !supabase) return;
 
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
     }
 
     const channel = supabase
-      .channel(`labels-${user.id}`)
+      .channel(`labels-${userId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'labels',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${userId}`,
         },
-        () => fetchLabels()
+        () => fetchLabelsRef.current()
       )
       .on(
         'postgres_changes',
@@ -110,7 +117,7 @@ export function useLabelsSupabase() {
           schema: 'public',
           table: 'note_labels',
         },
-        () => fetchLabels()
+        () => fetchLabelsRef.current()
       )
       .subscribe();
 
@@ -122,19 +129,19 @@ export function useLabelsSupabase() {
         channelRef.current = null;
       }
     };
-  }, [user, fetchLabels]);
+  }, [userId]);
 
   /**
    * Create a new label
    */
   const createLabel = useCallback(
     async (name: string, color: string = '#6b7280'): Promise<Label> => {
-      if (!user || !supabase) throw new Error('Not authenticated');
+      if (!userId || !supabase) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
         .from('labels')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           name,
           color,
         })
@@ -155,7 +162,7 @@ export function useLabelsSupabase() {
         sync_status: 'synced',
       };
     },
-    [user, t]
+    [userId, t]
   );
 
   /**
@@ -228,7 +235,7 @@ export function useLabelsSupabase() {
    */
   const addLabelToNote = useCallback(
     async (noteId: string, labelId: string): Promise<void> => {
-      if (!supabase || !user) throw new Error('Supabase not configured');
+      if (!supabase || !userId) throw new Error('Supabase not configured');
 
       // Check if already exists locally
       const existingIds = noteLabelsMap[noteId] || [];
@@ -237,7 +244,7 @@ export function useLabelsSupabase() {
       const { error } = await supabase.from('note_labels').insert({
         note_id: noteId,
         label_id: labelId,
-        user_id: user.id,
+        user_id: userId,
       });
 
       if (error) throw error;
@@ -251,7 +258,7 @@ export function useLabelsSupabase() {
       setNoteLabelVersion((v) => v + 1);
       toast.success(t('toast.labelAdded'));
     },
-    [t, noteLabelsMap, user]
+    [t, noteLabelsMap, userId]
   );
 
   /**
@@ -285,7 +292,7 @@ export function useLabelsSupabase() {
    * Set all labels for a note (replaces existing)
    */
   const setLabelsForNote = useCallback(async (noteId: string, labelIds: string[]): Promise<void> => {
-    if (!supabase || !user) throw new Error('Supabase not configured');
+    if (!supabase || !userId) throw new Error('Supabase not configured');
 
     // Remove all existing
     await supabase.from('note_labels').delete().eq('note_id', noteId);
@@ -295,7 +302,7 @@ export function useLabelsSupabase() {
       const inserts = labelIds.map((labelId) => ({
         note_id: noteId,
         label_id: labelId,
-        user_id: user.id,
+        user_id: userId,
       }));
       await supabase.from('note_labels').insert(inserts);
     }
@@ -307,7 +314,7 @@ export function useLabelsSupabase() {
     }));
 
     setNoteLabelVersion((v) => v + 1);
-  }, [user]);
+  }, [userId]);
 
   return {
     labels,

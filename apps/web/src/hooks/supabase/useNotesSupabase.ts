@@ -24,6 +24,7 @@ interface UseNotesSupabaseOptions {
 export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   const { date, versionThrottleSeconds = DEFAULT_VERSION_THROTTLE_SECONDS } = options;
   const { user } = useAuth();
+  const userId = user?.id;
   const { activeProjectId, loading: projectLoading } = useActiveProject();
 
   // Use a stable project ID — only use validated activeProjectId after projects load.
@@ -42,6 +43,9 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null);
   // Track the projectId we're currently fetching for to avoid race conditions
   const requestedProjectIdRef = useRef<string | null | undefined>(projectId);
+  // Ref to always hold the latest fetchNotes — avoids re-subscribing realtime/event
+  // channels every time fetchNotes identity changes (e.g. on projectId change).
+  const fetchNotesRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   // If scope changed, notes are stale - treat as loading
   const notesAreStale = date !== currentDate || projectId !== currentProjectId;
@@ -54,7 +58,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
    * Fetch notes from Supabase
    */
   const fetchNotes = useCallback(async () => {
-    if (!user || !supabase) {
+    if (!userId || !supabase || projectId === undefined) {
       useNotesStore.getState().setLoading(false);
       return;
     }
@@ -68,7 +72,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     let query = supabase
       .from('notes')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .is('deleted_at', null);
 
     if (date) {
@@ -129,7 +133,10 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     store.mergeFetchedNotes(notesList);
     store.setScope(date, requestProjectId);
     store.setLoading(false);
-  }, [user, date, projectId]);
+  }, [userId, date, projectId]);
+
+  // Keep ref in sync so realtime/event handlers always call the latest version.
+  fetchNotesRef.current = fetchNotes;
 
   // Clear notes and refetch when scope changes
   useEffect(() => {
@@ -138,9 +145,10 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     fetchNotes();
   }, [fetchNotes]);
 
-  // Realtime subscription — debounced to avoid flickering during rapid creation.
+  // Realtime subscription — set up once per user. Uses fetchNotesRef so the
+  // channel doesn't need to be torn down when projectId / date changes.
   useEffect(() => {
-    if (!user || !supabase) return;
+    if (!userId || !supabase) return;
 
     // Clean up previous channel if it exists
     if (channelRef.current) {
@@ -150,21 +158,21 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
     const channel = supabase
-      .channel(`notes-${user.id}`)
+      .channel(`notes-${userId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'notes',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${userId}`,
         },
         () => {
           // Debounce: batch rapid realtime events into a single fetchNotes.
           if (debounceTimer) clearTimeout(debounceTimer);
           const pendingCount = useNotesStore.getState().pendingNoteIds.size;
           debounceTimer = setTimeout(() => {
-            fetchNotes();
+            fetchNotesRef.current();
           }, pendingCount > 0 ? 2000 : 300);
         }
       )
@@ -179,25 +187,26 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         channelRef.current = null;
       }
     };
-  }, [user, fetchNotes]);
+  }, [userId]);
 
-  // Listen to CQRS events to refresh data immediately (without waiting for realtime)
+  // Listen to CQRS events to refresh data immediately (without waiting for realtime).
+  // Uses fetchNotesRef so the subscriptions don't need to be re-created on scope changes.
   useEffect(() => {
     const unsubscribeCreated = eventBus.subscribe('note:created', (event) => {
       if (event.source === 'command') {
-        fetchNotes();
+        fetchNotesRef.current();
       }
     });
 
     const unsubscribeUpdated = eventBus.subscribe('note:updated', (event) => {
       if (event.source === 'command') {
-        fetchNotes();
+        fetchNotesRef.current();
       }
     });
 
     const unsubscribeDeleted = eventBus.subscribe('note:deleted', (event) => {
       if (event.source === 'command') {
-        fetchNotes();
+        fetchNotesRef.current();
       }
     });
 
@@ -206,18 +215,18 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       unsubscribeUpdated();
       unsubscribeDeleted();
     };
-  }, [fetchNotes]);
+  }, []);
 
   /**
    * Create initial version for a note
    */
   const createInitialVersion = useCallback(
     async (noteId: string, content: string, description: string | null, category: NoteCategory, completed: boolean) => {
-      if (!user || !supabase) return;
+      if (!userId || !supabase) return;
 
       const { error } = await supabase.from('note_versions').insert({
         note_id: noteId,
-        user_id: user.id,
+        user_id: userId,
         content,
         description: description || null,
         category,
@@ -229,7 +238,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         console.error('[useNotesSupabase] Error creating initial version:', error);
       }
     },
-    [user]
+    [userId]
   );
 
   /**
@@ -242,7 +251,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       description?: string | null,
       labelIds?: string[]
     ): Promise<Note> => {
-      if (!user || !supabase) throw new Error('Not authenticated');
+      if (!userId || !supabase) throw new Error('Not authenticated');
 
       // Use store for synchronous access
       const currentNotes = useNotesStore.getState().notes;
@@ -251,7 +260,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       const { data, error } = await supabase
         .from('notes')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           date: effectiveDate,
           content,
           description: description || null,
@@ -272,7 +281,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         const labelInserts = labelIds.map((labelId) => ({
           note_id: data.id,
           label_id: labelId,
-          user_id: user.id,
+          user_id: userId,
         }));
         await supabase.from('note_labels').insert(labelInserts);
       }
@@ -314,7 +323,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
 
       return note;
     },
-    [user, effectiveDate, projectId, createInitialVersion]
+    [userId, effectiveDate, projectId, createInitialVersion]
   );
 
   /**
@@ -329,7 +338,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       assigneeId?: string | null,
       newNoteId?: string
     ): Promise<Note> => {
-      if (!user || !supabase) throw new Error('Not authenticated');
+      if (!userId || !supabase) throw new Error('Not authenticated');
 
       // getState() is always synchronous and current — no refs needed
       const currentNotes = useNotesStore.getState().notes;
@@ -381,7 +390,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         .from('notes')
         .insert({
           id: noteId,
-          user_id: user.id,
+          user_id: userId,
           date: effectiveDate,
           content: '',
           category,
@@ -398,7 +407,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
 
       // Labels/assignees — emit events, persisted by useNoteSideEffects listener
       if (labelIds.length > 0) {
-        eventBus.emit('note:labelsAttached', { noteId, labelIds, userId: user.id });
+        eventBus.emit('note:labelsAttached', { noteId, labelIds, userId });
       }
 
       if (assigneeId) {
@@ -407,7 +416,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
 
       return note;
     },
-    [user, effectiveDate, projectId]
+    [userId, effectiveDate, projectId]
   );
 
   /**
@@ -416,7 +425,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
    */
   const createVersion = useCallback(
     async (noteId: string, content: string, description: string | null, category: NoteCategory, completed: boolean) => {
-      if (!user || !supabase) return;
+      if (!userId || !supabase) return;
 
       // Get the most recent version with its creation time
       const { data: lastVersion } = await supabase
@@ -443,7 +452,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
 
       const { error } = await supabase.from('note_versions').insert({
         note_id: noteId,
-        user_id: user.id,
+        user_id: userId,
         content,
         description: description || null,
         category,
@@ -455,7 +464,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         console.error('[useNotesSupabase] Error creating version:', error);
       }
     },
-    [user, versionThrottleSeconds]
+    [userId, versionThrottleSeconds]
   );
 
   /**
@@ -468,7 +477,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       category?: NoteCategory,
       description?: string | null
     ): Promise<void> => {
-      if (!user || !supabase) return;
+      if (!userId || !supabase) return;
 
       // Optimistic update via store
       useNotesStore.getState().updateNote(id, {
@@ -518,7 +527,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
         description,
       }, 'ui');
     },
-    [user, createVersion]
+    [userId, createVersion]
   );
 
   /**
@@ -642,7 +651,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
    */
   const postponeNote = useCallback(
     async (id: string, newDeadline: string, reason?: string): Promise<void> => {
-      if (!user || !supabase) return;
+      if (!userId || !supabase) return;
 
       // Use store for synchronous access
       const currentNotes = useNotesStore.getState().notes;
@@ -662,7 +671,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
 
       // Create action record
       const { error: actionError } = await supabase.from('note_actions').insert({
-        user_id: user.id,
+        user_id: userId,
         note_id: id,
         action_type: 'postponed',
         reason: reason || null,
@@ -672,7 +681,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
 
       if (actionError) console.error('[useNotesSupabase] Create action error:', actionError);
     },
-    [user]
+    [userId]
   );
 
   /**

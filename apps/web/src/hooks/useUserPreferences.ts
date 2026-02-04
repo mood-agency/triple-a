@@ -21,6 +21,7 @@ export function useUserPreferences(
   updateSettings: (partial: Partial<AppSettings>) => void
 ) {
   const { user } = useAuth();
+  const userId = user?.id;
   // Use refs for local component tracking, but check global state too
   const hasLoadedRef = useRef(false);
   const isSavingRef = useRef(false);
@@ -29,8 +30,8 @@ export function useUserPreferences(
   // Load preferences when user logs in
   useEffect(() => {
     // Skip if already loaded for this user (globally)
-    if (!user || !supabase) return;
-    if (globalHasLoaded && globalLoadedUserId === user.id) return;
+    if (!userId || !supabase) return;
+    if (globalHasLoaded && globalLoadedUserId === userId) return;
     if (globalIsLoading) return;
 
     const loadPreferences = async () => {
@@ -41,7 +42,7 @@ export function useUserPreferences(
         const { data, error } = await (supabase as any)
           .from('user_preferences')
           .select('show_sidebar, auto_sync, fixed_note_id, beeper_token')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .single();
 
         if (error) {
@@ -53,7 +54,7 @@ export function useUserPreferences(
             await (supabase as any)
               .from('user_preferences')
               .insert({
-                user_id: user.id,
+                user_id: userId,
                 show_sidebar: settings.showSidebar,
                 auto_sync: settings.autoSync,
                 fixed_note_id: settings.fixedNoteId,
@@ -69,7 +70,7 @@ export function useUserPreferences(
           console.log('[UserPreferences] Loaded from Supabase:', data);
           // Mark as loaded BEFORE updating settings to prevent save loop
           globalHasLoaded = true;
-          globalLoadedUserId = user.id;
+          globalLoadedUserId = userId;
           hasLoadedRef.current = true;
 
           // Merge Supabase data with local settings, prioritizing local non-default values
@@ -105,22 +106,22 @@ export function useUserPreferences(
     };
 
     loadPreferences();
-  }, [user]); // Only run when user changes, not when settings change
+  }, [userId]); // Only run when user changes, not when settings change
 
   // Reset loaded flag when user logs out
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       hasLoadedRef.current = false;
       globalHasLoaded = false;
       globalLoadedUserId = null;
       lastSavedSettings = null;
     }
-  }, [user]);
+  }, [userId]);
 
   // Save preferences when settings change (debounced)
   useEffect(() => {
     // Skip if not loaded or currently loading/saving
-    if (!user || !supabase) return;
+    if (!userId || !supabase) return;
     if (!globalHasLoaded || globalIsLoading || globalIsSaving) return;
 
     // Create a serialized version of the settings we care about syncing
@@ -148,7 +149,7 @@ export function useUserPreferences(
           .from('user_preferences')
           .upsert(
             {
-              user_id: user.id,
+              user_id: userId,
               show_sidebar: settings.showSidebar,
               auto_sync: settings.autoSync,
               fixed_note_id: settings.fixedNoteId,
@@ -175,11 +176,11 @@ export function useUserPreferences(
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [settings.showSidebar, settings.autoSync, settings.fixedNoteId, settings.beeperToken, user]);
+  }, [settings.showSidebar, settings.autoSync, settings.fixedNoteId, settings.beeperToken, userId]);
 
   // Subscribe to realtime changes from other devices
   useEffect(() => {
-    if (!user || !supabase) return;
+    if (!userId || !supabase) return;
 
     const channel = supabase
       .channel('user_preferences_changes')
@@ -189,7 +190,7 @@ export function useUserPreferences(
           event: 'UPDATE',
           schema: 'public',
           table: 'user_preferences',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${userId}`,
         },
         (payload) => {
           console.log('[UserPreferences] Realtime update received:', payload);
@@ -220,5 +221,5 @@ export function useUserPreferences(
         supabase.removeChannel(channel);
       }
     };
-  }, [user, updateSettings]);
+  }, [userId, updateSettings]);
 }

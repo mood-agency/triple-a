@@ -191,8 +191,8 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarFooter>
 
-      {/* API Keys dialog */}
-      <APIKeysDialog open={apiKeysDialogOpen} onOpenChange={setApiKeysDialogOpen} />
+      {/* API Keys dialog — only mount when open to avoid fetching /api/keys on every page load */}
+      {apiKeysDialogOpen && <APIKeysDialog open={apiKeysDialogOpen} onOpenChange={setApiKeysDialogOpen} />}
 
       {/* AI Provider dialog */}
       <AIProviderDialog open={aiDialogOpen} onOpenChange={setAiDialogOpen} />

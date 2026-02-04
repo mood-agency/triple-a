@@ -40,7 +40,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { useActiveProject } from '@/contexts/ProjectContext';
-import { useProjects } from '@/hooks/useProjects';
 import type { Project } from '@/types/project';
 
 interface ProjectSelectorProps {
@@ -50,8 +49,7 @@ interface ProjectSelectorProps {
 
 export function ProjectSelector({ className, collapsed = false }: ProjectSelectorProps) {
   const { t } = useTranslation();
-  const { activeProject, activeProjectId, projects, setActiveProjectId, createProject } = useActiveProject();
-  const { updateProject, deleteProject } = useProjects();
+  const { activeProject, activeProjectId, projects, setActiveProjectId, createProject, updateProject, deleteProject } = useActiveProject();
   const [open, setOpen] = useState(false);
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');

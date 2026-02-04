@@ -14,6 +14,17 @@ import type {
   GCalCalendarWithAccount,
 } from '@/types/googleCalendar';
 
+/**
+ * Get the current user from the cached session (no network call).
+ * Unlike supabase.auth.getUser() which always hits auth/v1/user,
+ * getSession() reads from the local session cache.
+ */
+async function getCachedUser() {
+  if (!supabase) return null;
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.user ?? null;
+}
+
 const GOOGLE_OAUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_CALENDAR_SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
@@ -201,7 +212,7 @@ class GoogleCalendarService {
     if (!supabase) return null;
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCachedUser();
       if (!user) return null;
 
       const { data, error } = await supabase
@@ -240,7 +251,7 @@ class GoogleCalendarService {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCachedUser();
       if (!user) {
         return { success: false, error: 'Not authenticated' };
       }
@@ -274,7 +285,7 @@ class GoogleCalendarService {
     if (!supabase) return [];
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCachedUser();
       if (!user) return [];
 
       const { data, error } = await supabase
@@ -330,7 +341,7 @@ class GoogleCalendarService {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCachedUser();
       if (!user) {
         return { success: false, error: 'Not authenticated' };
       }
@@ -359,7 +370,7 @@ class GoogleCalendarService {
     if (!supabase) return;
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCachedUser();
       if (!user) return;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -456,7 +467,7 @@ class GoogleCalendarService {
     if (!supabase) return [];
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCachedUser();
       if (!user) return [];
 
       const { data, error } = await supabase
@@ -513,7 +524,7 @@ class GoogleCalendarService {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCachedUser();
       if (!user) {
         return { success: false, error: 'Not authenticated' };
       }
@@ -555,13 +566,13 @@ class GoogleCalendarService {
   /**
    * Get calendars from all connected accounts
    */
-  async getAllCalendarsWithAccounts(): Promise<{ calendars: GCalCalendarWithAccount[]; error?: string }> {
+  async getAllCalendarsWithAccounts(preloadedAccounts?: GCalAccount[]): Promise<{ calendars: GCalCalendarWithAccount[]; error?: string }> {
     if (!supabase) {
       return { calendars: [], error: 'Supabase not configured' };
     }
 
     try {
-      const accounts = await this.getAccounts();
+      const accounts = preloadedAccounts ?? await this.getAccounts();
       const allCalendars: GCalCalendarWithAccount[] = [];
 
       for (const account of accounts) {

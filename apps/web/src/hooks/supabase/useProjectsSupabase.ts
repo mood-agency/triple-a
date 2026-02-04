@@ -11,16 +11,19 @@ import type { Project, ProjectInput, ProjectStatus } from '@/types/project';
  */
 export function useProjectsSupabase() {
   const { user } = useAuth();
+  const userId = user?.id;
   const { t } = useTranslation();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null);
+  // Ref to always hold the latest fetchProjects — avoids re-subscribing realtime on fetch changes
+  const fetchProjectsRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   /**
    * Fetch projects from Supabase
    */
   const fetchProjects = useCallback(async () => {
-    if (!user || !supabase) {
+    if (!userId || !supabase) {
       setLoading(false);
       return;
     }
@@ -28,7 +31,7 @@ export function useProjectsSupabase() {
     const { data, error } = await supabase
       .from('projects')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .is('deleted_at', null)
       .order('sort_order')
       .order('name');
@@ -59,7 +62,10 @@ export function useProjectsSupabase() {
 
     setProjects(projectsList);
     setLoading(false);
-  }, [user]);
+  }, [userId]);
+
+  // Keep ref in sync so realtime handlers always call the latest version
+  fetchProjectsRef.current = fetchProjects;
 
   // Initial fetch
   useEffect(() => {
@@ -67,24 +73,25 @@ export function useProjectsSupabase() {
   }, [fetchProjects]);
 
   // Realtime subscription
+  // Uses fetchProjectsRef so subscription doesn't need to be torn down on fetch fn change
   useEffect(() => {
-    if (!user || !supabase) return;
+    if (!userId || !supabase) return;
 
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
     }
 
     const channel = supabase
-      .channel(`projects-${user.id}`)
+      .channel(`projects-${userId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'projects',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${userId}`,
         },
-        () => fetchProjects()
+        () => fetchProjectsRef.current()
       )
       .subscribe();
 
@@ -96,14 +103,14 @@ export function useProjectsSupabase() {
         channelRef.current = null;
       }
     };
-  }, [user, fetchProjects]);
+  }, [userId]);
 
   /**
    * Create a new project
    */
   const createProject = useCallback(
     async (input: ProjectInput): Promise<Project> => {
-      if (!user || !supabase) throw new Error('Not authenticated');
+      if (!userId || !supabase) throw new Error('Not authenticated');
 
       // Get max sort_order
       const maxSortOrder = projects.reduce((max, p) => Math.max(max, p.sort_order || 0), 0);
@@ -111,7 +118,7 @@ export function useProjectsSupabase() {
       const { data, error } = await supabase
         .from('projects')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           name: input.name,
           description: input.description || null,
           color: input.color || '#6b7280',
@@ -143,7 +150,7 @@ export function useProjectsSupabase() {
         sync_status: 'synced',
       };
     },
-    [user, projects, t]
+    [userId, projects, t]
   );
 
   /**

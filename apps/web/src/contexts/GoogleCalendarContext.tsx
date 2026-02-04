@@ -103,6 +103,7 @@ function parseDeadlineToEventTimes(deadline: string | null): {
 export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const userId = user?.id;
 
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -148,7 +149,7 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
   }, [reportError]);
 
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       setIsConnected(false);
       setAccounts([]);
       setIsLoading(false);
@@ -177,16 +178,16 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
     };
 
     checkStatus();
-  }, [user, reportError]);
+  }, [userId, reportError]);
 
   // ============================================================================
   // Calendar Management
   // ============================================================================
 
-  const refreshCalendars = useCallback(async () => {
+  const refreshCalendars = useCallback(async (preloadedAccounts?: GCalAccount[]) => {
     setLoadingCalendars(true);
     try {
-      const result = await googleCalendarService.getAllCalendarsWithAccounts();
+      const result = await googleCalendarService.getAllCalendarsWithAccounts(preloadedAccounts);
       if (result.calendars.length > 0) {
         setCalendars(result.calendars);
       } else if (result.error) {
@@ -199,9 +200,13 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
     }
   }, [reportError]);
 
+  // Fetch calendars once when connected — uses accounts from state to avoid re-fetching.
+  const accountsRef = useRef(accounts);
+  accountsRef.current = accounts;
+
   useEffect(() => {
     if (isConnected && !loadingCalendars && calendars.length === 0) {
-      refreshCalendars();
+      refreshCalendars(accountsRef.current);
     }
   }, [isConnected, loadingCalendars, calendars.length, refreshCalendars]);
 
@@ -218,7 +223,7 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
       errors: [],
     };
 
-    if (!user || !isConnected || !config?.enabled) {
+    if (!userId || !isConnected || !config?.enabled) {
       emptyResult.errors.push('Not ready to sync');
       return emptyResult;
     }
@@ -252,7 +257,7 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
     } finally {
       setTimeout(() => setSyncState(prev => ({ ...prev, status: 'idle' })), 3000);
     }
-  }, [user, isConnected, config, t]);
+  }, [userId, isConnected, config, t]);
 
   // Auto-sync interval
   useEffect(() => {
@@ -392,7 +397,7 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
     description: string | null,
     deadline: string | null
   ): Promise<{ success: boolean; gcalEventId?: string; error?: string }> => {
-    if (!isConnected || !config?.enabled || !user) {
+    if (!isConnected || !config?.enabled || !userId) {
       return { success: false, error: 'Google Calendar not connected' };
     }
 
@@ -420,7 +425,7 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
         await supabase.from('notes').update({ gcal_event_id: result.event.id }).eq('id', noteId);
 
         await googleCalendarService.saveEventMapping({
-          user_id: user.id,
+          user_id: userId,
           gcal_event_id: result.event.id,
           gcal_calendar_id: calendarId,
           local_note_id: noteId,
@@ -437,7 +442,7 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
       toast.error(t('gcal.eventCreateError'), { description: errorMsg });
       return { success: false, error: errorMsg };
     }
-  }, [isConnected, config, user, t]);
+  }, [isConnected, config, userId, t]);
 
   const updateCalendarEvent = useCallback(async (
     gcalEventId: string,

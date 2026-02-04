@@ -9,15 +9,18 @@ import type { Contact, ContactInput } from '@/types/contact';
  */
 export function useContactsSupabase() {
   const { user } = useAuth();
+  const userId = user?.id;
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null);
+  // Ref to always hold the latest fetchContacts — avoids re-subscribing realtime on fetch changes
+  const fetchContactsRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   /**
    * Fetch contacts from Supabase
    */
   const fetchContacts = useCallback(async () => {
-    if (!user || !supabase) {
+    if (!userId || !supabase) {
       setLoading(false);
       return;
     }
@@ -25,7 +28,7 @@ export function useContactsSupabase() {
     const { data, error } = await supabase
       .from('contacts')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .is('deleted_at', null)
       .order('name')
       .order('lastname');
@@ -53,7 +56,10 @@ export function useContactsSupabase() {
 
     setContacts(contactsList);
     setLoading(false);
-  }, [user]);
+  }, [userId]);
+
+  // Keep ref in sync so realtime handlers always call the latest version
+  fetchContactsRef.current = fetchContacts;
 
   // Initial fetch
   useEffect(() => {
@@ -61,24 +67,25 @@ export function useContactsSupabase() {
   }, [fetchContacts]);
 
   // Realtime subscription
+  // Uses fetchContactsRef so subscription doesn't need to be torn down on fetch fn change
   useEffect(() => {
-    if (!user || !supabase) return;
+    if (!userId || !supabase) return;
 
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
     }
 
     const channel = supabase
-      .channel(`contacts-${user.id}`)
+      .channel(`contacts-${userId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'contacts',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${userId}`,
         },
-        () => fetchContacts()
+        () => fetchContactsRef.current()
       )
       .subscribe();
 
@@ -90,19 +97,19 @@ export function useContactsSupabase() {
         channelRef.current = null;
       }
     };
-  }, [user, fetchContacts]);
+  }, [userId]);
 
   /**
    * Create a new contact
    */
   const createContact = useCallback(
     async (contactInput: ContactInput): Promise<Contact> => {
-      if (!user || !supabase) throw new Error('Not authenticated');
+      if (!userId || !supabase) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
         .from('contacts')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           name: contactInput.name,
           lastname: contactInput.lastname,
           phone: contactInput.phone,
@@ -126,7 +133,7 @@ export function useContactsSupabase() {
         sync_status: 'synced',
       };
     },
-    [user]
+    [userId]
   );
 
   /**

@@ -1,8 +1,9 @@
-import { useContactsSupabase } from './supabase/useContactsSupabase';
+import { useContactsContext } from '@/contexts/ContactsContext';
 
 /**
- * Main hook for managing contacts
+ * Main hook for managing contacts.
+ * Uses ContactsContext to share state across all components (single fetch + subscription).
  */
 export function useContacts() {
-  return useContactsSupabase();
+  return useContactsContext();
 }

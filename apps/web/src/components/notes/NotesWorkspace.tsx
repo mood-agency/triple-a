@@ -51,6 +51,7 @@ import {
 } from './navigation';
 import { useEventSubscription, eventBus } from '@/events';
 import { useNoteFieldsStore } from '@/stores/useNoteFieldsStore';
+import { useCommandPalette } from '@/contexts/CommandPaletteContext';
 
 // Re-export types if needed
 export interface NotesWorkspaceHandle {
@@ -104,7 +105,9 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { contacts } = useContacts();
-  const { deletedNotes } = useDeletedNotes();
+  const { deletedNotes } = useDeletedNotes({
+    enabled: externalViewMode === 'calendar' || externalTaskStatusFilter === 'deleted',
+  });
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -180,6 +183,9 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
     onEdit,
     autoSaveInterval: settings.autoSaveInterval,
   });
+
+  const { isOpen: isCommandPaletteOpen } = useCommandPalette();
+  const pendingFocusFirstTaskRef = useRef(false);
 
   // Navigation Mediator for centralized keyboard navigation
   // The onSaveItem callback centralizes save decisions - regions provide data, mediator decides if/when to save
@@ -322,17 +328,24 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
       prev.sortConfig !== JSON.stringify(filters.sortConfig);
 
     if (hasFilterChanged) {
-      // Use setTimeout to ensure selection happens after dialogs/modals close
-      setTimeout(() => {
-        const notesToUse = viewModeRef.current === 'calendar' ? calendarFilteredNotesRef.current : filters.activeNotesRef.current;
-        if (notesToUse.length > 0) {
-          onSelectNote(notesToUse[0]);
+      // Always select the first filtered note immediately
+      const notesToUse = viewModeRef.current === 'calendar' ? calendarFilteredNotesRef.current : filters.activeNotesRef.current;
+      if (notesToUse.length > 0) {
+        onSelectNote(notesToUse[0]);
+      } else {
+        onSelectNote(null);
+      }
+
+      if (isCommandPaletteOpen) {
+        // Palette is still open (e.g. label/assignee toggles) — defer focus until it closes
+        pendingFocusFirstTaskRef.current = true;
+      } else {
+        // Palette already closed — focus after dialog unmounts
+        setTimeout(() => {
           selection.setFocusTarget('title');
           selection.setDesiredColumn(0);
-        } else {
-          onSelectNote(null);
-        }
-      }, 0);
+        }, 50);
+      }
     }
 
     prevFiltersRef.current = {
@@ -345,7 +358,23 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
       taskStatusFilter: filters.taskStatusFilter,
       sortConfig: JSON.stringify(filters.sortConfig),
     };
-  }, [filters.categoryFilter, filters.labelFilter, filters.assigneeFilter, filters.showOverdueOnly, filters.viewMode, filters.calendarSelectedDate, filters.taskStatusFilter, filters.sortConfig, filters.activeNotesRef, onSelectNote, selection]);
+  }, [filters.categoryFilter, filters.labelFilter, filters.assigneeFilter, filters.showOverdueOnly, filters.viewMode, filters.calendarSelectedDate, filters.taskStatusFilter, filters.sortConfig, filters.activeNotesRef, onSelectNote, selection, isCommandPaletteOpen]);
+
+  // When the command palette closes and there's a pending focus, apply it
+  useEffect(() => {
+    if (!isCommandPaletteOpen && pendingFocusFirstTaskRef.current) {
+      pendingFocusFirstTaskRef.current = false;
+      // Small delay to ensure dialog is fully unmounted and focus trap released
+      setTimeout(() => {
+        const notesToUse = viewModeRef.current === 'calendar' ? calendarFilteredNotesRef.current : filters.activeNotesRef.current;
+        if (notesToUse.length > 0) {
+          onSelectNote(notesToUse[0]);
+          selection.setFocusTarget('title');
+          selection.setDesiredColumn(0);
+        }
+      }, 50);
+    }
+  }, [isCommandPaletteOpen, filters.activeNotesRef, onSelectNote, selection]);
 
   const operations = useNoteOperations({
     filteredNotesRef: filters.filteredNotesRef,
