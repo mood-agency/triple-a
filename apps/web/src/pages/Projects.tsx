@@ -312,25 +312,29 @@ export function Projects() {
             ) : (
               filteredProjects.map((project) => {
                 const notesCount = getNotesCountForProject(project.id);
+                const isSelected = selectedProject?.id === project.id;
+                const displayName = isSelected ? formName || project.name : project.name;
+                const displayColor = isSelected ? formColor : project.color;
+                const displayIcon = isSelected ? formIcon : (project.icon || '');
                 return (
                   <button
                     key={project.id}
                     type="button"
                     onClick={() => handleSelectProject(project)}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors ${
-                      selectedProject?.id === project.id
+                      isSelected
                         ? 'bg-accent text-accent-foreground'
                         : 'hover:bg-muted'
                     }`}
                   >
                     <span
                       className="w-4 h-4 rounded shrink-0 flex items-center justify-center text-xs"
-                      style={{ backgroundColor: project.color }}
+                      style={{ backgroundColor: displayColor }}
                     >
-                      {project.icon || ''}
+                      {displayIcon}
                     </span>
                     <div className="flex-1 text-left">
-                      <span className="text-sm font-medium block">{project.name}</span>
+                      <span className="text-sm font-medium block">{displayName}</span>
                       <span className="text-xs text-muted-foreground">
                         {t('projects.notesCount', '{{count}} tasks', { count: notesCount })}
                       </span>
@@ -353,7 +357,7 @@ export function Projects() {
           {isEditing ? (
             <div className="max-w-md">
               <h2 className="text-lg font-semibold mb-6">
-                {isCreating ? t('projects.addProject', 'Add Project') : t('projects.editProject', 'Edit Project')}
+                {isCreating ? t('projects.addProject', 'Add Project') : (formName || t('projects.editProject', 'Edit Project'))}
               </h2>
 
               <div className="space-y-6">
@@ -603,22 +607,6 @@ export function Projects() {
                       )}
                     </div>
                   )}
-                </div>
-
-                {/* Preview */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">Preview</label>
-                  <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-md">
-                    <span
-                      className="w-6 h-6 rounded flex items-center justify-center text-sm"
-                      style={{ backgroundColor: formColor }}
-                    >
-                      {formIcon || ''}
-                    </span>
-                    <span className="text-sm font-medium">
-                      {formName || t('projects.name', 'Name')}
-                    </span>
-                  </div>
                 </div>
 
                 <div className="flex items-center justify-between pt-4 border-t">

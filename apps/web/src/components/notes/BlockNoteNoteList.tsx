@@ -51,6 +51,10 @@ interface BlockNoteNoteListProps {
   onCreateLabelAndAdd?: (noteId: string, labelName: string) => void | Promise<void>;
   /** Add assignee to note */
   onAddAssignee?: (noteId: string, contactId: string) => void;
+  /** ID of the currently selected note */
+  selectedNoteId?: string | null;
+  /** Live title from editor panel for real-time sync */
+  selectedNoteTitleValue?: string;
 }
 
 export const BlockNoteNoteList = ({
@@ -71,6 +75,8 @@ export const BlockNoteNoteList = ({
   onAddLabel,
   onCreateLabelAndAdd,
   onAddAssignee,
+  selectedNoteId,
+  selectedNoteTitleValue,
 }: BlockNoteNoteListProps) => {
   // Get labels and contacts for hashtag/mention parsing
   const { labels } = useLabels();
@@ -141,6 +147,9 @@ export const BlockNoteNoteList = ({
   // Track previous label/assignee data to avoid unnecessary syncs
   const previousLabelDataRef = useRef<string>('');
   const previousAssigneeDataRef = useRef<string>('');
+
+  // Track previous note props (category, deadline, completed) to avoid unnecessary syncs
+  const previousNotePropsRef = useRef<string>('');
 
   // Flag to prevent saves during programmatic updates
   const isSyncingRef = useRef(false);
@@ -659,6 +668,9 @@ export const BlockNoteNoteList = ({
     let previousBlockId: string | null = null;
 
     const unsubscribe = editor.onSelectionChange(() => {
+      // Skip selection handling during programmatic syncs to avoid event loops
+      if (isSyncingRef.current) return;
+
       const cursor = editor.getTextCursorPosition();
       const blockId = cursor?.block.id ?? null;
 
@@ -875,6 +887,103 @@ export const BlockNoteNoteList = ({
       }
     }, 0);
   }, [editor, notes, labelDataCache, assigneeDataCache]);
+
+  // Sync note property changes (category, deadline, completed, content) back to blocks
+  // Same pattern as labels/assignees sync: fingerprint comparison + editor.updateBlock()
+  useEffect(() => {
+    // Create fingerprint of note properties that affect block rendering
+    const notePropsFingerprint = notes.map(n => `${n.id}:${n.category}:${n.deadline ?? ''}:${n.completed}:${n.content}`).join('|');
+
+    // Skip if nothing changed
+    if (previousNotePropsRef.current === notePropsFingerprint) {
+      return;
+    }
+
+    previousNotePropsRef.current = notePropsFingerprint;
+
+    // Use setTimeout to avoid flushSync issues during React render
+    setTimeout(() => {
+      const blocks = editor.document;
+      let hasChanges = false;
+
+      // Get the block currently being edited so we don't overwrite user's typing
+      const cursorBlockId = editor.getTextCursorPosition()?.block.id ?? null;
+
+      isSyncingRef.current = true;
+
+      blocks.forEach((block: any) => {
+        if (block.type !== 'notepad') return;
+
+        const note = notes.find(n => n.id === block.id);
+        if (!note) return;
+
+        const categoryChanged = block.props.category !== note.category;
+        const deadlineChanged = (block.props.date ?? null) !== (note.deadline ?? null);
+        const completedChanged = block.props.isChecked !== note.completed;
+
+        // Only sync content for blocks NOT being edited in the task list
+        // (content changes come from the editor panel's EditableTitle)
+        const blockContent = getBlockContent(block);
+        const contentChanged = block.id !== cursorBlockId && blockContent !== note.content;
+
+        if (categoryChanged || deadlineChanged || completedChanged || contentChanged) {
+          const updatePayload: any = {
+            props: {
+              ...block.props,
+              category: note.category,
+              date: note.deadline ?? null,
+              isChecked: note.completed,
+            }
+          };
+
+          if (contentChanged) {
+            updatePayload.content = [{ type: 'text', text: note.content }];
+          }
+
+          editor.updateBlock(block, updatePayload);
+          hasChanges = true;
+        }
+      });
+
+      if (hasChanges) {
+        setTimeout(() => {
+          isSyncingRef.current = false;
+        }, 100);
+      } else {
+        isSyncingRef.current = false;
+      }
+    }, 0);
+  }, [editor, notes]);
+
+  // Sync live editor title to the selected note's block in real-time
+  // Uses a ref-based approach to avoid triggering the main sync effect
+  const selectedNoteTitleRef = useRef(selectedNoteTitleValue);
+  selectedNoteTitleRef.current = selectedNoteTitleValue;
+  const selectedNoteIdRef = useRef(selectedNoteId);
+  selectedNoteIdRef.current = selectedNoteId;
+
+  useEffect(() => {
+    if (!selectedNoteId || selectedNoteTitleValue === undefined) return;
+
+    const block = editor.getBlock(selectedNoteId);
+    if (!block || block.type !== 'notepad') return;
+
+    const blockContent = getBlockContent(block);
+    if (blockContent === selectedNoteTitleValue) return;
+
+    // Don't update if the cursor is in this block (user is editing inline)
+    const cursorBlockId = editor.getTextCursorPosition()?.block.id ?? null;
+    if (cursorBlockId === selectedNoteId) return;
+
+    isSyncingRef.current = true;
+    const updatePayload: any = {
+      content: [{ type: 'text', text: selectedNoteTitleValue }],
+    };
+    editor.updateBlock(block, updatePayload);
+    setTimeout(() => {
+      isSyncingRef.current = false;
+    }, 100);
+  }, [editor, selectedNoteId, selectedNoteTitleValue]);
 
   // Save when clicking outside the editor (more reliable than focusout for ProseMirror)
   useEffect(() => {
