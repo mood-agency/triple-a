@@ -104,6 +104,13 @@ export interface RelativeDateTranslations {
   today: string;
   tomorrow: string;
   yesterday: string;
+  // Minutes
+  inMinutes: string; // "in {{count}} min" or "en {{count}} min"
+  minutesAgo: string; // "{{count}} min ago" or "hace {{count}} min"
+  justNow: string; // "just now" or "ahora"
+  // Hours
+  inHours: string; // "in {{count}}h" or "en {{count}}h"
+  hoursAgo: string; // "{{count}}h ago" or "hace {{count}}h"
   // Days
   inDays: string; // "in {{count}} days" or "en {{count}} días"
   daysAgo: string; // "{{count}} days ago" or "hace {{count}} días"
@@ -356,6 +363,30 @@ export function formatRelativeDateEnhanced(
   includeTime: boolean = false,
   isAllDay: boolean = false
 ): string {
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime();
+  const absDiffMs = Math.abs(diffMs);
+  const minutesDiff = Math.floor(absDiffMs / (1000 * 60));
+  const hoursDiff = Math.floor(absDiffMs / (1000 * 60 * 60));
+
+  // If within 48 hours and not an all-day task, show minutes/hours
+  if (!isAllDay && absDiffMs < 48 * 60 * 60 * 1000) {
+    if (minutesDiff < 1) {
+      return translations.justNow;
+    }
+    if (hoursDiff === 0) {
+      // Less than 1 hour — show minutes
+      if (diffMs >= 0) {
+        return translations.inMinutes.replace('{{count}}', String(minutesDiff));
+      }
+      return translations.minutesAgo.replace('{{count}}', String(minutesDiff));
+    }
+    if (diffMs >= 0) {
+      return translations.inHours.replace('{{count}}', String(hoursDiff));
+    }
+    return translations.hoursAgo.replace('{{count}}', String(hoursDiff));
+  }
+
   const relativeStr = formatRelativeDate(date, language, translations);
 
   if (!includeTime) {

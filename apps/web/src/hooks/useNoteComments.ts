@@ -1,16 +1,19 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import type { NoteComment, NoteCommentThread } from '@triple-a/types'
 
 export function useNoteComments(noteId: string) {
   const { user } = useAuth()
+  const userId = user?.id
   const [comments, setComments] = useState<NoteComment[]>([])
   const [threads, setThreads] = useState<NoteCommentThread[]>([])
+  // Ref to always hold the latest loadComments — avoids re-subscribing realtime on fetch changes
+  const loadCommentsRef = useRef<() => Promise<void>>(() => Promise.resolve())
 
   // Load comments for this note
   const loadComments = useCallback(async () => {
-    if (!supabase || !user || !noteId) {
+    if (!supabase || !userId || !noteId) {
       setComments([])
       setThreads([])
       return
@@ -88,7 +91,10 @@ export function useNoteComments(noteId: string) {
       setComments([])
       setThreads([])
     }
-  }, [user, noteId])
+  }, [userId, noteId])
+
+  // Keep ref in sync so realtime handlers always call the latest version
+  loadCommentsRef.current = loadComments
 
   // Load on mount and when noteId changes
   useEffect(() => {
@@ -96,8 +102,9 @@ export function useNoteComments(noteId: string) {
   }, [loadComments])
 
   // Realtime subscription
+  // Uses loadCommentsRef so subscription doesn't need to be torn down on fetch fn change
   useEffect(() => {
-    if (!supabase || !user || !noteId) return
+    if (!supabase || !userId || !noteId) return
 
     const channel = supabase
       .channel(`note-comments-${noteId}`)
@@ -110,7 +117,7 @@ export function useNoteComments(noteId: string) {
           filter: `note_id=eq.${noteId}`,
         },
         () => {
-          loadComments()
+          loadCommentsRef.current()
         }
       )
       .subscribe()
@@ -120,16 +127,16 @@ export function useNoteComments(noteId: string) {
         supabase.removeChannel(channel)
       }
     }
-  }, [user, noteId, loadComments])
+  }, [userId, noteId])
 
   const addComment = useCallback(
     async (content: string, blockId?: string | null, threadId?: string | null) => {
-      if (!supabase || !user) return null
+      if (!supabase || !userId) return null
 
       const { data, error } = await (supabase as any)
         .from('note_comments')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           note_id: noteId,
           thread_id: threadId || null,
           content,
@@ -147,12 +154,12 @@ export function useNoteComments(noteId: string) {
 
       return data?.id || null
     },
-    [user, noteId]
+    [userId, noteId]
   )
 
   const updateComment = useCallback(
     async (commentId: string, content: string) => {
-      if (!supabase || !user) return
+      if (!supabase || !userId) return
 
       const { error } = await (supabase as any)
         .from('note_comments')
@@ -163,12 +170,12 @@ export function useNoteComments(noteId: string) {
         console.error('[useNoteComments] Error updating comment:', error)
       }
     },
-    [user]
+    [userId]
   )
 
   const deleteComment = useCallback(
     async (commentId: string) => {
-      if (!supabase || !user) return
+      if (!supabase || !userId) return
 
       const { error } = await (supabase as any)
         .from('note_comments')
@@ -179,12 +186,12 @@ export function useNoteComments(noteId: string) {
         console.error('[useNoteComments] Error deleting comment:', error)
       }
     },
-    [user]
+    [userId]
   )
 
   const resolveThread = useCallback(
     async (threadId: string, resolved: boolean) => {
-      if (!supabase || !user) return
+      if (!supabase || !userId) return
 
       const { error } = await (supabase as any)
         .from('note_comments')
@@ -195,7 +202,7 @@ export function useNoteComments(noteId: string) {
         console.error('[useNoteComments] Error resolving thread:', error)
       }
     },
-    [user]
+    [userId]
   )
 
   const getThreadsForBlock = useCallback(

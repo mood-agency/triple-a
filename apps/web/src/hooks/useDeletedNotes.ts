@@ -3,14 +3,23 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import type { Note, NoteCategory } from '@/types/note';
 
-export function useDeletedNotes() {
+interface UseDeletedNotesOptions {
+  /** Only fetch when enabled (default: true). Set to false to defer fetching. */
+  enabled?: boolean;
+}
+
+export function useDeletedNotes({ enabled = true }: UseDeletedNotesOptions = {}) {
   const { user } = useAuth();
+  const userId = user?.id;
   const [deletedNotes, setDeletedNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null);
+  const hasFetchedRef = useRef(false);
+  // Ref to always hold the latest loadDeletedNotes — avoids re-subscribing realtime on fetch changes
+  const loadDeletedNotesRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   const loadDeletedNotes = useCallback(async () => {
-    if (!user || !supabase) {
+    if (!userId || !supabase) {
       setLoading(false);
       return;
     }
@@ -20,7 +29,7 @@ export function useDeletedNotes() {
     const { data, error } = await supabase
       .from('notes')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .not('deleted_at', 'is', null)
       .order('deleted_at', { ascending: false });
 
@@ -55,31 +64,38 @@ export function useDeletedNotes() {
 
     setDeletedNotes(notes);
     setLoading(false);
-  }, [user]);
+    hasFetchedRef.current = true;
+  }, [userId]);
 
+  // Keep ref in sync so realtime handlers always call the latest version
+  loadDeletedNotesRef.current = loadDeletedNotes;
+
+  // Only fetch and subscribe when enabled
   useEffect(() => {
+    if (!enabled) return;
     loadDeletedNotes();
-  }, [loadDeletedNotes]);
+  }, [enabled, loadDeletedNotes]);
 
-  // Realtime subscription
+  // Realtime subscription — only when enabled
+  // Uses loadDeletedNotesRef so subscription doesn't need to be torn down on fetch fn change
   useEffect(() => {
-    if (!user || !supabase) return;
+    if (!enabled || !userId || !supabase) return;
 
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
     }
 
     const channel = supabase
-      .channel(`deleted-notes-${user.id}`)
+      .channel(`deleted-notes-${userId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'notes',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${userId}`,
         },
-        () => loadDeletedNotes()
+        () => loadDeletedNotesRef.current()
       )
       .subscribe();
 
@@ -91,7 +107,7 @@ export function useDeletedNotes() {
         channelRef.current = null;
       }
     };
-  }, [user, loadDeletedNotes]);
+  }, [enabled, userId]);
 
   return {
     deletedNotes,

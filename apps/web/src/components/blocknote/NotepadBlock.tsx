@@ -198,22 +198,28 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                 });
             };
 
-            // Format deadline display as days with decimals
+            // Format deadline display: hours if <48h, whole days otherwise
             const formatDeadline = (deadline: string) => {
                 if (!deadline) return '';
 
                 const deadlineDate = parseLocalDate(deadline);
                 const now = new Date();
                 const diffMs = deadlineDate.getTime() - now.getTime();
-                const diffDays = diffMs / (1000 * 60 * 60 * 24);
+                const absDiffMs = Math.abs(diffMs);
 
-                // Handle -0.0 case by using 0
-                const normalizedDays = Object.is(diffDays, -0) || (diffDays > -0.05 && diffDays < 0.05) ? 0 : diffDays;
+                // Less than 48 hours: show in hours
+                if (absDiffMs < 48 * 60 * 60 * 1000) {
+                    const hours = Math.floor(absDiffMs / (1000 * 60 * 60));
+                    if (hours === 0) {
+                        return diffMs >= 0 ? '+<1h' : '-<1h';
+                    }
+                    return diffMs >= 0 ? `+${hours}h` : `-${hours}h`;
+                }
 
-                // Format with 1 decimal place, show + for positive values
-                const formatted = normalizedDays.toFixed(1);
+                // 48 hours or more: show whole days
+                const diffDays = Math.floor(absDiffMs / (1000 * 60 * 60 * 24));
                 const daysUnit = i18n.t('date.daysShort');
-                return normalizedDays >= 0 ? `+${formatted}${daysUnit}` : `${formatted}${daysUnit}`;
+                return diffMs >= 0 ? `+${diffDays}${daysUnit}` : `-${diffDays}${daysUnit}`;
             };
 
             // Format human-friendly date for tooltip
@@ -225,6 +231,11 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                     today: i18n.t('date.today'),
                     tomorrow: i18n.t('date.tomorrow'),
                     yesterday: i18n.t('date.yesterday'),
+                    justNow: i18n.t('date.justNow'),
+                    inMinutes: i18n.t('date.inMinutes'),
+                    minutesAgo: i18n.t('date.minutesAgo'),
+                    inHours: i18n.t('date.inHours'),
+                    hoursAgo: i18n.t('date.hoursAgo'),
                     inDays: i18n.t('date.inDays'),
                     daysAgo: i18n.t('date.daysAgo'),
                     inAWeek: i18n.t('date.inAWeek'),

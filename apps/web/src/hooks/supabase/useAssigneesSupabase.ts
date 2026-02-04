@@ -2,61 +2,44 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useContactsContext } from '@/contexts/ContactsContext';
 import { supabase } from '@/lib/supabase';
 import type { Contact } from '@/types/contact';
 
 /**
- * Supabase-direct assignees hook
- * Provides the same API as useAssigneesStore but queries Supabase directly
+ * Supabase-direct assignees hook.
+ * Reuses contacts from ContactsContext (no duplicate fetch).
+ * Only fetches note_assignees mappings independently.
  */
 export function useAssigneesSupabase() {
   const { user } = useAuth();
+  const userId = user?.id;
   const { t } = useTranslation();
+  const { contacts } = useContactsContext();
   const [noteAssigneeVersion, setNoteAssigneeVersion] = useState(0);
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null);
-  // Cache for contacts and note-assignee relationships
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  // Ref to always hold the latest fetchNoteAssignees — avoids re-subscribing realtime on fetch changes
+  const fetchNoteAssigneesRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const [noteAssigneesMap, setNoteAssigneesMap] = useState<Record<string, string[]>>({});
 
   /**
-   * Fetch contacts and note_assignees from Supabase
+   * Fetch note_assignees mappings from Supabase
    */
-  const fetchAssignees = useCallback(async () => {
-    if (!user || !supabase) return;
+  const fetchNoteAssignees = useCallback(async () => {
+    if (!userId || !supabase) return;
 
-    // Fetch contacts and note_assignees in parallel
-    const [contactsResult, noteAssigneesResult] = await Promise.all([
-      supabase
-        .from('contacts')
-        .select('*')
-        .eq('user_id', user.id)
-        .is('deleted_at', null)
-        .order('name'),
-      supabase.from('note_assignees').select('note_id, contact_id'),
-    ]);
+    const { data, error } = await supabase
+      .from('note_assignees')
+      .select('note_id, contact_id');
 
-    if (contactsResult.error) {
-      console.error('[useAssigneesSupabase] Fetch contacts error:', contactsResult.error);
+    if (error) {
+      console.error('[useAssigneesSupabase] Fetch note_assignees error:', error);
       return;
     }
 
-    const contactsList: Contact[] = (contactsResult.data || []).map((row) => ({
-      id: row.id,
-      name: row.name,
-      lastname: row.lastname || '',
-      phone: row.phone || '',
-      email: row.email || '',
-      created_at: row.created_at || new Date().toISOString(),
-      updated_at: row.updated_at || new Date().toISOString(),
-      remote_id: row.id,
-      sync_status: 'synced' as const,
-      last_synced_at: row.updated_at || null,
-    }));
-
-    // Build note-assignees map
     const newNoteAssigneesMap: Record<string, string[]> = {};
-    if (noteAssigneesResult.data) {
-      for (const row of noteAssigneesResult.data) {
+    if (data) {
+      for (const row of data) {
         if (!newNoteAssigneesMap[row.note_id]) {
           newNoteAssigneesMap[row.note_id] = [];
         }
@@ -64,25 +47,28 @@ export function useAssigneesSupabase() {
       }
     }
 
-    setContacts(contactsList);
     setNoteAssigneesMap(newNoteAssigneesMap);
-  }, [user]);
+  }, [userId]);
+
+  // Keep ref in sync so realtime handlers always call the latest version
+  fetchNoteAssigneesRef.current = fetchNoteAssignees;
 
   // Initial fetch
   useEffect(() => {
-    fetchAssignees();
-  }, [fetchAssignees]);
+    fetchNoteAssignees();
+  }, [fetchNoteAssignees]);
 
   // Realtime subscription for note_assignees changes
+  // Uses fetchNoteAssigneesRef so subscription doesn't need to be torn down on fetch fn change
   useEffect(() => {
-    if (!user || !supabase) return;
+    if (!userId || !supabase) return;
 
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
     }
 
     const channel = supabase
-      .channel(`note-assignees-${user.id}`)
+      .channel(`note-assignees-${userId}`)
       .on(
         'postgres_changes',
         {
@@ -90,7 +76,7 @@ export function useAssigneesSupabase() {
           schema: 'public',
           table: 'note_assignees',
         },
-        () => fetchAssignees()
+        () => fetchNoteAssigneesRef.current()
       )
       .subscribe();
 
@@ -102,10 +88,10 @@ export function useAssigneesSupabase() {
         channelRef.current = null;
       }
     };
-  }, [user, fetchAssignees]);
+  }, [userId]);
 
   /**
-   * Get assignees for a specific note (uses cached note_assignees map)
+   * Get assignees for a specific note (uses cached note_assignees map + shared contacts)
    */
   const getAssigneesForNote = useCallback(
     (noteId: string): Contact[] => {
@@ -122,7 +108,7 @@ export function useAssigneesSupabase() {
    */
   const addAssigneeToNote = useCallback(
     async (noteId: string, contactId: string): Promise<void> => {
-      if (!supabase || !user) throw new Error('Supabase not configured');
+      if (!supabase || !userId) throw new Error('Supabase not configured');
 
       // Check if already exists locally
       const existingIds = noteAssigneesMap[noteId] || [];
@@ -131,7 +117,7 @@ export function useAssigneesSupabase() {
       const { error } = await supabase.from('note_assignees').insert({
         note_id: noteId,
         contact_id: contactId,
-        user_id: user.id,
+        user_id: userId,
       });
 
       if (error) throw error;
@@ -145,7 +131,7 @@ export function useAssigneesSupabase() {
       setNoteAssigneeVersion((v) => v + 1);
       toast.success(t('toast.assigneeAdded'));
     },
-    [t, noteAssigneesMap, user]
+    [t, noteAssigneesMap, userId]
   );
 
   /**
@@ -179,7 +165,7 @@ export function useAssigneesSupabase() {
    * Set all assignees for a note (replaces existing)
    */
   const setAssigneesForNote = useCallback(async (noteId: string, contactIds: string[]): Promise<void> => {
-    if (!supabase || !user) throw new Error('Supabase not configured');
+    if (!supabase || !userId) throw new Error('Supabase not configured');
 
     // Remove all existing
     await supabase.from('note_assignees').delete().eq('note_id', noteId);
@@ -189,7 +175,7 @@ export function useAssigneesSupabase() {
       const inserts = contactIds.map((contactId) => ({
         note_id: noteId,
         contact_id: contactId,
-        user_id: user.id,
+        user_id: userId,
       }));
       await supabase.from('note_assignees').insert(inserts);
     }
@@ -201,7 +187,7 @@ export function useAssigneesSupabase() {
     }));
 
     setNoteAssigneeVersion((v) => v + 1);
-  }, [user]);
+  }, [userId]);
 
   return {
     noteAssigneeVersion,

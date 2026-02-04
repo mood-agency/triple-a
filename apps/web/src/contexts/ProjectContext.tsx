@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useProjects } from '@/hooks/useProjects';
+import { useProjectsSupabase } from '@/hooks/supabase/useProjectsSupabase';
 import { useSettings } from '@/hooks/useSettings';
 import type { Project, ProjectInput } from '@/types/project';
 
@@ -17,6 +17,16 @@ interface ProjectContextValue {
   setActiveProjectId: (id: string) => void;
   /** Create a new project and optionally set it as active */
   createProject: (input: ProjectInput, setAsActive?: boolean) => Promise<Project>;
+  /** Update a project */
+  updateProject: (id: string, input: Partial<ProjectInput>) => Promise<Project>;
+  /** Delete a project (soft delete) */
+  deleteProject: (id: string) => Promise<void>;
+  /** Archive a project */
+  archiveProject: (id: string) => Promise<void>;
+  /** Update project's Google Calendar settings */
+  updateProjectCalendar: (id: string, gcalCalendarId: string | null, gcalAccountId?: string | null) => Promise<void>;
+  /** Get notes count for a project */
+  getNotesCountForProject: (projectId: string) => number;
 }
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);
@@ -26,7 +36,16 @@ interface ProjectProviderProps {
 }
 
 export function ProjectProvider({ children }: ProjectProviderProps) {
-  const { projects, loading: projectsLoading, createProject: createProjectBase } = useProjects();
+  const {
+    projects,
+    loading: projectsLoading,
+    createProject: createProjectBase,
+    updateProject,
+    deleteProject,
+    archiveProject,
+    updateProjectCalendar,
+    getNotesCountForProject,
+  } = useProjectsSupabase();
   const { settings, updateSettings } = useSettings();
   const [activeProjectId, setActiveProjectIdState] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
@@ -163,7 +182,12 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
     loading: projectsLoading || !initialized,
     setActiveProjectId,
     createProject,
-  }), [activeProject, effectiveActiveProjectId, projects, projectsLoading, initialized, setActiveProjectId, createProject]);
+    updateProject,
+    deleteProject,
+    archiveProject,
+    updateProjectCalendar,
+    getNotesCountForProject,
+  }), [activeProject, effectiveActiveProjectId, projects, projectsLoading, initialized, setActiveProjectId, createProject, updateProject, deleteProject, archiveProject, updateProjectCalendar, getNotesCountForProject]);
 
   return (
     <ProjectContext.Provider value={value}>

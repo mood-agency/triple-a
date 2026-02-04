@@ -648,6 +648,7 @@ body {
   position: absolute;
   top: 50%;
   left: 0;
+  width: 0;
   height: 1px;
   background-color: var(--color-muted-foreground);
   animation: strikethrough-grow 400ms ease-out forwards;

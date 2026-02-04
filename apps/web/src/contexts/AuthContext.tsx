@@ -32,9 +32,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      currentUserIdRef.current = session?.user?.id ?? null
-      setSession(session)
-      setUser(session?.user ?? null)
+      const newUserId = session?.user?.id ?? null
+      // Only update user/session if user ID actually changed (avoids duplicate
+      // object references from StrictMode double-mounting calling getSession twice)
+      if (newUserId !== currentUserIdRef.current) {
+        currentUserIdRef.current = newUserId
+        setSession(session)
+        setUser(session?.user ?? null)
+      }
       setIsLoading(false)
     }).catch((error) => {
       console.error('[Auth] Failed to get session:', error)
