@@ -1043,8 +1043,13 @@ export const BlockNoteNoteList = ({
   // Listen for Tab navigation events from blocks (via event bus)
   // Note: NotesWorkspace also listens to this event to update titleValue for immediate UI sync
   useEventSubscription('editor:navigateToDescription', (event) => {
-    // Save content before navigating away
-    eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
+    // Save content with hashtag parsing before navigating away (fire-and-forget to avoid blocking navigation)
+    processNoteBlock(event.payload.noteId).then((result) => {
+      if (!result) {
+        // Note not in props yet, fall back to mediator save
+        eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
+      }
+    });
 
     // Push current position to history before navigating away (including cursor offset)
     eventBus.emit('navigation:pushHistory', {
