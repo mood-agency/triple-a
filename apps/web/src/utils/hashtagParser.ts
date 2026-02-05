@@ -71,16 +71,31 @@ function findCategoryMatch(query: string): NoteCategory | null {
 
 /**
  * Busca la mejor coincidencia fuzzy para un contacto
+ * Busca en name, lastname, y también en el nombre completo concatenado (sin espacio)
+ * para soportar menciones como @lilianaferro cuando el contacto es "Liliana Ferro"
  */
 function findContactMatch(query: string, contacts: Contact[]): Contact | null {
   if (contacts.length === 0) return null;
 
-  const fuse = new Fuse(contacts, {
+  // Crear objetos con campos adicionales para buscar
+  const searchableContacts = contacts.map(contact => ({
+    ...contact,
+    fullNameNoSpace: `${contact.name}${contact.lastname}`.toLowerCase(),
+    fullName: `${contact.name} ${contact.lastname}`.toLowerCase(),
+  }));
+
+  const fuse = new Fuse(searchableContacts, {
     ...FUSE_OPTIONS,
-    keys: ['name', 'lastname'],
+    keys: ['name', 'lastname', 'fullNameNoSpace', 'fullName'],
   });
   const results = fuse.search(query);
-  return results.length > 0 ? results[0].item : null;
+
+  // Retornar el contacto original (sin los campos adicionales)
+  if (results.length > 0) {
+    const matchedId = results[0].item.id;
+    return contacts.find(c => c.id === matchedId) || null;
+  }
+  return null;
 }
 
 /**

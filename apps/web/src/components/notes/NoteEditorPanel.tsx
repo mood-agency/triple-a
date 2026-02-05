@@ -806,6 +806,9 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                             today: t('date.today'),
                             tomorrow: t('date.tomorrow'),
                             yesterday: t('date.yesterday'),
+                            justNow: t('date.justNow'),
+                            inMinutes: t('date.inMinutes'),
+                            minutesAgo: t('date.minutesAgo'),
                             inHours: t('date.inHours'),
                             hoursAgo: t('date.hoursAgo'),
                             inDays: t('date.inDays'),
@@ -922,7 +925,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             </button>
           </div>
         )}
-        <div className="flex-1 min-h-0 relative overflow-hidden">
+        <div className="flex-1 min-h-0 relative">
           <BlockNoteEditor
             ref={editorRef}
             value={descriptionValue}

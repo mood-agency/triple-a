@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -7,6 +8,9 @@ import { Kbd } from '@/components/ui/kbd';
 import { getCursorPosition, getFontString } from '@/utils/cursorUtils';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useNoteFieldsStore } from '@/stores/useNoteFieldsStore';
+import { parseHashtags, extractHashtags, extractMentions } from '@/utils/hashtagParser';
+import type { Label } from '@/types/note';
+import type { Contact } from '@/types/contact';
 
 interface EditableTitleProps {
   noteId: string;
@@ -19,6 +23,13 @@ interface EditableTitleProps {
   showCheckbox?: boolean;
   isCompletingExternal?: boolean; // Optional external control for completion animation
   onNavigateToDescription?: () => void;
+  // Hashtag parsing props (optional - when provided, enables tag parsing)
+  allLabels?: Label[];
+  contacts?: Contact[];
+  onAddLabel?: (labelId: string) => void;
+  onAddAssignee?: (noteId: string, contactId: string) => void;
+  onCreateLabelAndAdd?: (noteId: string, labelName: string) => void;
+  onCategoryChange?: (category: 'todo' | 'followup' | 'notes' | 'meeting') => void;
 }
 
 export interface EditableTitleHandle {
@@ -36,6 +47,13 @@ export const EditableTitle = forwardRef<EditableTitleHandle, EditableTitleProps>
   showCheckbox = true,
   isCompletingExternal = false,
   onNavigateToDescription,
+  // Hashtag parsing props
+  allLabels,
+  contacts,
+  onAddLabel,
+  onAddAssignee,
+  onCreateLabelAndAdd,
+  onCategoryChange,
 }, ref) {
   const { t } = useTranslation();
   // Read title from the store map by noteId — undefined if not in store (e.g. completed/deleted rows)
@@ -165,10 +183,88 @@ export const EditableTitle = forwardRef<EditableTitleHandle, EditableTitleProps>
     // Position is now handled in useEffect after isEditing changes
   };
 
+  // Check if content has unparsed hashtags or mentions
+  const hasUnparsedTags = useCallback((text: string): boolean => {
+    const hashtags = extractHashtags(text);
+    const mentions = extractMentions(text);
+    return hashtags.length > 0 || mentions.length > 0;
+  }, []);
+
+  // Parse and process hashtags in the title
+  const parseAndProcessHashtags = useCallback((trimmedValue: string): string => {
+    // Only parse if we have the necessary props
+    if (!allLabels || !contacts) {
+      return trimmedValue;
+    }
+
+    // Skip if no tags to parse
+    if (!hasUnparsedTags(trimmedValue)) {
+      return trimmedValue;
+    }
+
+    const parseResult = parseHashtags(trimmedValue, {
+      labels: allLabels,
+      contacts: contacts,
+    });
+
+    // Process category change
+    if (parseResult.category && onCategoryChange) {
+      onCategoryChange(parseResult.category);
+    }
+
+    // Process assignees (all matched contacts)
+    for (const parsed of parseResult.parsedHashtags) {
+      if (parsed.type === 'contact' && parsed.matchedId && onAddAssignee) {
+        onAddAssignee(noteId, parsed.matchedId);
+      }
+    }
+
+    // Process labels
+    for (const labelId of parseResult.labelIds) {
+      onAddLabel?.(labelId);
+    }
+
+    // Create new labels
+    for (const labelName of parseResult.newLabelNames) {
+      onCreateLabelAndAdd?.(noteId, labelName);
+    }
+
+    // Show toast with parsed details
+    const details: string[] = [];
+    for (const parsed of parseResult.parsedHashtags) {
+      switch (parsed.type) {
+        case 'category':
+          details.push(`#${parsed.tag}`);
+          break;
+        case 'contact':
+          details.push(`@${parsed.tag}`);
+          break;
+        case 'label':
+          details.push(`#${parsed.tag}`);
+          break;
+        case 'new_label':
+          details.push(`#${parsed.tag} (new)`);
+          break;
+      }
+    }
+
+    if (details.length > 0) {
+      toast.success(`Tags: ${details.join(', ')}`);
+    }
+
+    return parseResult.cleanedContent;
+  }, [allLabels, contacts, noteId, onCategoryChange, onAddAssignee, onAddLabel, onCreateLabelAndAdd, hasUnparsedTags]);
+
   const handleSave = () => {
     const originalValue = titleValue ?? content;
-    if (editedTitle.trim() && editedTitle !== originalValue) {
-      onEdit(noteId, editedTitle.trim());
+    const trimmedValue = editedTitle.trim();
+
+    if (trimmedValue && trimmedValue !== originalValue) {
+      // Parse hashtags and get cleaned content
+      const cleanedContent = parseAndProcessHashtags(trimmedValue);
+      setEditedTitle(cleanedContent);
+      if (titleValue !== undefined) setTitleValue(cleanedContent);
+      onEdit(noteId, cleanedContent);
     } else {
       setEditedTitle(originalValue);
     }
