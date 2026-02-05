@@ -62,7 +62,16 @@ export const EditableTitle = forwardRef<EditableTitleHandle, EditableTitleProps>
   const setTitleValue = useCallback((value: string) => storeSetTitleValue(noteId, value), [noteId, storeSetTitleValue]);
   // Don't auto-start editing - let the NoteRow handle focus for new tasks
   const [isEditing, setIsEditing] = useState(false);
-  const [editedTitle, setEditedTitle] = useState(titleValue ?? content);
+
+  // Helper to clean content if context is available
+  const cleanContent = useCallback((raw: string) => {
+    if (allLabels && contacts) {
+      return parseHashtags(raw, { labels: allLabels, contacts }).cleanedContent;
+    }
+    return raw;
+  }, [allLabels, contacts]);
+
+  const [editedTitle, setEditedTitle] = useState(() => cleanContent(titleValue ?? content));
   const [isCompletingInternal, setIsCompletingInternal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const clickXRef = useRef<number | null>(null);
@@ -116,14 +125,14 @@ export const EditableTitle = forwardRef<EditableTitleHandle, EditableTitleProps>
 
     if (noteIdChanged) {
       // Note changed - reset everything
-      setEditedTitle(titleValue ?? content);
+      setEditedTitle(cleanContent(titleValue ?? content));
       setIsEditing(false);
       setIsCompletingInternal(false);
     } else if (!isEditing) {
       // Same note, not editing - sync with store
-      setEditedTitle(titleValue ?? content);
+      setEditedTitle(cleanContent(titleValue ?? content));
     }
-  }, [noteId, content, titleValue, isEditing]);
+  }, [noteId, content, titleValue, isEditing, cleanContent]);
 
   // Reset isCompleting when completed changes (task was actually completed)
   useEffect(() => {

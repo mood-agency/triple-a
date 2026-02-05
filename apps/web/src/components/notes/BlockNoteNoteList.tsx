@@ -665,9 +665,11 @@ export const BlockNoteNoteList = ({
   // CENTRALIZED selection tracking - ONE listener instead of N blocks each listening
   // This emits editor:blockSelection event that blocks can subscribe to
   // Also handles multi-block selection prevention centrally
-  useEffect(() => {
-    let previousBlockId: string | null = null;
 
+  // Use ref to track previous block ID across renders/effect re-runs
+  const previousBlockIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
     const unsubscribe = editor.onSelectionChange(() => {
       // Skip selection handling during programmatic syncs to avoid event loops
       if (isSyncingRef.current) return;
@@ -705,6 +707,8 @@ export const BlockNoteNoteList = ({
         }
       }
 
+      const previousBlockId = previousBlockIdRef.current;
+
       // Only emit if selection actually changed
       if (blockId !== previousBlockId) {
         // Emit navigation event - mediator will coordinate saving the previous item
@@ -713,6 +717,15 @@ export const BlockNoteNoteList = ({
           region: 'taskList',
           itemId: blockId,
         });
+
+        // NEW: Process the previous block to ensure tags are parsed and content is cleaned
+        // This handles cases like navigating with Arrow keys where focus isn't lost
+        // usage of ref required to avoid stale closure (useEffect deps don't include processNoteBlock)
+        if (previousBlockId) {
+          if (processNoteBlockRef.current) {
+            processNoteBlockRef.current(previousBlockId);
+          }
+        }
 
         // Emit centralized selection event for blocks to consume (UI updates like isEditing)
         eventBus.emit('editor:blockSelection', {
@@ -726,7 +739,7 @@ export const BlockNoteNoteList = ({
           onSelectNote(blockId);
         }
 
-        previousBlockId = blockId;
+        previousBlockIdRef.current = blockId;
       }
     });
 
