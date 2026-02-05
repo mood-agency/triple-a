@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { parseHashtags, extractHashtags, extractMentions } from '@/utils/hashtagParser';
 import { useAutoSave } from '@/hooks/useAutoSave';
+import { useNoteFieldsStore } from '@/stores/useNoteFieldsStore';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { getCursorPosition, getFontString } from '@/utils/cursorUtils';
@@ -39,7 +40,6 @@ interface UseNoteRowProps {
     isCommandPaletteOpen?: boolean;
     onContentChange?: (content: string) => void;
     autoSaveInterval?: number; // in seconds, 0 = disabled
-    editorTitleValue?: string; // live title from editor panel for real-time sync
 }
 
 export function useNoteRow({
@@ -64,13 +64,27 @@ export function useNoteRow({
     onCreateLabelAndAdd,
     isCommandPaletteOpen,
     autoSaveInterval = 3,
-    editorTitleValue,
 }: UseNoteRowProps) {
     const { t } = useTranslation();
+    // Read title from the store map by noteId — for sync with editor panel
+    const storeTitleValue = useNoteFieldsStore(s => s.notes[note.id]?.titleValue);
+    const storeSetTitleValue = useNoteFieldsStore(s => s.setTitleValue);
+
     // Start in editing mode for newly created empty notes to avoid a
     // span→input flash that briefly shows "Nueva tarea..." placeholder.
     const [isEditingContent, setIsEditingContent] = useState(isSelected && note.content === '');
-    const [contentValue, setContentValue] = useState(note.content);
+    const [localContentValue, setLocalContentValue] = useState(note.content);
+
+    // Use store value when available (note is selected/fixed in store), otherwise use local state
+    const contentValue = storeTitleValue ?? localContentValue;
+    const setContentValue = useCallback((value: string) => {
+        setLocalContentValue(value);
+        // Always try to update store — setTitleValue is a no-op if the note
+        // isn't in the map, so no guard needed. Avoiding a storeTitleValue
+        // guard prevents stale closure bugs (saveContentWithHashtagParsing
+        // doesn't list setContentValue in its deps).
+        storeSetTitleValue(note.id, value);
+    }, [storeSetTitleValue, note.id]);
 
     // Dropdown states
     const [showLabelDropdown, setShowLabelDropdown] = useState(false);
@@ -103,13 +117,13 @@ export function useNoteRow({
         enabled: isEditingContent && autoSaveInterval > 0,
     });
 
-    // Sync content value when note changes (but not while editing)
-    // If editorTitleValue is provided (from the editor panel), prefer it for real-time sync
+    // Sync local content value when note changes (but not while editing)
+    // Store value (storeTitleValue) is already reactive and takes precedence via contentValue
     useEffect(() => {
-        if (!isEditingContent) {
-            setContentValue(editorTitleValue !== undefined ? editorTitleValue : note.content);
+        if (!isEditingContent && storeTitleValue === undefined) {
+            setLocalContentValue(note.content);
         }
-    }, [note.content, isEditingContent, editorTitleValue]);
+    }, [note.content, isEditingContent, storeTitleValue]);
 
     // Auto-focus empty notes when selected (newly created notes)
     useEffect(() => {
@@ -216,7 +230,8 @@ export function useNoteRow({
         });
 
         if (parseResult.parsedHashtags.length === 0) {
-            setContentValue(trimmedValue);
+            setLocalContentValue(trimmedValue);
+            storeSetTitleValue(note.id, trimmedValue);
             onEdit(note.id, trimmedValue, note.category, note.description);
             return trimmedValue;
         }
@@ -226,7 +241,6 @@ export function useNoteRow({
         // Agregar todos los contactos mencionados como assignees
         for (const parsed of parseResult.parsedHashtags) {
             if (parsed.type === 'contact' && parsed.matchedId) {
-                console.log('[useNoteRow] Calling onAddAssignee:', note.id, parsed.matchedId);
                 onAddAssignee?.(note.id, parsed.matchedId);
             }
         }
@@ -239,7 +253,9 @@ export function useNoteRow({
             onCreateLabelAndAdd?.(note.id, labelName);
         }
 
-        setContentValue(parseResult.cleanedContent);
+        // Update both local state and Zustand store directly to avoid stale closure issues
+        setLocalContentValue(parseResult.cleanedContent);
+        storeSetTitleValue(note.id, parseResult.cleanedContent);
         onEdit(note.id, parseResult.cleanedContent, finalCategory, note.description);
 
         const details: string[] = [];
@@ -270,7 +286,7 @@ export function useNoteRow({
         }
 
         return parseResult.cleanedContent;
-    }, [contentValue, note.content, note.category, note.description, note.id, allLabels, contacts, onEdit, onAddAssignee, onAddLabel, onCreateLabelAndAdd, t]);
+    }, [contentValue, note.content, note.category, note.description, note.id, allLabels, contacts, onEdit, onAddAssignee, onAddLabel, onCreateLabelAndAdd, storeSetTitleValue, t]);
 
     const handleContentBlur = useCallback(() => {
         if (isDeletingRef.current) return;

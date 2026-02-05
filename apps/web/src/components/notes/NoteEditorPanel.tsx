@@ -383,6 +383,11 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
     onEdit(id, content, note.category, descriptionValue || null);
   };
 
+  // Handle category change from hashtag parsing in title
+  const handleCategoryChangeFromTitle = useCallback((category: NoteCategory) => {
+    onEdit(note.id, note.content, category, descriptionValue || null);
+  }, [note.id, note.content, descriptionValue, onEdit]);
+
   // Wrapped focus handler - emits navigation event when editor receives focus
   const handleDescriptionFocusInternal = useCallback(() => {
     // Call the original handler if provided
@@ -856,6 +861,12 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             showCheckbox={note.category === 'todo' || note.category === 'followup'}
             isCompletingExternal={isCompleting}
             onNavigateToDescription={handleNavigateToDescription}
+            // Hashtag parsing props
+            allLabels={allLabels}
+            contacts={contacts}
+            onAddLabel={onAddLabel}
+            onAddAssignee={onAddAssignee}
+            onCategoryChange={handleCategoryChangeFromTitle}
           />
         </div>
       </div>

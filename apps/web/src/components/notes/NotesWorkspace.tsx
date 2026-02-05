@@ -31,6 +31,7 @@ import { useContacts } from '@/hooks/useContacts';
 import type { Note, NoteCategory, Label, NoteVersion } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { EMPTY_LABELS } from '@/constants/notes';
+import { parseHashtags } from '@/utils/hashtagParser';
 import { useLabels } from '@/hooks/useLabels';
 import { useAssignees } from '@/hooks/useAssignees';
 import { useNoteVersionsAndActions } from '@/hooks/useNoteVersionsAndActions';
@@ -259,7 +260,10 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
   // Listen for Tab navigation to update title value immediately (before async save completes)
   useEventSubscription('editor:navigateToDescription', (event) => {
     if (event.payload.content !== undefined) {
-      selection.setTitleValue(event.payload.content);
+      // Clean content (remove tags/mentions) before syncing to store so EditableTitle initializes clean
+      // We use the current labels/contacts from the workspace
+      const { cleanedContent } = parseHashtags(event.payload.content, { labels, contacts });
+      selection.setTitleValue(cleanedContent);
     }
   });
 
@@ -978,7 +982,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
           labelFilter={filters.labelFilter}
           setLabelFilter={filters.setLabelFilter}
           sortConfig={filters.sortConfig}
-          onSortConfigChange={onSortConfigChange ?? (() => {})}
+          onSortConfigChange={onSortConfigChange ?? (() => { })}
           sortByDeadline={filters.sortByDeadline}
           setSortByDeadline={filters.setSortByDeadline}
           showOverdueOnly={filters.showOverdueOnly}

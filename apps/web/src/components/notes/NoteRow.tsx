@@ -56,7 +56,6 @@ export interface NoteRowProps {
   hideDeadline?: boolean;
   assignees?: Contact[];
   autoSaveInterval?: number; // in seconds, 0 = disabled
-  editorTitleValue?: string; // live title from editor panel for real-time sync
 }
 
 function NoteRow(props: NoteRowProps) {
