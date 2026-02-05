@@ -1083,7 +1083,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                className={`${isMobile ? 'w-full' : 'flex-1'} min-w-0 overflow-hidden flex flex-col`}
+                className={`${isMobile ? 'w-full' : 'flex-1'} min-w-0 flex flex-col`}
               >
                 {isMobile && (
                   <Button

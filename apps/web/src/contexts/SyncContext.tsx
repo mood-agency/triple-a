@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { supabase } from '@/lib/supabase';
@@ -16,7 +16,8 @@ const SyncContext = createContext<SyncContextType | null>(null);
 export function SyncProvider({ children }: { children: ReactNode }) {
   const isOnline = useOnlineStatus();
   const [connectionStatus, setConnectionStatus] = useState<SyncConnectionStatus>('offline');
-  const [prevOnline, setPrevOnline] = useState<boolean | null>(null);
+  // Use ref to track previous online state without causing re-renders
+  const prevOnlineRef = useRef<boolean | null>(null);
 
   // Update connection status
   useEffect(() => {
@@ -31,20 +32,22 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   // Show toast notifications for online/offline transitions
   useEffect(() => {
-    if (prevOnline === null) {
-      setPrevOnline(isOnline);
+    // Skip notification on initial mount - just record the initial state
+    if (prevOnlineRef.current === null) {
+      prevOnlineRef.current = isOnline;
       return;
     }
 
-    if (prevOnline !== isOnline) {
+    // Only show toast when status actually changes
+    if (prevOnlineRef.current !== isOnline) {
       if (isOnline) {
         toast.success(i18n.t('sync.backOnline'));
       } else {
         toast.warning(i18n.t('sync.nowOffline'));
       }
-      setPrevOnline(isOnline);
+      prevOnlineRef.current = isOnline;
     }
-  }, [isOnline, prevOnline]);
+  }, [isOnline]);
 
   return (
     <SyncContext.Provider
