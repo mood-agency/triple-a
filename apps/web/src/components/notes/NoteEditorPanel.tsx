@@ -624,7 +624,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
       <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2 flex-wrap">
         <Popover open={categoryDropdownOpen} onOpenChange={onCategoryDropdownOpenChange}>
           <PopoverTrigger asChild>
-            <button type="button" className="font-medium text-foreground hover:underline">
+            <button type="button" className="font-medium text-muted-foreground underline">
               {note.category === 'todo' && t('categoryTodo')}
               {note.category === 'followup' && t('categoryFollowUp')}
               {note.category === 'notes' && t('categoryNote')}
@@ -668,7 +668,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                   e.stopPropagation();
                   onDeadlinePickerOpenChange(!deadlinePickerOpen);
                 }}
-                className="font-medium text-foreground hover:underline cursor-pointer"
+                className="font-medium text-muted-foreground underline cursor-pointer"
               >
                 {(deadlineValue ?? note.deadline)
                   ? formatRelativeDateEnhanced(
@@ -733,7 +733,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                   onClick={(e) => {
                     e.stopPropagation();
                   }}
-                  className="font-medium text-foreground cursor-default"
+                  className="font-medium text-muted-foreground cursor-default"
                 >
                   {formatRelativeDateEnhanced(
                     new Date(note.created_at),
@@ -792,7 +792,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
             <span>{t('postponedLabel')}</span>
             <Popover>
               <PopoverTrigger asChild>
-                <button type="button" className="font-medium text-foreground truncate max-w-[200px] hover:underline cursor-pointer">
+                <button type="button" className="font-medium text-muted-foreground truncate max-w-[200px] underline cursor-pointer">
                   {actions[0]?.reason || t('noReasonProvided')}
                 </button>
               </PopoverTrigger>
