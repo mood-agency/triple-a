@@ -11,7 +11,7 @@ import { getInitials } from '@/lib/utils';
 
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
-import { parseLocalDate, formatRelativeDateEnhanced } from '@/utils/dateUtils';
+import { parseLocalDate, formatRelativeDateEnhanced, getEffectiveDeadline } from '@/utils/dateUtils';
 
 import { useNoteRow } from './hooks/useNoteRow';
 import { NoteRowContent } from './row/NoteRowContent';
@@ -80,7 +80,7 @@ function NoteRow(props: NoteRowProps) {
   const noteAssignees = props.assignees ?? [];
 
   // Check if deadline has passed
-  const isPastDeadline = note.deadline ? parseLocalDate(note.deadline) < new Date() : false;
+  const isPastDeadline = note.deadline ? getEffectiveDeadline(note.deadline, note.is_all_day) < new Date() : false;
 
   const {
     contentValue,

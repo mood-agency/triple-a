@@ -192,10 +192,10 @@ export const NoteListContent = memo(function NoteListContent({
 
     return (
         <motion.div
-            initial={{ borderRightColor: "rgba(107, 114, 128, 0)" }}
-            animate={{ borderRightColor: "rgba(107, 114, 128, 0.3)" }}
+            initial={{ borderRightColor: "rgba(255, 255, 255, 0)" }}
+            animate={{ borderRightColor: "rgba(255, 255, 255, 0.08)" }}
             transition={{ duration: 5, ease: "linear" }}
-            className={`${isMobile ? 'w-full' : 'w-[30%] pr-4'} ${!isMobile ? 'border-r' : ''} ${isMobile && selectedNote ? 'hidden' : ''} shrink-0 flex flex-col overflow-hidden h-full`}
+            className={`${isMobile ? 'w-full' : 'w-[calc(30%+1rem)] -ml-4 pl-4 pr-4 -mt-14 pt-14 -mb-4 pb-4'} ${!isMobile ? 'border-r' : ''} ${isMobile && selectedNote ? 'hidden' : ''} shrink-0 flex flex-col overflow-hidden bg-[#121212]`}
         >
             <AnimatePresence>
                 <ActiveFiltersBar

@@ -144,7 +144,7 @@ export const NoteListToolbar = memo(function NoteListToolbar({
     }, [activeNotes, contacts, noteAssigneesCache, t]);
 
     return (
-        <div className={`flex-shrink-0 group ${isMobile && selectedNote ? 'hidden' : ''}`}>
+        <div className={`flex-shrink-0 group relative z-10 ${isMobile && selectedNote ? 'hidden' : ''}`}>
             <div className="flex items-center gap-2 mb-2">
                 {/* Logo - first position */}
                 <Logo size="sm" className="mr-1" />

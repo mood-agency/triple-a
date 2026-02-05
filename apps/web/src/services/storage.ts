@@ -84,12 +84,17 @@ export async function uploadNoteAttachment(
     throw new StorageError(`Upload failed: ${error.message}`, 'UPLOAD_FAILED')
   }
 
-  const { data: urlData } = supabase.storage
+  // Use signed URL for private bucket (expires in 1 year)
+  const { data: urlData, error: urlError } = await supabase.storage
     .from(BUCKET_NAME)
-    .getPublicUrl(filePath)
+    .createSignedUrl(filePath, 31536000) // 1 year in seconds
+
+  if (urlError) {
+    throw new StorageError(`Failed to generate URL: ${urlError.message}`, 'UPLOAD_FAILED')
+  }
 
   return {
-    url: urlData.publicUrl,
+    url: urlData.signedUrl,
     path: filePath,
     name: file.name,
     size: file.size,
@@ -111,16 +116,27 @@ export async function deleteNoteAttachment(path: string): Promise<void> {
   }
 }
 
-export function getAttachmentUrl(path: string): string {
+export async function getAttachmentUrl(path: string): Promise<string> {
   if (!supabase) {
     return ''
   }
 
-  const { data } = supabase.storage
-    .from(BUCKET_NAME)
-    .getPublicUrl(path)
+  try {
+    // Use signed URL for private bucket (expires in 1 year)
+    const { data, error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .createSignedUrl(path, 31536000) // 1 year in seconds
 
-  return data.publicUrl
+    if (error) {
+      console.error('Failed to get signed URL:', error)
+      return ''
+    }
+
+    return data.signedUrl
+  } catch (error) {
+    console.error('Failed to get attachment URL:', error)
+    return ''
+  }
 }
 
 export async function getSignedUrl(path: string, expiresIn = 3600): Promise<string> {

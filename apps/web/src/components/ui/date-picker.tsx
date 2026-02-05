@@ -164,12 +164,17 @@ export function DatePicker({
     }
   }
 
-  // Check if the date is overdue (past)
+  // Check if the date is overdue (past). For all-day tasks, use end-of-day.
   const isOverdue = React.useMemo(() => {
     if (!date) return false
     const now = new Date()
+    if (isAllDay) {
+      const eod = new Date(date)
+      eod.setHours(23, 59, 59, 999)
+      return eod < now
+    }
     return date < now
-  }, [date])
+  }, [date, isAllDay])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

@@ -98,6 +98,19 @@ export function getMinutesFromDeadline(deadlineStr: string): number {
 }
 
 /**
+ * Get the effective deadline date for comparisons against "now".
+ * For all-day tasks, returns end of day (23:59:59.999) since the task is due the entire day.
+ * For timed tasks, returns the exact parsed time.
+ */
+export function getEffectiveDeadline(deadlineStr: string, isAllDay: boolean): Date {
+  const date = parseLocalDate(deadlineStr);
+  if (isAllDay) {
+    return endOfDay(date);
+  }
+  return date;
+}
+
+/**
  * Translations for relative date formatting
  */
 export interface RelativeDateTranslations {

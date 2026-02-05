@@ -3,7 +3,7 @@ import { createReactBlockSpec } from "@blocknote/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBlockCommands } from "./hooks/useBlockCommands";
 import { Pickaxe, Users, Forward, StickyNote, Pin, SidebarClose, Trash2 } from "lucide-react";
-import { parseLocalDate, formatRelativeDateEnhanced } from "@/utils/dateUtils";
+import { parseLocalDate, formatRelativeDateEnhanced, getEffectiveDeadline } from "@/utils/dateUtils";
 import i18n from "@/i18n";
 import { LazyTooltip } from "@/components/ui/lazy-tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -207,20 +207,20 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                 const now = new Date();
                 const diffMs = deadlineDate.getTime() - now.getTime();
                 const absDiffMs = Math.abs(diffMs);
+                const sign = diffMs < 0 ? '-' : '';
 
                 // Less than 48 hours: show in hours
                 if (absDiffMs < 48 * 60 * 60 * 1000) {
                     const hours = Math.floor(absDiffMs / (1000 * 60 * 60));
                     if (hours === 0) {
-                        return diffMs >= 0 ? '+<1h' : '-<1h';
+                        return `${sign}<1 h`;
                     }
-                    return diffMs >= 0 ? `+${hours}h` : `-${hours}h`;
+                    return `${sign}${hours} h`;
                 }
 
                 // 48 hours or more: show whole days
                 const diffDays = Math.floor(absDiffMs / (1000 * 60 * 60 * 24));
-                const daysUnit = i18n.t('date.daysShort');
-                return diffMs >= 0 ? `+${diffDays}${daysUnit}` : `-${diffDays}${daysUnit}`;
+                return `${sign}${diffDays} d`;
             };
 
             // Format human-friendly date for tooltip
@@ -258,7 +258,10 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                     yearsAgo: i18n.t('date.yearsAgo'),
                 };
 
-                const relativeStr = formatRelativeDateEnhanced(date, i18n.language, translations, false);
+                // Check if it's an all-day task using the explicit field
+                const isAllDay = props.block.props.isAllDay as boolean;
+
+                const relativeStr = formatRelativeDateEnhanced(date, i18n.language, translations, false, isAllDay);
 
                 // Show time when referring to a specific day (within ±7 days) and it's not an all-day task
                 const today = new Date();
@@ -266,9 +269,6 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                 const targetDate = new Date(date);
                 targetDate.setHours(0, 0, 0, 0);
                 const daysDiff = Math.round((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-                // Check if it's an all-day task using the explicit field
-                const isAllDay = props.block.props.isAllDay as boolean;
 
                 if (Math.abs(daysDiff) <= 7 && !isAllDay) {
                     const timeStr = date.toLocaleTimeString(i18n.language, {
@@ -281,8 +281,9 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                 return relativeStr;
             };
 
-            // Check if deadline has passed
-            const isPastDeadline = dateStr ? parseLocalDate(dateStr) < new Date() : false;
+            // Check if deadline has passed (all-day tasks use end-of-day)
+            const blockIsAllDay = props.block.props.isAllDay as boolean;
+            const isPastDeadline = dateStr ? getEffectiveDeadline(dateStr, blockIsAllDay) < new Date() : false;
             const shouldShowRed = isPastDeadline && !isChecked && category !== 'meeting';
 
             // Only show checkbox for todo and followup categories
@@ -329,6 +330,16 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                     />
 
                     <div contentEditable={false} className="notepad-metadata flex gap-1 mx-2 flex-shrink-0">
+                        {dateStr && !hideDate && (
+                            <LazyTooltip content={formatHumanFriendlyDate(dateStr)} delayDuration={300}>
+                                <span
+                                    className={`chip-deadline cursor-default ${shouldShowRed ? 'chip-deadline-overdue' : ''}`}
+                                    style={{ userSelect: "none" }}
+                                >
+                                    {formatDeadline(dateStr)}
+                                </span>
+                            </LazyTooltip>
+                        )}
                         {(props.block.props.labels as Array<{ name: string; color: string }>)?.map((label, i: number) => (
                             <span
                                 key={i}
@@ -351,18 +362,6 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                             </LazyTooltip>
                         )}
                     </div>
-
-                    {dateStr && !hideDate && (
-                        <LazyTooltip content={formatHumanFriendlyDate(dateStr)} delayDuration={300}>
-                            <span
-                                contentEditable={false}
-                                className={`chip-deadline cursor-default ${shouldShowRed ? 'chip-deadline-overdue' : ''}`}
-                                style={{ userSelect: "none" }}
-                            >
-                                {formatDeadline(dateStr)}
-                            </span>
-                        </LazyTooltip>
-                    )}
 
                     {/* Pin icon - only render if pinned in compact mode, otherwise show on hover */}
                     {(!isCompact || isPinned) && (

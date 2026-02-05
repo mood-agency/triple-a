@@ -1,6 +1,6 @@
 import type { Note, NoteCategory, Label } from '@/types/note';
 import { CATEGORY_ORDER, DEFAULT_CATEGORY_ORDER } from '@/constants/notes';
-import { parseLocalDate } from '@/utils/dateUtils';
+import { parseLocalDate, getEffectiveDeadline } from '@/utils/dateUtils';
 
 /**
  * Sort direction type
@@ -57,10 +57,15 @@ export function sortNotes(
   sortConfig: NoteSortConfig,
   assigneeNamesCache?: Map<string, string | null>
 ): Note[] {
+  // Check if any explicit sort is active
+  const hasActiveSort = sortConfig.category || sortConfig.assignee || sortConfig.deadline || sortConfig.createdAt;
+
   return [...notes].sort((a, b) => {
-    // Pinned notes always come first
-    if (a.pinned && !b.pinned) return -1;
-    if (!a.pinned && b.pinned) return 1;
+    // Pinned notes come first only when no explicit sort is active
+    if (!hasActiveSort) {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+    }
 
     // Sort by category if enabled
     if (sortConfig.category) {
@@ -93,9 +98,9 @@ export function sortNotes(
       if (!a.deadline && !b.deadline) return 0;
       if (!a.deadline) return 1;
       if (!b.deadline) return -1;
-      // Sort by deadline
-      const aTime = parseLocalDate(a.deadline).getTime();
-      const bTime = parseLocalDate(b.deadline).getTime();
+      // Sort by deadline (all-day tasks use end-of-day for fair comparison)
+      const aTime = getEffectiveDeadline(a.deadline, a.is_all_day).getTime();
+      const bTime = getEffectiveDeadline(b.deadline, b.is_all_day).getTime();
       const result = aTime - bTime;
       const finalResult = sortConfig.deadline === 'desc' ? -result : result;
       return finalResult;

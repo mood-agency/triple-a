@@ -1176,9 +1176,9 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
                   duration: 0.25,
                   ease: [0.16, 1, 0.3, 1],
                 }}
-                className="ml-auto -my-4 -mr-4 w-[calc(35%+2rem)]"
+                className="ml-auto -my-4 -mr-4 w-[calc(35%+1rem)]"
               >
-                <div className="w-full min-w-[400px] h-full flex flex-col rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30 overflow-y-auto p-4 py-4 pr-8">
+                <div className="w-full min-w-[400px] h-full flex flex-col rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30 overflow-y-auto p-4">
                   <NoteEditorPanel
                     ref={fixedNoteDescriptionRef}
                     note={displayedNote}

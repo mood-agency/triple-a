@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { Note, NoteCategory, Label } from '@/types/note'
-import { parseLocalDate, formatLocalDate, getLocalDateKey } from '@/utils/dateUtils'
+import { parseLocalDate, formatLocalDate, getLocalDateKey, getEffectiveDeadline } from '@/utils/dateUtils'
 
 export interface CalendarNotesResult {
   notesByDate: Map<string, Note[]>
@@ -60,7 +60,7 @@ export function useCalendarNotes(
 
       // Apply overdue only filter
       if (showOverdueOnly) {
-        const isOverdue = parseLocalDate(note.deadline) < new Date()
+        const isOverdue = getEffectiveDeadline(note.deadline, note.is_all_day) < new Date()
         if (!isOverdue) return false
       }
 
