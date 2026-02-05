@@ -8,6 +8,7 @@ import {
   hasTimeComponent,
   getHourFromDeadline,
   getMinutesFromDeadline,
+  formatRelativeDateEnhanced,
 } from './dateUtils'
 
 describe('dateUtils', () => {
@@ -309,6 +310,72 @@ describe('dateUtils', () => {
       expect(dateKey).toBe('2026-02-15')
       expect(getHourFromDeadline(datetimeStr)).toBe(14)
       expect(getMinutesFromDeadline(datetimeStr)).toBe(30)
+    })
+  })
+
+  describe('formatRelativeDateEnhanced', () => {
+    const mockTranslations = {
+      today: 'Hoy',
+      tomorrow: 'Mañana',
+      yesterday: 'Ayer',
+      justNow: 'Ahora',
+      inMinutes: 'En {{count}} min',
+      minutesAgo: 'Hace {{count}} min',
+      inHours: 'En {{count}}h',
+      hoursAgo: 'Hace {{count}}h',
+      inDays: 'En {{count}} días',
+      daysAgo: 'Hace {{count}} días',
+      inAWeek: 'En una semana',
+      aWeekAgo: 'Hace una semana',
+      inWeeks: 'En {{count}} semanas',
+      weeksAgo: 'Hace {{count}} semanas',
+      nextWeek: 'Próxima semana',
+      lastWeek: 'Semana pasada',
+      thisWeekday: 'Este {{weekday}}',
+      nextWeekday: 'Próximo {{weekday}}',
+      lastWeekday: '{{weekday}} pasado',
+      inAMonth: 'En un mes',
+      aMonthAgo: 'Hace un mes',
+      inMonths: 'En {{count}} meses',
+      monthsAgo: 'Hace {{count}} meses',
+      inAYear: 'En un año',
+      aYearAgo: 'Hace un año',
+      inYears: 'En {{count}} años',
+      yearsAgo: 'Hace {{count}} años',
+    }
+
+    it('should show "Hoy" for all-day task today at midnight', () => {
+      // Simulate an all-day task for today (stored as YYYY-MM-DD 00:00:00)
+      const today = new Date()
+      const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0)
+
+      const result = formatRelativeDateEnhanced(
+        todayMidnight,
+        'es',
+        mockTranslations,
+        true, // includeTime
+        true  // isAllDay
+      )
+
+      expect(result).toBe('Hoy')
+    })
+
+    it('should NOT show hours ago for all-day task today', () => {
+      // Simulate current time at 10:00 AM
+      const today = new Date()
+      const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0)
+
+      const result = formatRelativeDateEnhanced(
+        todayMidnight,
+        'es',
+        mockTranslations,
+        true, // includeTime
+        true  // isAllDay
+      )
+
+      // Should NOT show "Hace Xh" - should show "Hoy"
+      expect(result).not.toContain('Hace')
+      expect(result).toBe('Hoy')
     })
   })
 })

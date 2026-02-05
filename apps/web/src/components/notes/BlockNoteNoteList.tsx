@@ -910,7 +910,7 @@ export const BlockNoteNoteList = ({
   // Same pattern as labels/assignees sync: fingerprint comparison + editor.updateBlock()
   useEffect(() => {
     // Create fingerprint of note properties that affect block rendering
-    const notePropsFingerprint = notes.map(n => `${n.id}:${n.category}:${n.deadline ?? ''}:${n.completed}:${n.content}`).join('|');
+    const notePropsFingerprint = notes.map(n => `${n.id}:${n.category}:${n.deadline ?? ''}:${n.is_all_day}:${n.completed}:${n.content}`).join('|');
 
     // Skip if nothing changed
     if (previousNotePropsRef.current === notePropsFingerprint) {
@@ -937,6 +937,7 @@ export const BlockNoteNoteList = ({
 
         const categoryChanged = block.props.category !== note.category;
         const deadlineChanged = (block.props.date ?? null) !== (note.deadline ?? null);
+        const isAllDayChanged = block.props.isAllDay !== note.is_all_day;
         const completedChanged = block.props.isChecked !== note.completed;
 
         // Only sync content for blocks NOT being edited in the task list
@@ -944,12 +945,13 @@ export const BlockNoteNoteList = ({
         const blockContent = getBlockContent(block);
         const contentChanged = block.id !== cursorBlockId && blockContent !== note.content;
 
-        if (categoryChanged || deadlineChanged || completedChanged || contentChanged) {
+        if (categoryChanged || deadlineChanged || isAllDayChanged || completedChanged || contentChanged) {
           const updatePayload: any = {
             props: {
               ...block.props,
               category: note.category,
               date: note.deadline ?? null,
+              isAllDay: note.is_all_day,
               isChecked: note.completed,
             }
           };

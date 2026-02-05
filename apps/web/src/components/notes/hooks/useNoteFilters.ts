@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
-import { parseLocalDate, startOfDay, endOfDay, getLocalDateKey, formatLocalDate } from '@/utils/dateUtils';
+import { parseLocalDate, startOfDay, endOfDay, getLocalDateKey, formatLocalDate, getEffectiveDeadline } from '@/utils/dateUtils';
 import { sortNotes, sortCompletedNotes, type NoteSortConfig } from '@/utils/noteUtils';
 import { useContacts } from '@/hooks/useContacts';
 import { getInitials } from '@/lib/utils';
@@ -240,7 +240,7 @@ export function useNoteFilters({
 
         if (showOverdueOnly) {
             if (!note.deadline || note.category === 'meeting') return false;
-            const isOverdue = parseLocalDate(note.deadline) < new Date() && !note.completed;
+            const isOverdue = getEffectiveDeadline(note.deadline, note.is_all_day) < new Date() && !note.completed;
             if (!isOverdue) return false;
         }
 
@@ -385,7 +385,7 @@ export function useNoteFilters({
                 }
                 if (showOverdueOnly) {
                     if (!note.deadline || note.category === 'meeting') return false;
-                    const isOverdue = parseLocalDate(note.deadline) < new Date() && !note.completed;
+                    const isOverdue = getEffectiveDeadline(note.deadline, note.is_all_day) < new Date() && !note.completed;
                     if (!isOverdue) return false;
                 }
             }

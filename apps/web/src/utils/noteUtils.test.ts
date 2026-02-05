@@ -157,7 +157,7 @@ describe('noteUtils', () => {
       expect(result[2].id).toBe('3') // No assignee
     })
 
-    it('should always place pinned notes first regardless of sort', () => {
+    it('should sort pinned notes by deadline when sort is active', () => {
       const notes = [
         createMockTodo({ id: '1', pinned: false, deadline: '2026-02-15T10:00:00' }),
         createMockTodo({ id: '2', pinned: true, deadline: '2026-02-25T10:00:00' }),
@@ -166,7 +166,20 @@ describe('noteUtils', () => {
 
       const result = sortNotes(notes, sortConfig)
 
-      expect(result[0].id).toBe('2') // Pinned comes first even though later deadline
+      expect(result[0].id).toBe('1') // Earlier deadline comes first, pinned doesn't override
+      expect(result[1].id).toBe('2')
+    })
+
+    it('should place pinned notes first when no sort is active', () => {
+      const notes = [
+        createMockTodo({ id: '1', pinned: false }),
+        createMockTodo({ id: '2', pinned: true }),
+      ]
+      const sortConfig: NoteSortConfig = {}
+
+      const result = sortNotes(notes, sortConfig)
+
+      expect(result[0].id).toBe('2') // Pinned first when no sort active
       expect(result[0].pinned).toBe(true)
     })
 
