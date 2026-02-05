@@ -371,6 +371,10 @@ export const BlockNoteNoteList = ({
         content = getBlockContentFromDOM(itemId);
       }
 
+      // Ensure we save cleaned content (parsing hashtags) even for this generic save
+      // This covers edge cases like window blur where processNoteBlock might race
+      const { cleanedContent } = parseHashtags(content, { labels, contacts });
+
       // Set flag to prevent order-change sync from replacing the document after save
       isSavingInternallyRef.current = true;
       setTimeout(() => {
@@ -378,7 +382,7 @@ export const BlockNoteNoteList = ({
       }, 500);
 
       return {
-        content,
+        content: cleanedContent,
         category: note.category,
         description: note.description,
       };

@@ -195,7 +195,7 @@ export const NoteListContent = memo(function NoteListContent({
             initial={{ borderRightColor: "rgba(107, 114, 128, 0)" }}
             animate={{ borderRightColor: "rgba(107, 114, 128, 0.3)" }}
             transition={{ duration: 5, ease: "linear" }}
-            className={`${isMobile ? 'w-full' : 'w-[30%] border-r pr-4'} ${isMobile && selectedNote ? 'hidden' : ''} shrink-0 flex flex-col overflow-hidden h-full`}
+            className={`${isMobile ? 'w-full' : 'w-[30%] pr-4'} ${!isMobile ? 'border-r' : ''} ${isMobile && selectedNote ? 'hidden' : ''} shrink-0 flex flex-col overflow-hidden h-full`}
         >
             <AnimatePresence>
                 <ActiveFiltersBar
@@ -219,207 +219,209 @@ export const NoteListContent = memo(function NoteListContent({
                     onClearAll={onClearAllFilters}
                 />
             </AnimatePresence>
-            {notes.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center">
-                    <p className="text-center text-muted-foreground/60 text-sm italic">
-                        {t('noNotes')}
-                    </p>
-                </div>
-            ) : viewMode === 'calendar' ? (
-                <div className="flex flex-col h-full overflow-hidden">
-                    {/* Calendar picker - left aligned */}
-                    <div className="flex-shrink-0 py-2">
-                        <CalendarView
-                            notes={notes}
-                            categoryFilter={categoryFilter}
-                            selectedDate={calendarSelectedDate}
-                            onSelectDate={setCalendarSelectedDate}
-                            labelFilter={labelFilter}
-                            assigneeFilter={assigneeFilter}
-                            searchQuery={searchQuery}
-                            showOverdueOnly={showOverdueOnly}
-                            noteLabelsCache={noteLabelsCache}
-                        />
-                    </div>
-                    {/* Timeline view for selected date - below calendar */}
-                    {calendarSelectedDate ? (
-                        <TimelineBlockNoteList
-                            notes={calendarFilteredNotes}
-                            noteLabelsCache={noteLabelsCache}
-                            noteAssigneesCache={noteAssigneesCache}
-                            onNavigateToDescription={handleNavigateToDescription}
-                            onSelectNote={handleSelectNoteById}
-                            onToggleFixInSidebar={handleToggleFixInSidebarById}
-                            onEdit={onEdit}
-                            onToggleCompleted={handleToggleCompletedWithNavigation}
-                            onDelete={(noteId, reason) => {
-                                const note = notes.find(n => n.id === noteId);
-                                if (note) handleDeleteWithToast(note, reason);
-                            }}
-                            onTogglePinned={onTogglePinned}
-                            onCreateNoteAfter={_onCreateNoteAfter}
-                            compactView={compactTaskView}
-                            fixedNoteId={fixedNoteId}
-                            hideEmptyHours={true}
-                            startHour={8}
-                            endHour={20}
-                        />
-                    ) : (
-                        <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
-                            {t('calendar.selectDateHint')}
+            {
+                notes.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center">
+                        <p className="text-center text-muted-foreground/60 text-sm italic">
+                            {t('noNotes')}
                         </p>
-                    )}
-                </div>
-            ) : (
-                <>
-                    {/* Active tasks section */}
-                    {taskStatusFilter === 'active' && (
-                        <div className="overflow-y-auto pr-2 flex-[3] flex flex-col">
-                            {/* Show message when no active tasks but have filters */}
-                            {shouldShowOnlyCompletedMessage ? (
-                                <NoResultsMessage />
-                            ) : activeNotes.length === 0 && filteredNotes.length === 0 && hasActiveFilters ? (
-                                <NoResultsMessage />
-                            ) : (
-                                <>
-                                    {/* Pass filtered notes when filters are active, otherwise pass all active notes */}
-                                    <BlockNoteNoteList
-                                        notes={hasActiveFilters ? filteredNotes : activeNotes}
-                                        noteLabelsCache={noteLabelsCache}
-                                        noteAssigneesCache={noteAssigneesCache}
-                                        compactView={compactTaskView}
-                                        fixedNoteId={fixedNoteId}
-                                        onNavigateToDescription={handleNavigateToDescription}
-                                        onSelectNote={handleSelectNoteById}
-                                        onToggleFixInSidebar={handleToggleFixInSidebarById}
-                                        onEdit={onEdit}
-                                        onToggleCompleted={handleToggleCompletedWithNavigation}
-                                        onDelete={(noteId, reason) => {
-                                            const note = notes.find(n => n.id === noteId);
-                                            if (note) handleDeleteWithToast(note, reason);
-                                        }}
-                                        onTogglePinned={onTogglePinned}
-                                        onCreateNoteAfter={_onCreateNoteAfter}
-                                        onAddLabel={handleAddLabelToNote}
-                                        onCreateLabelAndAdd={handleCreateLabelAndAdd}
-                                        onAddAssignee={onAddAssignee}
-                                        selectedNoteId={selectedNote?.id}
-                                    />
-                                    {/* Show no results message after pinned notes when they don't match filters */}
-                                    {shouldShowNoResultsWithPinnedVisible && (
-                                        <NoResultsMessage fillHeight={false} />
-                                    )}
-                                </>
-                            )}
+                    </div>
+                ) : viewMode === 'calendar' ? (
+                    <div className="flex flex-col h-full overflow-hidden">
+                        {/* Calendar picker - left aligned */}
+                        <div className="flex-shrink-0 py-2">
+                            <CalendarView
+                                notes={notes}
+                                categoryFilter={categoryFilter}
+                                selectedDate={calendarSelectedDate}
+                                onSelectDate={setCalendarSelectedDate}
+                                labelFilter={labelFilter}
+                                assigneeFilter={assigneeFilter}
+                                searchQuery={searchQuery}
+                                showOverdueOnly={showOverdueOnly}
+                                noteLabelsCache={noteLabelsCache}
+                            />
                         </div>
-                    )}
-
-                    {/* Completed tasks section */}
-                    {taskStatusFilter === 'completed' && (
-                        completedNotes.length > 0 ? (
-                            <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">
-                                <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
-                                    {t('completedTasks')} ({completedNotes.length})
-                                </div>
-                                <div className="overflow-y-auto pr-2 flex-1">
-                                    {completedNotes.map((note) => (
-                                        <MemoizedNoteRow
-                                            key={note.id}
-                                            note={note}
-                                            onDeleteWithToast={handleDeleteWithToast}
-                                            onToggleCompleted={handleToggleCompletedWithNavigation}
-                                            onTogglePinned={onTogglePinned}
-                                            isSelected={selectedNote?.id === note.id}
-                                            onSelect={handleSelectNoteById}
-                                            onEdit={onEdit}
-                                            onNavigateDown={handleNavigateDownById}
-                                            onNavigateUp={handleNavigateUpById}
-                                            onNavigateToDescription={handleNavigateToDescription}
-                                            shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
-                                            desiredColumn={desiredColumn}
-                                            onTitleFocused={handleTitleFocused}
-                                            onCreateNoteAfter={handleCreateNoteAfterById}
-                                            isDragging={false}
-                                            labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
-                                            allLabels={labels}
-                                            onAddLabel={handleAddLabelToNote}
-                                            onRemoveLabel={handleRemoveLabelFromNote}
-                                            onCreateLabel={handleCreateLabelClick}
-                                            onCreateLabelAndAdd={handleCreateLabelAndAdd}
-                                            onEditLabel={handleEditLabel}
-                                            isFixedInSidebar={fixedNoteId === note.id}
-                                            onToggleFixInSidebar={handleToggleFixInSidebarById}
-                                            assignees={noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES}
-                                            contacts={contacts}
-                                            onAddAssignee={onAddAssignee}
-                                            onRemoveAssignee={onRemoveAssignee}
-                                            onUpdateAssignee={onUpdateAssignee}
+                        {/* Timeline view for selected date - below calendar */}
+                        {calendarSelectedDate ? (
+                            <TimelineBlockNoteList
+                                notes={calendarFilteredNotes}
+                                noteLabelsCache={noteLabelsCache}
+                                noteAssigneesCache={noteAssigneesCache}
+                                onNavigateToDescription={handleNavigateToDescription}
+                                onSelectNote={handleSelectNoteById}
+                                onToggleFixInSidebar={handleToggleFixInSidebarById}
+                                onEdit={onEdit}
+                                onToggleCompleted={handleToggleCompletedWithNavigation}
+                                onDelete={(noteId, reason) => {
+                                    const note = notes.find(n => n.id === noteId);
+                                    if (note) handleDeleteWithToast(note, reason);
+                                }}
+                                onTogglePinned={onTogglePinned}
+                                onCreateNoteAfter={_onCreateNoteAfter}
+                                compactView={compactTaskView}
+                                fixedNoteId={fixedNoteId}
+                                hideEmptyHours={true}
+                                startHour={8}
+                                endHour={20}
+                            />
+                        ) : (
+                            <p className="text-sm text-muted-foreground/50 italic p-4 text-center">
+                                {t('calendar.selectDateHint')}
+                            </p>
+                        )}
+                    </div>
+                ) : (
+                    <>
+                        {/* Active tasks section */}
+                        {taskStatusFilter === 'active' && (
+                            <div className="overflow-y-auto pr-2 flex-[3] flex flex-col">
+                                {/* Show message when no active tasks but have filters */}
+                                {shouldShowOnlyCompletedMessage ? (
+                                    <NoResultsMessage />
+                                ) : activeNotes.length === 0 && filteredNotes.length === 0 && hasActiveFilters ? (
+                                    <NoResultsMessage />
+                                ) : (
+                                    <>
+                                        {/* Pass filtered notes when filters are active, otherwise pass all active notes */}
+                                        <BlockNoteNoteList
+                                            notes={hasActiveFilters ? filteredNotes : activeNotes}
+                                            noteLabelsCache={noteLabelsCache}
+                                            noteAssigneesCache={noteAssigneesCache}
                                             compactView={compactTaskView}
-                                            autoSaveInterval={autoSaveInterval}
+                                            fixedNoteId={fixedNoteId}
+                                            onNavigateToDescription={handleNavigateToDescription}
+                                            onSelectNote={handleSelectNoteById}
+                                            onToggleFixInSidebar={handleToggleFixInSidebarById}
+                                            onEdit={onEdit}
+                                            onToggleCompleted={handleToggleCompletedWithNavigation}
+                                            onDelete={(noteId, reason) => {
+                                                const note = notes.find(n => n.id === noteId);
+                                                if (note) handleDeleteWithToast(note, reason);
+                                            }}
+                                            onTogglePinned={onTogglePinned}
+                                            onCreateNoteAfter={_onCreateNoteAfter}
+                                            onAddLabel={handleAddLabelToNote}
+                                            onCreateLabelAndAdd={handleCreateLabelAndAdd}
+                                            onAddAssignee={onAddAssignee}
+                                            selectedNoteId={selectedNote?.id}
                                         />
-                                    ))}
-                                </div>
+                                        {/* Show no results message after pinned notes when they don't match filters */}
+                                        {shouldShowNoResultsWithPinnedVisible && (
+                                            <NoResultsMessage fillHeight={false} />
+                                        )}
+                                    </>
+                                )}
                             </div>
-                        ) : hasActiveFilters ? (
-                            <NoResultsMessage />
-                        ) : null
-                    )}
+                        )}
 
-                    {/* Deleted tasks section */}
-                    {taskStatusFilter === 'deleted' && (
-                        deletedNotes.length > 0 ? (
-                            <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">
-                                <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
-                                    {t('trash.title')} ({deletedNotes.length})
+                        {/* Completed tasks section */}
+                        {taskStatusFilter === 'completed' && (
+                            completedNotes.length > 0 ? (
+                                <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">
+                                    <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
+                                        {t('completedTasks')} ({completedNotes.length})
+                                    </div>
+                                    <div className="overflow-y-auto pr-2 flex-1">
+                                        {completedNotes.map((note) => (
+                                            <MemoizedNoteRow
+                                                key={note.id}
+                                                note={note}
+                                                onDeleteWithToast={handleDeleteWithToast}
+                                                onToggleCompleted={handleToggleCompletedWithNavigation}
+                                                onTogglePinned={onTogglePinned}
+                                                isSelected={selectedNote?.id === note.id}
+                                                onSelect={handleSelectNoteById}
+                                                onEdit={onEdit}
+                                                onNavigateDown={handleNavigateDownById}
+                                                onNavigateUp={handleNavigateUpById}
+                                                onNavigateToDescription={handleNavigateToDescription}
+                                                shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
+                                                desiredColumn={desiredColumn}
+                                                onTitleFocused={handleTitleFocused}
+                                                onCreateNoteAfter={handleCreateNoteAfterById}
+                                                isDragging={false}
+                                                labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
+                                                allLabels={labels}
+                                                onAddLabel={handleAddLabelToNote}
+                                                onRemoveLabel={handleRemoveLabelFromNote}
+                                                onCreateLabel={handleCreateLabelClick}
+                                                onCreateLabelAndAdd={handleCreateLabelAndAdd}
+                                                onEditLabel={handleEditLabel}
+                                                isFixedInSidebar={fixedNoteId === note.id}
+                                                onToggleFixInSidebar={handleToggleFixInSidebarById}
+                                                assignees={noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES}
+                                                contacts={contacts}
+                                                onAddAssignee={onAddAssignee}
+                                                onRemoveAssignee={onRemoveAssignee}
+                                                onUpdateAssignee={onUpdateAssignee}
+                                                compactView={compactTaskView}
+                                                autoSaveInterval={autoSaveInterval}
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className="overflow-y-auto pr-2 flex-1">
-                                    {deletedNotes.map((note) => (
-                                        <MemoizedNoteRow
-                                            key={note.id}
-                                            note={note}
-                                            onDeleteWithToast={handleDeleteWithToast}
-                                            onToggleCompleted={handleToggleCompletedWithNavigation}
-                                            onTogglePinned={onTogglePinned}
-                                            isSelected={selectedNote?.id === note.id}
-                                            onSelect={handleSelectNoteById}
-                                            onEdit={onEdit}
-                                            onNavigateDown={handleNavigateDownById}
-                                            onNavigateUp={handleNavigateUpById}
-                                            onNavigateToDescription={handleNavigateToDescription}
-                                            shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
-                                            desiredColumn={desiredColumn}
-                                            onTitleFocused={handleTitleFocused}
-                                            onCreateNoteAfter={handleCreateNoteAfterById}
-                                            isDragging={false}
-                                            labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
-                                            allLabels={labels}
-                                            onAddLabel={handleAddLabelToNote}
-                                            onRemoveLabel={handleRemoveLabelFromNote}
-                                            onCreateLabel={handleCreateLabelClick}
-                                            onCreateLabelAndAdd={handleCreateLabelAndAdd}
-                                            onEditLabel={handleEditLabel}
-                                            isFixedInSidebar={fixedNoteId === note.id}
-                                            onToggleFixInSidebar={handleToggleFixInSidebarById}
-                                            assigneeName={assigneeNamesCache.get(note.id)}
-                                            assignees={noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES}
-                                            isDeleted={true}
-                                            onRestore={() => onRestore(note)}
-                                            compactView={compactTaskView}
-                                            isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
-                                            contacts={contacts}
-                                            onAddAssignee={onAddAssignee}
-                                            onRemoveAssignee={onRemoveAssignee}
-                                            onUpdateAssignee={onUpdateAssignee}
-                                            autoSaveInterval={autoSaveInterval}
-                                        />))}
+                            ) : hasActiveFilters ? (
+                                <NoResultsMessage />
+                            ) : null
+                        )}
+
+                        {/* Deleted tasks section */}
+                        {taskStatusFilter === 'deleted' && (
+                            deletedNotes.length > 0 ? (
+                                <div className="flex-1 border-t border-dashed border-muted-foreground/20 mt-2 pt-2 overflow-hidden flex flex-col">
+                                    <div className="text-xs text-muted-foreground/60 mb-1 px-1 flex-shrink-0">
+                                        {t('trash.title')} ({deletedNotes.length})
+                                    </div>
+                                    <div className="overflow-y-auto pr-2 flex-1">
+                                        {deletedNotes.map((note) => (
+                                            <MemoizedNoteRow
+                                                key={note.id}
+                                                note={note}
+                                                onDeleteWithToast={handleDeleteWithToast}
+                                                onToggleCompleted={handleToggleCompletedWithNavigation}
+                                                onTogglePinned={onTogglePinned}
+                                                isSelected={selectedNote?.id === note.id}
+                                                onSelect={handleSelectNoteById}
+                                                onEdit={onEdit}
+                                                onNavigateDown={handleNavigateDownById}
+                                                onNavigateUp={handleNavigateUpById}
+                                                onNavigateToDescription={handleNavigateToDescription}
+                                                shouldFocusTitle={focusTarget === 'title' && selectedNote?.id === note.id}
+                                                desiredColumn={desiredColumn}
+                                                onTitleFocused={handleTitleFocused}
+                                                onCreateNoteAfter={handleCreateNoteAfterById}
+                                                isDragging={false}
+                                                labels={noteLabelsCache.get(note.id) ?? EMPTY_LABELS}
+                                                allLabels={labels}
+                                                onAddLabel={handleAddLabelToNote}
+                                                onRemoveLabel={handleRemoveLabelFromNote}
+                                                onCreateLabel={handleCreateLabelClick}
+                                                onCreateLabelAndAdd={handleCreateLabelAndAdd}
+                                                onEditLabel={handleEditLabel}
+                                                isFixedInSidebar={fixedNoteId === note.id}
+                                                onToggleFixInSidebar={handleToggleFixInSidebarById}
+                                                assigneeName={assigneeNamesCache.get(note.id)}
+                                                assignees={noteAssigneesCache.get(note.id) ?? EMPTY_ASSIGNEES}
+                                                isDeleted={true}
+                                                onRestore={() => onRestore(note)}
+                                                compactView={compactTaskView}
+                                                isDescriptionFocused={isDescriptionFocused && selectedNote?.id === note.id}
+                                                contacts={contacts}
+                                                onAddAssignee={onAddAssignee}
+                                                onRemoveAssignee={onRemoveAssignee}
+                                                onUpdateAssignee={onUpdateAssignee}
+                                                autoSaveInterval={autoSaveInterval}
+                                            />))}
+                                    </div>
                                 </div>
-                            </div>
-                        ) : hasActiveFilters ? (
-                            <NoResultsMessage />
-                        ) : null
-                    )}
-                </>
-            )}
-        </motion.div>
+                            ) : hasActiveFilters ? (
+                                <NoResultsMessage />
+                            ) : null
+                        )}
+                    </>
+                )
+            }
+        </motion.div >
     );
 });

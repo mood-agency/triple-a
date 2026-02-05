@@ -6,6 +6,7 @@ import { Pickaxe, Users, Forward, StickyNote, Pin, SidebarClose, Trash2 } from "
 import { parseLocalDate, formatRelativeDateEnhanced } from "@/utils/dateUtils";
 import i18n from "@/i18n";
 import { LazyTooltip } from "@/components/ui/lazy-tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
 import { eventBus } from "@/events";
 import "./NotepadBlock.css";
 
@@ -291,22 +292,27 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                 <div className="notepad-line group" style={{ display: "flex", alignItems: "center", width: "100%", userSelect: "none", outline: "none", boxShadow: "none" }}>
                     {!isCompact && (
                         <div contentEditable={false} className="notepad-category-checkbox relative flex items-center justify-center w-6 h-4 mr-2 flex-shrink-0 cursor-pointer">
-                            {/* Category Icon (Visible by default, fades on hover only if checkbox is allowed) */}
+                            {/* Category Icon (Visible by default, fades on hover only if checkbox is allowed, OR if checked) */}
                             <div
-                                className={`category-icon transition-opacity duration-200 ${allowsCheckbox ? 'group-hover:opacity-0' : ''}`}
+                                className={`category-icon transition-opacity duration-200 ${isChecked
+                                        ? 'opacity-0 pointer-events-none'
+                                        : (allowsCheckbox ? 'group-hover:opacity-0' : '')
+                                    }`}
                                 onClick={cycleCategory}
                             >
                                 <CategoryIcon size={16} className="text-gray-500" />
                             </div>
 
-                            {/* Checkbox (Visible on hover only for todo and followup) */}
+                            {/* Checkbox (Visible on hover only for todo and followup, OR if checked) */}
                             {allowsCheckbox && (
-                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                    <input
-                                        type="checkbox"
-                                        className="cursor-pointer w-3 h-3"
+                                <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${isChecked
+                                        ? 'opacity-100'
+                                        : 'opacity-0 group-hover:opacity-100'
+                                    }`}>
+                                    <Checkbox
                                         checked={isChecked}
-                                        onChange={handleToggleCompleted}
+                                        onCheckedChange={() => handleToggleCompleted()}
+                                        className="w-4 h-4"
                                     />
                                 </div>
                             )}
