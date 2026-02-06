@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@abbacchio/browser-transport": "^0.1.4",
+    "@ai-sdk/react": "^3.0.75",
     "@blocknote/code-block": "^0.46.2",
     "@blocknote/core": "^0.46.2",
     "@blocknote/react": "^0.46.2",

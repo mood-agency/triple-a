@@ -652,29 +652,41 @@ body {
   --tw-exit-translate-y: -48%;
 }
 
-/* Strikethrough animation for task completion */
-@keyframes strikethrough-grow {
-  from {
-    width: 0%;
-  }
+/* Task completion animations */
 
-  to {
-    width: 100%;
-  }
+/* 1. Checkbox pop + check stroke */
+@keyframes check-pop {
+  0% { transform: scale(0.85); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
 }
 
-@keyframes fade-out-task {
-  from {
-    opacity: 1;
-  }
+@keyframes check-stroke {
+  from { stroke-dashoffset: 30; }
+  to { stroke-dashoffset: 0; }
+}
 
-  to {
-    opacity: 0;
-  }
+.completing-checkbox {
+  animation: check-pop 250ms ease-out !important;
+}
+
+.completing-checkbox svg path,
+.completing-checkbox svg polyline {
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+  animation: check-stroke 250ms ease-out 50ms forwards;
+}
+
+/* 2. Text strikethrough */
+@keyframes strikethrough-grow {
+  from { width: 0%; }
+  to { width: 100%; }
 }
 
 .completing-task {
   position: relative;
+  color: var(--color-muted-foreground) !important;
+  transition: color 350ms ease-out;
 }
 
 .completing-task::after {
@@ -685,7 +697,13 @@ body {
   width: 0;
   height: 1px;
   background-color: var(--color-muted-foreground);
-  animation: strikethrough-grow 400ms ease-out forwards;
+  animation: strikethrough-grow 350ms ease-out forwards;
+}
+
+/* 3. Row fade out after strikethrough */
+@keyframes fade-out-task {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 .completing-task-fade {

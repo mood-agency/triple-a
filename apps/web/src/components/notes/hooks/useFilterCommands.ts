@@ -15,6 +15,7 @@ import {
   SetDateRangeFilterCommand,
   SetTaskStatusFilterCommand,
   SetOverdueOnlyCommand,
+  SetPublicOnlyCommand,
   ClearAllFiltersCommand,
 } from '../commands/FilterCommands';
 
@@ -31,6 +32,7 @@ interface UseFilterCommandsOptions {
   dateRangeFilter: { from: Date | undefined; to: Date | undefined };
   taskStatusFilter: 'active' | 'completed' | 'deleted';
   showOverdueOnly: boolean;
+  showPublicOnly: boolean;
 
   // Setters (from useNoteFilters or Home.tsx)
   setCategoryFilter: (value: NoteCategory | 'all') => void;
@@ -41,6 +43,7 @@ interface UseFilterCommandsOptions {
   setDateRangeFilter: (value: { from: Date | undefined; to: Date | undefined }) => void;
   setTaskStatusFilter: (value: 'active' | 'completed' | 'deleted') => void;
   setShowOverdueOnly: (value: boolean) => void;
+  setShowPublicOnly: (value: boolean) => void;
 
   // Reference data for command descriptions
   labels: Label[];
@@ -77,6 +80,7 @@ interface UseFilterCommandsReturn {
     setDateRangeFilter: (range: { from: Date | undefined; to: Date | undefined }) => void;
     setTaskStatusFilter: (status: 'active' | 'completed' | 'deleted') => void;
     setShowOverdueOnly: (value: boolean) => void;
+    setShowPublicOnly: (value: boolean) => void;
     clearAllFilters: () => void;
   };
 
@@ -95,6 +99,7 @@ export function useFilterCommands(options: UseFilterCommandsOptions): UseFilterC
     dateRangeFilter,
     taskStatusFilter,
     showOverdueOnly,
+    showPublicOnly,
     setCategoryFilter,
     setLabelFilter,
     setAssigneeFilter,
@@ -103,6 +108,7 @@ export function useFilterCommands(options: UseFilterCommandsOptions): UseFilterC
     setDateRangeFilter,
     setTaskStatusFilter,
     setShowOverdueOnly,
+    setShowPublicOnly,
     labels,
     contacts,
     onUndoRedo,
@@ -132,6 +138,7 @@ export function useFilterCommands(options: UseFilterCommandsOptions): UseFilterC
       dateRangeFilter,
       taskStatusFilter,
       showOverdueOnly,
+      showPublicOnly,
     }),
     [
       categoryFilter,
@@ -142,6 +149,7 @@ export function useFilterCommands(options: UseFilterCommandsOptions): UseFilterC
       dateRangeFilter,
       taskStatusFilter,
       showOverdueOnly,
+      showPublicOnly,
     ]
   );
 
@@ -156,6 +164,7 @@ export function useFilterCommands(options: UseFilterCommandsOptions): UseFilterC
       setDateRangeFilter(state.dateRangeFilter);
       setTaskStatusFilter(state.taskStatusFilter);
       setShowOverdueOnly(state.showOverdueOnly);
+      setShowPublicOnly(state.showPublicOnly);
     },
     [
       setCategoryFilter,
@@ -166,6 +175,7 @@ export function useFilterCommands(options: UseFilterCommandsOptions): UseFilterC
       setDateRangeFilter,
       setTaskStatusFilter,
       setShowOverdueOnly,
+      setShowPublicOnly,
     ]
   );
 
@@ -353,6 +363,11 @@ export function useFilterCommands(options: UseFilterCommandsOptions): UseFilterC
 
       setShowOverdueOnly: (value: boolean) => {
         const command = new SetOverdueOnlyCommand(value, t);
+        executeCommand(command);
+      },
+
+      setShowPublicOnly: (value: boolean) => {
+        const command = new SetPublicOnlyCommand(value, t);
         executeCommand(command);
       },
 

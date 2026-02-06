@@ -16,6 +16,7 @@ import { PublicNote } from './pages/PublicNote'
 import { MainLayout } from './components/MainLayout'
 import { AuthenticatedProviders } from './components/AuthenticatedProviders'
 import { BlockNotePoC } from './pages/BlockNotePoC'
+import { Chat } from './pages/Chat'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isConfigured } = useAuth()
@@ -90,6 +91,7 @@ function App() {
         <Route path="/settings/calendar" element={<CalendarSettings />} />
         <Route path="/settings/calendar/callback" element={<CalendarSettings />} />
         <Route path="/blocknote-poc" element={<BlockNotePoC />} />
+        <Route path="/chat" element={<Chat />} />
       </Route>
     </Routes>
   )

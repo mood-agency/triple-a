@@ -83,14 +83,14 @@
     color: #a1a1aa;
 }
 
-/* Strikethrough Animation */
+/* Strikethrough pseudo-element */
 .notepad-content::after {
     content: "";
     position: absolute;
     left: 0;
     top: 50%;
     width: 0;
-    height: 2px;
+    height: 1px;
     background: currentColor;
     transition: width 0.4s cubic-bezier(0.65, 0, 0.35, 1);
     pointer-events: none;
@@ -98,6 +98,25 @@
 
 .notepad-content.is-checked::after {
     width: 100%;
+}
+
+/* Completion animation: strikethrough + color fade */
+.notepad-content.is-completing {
+    color: #a1a1aa;
+}
+
+.notepad-content.is-completing::after {
+    width: 100%;
+}
+
+/* Row fade-out after strikethrough finishes */
+@keyframes notepad-fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+.notepad-line.is-completing {
+    animation: notepad-fade-out 200ms ease-out 400ms forwards;
 }
 
 /* Hide content during filter sync to prevent flash of unfiltered content */

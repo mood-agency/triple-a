@@ -87,6 +87,7 @@ interface NoteListContentProps {
     labelFilter: string[];
     assigneeFilter: string[];
     showOverdueOnly: boolean;
+    showPublicOnly: boolean;
 
     // Sort & Status
     sortConfig: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null; createdAt: 'asc' | 'desc' | null };
@@ -99,10 +100,14 @@ interface NoteListContentProps {
     onClearSort: () => void;
     onClearTaskStatus: () => void;
     onClearOverdue: () => void;
+    onClearPublic: () => void;
     onClearAllFilters: () => void;
 
     // Auto-save settings
     autoSaveInterval?: number; // in seconds, 0 = disabled
+
+    // Toolbar rendered inside the left column
+    toolbar?: React.ReactNode;
 }
 
 export const NoteListContent = memo(function NoteListContent({
@@ -164,6 +169,7 @@ export const NoteListContent = memo(function NoteListContent({
     labelFilter,
     assigneeFilter,
     showOverdueOnly,
+    showPublicOnly,
     sortConfig,
     onClearCategory,
     onClearLabel,
@@ -172,8 +178,10 @@ export const NoteListContent = memo(function NoteListContent({
     onClearSort,
     onClearTaskStatus,
     onClearOverdue,
+    onClearPublic,
     onClearAllFilters,
     autoSaveInterval = 3,
+    toolbar,
 }: NoteListContentProps) {
     const { t } = useTranslation();
 
@@ -195,8 +203,9 @@ export const NoteListContent = memo(function NoteListContent({
             initial={{ borderRightColor: "rgba(255, 255, 255, 0)" }}
             animate={{ borderRightColor: "rgba(255, 255, 255, 0.08)" }}
             transition={{ duration: 5, ease: "linear" }}
-            className={`${isMobile ? 'w-full' : 'w-[calc(30%+1rem)] -ml-4 pl-4 pr-4 -mt-14 pt-14 -mb-4 pb-4'} ${!isMobile ? 'border-r' : ''} ${isMobile && selectedNote ? 'hidden' : ''} shrink-0 flex flex-col overflow-hidden bg-[#121212]`}
+            className={`${isMobile ? 'w-full' : 'w-[calc(30%+1rem)] -ml-4 pl-4 pr-1 -mt-4 pt-4 -mb-4 pb-4'} ${!isMobile ? 'border-r' : ''} ${isMobile && selectedNote ? 'hidden' : ''} shrink-0 flex flex-col overflow-hidden bg-[#121212]`}
         >
+            {toolbar}
             <AnimatePresence>
                 <ActiveFiltersBar
                     key="active-filters-bar"
@@ -209,6 +218,7 @@ export const NoteListContent = memo(function NoteListContent({
                     sortConfig={sortConfig}
                     taskStatusFilter={taskStatusFilter}
                     showOverdueOnly={showOverdueOnly}
+                    showPublicOnly={showPublicOnly}
                     onClearCategory={onClearCategory}
                     onClearLabel={onClearLabel}
                     onClearAssignee={onClearAssignee}
@@ -216,6 +226,7 @@ export const NoteListContent = memo(function NoteListContent({
                     onClearSort={onClearSort}
                     onClearTaskStatus={onClearTaskStatus}
                     onClearOverdue={onClearOverdue}
+                    onClearPublic={onClearPublic}
                     onClearAll={onClearAllFilters}
                 />
             </AnimatePresence>
@@ -259,6 +270,9 @@ export const NoteListContent = memo(function NoteListContent({
                                 }}
                                 onTogglePinned={onTogglePinned}
                                 onCreateNoteAfter={_onCreateNoteAfter}
+                                onAddLabel={handleAddLabelToNote}
+                                onCreateLabelAndAdd={handleCreateLabelAndAdd}
+                                onAddAssignee={onAddAssignee}
                                 compactView={compactTaskView}
                                 fixedNoteId={fixedNoteId}
                                 hideEmptyHours={true}

@@ -370,8 +370,9 @@ export const EditableTitle = forwardRef<EditableTitleHandle, EditableTitleProps>
                 <Trash2 className="h-5 w-5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent>
+            <TooltipContent className="flex items-center gap-2">
               <p>{t('deleteTask')}</p>
+              <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>⌫</Kbd></span>
             </TooltipContent>
           </Tooltip>
         )}

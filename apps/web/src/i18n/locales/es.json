@@ -78,6 +78,7 @@
     "contacts": "Contactos",
     "analytics": "Analíticas",
     "projects": "Proyectos",
+    "chat": "AI Chat",
     "navigation": "Navegación",
     "settings": "Configuración"
   },
@@ -186,6 +187,8 @@
     "toggleOverdueOnly": "Alternar solo vencidas",
     "showOverdueOnly": "Mostrar solo vencidas",
     "clearOverdueOnly": "Mostrar todas las tareas",
+    "showPublicOnly": "Mostrar solo públicas",
+    "clearPublicOnly": "Mostrar todas las tareas",
     "clearAllFilters": "Limpiar todos los filtros"
   },
   "toast": {
@@ -350,7 +353,8 @@
     "active": "Activas",
     "completed": "Completadas",
     "deleted": "Eliminadas",
-    "overdue": "Vencidas"
+    "overdue": "Vencidas",
+    "public": "Públicas"
   },
   "overdue": "Vencidas",
   "showOverdueOnly": "Mostrar solo tareas vencidas",
@@ -360,6 +364,9 @@
     "from": "Desde",
     "to": "Hasta",
     "clear": "Limpiar rango"
+  },
+  "toolbar": {
+    "moreOptions": "Más opciones"
   },
   "compactView": "Vista compacta",
   "compactViewTooltip": "Cambiar a vista compacta",
@@ -394,7 +401,9 @@
     "backToTitle": "Volver al título",
     "toggleView": "Cambiar vista calendario/lista",
     "toggleCompact": "Cambiar vista compacta/completa",
-    "toggleSidebar": "Mostrar/ocultar panel lateral"
+    "toggleSidebar": "Mostrar/ocultar panel lateral",
+    "togglePin": "Fijar/Desfijar nota",
+    "toggleFixSidebar": "Fijar/Desfijar en panel lateral"
   },
   "youtube": {
     "import": "Importar de YouTube",
@@ -787,6 +796,15 @@
       "regenerate": "Regenerar",
       "close": "Cerrar"
     }
+  },
+  "chat": {
+    "title": "AI Chat",
+    "placeholder": "Pregunta sobre tus notas...",
+    "configureAI": "Configura tu proveedor de AI para usar el chat",
+    "configure": "Configurar AI",
+    "empty": "Pídeme crear, buscar o gestionar tus notas",
+    "retry": "Reintentar",
+    "newConversation": "Nueva conversación"
   },
   "searchInDescription": "Buscar en descripción...",
   "previousMatch": "Coincidencia anterior (Shift+Enter)",

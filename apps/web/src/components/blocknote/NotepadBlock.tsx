@@ -140,6 +140,9 @@ export const NotepadBlock = (createReactBlockSpec as any)(
             // Using 'as any' for block because BlockNote has strict typing for custom blocks
             useBlockCommands(node, editorRef.current, blockRef.current as any);
 
+            // Animation state for task completion
+            const [isCompleting, setIsCompleting] = useState(false);
+
             const category = (props.block.props.category as Category) || "todo";
             const CategoryIcon = categoryIcons[category] || Pickaxe;
             const isChecked = props.block.props.isChecked as boolean;
@@ -160,17 +163,29 @@ export const NotepadBlock = (createReactBlockSpec as any)(
             };
 
             const handleToggleCompleted = () => {
-                // Emit event to parent component
-                eventBus.emit('note:completed', {
-                    noteId: props.block.id,
-                    completed: !isChecked,
-                    completedAt: !isChecked ? new Date().toISOString() : null,
-                });
-
-                // Update block state
-                props.editor.updateBlock(props.block, {
-                    props: { ...props.block.props, isChecked: !isChecked }
-                } as any);
+                if (!isChecked) {
+                    // Completing: animate first, then emit event after animation
+                    setIsCompleting(true);
+                    setTimeout(() => {
+                        eventBus.emit('note:completed', {
+                            noteId: props.block.id,
+                            completed: true,
+                            completedAt: new Date().toISOString(),
+                        });
+                        // No need to updateBlock(isChecked: true) here —
+                        // the event handler removes the block from the editor
+                    }, 600);
+                } else {
+                    // Uncompleting: emit immediately
+                    eventBus.emit('note:completed', {
+                        noteId: props.block.id,
+                        completed: false,
+                        completedAt: null,
+                    });
+                    props.editor.updateBlock(props.block, {
+                        props: { ...props.block.props, isChecked: false }
+                    } as any);
+                }
             };
 
             const handleTogglePin = (e: React.MouseEvent) => {
@@ -326,12 +341,12 @@ export const NotepadBlock = (createReactBlockSpec as any)(
             const allowsCheckbox = category === 'todo' || category === 'followup';
 
             return (
-                <div className="notepad-line group" style={{ display: "flex", alignItems: "center", width: "100%", userSelect: "none", outline: "none", boxShadow: "none" }}>
+                <div className={`notepad-line group ${isCompleting ? 'is-completing' : ''}`} style={{ display: "flex", alignItems: "center", width: "100%", userSelect: "none", outline: "none", boxShadow: "none" }}>
                     {!isCompact && (
                         <div contentEditable={false} className="notepad-category-checkbox relative flex items-center justify-center w-6 h-4 mr-2 flex-shrink-0 cursor-pointer">
-                            {/* Category Icon (Visible by default, fades on hover only if checkbox is allowed, OR if checked) */}
+                            {/* Category Icon (Visible by default, fades on hover only if checkbox is allowed, OR if checked/completing) */}
                             <div
-                                className={`category-icon transition-opacity duration-200 ${isChecked
+                                className={`category-icon transition-opacity duration-200 ${isChecked || isCompleting
                                         ? 'opacity-0 pointer-events-none'
                                         : (allowsCheckbox ? 'group-hover:opacity-0' : '')
                                     }`}
@@ -340,16 +355,16 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                                 <CategoryIcon size={16} className="text-gray-500" />
                             </div>
 
-                            {/* Checkbox (Visible on hover only for todo and followup, OR if checked) */}
+                            {/* Checkbox (Visible on hover only for todo and followup, OR if checked/completing) */}
                             {allowsCheckbox && (
-                                <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${isChecked
+                                <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${isChecked || isCompleting
                                         ? 'opacity-100'
                                         : 'opacity-0 group-hover:opacity-100'
                                     }`}>
                                     <Checkbox
-                                        checked={isChecked}
+                                        checked={isChecked || isCompleting}
                                         onCheckedChange={() => handleToggleCompleted()}
-                                        className="w-4 h-4"
+                                        className={`w-4 h-4 ${isCompleting ? 'completing-checkbox' : ''}`}
                                     />
                                 </div>
                             )}
@@ -358,7 +373,7 @@ export const NotepadBlock = (createReactBlockSpec as any)(
 
                     <div
                         ref={combinedRef}
-                        className={`notepad-content text-black dark:text-white ${props.block.props.isChecked ? 'is-checked' : ''} ${isEditing ? 'is-editing' : ''}`}
+                        className={`notepad-content text-black dark:text-white ${props.block.props.isChecked ? 'is-checked' : ''} ${isCompleting ? 'is-completing' : ''} ${isEditing ? 'is-editing' : ''}`}
                         style={{
                             outline: "none",
                             userSelect: "text",

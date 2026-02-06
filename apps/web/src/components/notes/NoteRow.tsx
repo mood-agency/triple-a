@@ -146,17 +146,18 @@ function NoteRow(props: NoteRowProps) {
                 handleCheckedChange();
               }}
             >
-              <span className={`flex items-center justify-center ${note.completed && !isCompleting ? 'hidden' : 'group-hover:hidden'}`}>
+              <span className={`flex items-center justify-center ${isCompleting ? 'hidden' : (note.completed ? 'hidden' : 'group-hover:hidden')}`}>
                 {note.category === 'todo' ? (
                   <Pickaxe className="h-4 w-4 text-muted-foreground/70" />
                 ) : (
                   <Forward className="h-4 w-4 text-muted-foreground/70" />
                 )}
               </span>
-              <span className={`absolute flex items-center justify-center ${note.completed && !isCompleting ? 'flex' : 'hidden group-hover:flex'}`}>
+              <span className={`absolute flex items-center justify-center ${isCompleting ? 'flex' : (note.completed ? 'flex' : 'hidden group-hover:flex')}`}>
                 <Checkbox
-                  checked={note.completed}
+                  checked={note.completed || isCompleting}
                   onCheckedChange={handleCheckedChange}
+                  className={isCompleting ? 'completing-checkbox' : ''}
                 />
               </span>
             </div>

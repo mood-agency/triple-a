@@ -46,8 +46,13 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   },
 
   removeNote: (id) => {
-    const { notes } = get();
-    set({ notes: notes.filter(n => n.id !== id) });
+    const { notes, pendingNoteIds } = get();
+    const newPending = new Set(pendingNoteIds);
+    newPending.delete(id);
+    set({
+      notes: notes.filter(n => n.id !== id),
+      pendingNoteIds: newPending,
+    });
   },
 
   updateNote: (id, updates) => {

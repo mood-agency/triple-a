@@ -23,12 +23,30 @@ export class ToggleCompleteCommand implements BlockCommand {
 
         console.log(`🔹 Ctrl+D pressed - Toggling complete for block ${block.id} to ${nextChecked}`);
 
-        // Emit event to parent component (BlockNoteNoteList)
-        eventBus.emit('note:completed', {
-            noteId: block.id,
-            completed: nextChecked,
-            completedAt: nextChecked ? new Date().toISOString() : null,
-        });
+        if (nextChecked) {
+            // Completing: animate first, then emit event after animation
+            const blockElement = document.querySelector(`[data-id="${block.id}"]`);
+            const notepadLine = blockElement?.querySelector('.notepad-line');
+            const notepadContent = blockElement?.querySelector('.notepad-content');
+
+            notepadLine?.classList.add('is-completing');
+            notepadContent?.classList.add('is-completing');
+
+            setTimeout(() => {
+                eventBus.emit('note:completed', {
+                    noteId: block.id,
+                    completed: true,
+                    completedAt: new Date().toISOString(),
+                });
+            }, 600);
+        } else {
+            // Uncompleting: emit immediately
+            eventBus.emit('note:completed', {
+                noteId: block.id,
+                completed: false,
+                completedAt: null,
+            });
+        }
 
         return true;
     }

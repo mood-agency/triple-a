@@ -15,6 +15,7 @@ interface ActiveFiltersBarProps {
   sortConfig: { deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null; createdAt: 'asc' | 'desc' | null };
   taskStatusFilter: 'active' | 'completed' | 'deleted';
   showOverdueOnly: boolean;
+  showPublicOnly: boolean;
   onClearCategory: () => void;
   onClearLabel: (labelId: string) => void;
   onClearAssignee: (assigneeId: string) => void;
@@ -22,6 +23,7 @@ interface ActiveFiltersBarProps {
   onClearSort: () => void;
   onClearTaskStatus: () => void;
   onClearOverdue: () => void;
+  onClearPublic: () => void;
   onClearAll: () => void;
 }
 
@@ -35,6 +37,7 @@ export function ActiveFiltersBar({
   sortConfig,
   taskStatusFilter,
   showOverdueOnly,
+  showPublicOnly,
   onClearCategory,
   onClearLabel,
   onClearAssignee,
@@ -42,6 +45,7 @@ export function ActiveFiltersBar({
   onClearSort,
   onClearTaskStatus,
   onClearOverdue,
+  onClearPublic,
   onClearAll,
 }: ActiveFiltersBarProps) {
   const { t } = useTranslation();
@@ -49,7 +53,7 @@ export function ActiveFiltersBar({
   const trimmedSearch = searchQuery.trim();
   const hasSort = sortConfig.deadline !== null || sortConfig.assignee !== null || sortConfig.category !== null || sortConfig.createdAt !== null;
   const hasStatusFilter = taskStatusFilter !== 'active';
-  const hasFilters = categoryFilter !== 'all' || labelFilter.length > 0 || assigneeFilter.length > 0 || trimmedSearch !== '' || hasSort || hasStatusFilter || showOverdueOnly;
+  const hasFilters = categoryFilter !== 'all' || labelFilter.length > 0 || assigneeFilter.length > 0 || trimmedSearch !== '' || hasSort || hasStatusFilter || showOverdueOnly || showPublicOnly;
 
   if (!hasFilters) {
     return null;
@@ -166,6 +170,20 @@ export function ActiveFiltersBar({
           <button
             type="button"
             onClick={onClearOverdue}
+            className="rounded-full hover:bg-muted-foreground/20"
+          >
+            <X className="h-2.5 w-2.5" />
+          </button>
+        </span>
+      )}
+
+      {/* Public - secondary badge */}
+      {showPublicOnly && (
+        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] rounded-full bg-secondary text-secondary-foreground leading-none">
+          {t('taskStatus.public')}
+          <button
+            type="button"
+            onClick={onClearPublic}
             className="rounded-full hover:bg-muted-foreground/20"
           >
             <X className="h-2.5 w-2.5" />
