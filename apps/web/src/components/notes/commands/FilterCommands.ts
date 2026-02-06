@@ -453,6 +453,41 @@ export class SetOverdueOnlyCommand extends BaseFilterCommand {
 }
 
 /**
+ * Command to set the public-only filter
+ */
+export class SetPublicOnlyCommand extends BaseFilterCommand {
+  readonly type = 'SET_PUBLIC_ONLY';
+  readonly description: string;
+  private readonly newValue: boolean;
+
+  constructor(
+    newValue: boolean,
+    t: TranslationFn
+  ) {
+    super();
+    this.newValue = newValue;
+    this.description = newValue
+      ? t('commands.showPublicOnly')
+      : t('commands.clearPublicOnly');
+  }
+
+  execute(currentState: FilterState): FilterState {
+    this.previousState = { showPublicOnly: currentState.showPublicOnly };
+    return { ...currentState, showPublicOnly: this.newValue };
+  }
+
+  toJSON(): SerializableFilterCommand {
+    return {
+      type: this.type,
+      description: this.description,
+      timestamp: this.timestamp,
+      payload: { newValue: this.newValue },
+      previousState: this.serializePreviousState(),
+    };
+  }
+}
+
+/**
  * Composite command to clear all filters at once
  */
 export class ClearAllFiltersCommand extends BaseFilterCommand {
@@ -477,6 +512,7 @@ export class ClearAllFiltersCommand extends BaseFilterCommand {
       dateRangeFilter: { from: undefined, to: undefined },
       taskStatusFilter: 'active',
       showOverdueOnly: false,
+      showPublicOnly: false,
     };
   }
 

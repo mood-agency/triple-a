@@ -44,6 +44,10 @@ export function useNoteSelection({
     // Track the note ID to detect when we switch to a different note
     const selectedNoteIdRef = useRef<string | null>(null);
 
+    // Flag to prevent the note-change useEffect from closing the description panel
+    // when Tab navigation explicitly requests it to open
+    const navigatingToDescriptionRef = useRef(false);
+
     // Bound setters that use the current noteId via ref (stable references)
     const setTitleValue = useCallback((value: string) => {
         const id = selectedNoteIdRef.current;
@@ -114,7 +118,12 @@ export function useNoteSelection({
                 description: selectedNote.description,
                 deadline: selectedNote.deadline,
             } : null);
-            setShowDescriptionPanel(false);
+            // Only close the panel if Tab navigation didn't explicitly request it to open
+            if (navigatingToDescriptionRef.current) {
+                navigatingToDescriptionRef.current = false;
+            } else {
+                setShowDescriptionPanel(false);
+            }
         }
         // NOTE: We removed the automatic sync of titleValue when content changes for the same note.
         // This was causing issues when Tab navigation sets titleValue from the event
@@ -162,6 +171,7 @@ export function useNoteSelection({
 
     // Selection Helpers
     const handleNavigateToDescription = useCallback(() => {
+        navigatingToDescriptionRef.current = true;
         setDesiredColumn(0);
         setFocusTarget('description-start');
         setShowDescriptionPanel(true);

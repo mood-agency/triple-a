@@ -32,6 +32,7 @@ const PRESET_PROMPTS = [
   { key: 'translate', icon: '🌐' },
   { key: 'correct', icon: '✏️' },
   { key: 'improve', icon: '✨' },
+  { key: 'formatText', icon: '📐' },
   { key: 'meetingMinutes', icon: '📋' },
 ] as const;
 

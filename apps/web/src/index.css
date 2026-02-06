@@ -253,8 +253,36 @@ body {
   --bn-colors-editor-text: white;
 }
 
-/* Ensure BlockNote/Radix tooltips appear above sidebar (z-10/z-20) */
-[data-radix-popper-content-wrapper] {
+/* Ensure BlockNote/Radix tooltips appear above sidebar (z-10) and other fixed elements */
+[data-radix-popper-content-wrapper],
+[data-radix-tooltip-content] {
+  z-index: 100 !important;
+}
+
+/* BlockNote tooltips and menus - ensure they appear above sidebar (z-10) */
+.bn-container [role="tooltip"],
+.bn-container .tippy-box,
+.bn-formatting-toolbar,
+.bn-slash-menu,
+.bn-suggestion-menu,
+.bn-link-toolbar,
+.bn-side-menu-button,
+.bn-drag-handle-menu {
+  z-index: 50 !important;
+}
+
+/* BlockNote floating UI elements (rendered as portals) */
+[data-floating-ui-portal] {
+  z-index: 50 !important;
+}
+
+/* Tippy.js tooltips used by BlockNote */
+.tippy-box {
+  z-index: 50 !important;
+}
+
+/* Ensure all BlockNote menus appear above sidebar */
+[class*="bn-"][class*="menu"] {
   z-index: 50 !important;
 }
 

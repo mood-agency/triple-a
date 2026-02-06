@@ -79,7 +79,7 @@ export function PublicNote() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -87,7 +87,7 @@ export function PublicNote() {
 
   if (error || !note) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md text-center">
           <CardContent className="pt-6">
             <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -101,9 +101,9 @@ export function PublicNote() {
 
   // Render the public note
   return (
-    <div className="min-h-screen bg-background p-4 flex justify-center">
-      <Card className="w-full max-w-2xl">
-        <CardHeader>
+    <div className="h-screen bg-background py-8 px-4 flex justify-center items-start">
+      <Card className="w-full max-w-2xl max-h-[calc(100vh-4rem)] flex flex-col">
+        <CardHeader className="flex-shrink-0">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <Badge variant="outline">
               {note.category === 'todo' && t('categoryTodo')}
@@ -141,14 +141,14 @@ export function PublicNote() {
             )}
           </div>
         </CardHeader>
-        {note.description && (
-          <CardContent>
-            <div className="prose prose-sm max-w-none text-muted-foreground">
+        <div className="flex-1 overflow-y-auto px-6">
+          {note.description && (
+            <div className="prose prose-sm max-w-none text-muted-foreground pb-4">
               {renderDescription(note.description)}
             </div>
-          </CardContent>
-        )}
-        <div className="border-t px-6 py-3 text-xs text-muted-foreground text-center">
+          )}
+        </div>
+        <div className="border-t px-6 py-3 text-xs text-muted-foreground text-center flex-shrink-0">
           {t('sharing.poweredBy')}
         </div>
       </Card>

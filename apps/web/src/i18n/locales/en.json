@@ -760,6 +760,7 @@
       "translate": "Translate",
       "correct": "Correct",
       "improve": "Improve",
+      "formatText": "Format",
       "meetingMinutes": "Minutes"
     },
     "prompts": {
@@ -768,6 +769,7 @@
       "translate": "Translate this note to Spanish (or to English if it's in Spanish). Keep the original format and structure. Output in Markdown format.",
       "correct": "Correct spelling, grammar, and punctuation errors in this note. Keep the original meaning. Output in Markdown format.",
       "improve": "Improve the writing of this note making it clearer, more concise, and professional. Output in Markdown format.",
+      "formatText": "Organize and improve the formatting of this text without changing its content or information. Clean up unnecessary spaces, normalize line breaks, structure the content with headings and lists when appropriate, and apply consistent Markdown formatting. Keep all original information, only improve its visual presentation. Especially useful for copied and pasted text from other sources. Output in Markdown format.",
       "meetingMinutes": "These are short notes taken during a meeting. Organize and structure these notes to create clear and professional meeting minutes. Include: main points discussed, decisions made, assigned tasks (if any), and next steps. Output in Markdown format with bullet points or numbering."
     },
     "errors": {

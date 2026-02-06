@@ -760,6 +760,7 @@
       "translate": "Traducir",
       "correct": "Corregir",
       "improve": "Mejorar",
+      "formatText": "Formato",
       "meetingMinutes": "Minuta"
     },
     "prompts": {
@@ -768,6 +769,7 @@
       "translate": "Traduce esta nota al inglés (o al español si está en inglés). Mantén el formato y estructura original. Genera la salida en formato Markdown.",
       "correct": "Corrige errores ortográficos, gramaticales y de puntuación en esta nota. Mantén el significado original. Genera la salida en formato Markdown.",
       "improve": "Mejora la redacción de esta nota haciéndola más clara, concisa y profesional. Genera la salida en formato Markdown.",
+      "formatText": "Organiza y mejora el formato de este texto sin cambiar su contenido o información. Limpia espacios innecesarios, normaliza saltos de línea, estructura el contenido con encabezados y listas cuando sea apropiado, y aplica formato Markdown consistente. Mantén toda la información original, solo mejora su presentación visual. Es especialmente útil para texto copiado y pegado de otras fuentes. Genera la salida en formato Markdown.",
       "meetingMinutes": "Estas son anotaciones cortas tomadas durante una reunión. Organiza y estructura estas notas para crear una minuta clara y profesional. Incluye: puntos principales discutidos, decisiones tomadas, tareas asignadas (si las hay) y próximos pasos. Genera la salida en formato Markdown con viñetas o numeración."
     },
     "errors": {

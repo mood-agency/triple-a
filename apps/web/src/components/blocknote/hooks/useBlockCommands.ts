@@ -50,6 +50,13 @@ export function useBlockCommands(
       // Convert keyboard event to key combination string
       const keyCombo = getKeyCombo(e);
 
+      if (DEBUG_BLOCKNOTE && e.key === 'Tab') {
+        const allBlocks = editor.document;
+        const currentBlockIndex = allBlocks.findIndex(b => b.id === block.id);
+        const isLastBlock = currentBlockIndex === allBlocks.length - 1;
+        console.log(`[useBlockCommands] 🔍 Tab pressed - Block ${block.id.substring(0, 8)}... (index: ${currentBlockIndex}, isLast: ${isLastBlock}, isInside: ${isInside})`);
+      }
+
       if (DEBUG_BLOCKNOTE) {
         console.log(`[useBlockCommands] ⌨️ Key pressed in block ${block.id}: "${e.key}", combo: "${keyCombo}"`);
       }
@@ -68,6 +75,9 @@ export function useBlockCommands(
         };
 
         const executed = commandRegistry.executeCommand(keyCombo, context);
+        if (DEBUG_BLOCKNOTE && e.key === 'Tab') {
+          console.log(`[useBlockCommands] ✅ Tab command executed: ${executed} for block ${block.id.substring(0, 8)}...`);
+        }
         if (executed) {
           // Command executed successfully
         }

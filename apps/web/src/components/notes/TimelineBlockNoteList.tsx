@@ -395,9 +395,9 @@ export const TimelineBlockNoteList = ({
       });
     }
 
-    if (onSelectNote) {
-      onSelectNote(event.payload.noteId);
-    }
+    // Note: We do NOT call onSelectNote here. The note is already selected
+    // via the cursor change handler. Calling it again would trigger a
+    // redundant selectedNote state change that races with showDescriptionPanel.
 
     if (onNavigateToDescription) {
       onNavigateToDescription();
