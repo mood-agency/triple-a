@@ -1,6 +1,6 @@
 import { useEffect, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pickaxe, Forward, StickyNote, Check, X, Users, Calendar, List, FolderKanban, User, ArrowUp, ArrowDown, Calendar as CalendarIcon, Layers, CircleDot, CheckCircle2, Trash2, AlertTriangle, Plus } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Check, X, Users, Calendar, List, FolderKanban, User, ArrowUp, ArrowDown, Calendar as CalendarIcon, Layers, CircleDot, CheckCircle2, Trash2, AlertTriangle, Plus, Globe } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -44,6 +44,8 @@ interface CommandPaletteProps {
   onTaskStatusFilterChange?: (status: 'active' | 'completed' | 'deleted') => void;
   showOverdueOnly?: boolean;
   onShowOverdueOnlyChange?: (show: boolean) => void;
+  showPublicOnly?: boolean;
+  onShowPublicOnlyChange?: (show: boolean) => void;
   hasCompletedTasks?: boolean;
 }
 
@@ -71,6 +73,8 @@ export const CommandPalette = memo(function CommandPalette({
   onTaskStatusFilterChange,
   showOverdueOnly = false,
   onShowOverdueOnlyChange,
+  showPublicOnly = false,
+  onShowPublicOnlyChange,
   hasCompletedTasks = false,
 }: CommandPaletteProps) {
   const { t } = useTranslation();
@@ -97,6 +101,7 @@ export const CommandPalette = memo(function CommandPalette({
     onSortChange?.({ deadline: null, assignee: null, category: null, createdAt: null });
     onTaskStatusFilterChange?.('active');
     onShowOverdueOnlyChange?.(false);
+    onShowPublicOnlyChange?.(false);
     closeWithoutFocusRestore();
   };
 
@@ -111,7 +116,7 @@ export const CommandPalette = memo(function CommandPalette({
   };
 
   const hasActiveSort = sortConfig.deadline !== null || sortConfig.assignee !== null || sortConfig.category !== null || sortConfig.createdAt !== null;
-  const hasActiveFilters = selectedLabels.length > 0 || categoryFilter !== 'all' || selectedAssignees.length > 0 || hasActiveSort || taskStatusFilter !== 'active' || showOverdueOnly;
+  const hasActiveFilters = selectedLabels.length > 0 || categoryFilter !== 'all' || selectedAssignees.length > 0 || hasActiveSort || taskStatusFilter !== 'active' || showOverdueOnly || showPublicOnly;
 
   const handleSelectAssignee = (assigneeId: string) => {
     onSelectAssignee?.(assigneeId);
@@ -339,11 +344,16 @@ export const CommandPalette = memo(function CommandPalette({
                 {t('taskStatus.overdue')}
                 {showOverdueOnly && <Check className="text-primary" />}
               </CommandItem>
+              <CommandItem onSelect={() => { onShowPublicOnlyChange?.(!showPublicOnly); closeWithoutFocusRestore(); }}>
+                <Globe />
+                {t('taskStatus.public')}
+                {showPublicOnly && <Check className="text-primary" />}
+              </CommandItem>
             </CommandGroup>
 
             <CommandSeparator />
 
-            <CommandGroup heading={t('filterByCategory')}>
+            <CommandGroup heading={t('filterCategoryPrefix')}>
               <CommandItem onSelect={() => handleSelectCategory('all')}>
                 {categoryFilter === 'all' ? (
                   <Check className="text-primary" />

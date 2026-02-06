@@ -6,12 +6,24 @@ import { Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 
+function stripAccents(str: string): string {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+}
+
+function accentInsensitiveFilter(value: string, search: string, keywords?: string[]): number {
+  const normalizedValue = stripAccents(value.toLowerCase())
+  const normalizedSearch = stripAccents(search.toLowerCase())
+  const allText = keywords ? `${normalizedValue} ${stripAccents(keywords.join(" ").toLowerCase())}` : normalizedValue
+  return allText.includes(normalizedSearch) ? 1 : 0
+}
+
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive>
 >(({ className, ...props }, ref) => (
   <CommandPrimitive
     ref={ref}
+    filter={accentInsensitiveFilter}
     className={cn(
       "flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground",
       className

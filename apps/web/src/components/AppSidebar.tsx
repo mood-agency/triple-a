@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, Users, BarChart3, Moon, Sun, Languages, LogOut, User, Cloud, CloudOff, Tag, FolderKanban, Calendar, Smartphone, Key, Sparkles } from 'lucide-react';
+import { Home, Users, BarChart3, Moon, Sun, Languages, LogOut, User, Cloud, CloudOff, Tag, FolderKanban, Calendar, Smartphone, Key, Sparkles, Bot } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ProjectSelector } from '@/components/projects/ProjectSelector';
@@ -71,6 +71,11 @@ export function AppSidebar() {
       title: t('nav.projects', 'Projects'),
       url: '/projects',
       icon: FolderKanban,
+    },
+    {
+      title: t('nav.chat', 'AI Chat'),
+      url: '/chat',
+      icon: Bot,
     },
   ];
 

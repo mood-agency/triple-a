@@ -158,7 +158,20 @@
       "Bash(pnpm --filter @triple-a/web exec tsc:*)",
       "Bash(pnpm --filter @triple-a/api lint:*)",
       "Bash(npx vite build)",
-      "Bash(pnpm --filter @triple-a/api type-check:*)"
+      "Bash(pnpm --filter @triple-a/api type-check:*)",
+      "Bash(pnpm test:*)",
+      "Bash(npx vitest run)",
+      "Bash(npx vitest:*)",
+      "Bash(pnpm --filter @triple-a/web dev:*)",
+      "WebFetch(domain:kyleshevlin.com)",
+      "WebFetch(domain:blog.logrocket.com)",
+      "WebFetch(domain:www.skies.dev)",
+      "WebFetch(domain:stately.ai)",
+      "WebFetch(domain:deepwiki.com)",
+      "WebFetch(domain:www.typeonce.dev)",
+      "WebFetch(domain:www.frontendundefined.com)",
+      "WebFetch(domain:mastery.games)",
+      "WebFetch(domain:timdeschryver.dev)"
     ],
     "additionalDirectories": [
       "c:\\Users\\argen\\Documents\\GitHub\\triple-a",

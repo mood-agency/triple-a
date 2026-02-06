@@ -536,6 +536,10 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   const deleteNote = useCallback(async (id: string, reason: string): Promise<void> => {
     if (!supabase) return;
 
+    // Remove from Zustand store immediately (also cleans pendingNoteIds
+    // so mergeFetchedNotes won't re-add the deleted note as "still pending")
+    useNotesStore.getState().removeNote(id);
+
     // Check if note has content — empty notes get hard-deleted
     const { data: existing } = await supabase
       .from('notes')

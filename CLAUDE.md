@@ -272,3 +272,121 @@ eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
 - Navigation types: `apps/web/src/components/notes/navigation/types.ts`
 - Navigation mediator: `apps/web/src/components/notes/navigation/useNavigationMediator.ts`
 - Region registration: `apps/web/src/components/notes/navigation/useRegisterNavigationRegion.ts`
+
+## Notes Workspace Component Hierarchy
+
+```
+Home.tsx                              # URL state, selectedNoteId, filters, data mutation callbacks
+└── NotesWorkspace.tsx                # Keyboard mediator, sidebar/description panel state, useNoteSelection
+    ├── NoteListContent.tsx           # Conditional render: list vs calendar, passes stabilized callbacks
+    │   └── BlockNoteNoteList.tsx     # BlockNote editor instance, block ↔ note sync, event subscriptions
+    │       └── NotepadBlock.tsx × N  # Custom block: checkbox, title, deadline, labels, assignees
+    ├── NoteEditorPanel (editor)      # Description editor for selectedNote
+    └── NoteEditorPanel (sidebar)     # Description editor for fixedNote (pinned)
+```
+
+### Key Prop Flow
+
+- **Home → NotesWorkspace**: `notes[]`, `selectedNote` (derived via `useMemo`), mutation callbacks (`onEdit`, `onDelete`, etc.), filter state
+- **NotesWorkspace → NoteListContent**: filtered note arrays, stabilized handlers (`handleSelectNoteById`, `handleToggleCompletedWithNavigation`)
+- **NoteListContent → BlockNoteNoteList**: `notes[]`, `onSelectNote`, `onNavigateToDescription`, mutation callbacks
+- **BlockNoteNoteList → NotepadBlock**: block props (via `notesToBlocks` adapter): `isChecked`, `category`, `date`, `labels[]`, `assignees[]`, `compact`, `pinned`
+
+## Three-Layer State Management
+
+State flows through three layers: **URL → React State → Zustand Stores**.
+
+### Layer 1: URL (`searchParams`)
+Source of truth for routing/shareable state: `?note=id&category=tasks&view=list&labels=...`
+
+### Layer 2: React State (`Home.tsx`)
+- `selectedNoteId` — initialized from URL, synced bidirectionally
+- `viewMode`, `categoryFilter`, `labelFilter`, `assigneeFilter`, `sortConfig` — all synced to URL
+- `selectedNote` — derived from `notes.find(n => n.id === selectedNoteId)` via `useMemo` (prevents re-renders when note content changes but ID stays the same)
+- `stateRef` — ref mirror of all state values to prevent stale closures in `syncStateToURL`
+
+### Layer 3: Zustand Stores
+
+**`useNotesStore`** — Note collection + persistence metadata:
+- `notes: Note[]`, `loading`, `pendingNoteIds: Set<string>`
+- Optimistic updates: store updates synchronously, DB writes async
+- `mergeFetchedNotes()` preserves locally-pending notes during refetch
+
+**`useNoteFieldsStore`** — Live editor state for notes being edited:
+- `notes: Record<noteId, { titleValue, descriptionValue, deadlineValue, labelsValue, assigneesValue }>`
+- `selectedNoteId` and `fixedNoteId` — two notes can coexist (main + sidebar)
+- `selectNote()`/`selectFixedNote()` manage lifecycle: initialize entry on select, delete on deselect (unless shared)
+
+**`useNotesSupabase`** — Wraps `useNotesStore` with Supabase persistence:
+- Pattern: synchronous store update + async DB write (fire-and-forget)
+- Real-time subscription with debounced refetch (300ms, 2000ms if pending notes)
+- Version creation throttled to 30s for description changes
+
+### URL ↔ State Sync Pitfall
+
+The URL sync effect in `Home.tsx` must guard against re-running when only `notes` content changes (not the URL). Without guards, a content save (e.g. `processNoteBlock` → `updateNote`) updates the `notes` array, triggers the effect, which reads the **stale URL** (React Router's `setSearchParams` hasn't committed yet) and reverts `selectedNoteId`. The fix uses refs to track the last-processed URL note param and only syncs when the URL actually changes or loading completes.
+
+## BlockNote Keyboard Event Architecture
+
+**`useBlockCommands`** registers a `keydown` listener on `document` with `{ capture: true }`, which fires **before** all other listeners including BlockNote internals and `useHotkeys`. When a registered command matches, it calls `e.stopImmediatePropagation()`, preventing the event from reaching any other handler.
+
+**Consequence: `useHotkeys` handlers NEVER fire for keyboard events inside BlockNote blocks.** All block-level keyboard handling goes through the command pattern. Global hotkeys (e.g. Ctrl+Z undo in filters) set `enableOnContentEditable: false` to avoid conflicts. Some hotkeys explicitly set `enableOnContentEditable: true` to work in both contexts (e.g. Alt+T for deadline).
+
+### Registered Block Commands
+
+| Key | Command | File |
+|-----|---------|------|
+| `Enter` | InsertBlockCommand | Creates new block, emits `editor:createNoteAfter` |
+| `Tab` | NavigateToDescriptionCommand | Emits `editor:navigateToDescription` |
+| `Backspace` | DeleteBlockCommand | Deletes empty block, Ctrl+Backspace for non-empty |
+| `Ctrl+A` | SelectAllCommand | Selects text in current block only (not all blocks) |
+| `ArrowUp/Down` | NavigateBlockCommand | Moves between blocks, preserves cursor column |
+| `ArrowLeft/Right` | PreventNavigateOutCommand | Prevents cursor from leaving editable area |
+| `Ctrl+D` | ToggleCompleteCommand | Toggles task completion |
+| `Ctrl+P` | TogglePinCommand | Toggles pin state |
+| `Ctrl+S` | ToggleSidebarCommand | Toggles fixed-in-sidebar |
+
+### Tab Navigation Flow (Complete Chain)
+
+```
+1. User presses Tab inside a NotepadBlock
+2. useBlockCommands (capture phase) → NavigateToDescriptionCommand.execute()
+3. eventBus.emit('editor:navigateToDescription', { noteId, cursorOffset, content })
+4. BlockNoteNoteList handler:
+   a. processNoteBlock(noteId) — fire-and-forget async, but synchronous part
+      calls onEdit() → updateNote() → useNotesStore updates notes[] immediately
+   b. onSelectNote(noteId) → handleSelectNoteById → handleSelectNote
+      → setSelectedNoteId, syncStateToURL
+   c. onNavigateToDescription() → handleNavigateToDescription
+      → navigatingToDescriptionRef=true, showDescriptionPanel=true
+5. NotesWorkspace handler (same event):
+   → setTitleValue(cleaned content) for immediate UI sync
+6. useNoteSelection note-change effect:
+   → navigatingToDescriptionRef is true → panel stays open (flag consumed)
+```
+
+### `navigatingToDescriptionRef` One-Shot Flag
+
+`useNoteSelection` uses this ref to prevent the note-change `useEffect` from closing the description panel when Tab navigation explicitly opens it. The flag is set `true` synchronously in `handleNavigateToDescription`, consumed (set `false`) on the first `noteIdChanged` effect, protecting the panel from being closed. If a second note ID change arrives (e.g. from a race condition), the flag is already consumed and the panel would close — this is why the URL sync guard in Home.tsx is critical.
+
+### `processNoteBlock` Timing
+
+`processNoteBlock` is `async` but its **synchronous part** (before the first `await`) calls `onEdit()` → `updateNote()` → `useNotesStore.getState().updateNote()`, updating the `notes` array **before** React processes the `selectedNoteId` change from `onSelectNote`. This ordering means store subscribers (including the URL sync effect) see the `notes` change before the URL has been updated.
+
+## Key File Reference
+
+| File | Responsibility |
+|------|---------------|
+| `apps/web/src/pages/Home.tsx` | URL state, note selection, filter orchestration |
+| `apps/web/src/components/notes/NotesWorkspace.tsx` | Keyboard mediator, panel state, event wiring |
+| `apps/web/src/components/notes/NoteListContent.tsx` | List/calendar view switching, drag & drop |
+| `apps/web/src/components/notes/BlockNoteNoteList.tsx` | BlockNote editor, block ↔ note sync, event handlers |
+| `apps/web/src/components/blocknote/NotepadBlock.tsx` | Custom block rendering (checkbox, title, metadata) |
+| `apps/web/src/components/blocknote/hooks/useBlockCommands.ts` | Capture-phase keyboard interception |
+| `apps/web/src/components/blocknote/commands/` | Command implementations (InsertBlock, NavigateToDescription, etc.) |
+| `apps/web/src/components/notes/hooks/useNoteSelection.ts` | Description panel state, auto-save, focus management |
+| `apps/web/src/stores/useNotesStore.ts` | Note collection (optimistic updates) |
+| `apps/web/src/stores/useNoteFieldsStore.ts` | Live editor fields per note |
+| `apps/web/src/hooks/supabase/useNotesSupabase.ts` | Store + Supabase persistence wrapper |
+| `apps/web/src/events/types.ts` | All event type definitions |
+| `apps/web/src/components/notes/navigation/useNavigationMediator.ts` | Save coordination across regions |

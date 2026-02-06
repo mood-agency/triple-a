@@ -1,13 +1,28 @@
-import { useState, useCallback, memo } from 'react';
+import { useState, useCallback, useRef, memo } from 'react';
 import { Button } from '@/components/ui/button';
-import { LazyTooltip } from '@/components/ui/lazy-tooltip';
-import { Kbd } from '@/components/ui/kbd';
-import { List, Calendar, AlignJustify, Copy, Check, Sparkles } from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { List, Calendar as CalendarIcon, AlignJustify, Copy, Check, Sparkles, Ellipsis, Pickaxe, Forward, Users, StickyNote, CalendarRange, X } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Calendar } from '@/components/ui/calendar';
 import { NoteFilters } from './NoteFilters';
 import { AISummaryDialog } from './AISummaryDialog';
 import type { AIProviderConfig } from '@/hooks/useSettings';
 import { Logo } from '@/components/Logo';
 import { useTranslation } from 'react-i18next';
+import { format } from 'date-fns';
+import { es, enUS } from 'date-fns/locale';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { formatLocalDate, parseLocalDate } from '@/utils/dateUtils';
@@ -101,9 +116,32 @@ export const NoteListToolbar = memo(function NoteListToolbar({
     hasCompletedTasks,
     onSearchKeyDown,
 }: NoteListToolbarProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const locale = i18n.language === 'es' ? es : enUS;
     const [copied, setCopied] = useState(false);
     const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
+    const [dateRangeDialogOpen, setDateRangeDialogOpen] = useState(false);
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [keepVisible, setKeepVisible] = useState(false);
+    const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleDropdownOpenChange = useCallback((open: boolean) => {
+        setDropdownOpen(open);
+        if (!open) {
+            // Grace period after closing so toolbar doesn't vanish instantly
+            setKeepVisible(true);
+            if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+            hideTimeoutRef.current = setTimeout(() => {
+                setKeepVisible(false);
+                // Blur after grace period so group-focus-within doesn't keep toolbar stuck.
+                // Must run after Radix restores focus to the trigger.
+                (document.activeElement as HTMLElement)?.blur();
+            }, 500);
+        } else {
+            if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+            setKeepVisible(false);
+        }
+    }, []);
 
     const handleCopyTasks = useCallback(async () => {
         if (activeNotes.length === 0) return;
@@ -150,70 +188,11 @@ export const NoteListToolbar = memo(function NoteListToolbar({
                 <Logo size="sm" className="mr-1" />
 
                 {/* Hideable toolbar content */}
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200">
+                <div className={`flex items-center gap-2 transition-opacity duration-200 ${dropdownOpen || keepVisible ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'}`}>
 
                     {/* Sidebar trigger */}
                     {sidebarTrigger}
 
-                    {/* View mode toggle */}
-                    <LazyTooltip
-                        content={
-                            <span className="flex items-center gap-2">
-                                <p>{viewMode === 'list' ? t('calendar.switchToCalendarView') : t('calendar.switchToListView')}</p>
-                                <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>V</Kbd></span>
-                            </span>
-                        }
-                    >
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
-                            className="h-8 w-8 shadow-none"
-                            aria-label={viewMode === 'list' ? t('calendar.switchToCalendarView') : t('calendar.switchToListView')}
-                        >
-                            {viewMode === 'list' ? <List className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
-                        </Button>
-                    </LazyTooltip>
-                    {/* Compact view toggle - hide on mobile */}
-                    {!isMobile && (
-                        <LazyTooltip content={compactTaskView ? t('fullViewTooltip') : t('compactViewTooltip')}>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => setCompactTaskView(!compactTaskView)}
-                                className="h-8 w-8 shadow-none"
-                                aria-label={t('compactView')}
-                            >
-                                {compactTaskView ? <AlignJustify className="h-4 w-4" /> : <List className="h-4 w-4" />}
-                            </Button>
-                        </LazyTooltip>
-                    )}
-                    {/* Copy active tasks button */}
-                    <LazyTooltip content={`${t('copyActiveTasks')} (${activeNotes.length})`}>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={handleCopyTasks}
-                            className="h-8 w-8 shadow-none"
-                            aria-label={t('copyActiveTasks')}
-                            disabled={activeNotes.length === 0}
-                        >
-                            {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                        </Button>
-                    </LazyTooltip>
-                    {/* AI Summary button */}
-                    <LazyTooltip content={aiProvider ? `${t('ai.summary.button')} (${activeNotes.length})` : t('ai.notConfigured')}>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setSummaryDialogOpen(true)}
-                            className="h-8 w-8 shadow-none"
-                            aria-label={t('ai.summary.button')}
-                            disabled={activeNotes.length === 0 || !aiProvider}
-                        >
-                            <Sparkles className="h-4 w-4" />
-                        </Button>
-                    </LazyTooltip>
                     <NoteFilters
                         searchQuery={searchQuery}
                         onSearchChange={setSearchQuery}
@@ -246,6 +225,88 @@ export const NoteListToolbar = memo(function NoteListToolbar({
                         onTaskStatusFilterChange={setTaskStatusFilter}
                         hasCompletedTasks={hasCompletedTasks}
                     />
+                    {/* More options dropdown */}
+                    <DropdownMenu open={dropdownOpen} onOpenChange={handleDropdownOpenChange}>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 shadow-none"
+                                aria-label={t('toolbar.moreOptions')}
+                            >
+                                <Ellipsis className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}>
+                                {viewMode === 'list' ? <CalendarIcon className="h-4 w-4 mr-2" /> : <List className="h-4 w-4 mr-2" />}
+                                {viewMode === 'list' ? t('calendar.switchToCalendarView') : t('calendar.switchToListView')}
+                                <span className="ml-auto text-xs text-muted-foreground">Alt+V</span>
+                            </DropdownMenuItem>
+                            {!isMobile && (
+                                <DropdownMenuItem onClick={() => setCompactTaskView(!compactTaskView)}>
+                                    {compactTaskView ? <AlignJustify className="h-4 w-4 mr-2" /> : <List className="h-4 w-4 mr-2" />}
+                                    {compactTaskView ? t('fullViewTooltip') : t('compactViewTooltip')}
+                                    <span className="ml-auto text-xs text-muted-foreground">Alt+F</span>
+                                </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                                onClick={handleCopyTasks}
+                                disabled={activeNotes.length === 0}
+                            >
+                                {copied ? <Check className="h-4 w-4 mr-2 text-green-500" /> : <Copy className="h-4 w-4 mr-2" />}
+                                {t('copyActiveTasks')} ({activeNotes.length})
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => setSummaryDialogOpen(true)}
+                                disabled={activeNotes.length === 0 || !aiProvider}
+                            >
+                                <Sparkles className="h-4 w-4 mr-2" />
+                                {t('ai.summary.button')} ({activeNotes.length})
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setCategoryFilter(categoryFilter === 'todo' ? 'all' : 'todo')}>
+                                <Pickaxe className="h-4 w-4 mr-2" />
+                                {t('filterByCategory', { category: t('categoryTodo') })}
+                                {categoryFilter === 'todo' && <Check className="h-4 w-4 ml-auto" />}
+                                <span className="ml-auto text-xs text-muted-foreground">Alt+Q</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setCategoryFilter(categoryFilter === 'followup' ? 'all' : 'followup')}>
+                                <Forward className="h-4 w-4 mr-2" />
+                                {t('filterByCategory', { category: t('categoryFollowUp') })}
+                                {categoryFilter === 'followup' && <Check className="h-4 w-4 ml-auto" />}
+                                <span className="ml-auto text-xs text-muted-foreground">Alt+W</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setCategoryFilter(categoryFilter === 'meeting' ? 'all' : 'meeting')}>
+                                <Users className="h-4 w-4 mr-2" />
+                                {t('filterByCategory', { category: t('categoryMeeting') })}
+                                {categoryFilter === 'meeting' && <Check className="h-4 w-4 ml-auto" />}
+                                <span className="ml-auto text-xs text-muted-foreground">Alt+E</span>
+                            </DropdownMenuItem>
+                            {viewMode !== 'calendar' && (
+                                <DropdownMenuItem onClick={() => setCategoryFilter(categoryFilter === 'notes' ? 'all' : 'notes')}>
+                                    <StickyNote className="h-4 w-4 mr-2" />
+                                    {t('filterByCategory', { category: t('categoryNotes') })}
+                                    {categoryFilter === 'notes' && <Check className="h-4 w-4 ml-auto" />}
+                                    <span className="ml-auto text-xs text-muted-foreground">Alt+R</span>
+                                </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setDateRangeDialogOpen(true)}>
+                                <CalendarRange className="h-4 w-4 mr-2" />
+                                {t('dateRange.filter')}
+                                {(dateRangeFilter.from || dateRangeFilter.to) && (
+                                    <span className="ml-auto text-xs text-muted-foreground">
+                                        {dateRangeFilter.from && dateRangeFilter.to
+                                            ? `${format(dateRangeFilter.from, 'dd/MM', { locale })} - ${format(dateRangeFilter.to, 'dd/MM', { locale })}`
+                                            : dateRangeFilter.from
+                                                ? format(dateRangeFilter.from, 'dd/MM', { locale })
+                                                : format(dateRangeFilter.to!, 'dd/MM', { locale })}
+                                    </span>
+                                )}
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
 
@@ -259,6 +320,43 @@ export const NoteListToolbar = memo(function NoteListToolbar({
                     noteAssigneesCache={noteAssigneesCache}
                 />
             )}
+
+            {/* Date Range Dialog */}
+            <Dialog open={dateRangeDialogOpen} onOpenChange={setDateRangeDialogOpen}>
+                <DialogContent className="w-auto max-w-fit">
+                    <DialogHeader>
+                        <DialogTitle>{t('dateRange.filter')}</DialogTitle>
+                        <DialogDescription>{t('dateRange.filterDescription')}</DialogDescription>
+                    </DialogHeader>
+                    <Calendar
+                        mode="range"
+                        selected={{ from: dateRangeFilter.from, to: dateRangeFilter.to }}
+                        onSelect={(range) => {
+                            setDateRangeFilter({
+                                from: range?.from,
+                                to: range?.to,
+                            });
+                        }}
+                        locale={locale}
+                        weekStartsOn={1}
+                        numberOfMonths={1}
+                    />
+                    {(dateRangeFilter.from || dateRangeFilter.to) && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                                setDateRangeFilter({ from: undefined, to: undefined });
+                                setDateRangeDialogOpen(false);
+                            }}
+                        >
+                            <X className="h-3 w-3 mr-1" />
+                            {t('dateRange.clear')}
+                        </Button>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 });

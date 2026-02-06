@@ -1,23 +1,8 @@
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Search,
-  Pickaxe,
-  Forward,
-  StickyNote,
-  Users,
-  ChevronDown,
-  X,
-  CalendarRange,
-} from 'lucide-react';
-import { format } from 'date-fns';
-import { es, enUS } from 'date-fns/locale';
-import { Calendar } from '@/components/ui/calendar';
+import { Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Kbd } from '@/components/ui/kbd';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 
@@ -119,8 +104,14 @@ export const NoteFilters = memo(function NoteFilters({
   onTaskStatusFilterChange,
   hasCompletedTasks = false,
 }: NoteFiltersProps) {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.language === 'es' ? es : enUS;
+  const { t } = useTranslation();
+
+  // Suppress unused variable warnings for props now handled by toolbar dropdown
+  void categoryFilter;
+  void onCategoryFilterChange;
+  void viewMode;
+  void dateRangeFilter;
+  void onDateRangeFilterChange;
 
   // Suppress unused variable warnings for legacy props (kept for interface compatibility)
   void sortByDeadline;
@@ -167,142 +158,6 @@ export const NoteFilters = memo(function NoteFilters({
         </Button>
       </div>
 
-      {/* Category filters - only action types (To Do, Follow Up, Meeting) */}
-      <div className="flex">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className={`h-8 w-8 rounded-r-none border-r-0 shadow-none ${categoryFilter === 'todo' ? 'bg-accent text-accent-foreground' : ''}`}
-              onClick={() => onCategoryFilterChange(categoryFilter === 'todo' ? 'all' : 'todo')}
-              aria-label={t('categoryTodo')}
-            >
-              <Pickaxe className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="flex items-center gap-2">
-            <p>{t('filterByCategory', { category: t('categoryTodo') })}</p>
-            <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>Q</Kbd></span>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className={`h-8 w-8 rounded-none border-r-0 shadow-none ${categoryFilter === 'followup' ? 'bg-accent text-accent-foreground' : ''}`}
-              onClick={() => onCategoryFilterChange(categoryFilter === 'followup' ? 'all' : 'followup')}
-              aria-label={t('categoryFollowUp')}
-            >
-              <Forward className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="flex items-center gap-2">
-            <p>{t('filterByCategory', { category: t('categoryFollowUp') })}</p>
-            <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>W</Kbd></span>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className={`h-8 w-8 rounded-l-none shadow-none ${categoryFilter === 'meeting' ? 'bg-accent text-accent-foreground' : ''}`}
-              onClick={() => onCategoryFilterChange(categoryFilter === 'meeting' ? 'all' : 'meeting')}
-              aria-label={t('categoryMeeting')}
-            >
-              <Users className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="flex items-center gap-2">
-            <p>{t('filterByCategory', { category: t('categoryMeeting') })}</p>
-            <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>E</Kbd></span>
-          </TooltipContent>
-        </Tooltip>
-      </div>
-
-      {/* Notes toggle button - separate from action types */}
-      {viewMode !== 'calendar' && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className={`h-8 w-8 shadow-none ${categoryFilter === 'notes' ? 'bg-accent text-accent-foreground' : ''}`}
-              onClick={() => onCategoryFilterChange(categoryFilter === 'notes' ? 'all' : 'notes')}
-              aria-label={t('categoryNotes')}
-            >
-              <StickyNote className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="flex items-center gap-2">
-            <p>{t('filterByCategory', { category: t('categoryNotes') })}</p>
-            <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>R</Kbd></span>
-          </TooltipContent>
-        </Tooltip>
-      )}
-
-
-      {/* Date range filter */}
-      <div className="flex gap-1 items-center ml-2 pl-2 border-l border-muted-foreground/20">
-        {/* Date range filter */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className={`h-8 shadow-none ${dateRangeFilter.from || dateRangeFilter.to ? 'bg-accent text-accent-foreground' : ''}`}
-              aria-label={t('dateRange.filter')}
-            >
-              <CalendarRange className="h-3.5 w-3.5" />
-              {dateRangeFilter.from || dateRangeFilter.to ? (
-                <span className="ml-1 text-xs">
-                  {dateRangeFilter.from && dateRangeFilter.to
-                    ? `${format(dateRangeFilter.from, 'dd/MM', { locale })} - ${format(dateRangeFilter.to, 'dd/MM', { locale })}`
-                    : dateRangeFilter.from
-                      ? `${t('dateRange.from')} ${format(dateRangeFilter.from, 'dd/MM', { locale })}`
-                      : `${t('dateRange.to')} ${format(dateRangeFilter.to!, 'dd/MM', { locale })}`}
-                </span>
-              ) : (
-                <ChevronDown className="h-3 w-3 ml-0.5" />
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <div className="p-3 border-b">
-              <p className="text-sm font-medium">{t('dateRange.filter')}</p>
-              <p className="text-xs text-muted-foreground">{t('dateRange.filterDescription')}</p>
-            </div>
-            <Calendar
-              mode="range"
-              selected={{ from: dateRangeFilter.from, to: dateRangeFilter.to }}
-              onSelect={(range) => {
-                onDateRangeFilterChange({
-                  from: range?.from,
-                  to: range?.to,
-                });
-              }}
-              locale={locale}
-              weekStartsOn={1}
-              numberOfMonths={1}
-            />
-            {(dateRangeFilter.from || dateRangeFilter.to) && (
-              <div className="p-2 border-t">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => onDateRangeFilterChange({ from: undefined, to: undefined })}
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  {t('dateRange.clear')}
-                </Button>
-              </div>
-            )}
-          </PopoverContent>
-        </Popover>
-      </div>
     </>
   );
 });

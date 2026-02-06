@@ -8,15 +8,14 @@ import { animate } from 'motion';
 import { NotepadBlock } from '@/components/blocknote/NotepadBlock';
 import { notesToBlocks, getBlockContent } from '@/utils/noteBlockAdapter';
 import { getInitials } from '@/lib/utils';
-import { parseHashtags } from '@/utils/hashtagParser';
-import { useLabels } from '@/hooks/useLabels';
-import { useContacts } from '@/hooks/useContacts';
 import { useEventSubscription, eventBus } from '@/events';
+import { useNoteBlockProcessing } from './hooks/useNoteBlockProcessing';
 import type { Note, Label, NoteCategory } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { useRegisterNavigationRegion, type RegionHandler, type FocusRestorationContext, type ItemSaveData } from './navigation';
 import { DeleteTaskDialog } from './DeleteTaskDialog';
 import { useNoteFieldsStore } from '@/stores/useNoteFieldsStore';
+import { computeSyncDecision } from './syncDecisionTree';
 
 // Debug flags
 const DEBUG_BLOCKNOTE = false;
@@ -79,10 +78,6 @@ export const BlockNoteNoteList = ({
   // Read/write title from Zustand store map by selected note ID
   const selectedNoteTitleValue = useNoteFieldsStore(s => selectedNoteId ? s.notes[selectedNoteId]?.titleValue ?? '' : '');
   const storeSetTitleValue = useNoteFieldsStore(s => s.setTitleValue);
-  // Get labels and contacts for hashtag/mention parsing
-  const { labels } = useLabels();
-  const { contacts } = useContacts();
-
   // Delete dialog state
   const [deleteDialogNoteId, setDeleteDialogNoteId] = useState<string | null>(null);
 
@@ -162,6 +157,28 @@ export const BlockNoteNoteList = ({
   // When we save a note, updated_at changes which may reorder the notes array
   // We don't want to replace the document just because of our own save
   const isSavingInternallyRef = useRef(false);
+
+  // Helper to read content directly from DOM (fallback when BlockNote hasn't synced)
+  const getBlockContentFromDOM = useCallback((blockId: string): string => {
+    const blockElement = document.querySelector(`[data-id="${blockId}"]`);
+    if (!blockElement) return '';
+    const contentElement = blockElement.querySelector('.notepad-content');
+    return contentElement?.textContent || '';
+  }, []);
+
+  // Shared hook for hashtag/mention parsing
+  const processingCallbacks = useMemo(() => ({
+    onEdit, onAddLabel, onCreateLabelAndAdd, onAddAssignee,
+  }), [onEdit, onAddLabel, onCreateLabelAndAdd, onAddAssignee]);
+
+  const { processNoteBlock, getCleanedContent } = useNoteBlockProcessing({
+    notes,
+    noteLabelsCache,
+    editor,
+    callbacks: processingCallbacks,
+    getBlockContentFromDOM,
+    isSavingInternallyRef,
+  });
 
   // Ref for processNoteBlock (assigned later, used by region handler)
   const processNoteBlockRef = useRef<((noteId: string) => Promise<{ finalCategory: string; labelIds: string[]; parsedAssigneeId: string | null; parsed: any } | null>) | null>(null);
@@ -373,7 +390,7 @@ export const BlockNoteNoteList = ({
 
       // Ensure we save cleaned content (parsing hashtags) even for this generic save
       // This covers edge cases like window blur where processNoteBlock might race
-      const { cleanedContent } = parseHashtags(content, { labels, contacts });
+      const cleanedContent = getCleanedContent(content);
 
       // Set flag to prevent order-change sync from replacing the document after save
       isSavingInternallyRef.current = true;
@@ -395,14 +412,6 @@ export const BlockNoteNoteList = ({
   }), [editor, notes, setCursorAtOffset]);
 
   useRegisterNavigationRegion(taskListRegionHandler);
-
-  // Helper to read content directly from DOM (fallback when BlockNote hasn't synced)
-  const getBlockContentFromDOM = useCallback((blockId: string): string => {
-    const blockElement = document.querySelector(`[data-id="${blockId}"]`);
-    if (!blockElement) return '';
-    const contentElement = blockElement.querySelector('.notepad-content');
-    return contentElement?.textContent || '';
-  }, []);
 
 
   // Clean up newly created notes cache when they appear in props
@@ -778,67 +787,47 @@ export const BlockNoteNoteList = ({
 
   // Sync notes changes (for filtering/sorting) - when the VIEW changes
   // Don't sync when notes are added/edited (BlockNote handles this internally)
+  // Decision logic extracted to syncDecisionTree.ts for testability
   useEffect(() => {
-    // Create a string of note IDs to detect changes (preserve order to detect sort changes)
-    const currentNoteIds = notes.map(n => n.id).join(',');
+    const currentNoteIds = notes.map(n => n.id);
+    const previousNoteIds = previousNoteIdsRef.current
+      ? previousNoteIdsRef.current.split(',').filter(Boolean)
+      : [];
 
-    // Only update if the set of note IDs actually changed
-    if (previousNoteIdsRef.current !== currentNoteIds) {
-      const previousIds = new Set(previousNoteIdsRef.current ? previousNoteIdsRef.current.split(',').filter(Boolean) : []);
-      previousNoteIdsRef.current = currentNoteIds;
+    const editorHasFocus = containerRef.current?.querySelector('.ProseMirror')?.contains(document.activeElement) ?? false;
 
-      const noteIds = new Set(notes.map(note => note.id));
+    const decision = computeSyncDecision({
+      currentNoteIds,
+      previousNoteIds,
+      editorBlockIds: editor.document.map(b => b.id),
+      isSavingInternally: isSavingInternallyRef.current,
+      editorHasFocus,
+    });
 
-      // Check if notes were removed from the notes array
-      const removedIds = [...previousIds].filter(id => !noteIds.has(id));
+    // Update ref for next comparison
+    previousNoteIdsRef.current = currentNoteIds.join(',');
 
-      // Distinguish between delete and filter:
-      // - If removed notes are still in BlockNote's document, it's a FILTER operation (need to sync)
-      // - If removed notes are NOT in BlockNote's document, it's a DELETE operation (already handled)
-      const removedIdsStillInDocument = removedIds.filter(id =>
-        editor.document.some(block => block.id === id)
-      );
-
-      const notesWereFiltered = removedIdsStillInDocument.length > 0;
-
-      // Detect if notes were added back (e.g., search text was deleted, broadening filter)
-      // Exclude notes that were created locally via Enter key (already in BlockNote's document)
-      const notesWereAdded = notes.some(note =>
-        !previousIds.has(note.id) && !editor.document.some(block => block.id === note.id)
-      );
-
-      // Also sync if this is initial load (no previous IDs) and we have notes
-      const isInitialLoad = previousIds.size === 0 && notes.length > 0;
-
-      // Detect if only the order changed (same notes, different order)
-      // This happens when user applies a sort filter
-      // BUT ignore order changes caused by our own saves (updated_at changes)
-      const orderChanged = removedIds.length === 0 && previousIds.size === noteIds.size && previousIds.size > 0 && !isSavingInternallyRef.current;
-
-      // Sync on filtering (notes removed), notes added back, initial load, or order change (sorting)
-      if (notesWereFiltered || notesWereAdded || isInitialLoad || orderChanged) {
-        // Hide content immediately to prevent flash during transition
-        if (notesWereFiltered || notesWereAdded || orderChanged) {
-          setIsSyncingFilter(true);
-        }
-
-        // Use setTimeout to avoid flushSync issues during React render
-        setTimeout(() => {
-          // Set syncing flag to prevent onChange from triggering saves
-          isSyncingRef.current = true;
-
-          // Replace entire document when filtering changes
-          const newContent = notesToBlocks(notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId, hideDate);
-          const blocksToReplace = editor.document.map(b => b.id);
-          editor.replaceBlocks(blocksToReplace, newContent as any);
-
-          // Reset syncing flag and show content after BlockNote settles
-          setTimeout(() => {
-            isSyncingRef.current = false;
-            setIsSyncingFilter(false);
-          }, 50);
-        }, 0);
+    if (decision.shouldSync) {
+      if (decision.shouldHideContent) {
+        setIsSyncingFilter(true);
       }
+
+      // Use setTimeout to avoid flushSync issues during React render
+      setTimeout(() => {
+        // Set syncing flag to prevent onChange from triggering saves
+        isSyncingRef.current = true;
+
+        // Replace entire document when filtering changes
+        const newContent = notesToBlocks(notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId, hideDate);
+        const blocksToReplace = editor.document.map(b => b.id);
+        editor.replaceBlocks(blocksToReplace, newContent as any);
+
+        // Reset syncing flag and show content after BlockNote settles
+        setTimeout(() => {
+          isSyncingRef.current = false;
+          setIsSyncingFilter(false);
+        }, 50);
+      }, 0);
     }
   }, [editor, notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId]);
 
@@ -1077,10 +1066,17 @@ export const BlockNoteNoteList = ({
       column: event.payload.cursorOffset,
     });
 
-    // Note: We do NOT call onSelectNote here. The note is already selected
-    // via the cursor change handler (onSelectionChange). Calling it again
-    // would trigger a redundant selectedNote state change that races with
-    // showDescriptionPanel being set to true in handleNavigateToDescription.
+    // Ensure the parent's selectedNote matches the block the user is on.
+    // For existing notes, onSelectionChange already called onSelectNote.
+    // But for newly-created notes (Enter key), onSelectionChange fired before
+    // the note existed in the notes[] array, so selectedNote may still point
+    // to the previous note. Calling onSelectNote here is safe because:
+    // - handleNavigateToDescription() sets navigatingToDescriptionRef synchronously,
+    //   so the useNoteSelection useEffect won't close the description panel.
+    // - If the note is already selected, handleSelectNoteById is a no-op.
+    if (onSelectNote) {
+      onSelectNote(event.payload.noteId);
+    }
 
     // Navigate to the description panel
     if (onNavigateToDescription) {
@@ -1098,6 +1094,82 @@ export const BlockNoteNoteList = ({
 
     // Save content before toggling complete
     eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
+
+    // When completing a task, remove the block from the editor BEFORE
+    // calling onToggleCompleted. This prevents the sync effect from
+    // detecting a "filter change" (removedIdsStillInDocument) and
+    // flashing the entire list with opacity:0.
+    if (event.payload.completed) {
+      const block = editor.getBlock(event.payload.noteId);
+      if (block) {
+        // FLIP animation: capture positions of blocks below before removal
+        const allBlockOuters = containerRef.current?.querySelectorAll('.bn-block-outer');
+        const positionsBefore = new Map<string, DOMRect>();
+        let foundRemoved = false;
+
+        if (allBlockOuters) {
+          allBlockOuters.forEach((el) => {
+            const id = el.querySelector('[data-id]')?.getAttribute('data-id');
+            if (id === event.payload.noteId) {
+              foundRemoved = true;
+              return;
+            }
+            if (foundRemoved && id) {
+              positionsBefore.set(id, el.getBoundingClientRect());
+            }
+          });
+        }
+
+        // Move cursor to adjacent block before removing
+        const cursorInfo = editor.getTextCursorPosition();
+        if (cursorInfo?.block.id === event.payload.noteId) {
+          const nextBlock = cursorInfo.nextBlock;
+          const prevBlock = cursorInfo.prevBlock;
+          if (nextBlock) {
+            editor.setTextCursorPosition(nextBlock, 'start');
+          } else if (prevBlock) {
+            editor.setTextCursorPosition(prevBlock, 'end');
+          }
+        }
+
+        // Hide the block element immediately to prevent a flash between
+        // the CSS fade-out animation ending and ProseMirror removing the node
+        const blockOuter = containerRef.current?.querySelector(
+          `.bn-block-outer:has([data-id="${event.payload.noteId}"])`
+        );
+        if (blockOuter) {
+          (blockOuter as HTMLElement).style.display = 'none';
+        }
+
+        isSyncingRef.current = true;
+        editor.removeBlocks([block]);
+        setTimeout(() => {
+          isSyncingRef.current = false;
+        }, 50);
+
+        // FLIP animation: animate remaining blocks sliding up
+        if (positionsBefore.size > 0) {
+          requestAnimationFrame(() => {
+            const blocksAfter = containerRef.current?.querySelectorAll('.bn-block-outer');
+            blocksAfter?.forEach((el) => {
+              const id = el.querySelector('[data-id]')?.getAttribute('data-id');
+              if (id && positionsBefore.has(id)) {
+                const beforeRect = positionsBefore.get(id)!;
+                const afterRect = el.getBoundingClientRect();
+                const deltaY = beforeRect.top - afterRect.top;
+                if (Math.abs(deltaY) > 1) {
+                  (animate as any)(
+                    el as HTMLElement,
+                    { transform: [`translateY(${deltaY}px)`, 'translateY(0px)'] },
+                    { duration: 0.2, easing: 'ease-out' }
+                  );
+                }
+              }
+            });
+          });
+        }
+      }
+    }
 
     // Call callback for persistence
     if (onToggleCompleted) {
@@ -1122,86 +1194,6 @@ export const BlockNoteNoteList = ({
       eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
     }
   });
-
-  // Process a block: parse hashtags/mentions, update editor, and call callbacks for persistence
-  // This function handles editor updates locally and calls callbacks for data changes
-  const processNoteBlock = useCallback(async (noteId: string) => {
-    const note = notes.find(n => n.id === noteId);
-    if (!note) return null;
-
-    const block = editor.getBlock(noteId);
-    if (!block) return null;
-
-    // Try BlockNote's data structure first, fall back to DOM if empty
-    let content = getBlockContent(block);
-    if (!content) {
-      // BlockNote may not have synced yet, read directly from DOM
-      content = getBlockContentFromDOM(noteId);
-    }
-
-    const parseContext = {
-      labels: labels,
-      contacts: contacts
-    };
-    const parsed = parseHashtags(content, parseContext);
-
-    // 1. Update the block in the editor (clean the title)
-    if (parsed.cleanedContent !== content) {
-      editor.updateBlock(block, {
-        content: [{ type: 'text', text: parsed.cleanedContent }]
-      } as any);
-    }
-
-    // 2. Determine final category
-    const finalCategory = parsed.category || note.category;
-
-    // 3. Save note if content or category changed (via callback)
-    if (parsed.cleanedContent !== note.content || finalCategory !== note.category) {
-      // Set flag to prevent order-change sync from replacing the document
-      isSavingInternallyRef.current = true;
-      setTimeout(() => {
-        isSavingInternallyRef.current = false;
-      }, 500);
-
-      if (onEdit) {
-        onEdit(note.id, parsed.cleanedContent, finalCategory, note.description);
-      }
-    }
-
-    // 4. Handle labels - call callbacks for persistence
-    const inheritedLabels = noteLabelsCache.get(note.id) ?? [];
-    const labelIds = inheritedLabels.map(l => l.id);
-
-    // Create new labels via callback
-    if (parsed.newLabelNames.length > 0 && onCreateLabelAndAdd) {
-      for (const labelName of parsed.newLabelNames) {
-        await onCreateLabelAndAdd(note.id, labelName);
-      }
-    }
-
-    // Add existing labels from hashtags via callback
-    for (const hashtag of parsed.parsedHashtags) {
-      if (hashtag.type === 'label' && hashtag.matchedId) {
-        if (onAddLabel) {
-          await onAddLabel(note.id, hashtag.matchedId);
-        }
-        if (!labelIds.includes(hashtag.matchedId)) {
-          labelIds.push(hashtag.matchedId);
-        }
-      } else if (hashtag.type === 'contact' && hashtag.matchedId) {
-        if (onAddAssignee) {
-          onAddAssignee(note.id, hashtag.matchedId);
-        }
-      }
-    }
-
-    return {
-      finalCategory,
-      labelIds,
-      parsedAssigneeId: parsed.assigneeId,
-      parsed
-    };
-  }, [notes, editor, labels, contacts, noteLabelsCache, getBlockContentFromDOM, onEdit, onAddLabel, onCreateLabelAndAdd, onAddAssignee]);
 
   // Keep ref in sync for use by region handler
   useEffect(() => {
@@ -1296,6 +1288,11 @@ export const BlockNoteNoteList = ({
       }
     }
 
+    // Set flag to prevent sync effect from replacing blocks during creation
+    // (the new note is already in the editor via Enter key, so a full
+    // document replacement would lose caret position and typed content)
+    isSavingInternallyRef.current = true;
+
     // Call callback for persistence
     if (onCreateNoteAfter) {
       await onCreateNoteAfter(
@@ -1307,6 +1304,10 @@ export const BlockNoteNoteList = ({
         event.payload.newNoteId
       );
     }
+
+    setTimeout(() => {
+      isSavingInternallyRef.current = false;
+    }, 500);
   });
 
   // Listen for toggle pin events from blocks (via event bus)

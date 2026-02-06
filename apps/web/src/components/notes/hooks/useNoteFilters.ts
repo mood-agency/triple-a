@@ -220,6 +220,11 @@ export function useNoteFilters({
             if (note.completed) return false;
         }
 
+        // Filter by public status
+        if (showPublicOnly) {
+            if (!note.is_public) return false;
+        }
+
         // Apply label and assignee filters first (applies to both pinned and non-pinned notes)
         if (labelFilter.length > 0) {
             const noteLabelIds = (noteLabelsCache.get(note.id) ?? EMPTY_LABELS).map(l => l.id);
@@ -233,8 +238,8 @@ export function useNoteFilters({
             if (!hasMatchingAssignee) return false;
         }
 
-        // Check if we have active filters (label, assignee, or date range)
-        const hasActiveFilters = labelFilter.length > 0 || assigneeFilter.length > 0 || dateRangeFilter.from || dateRangeFilter.to;
+        // Check if we have active filters (label, assignee, date range, or public)
+        const hasActiveFilters = labelFilter.length > 0 || assigneeFilter.length > 0 || dateRangeFilter.from || dateRangeFilter.to || showPublicOnly;
 
         if (note.pinned) {
             if (!searchQuery.trim()) {
@@ -284,7 +289,7 @@ export function useNoteFilters({
         const titleMatch = note.content.toLowerCase().includes(searchQueryLower);
         const descriptionMatch = note.description?.toLowerCase().includes(searchQueryLower) ?? false;
         return titleMatch || descriptionMatch;
-    }), [notes, categoryFilter, labelFilter, assigneeFilter, showOverdueOnly, dateRangeFilter, searchQuery, searchQueryLower, noteLabelsCache, noteAssigneesCache, taskStatusFilter]);
+    }), [notes, categoryFilter, labelFilter, assigneeFilter, showOverdueOnly, showPublicOnly, dateRangeFilter, searchQuery, searchQueryLower, noteLabelsCache, noteAssigneesCache, taskStatusFilter]);
 
 
     // Active & Completed
@@ -433,6 +438,8 @@ export function useNoteFilters({
         setSortConfig,
         showOverdueOnly,
         setShowOverdueOnly,
+        showPublicOnly,
+        setShowPublicOnly,
         dateRangeFilter,
         setDateRangeFilter,
 
@@ -466,11 +473,11 @@ export function useNoteFilters({
         // Helper
         assigneeNamesCache
     }), [
-        searchQuery, taskStatusFilter, sortByDeadline, sortByAssignee, sortByCategory, sortConfig, showOverdueOnly, dateRangeFilter,
+        searchQuery, taskStatusFilter, sortByDeadline, sortByAssignee, sortByCategory, sortConfig, showOverdueOnly, showPublicOnly, dateRangeFilter,
         labelFilter, categoryFilter, assigneeFilter, viewMode, calendarSelectedDate,
         activeNotes, completedNotes, filteredNotes, calendarFilteredNotes, calendarCompletedNotes, calendarDeletedNotes, notesMatchingFilters,
         assigneeNamesCache,
         setLabelFilter, setCategoryFilter, setAssigneeFilter, setViewMode, setCalendarSelectedDate,
-        setTaskStatusFilter, setShowOverdueOnly, setSortConfig
+        setTaskStatusFilter, setShowOverdueOnly, setShowPublicOnly, setSortConfig
     ]);
 }

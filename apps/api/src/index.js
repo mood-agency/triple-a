@@ -27,7 +27,8 @@ import crypto from 'crypto';
 import { createGroq } from '@ai-sdk/groq';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { generateText } from 'ai';
+import { generateText, streamText, tool, convertToModelMessages } from 'ai';
+import { z } from 'zod';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -501,6 +502,334 @@ Mantén un formato limpio y legible.`;
 
     return c.json({
       error: 'Failed to process with AI',
+      code: 'PROCESSING_FAILED',
+      details: sanitizeErrorDetails(error),
+    }, 500);
+  }
+});
+
+// ============================================
+// AI Chat Endpoint (Streaming with Tools)
+// ============================================
+
+/**
+ * AI Chat with tool-calling for note management
+ * POST /api/chat
+ * Auth: Supabase JWT via Authorization header
+ * Body: { messages, provider, apiKey, model }
+ */
+app.post('/api/chat', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader, supabaseAdmin);
+    if (!user) {
+      return c.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, 401);
+    }
+    const userId = user.id;
+
+    const { messages, provider, apiKey, model: modelId } = await c.req.json();
+
+    if (!messages || !apiKey || !provider) {
+      return c.json({ error: 'messages, provider, and apiKey are required', code: 'INVALID_REQUEST' }, 400);
+    }
+
+    const { model } = getAIModel(provider, apiKey, modelId || 'llama-3.3-70b-versatile');
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const systemPrompt = `You are a helpful assistant that manages notes, tasks, and projects for a personal productivity app called Triple-A.
+
+Today's date is: ${today}
+
+## Note Categories
+- todo: Tasks to be done
+- followup: Follow-up items
+- notes: General notes
+- meeting: Meeting notes
+
+## Rules
+- When creating notes, use today's date unless the user specifies otherwise
+- When creating notes, infer the category from context (default: "todo")
+- Always confirm actions with a brief summary
+- When listing notes, format them clearly with content, category, and status
+- Respond in the same language the user writes in
+- Be concise and helpful`;
+
+    const chatTools = {
+      listNotes: tool({
+        description: 'List notes with optional filters. Use this to show the user their notes.',
+        parameters: z.object({
+          date: z.string().optional().describe('Filter by date (YYYY-MM-DD)'),
+          category: z.enum(['todo', 'followup', 'notes', 'meeting']).optional().describe('Filter by category'),
+          completed: z.boolean().optional().describe('Filter by completion status'),
+          project_id: z.string().optional().describe('Filter by project ID'),
+          limit: z.number().optional().describe('Max notes to return (default 20)'),
+        }),
+        execute: async ({ date, category, completed, project_id, limit }) => {
+          let query = supabaseAdmin
+            .from('notes')
+            .select('id, content, description, category, completed, date, deadline, pinned, project_id, created_at')
+            .eq('user_id', userId)
+            .is('deleted_at', null)
+            .order('sort_order', { ascending: true })
+            .limit(limit || 20);
+
+          if (date) query = query.eq('date', date);
+          if (category) query = query.eq('category', category);
+          if (completed !== undefined) query = query.eq('completed', completed);
+          if (project_id) query = query.eq('project_id', project_id);
+
+          const { data, error } = await query;
+          if (error) return { error: error.message };
+          return { notes: data, count: data?.length || 0 };
+        },
+      }),
+
+      searchNotes: tool({
+        description: 'Search notes by text in content or description',
+        parameters: z.object({
+          query: z.string().describe('Search query'),
+          limit: z.number().optional().describe('Max results (default 10)'),
+        }),
+        execute: async ({ query, limit }) => {
+          const { data, error } = await supabaseAdmin
+            .from('notes')
+            .select('id, content, description, category, completed, date, deadline, pinned')
+            .eq('user_id', userId)
+            .is('deleted_at', null)
+            .or(`content.ilike.%${query}%,description.ilike.%${query}%`)
+            .limit(limit || 10);
+
+          if (error) return { error: error.message };
+          return { notes: data, count: data?.length || 0 };
+        },
+      }),
+
+      createNote: tool({
+        description: 'Create a new note/task',
+        parameters: z.object({
+          content: z.string().describe('The note content/title'),
+          category: z.enum(['todo', 'followup', 'notes', 'meeting']).default('todo').describe('Note category'),
+          date: z.string().optional().describe('Date for the note (YYYY-MM-DD), defaults to today'),
+          description: z.string().optional().describe('Optional detailed description'),
+          deadline: z.string().optional().describe('Optional deadline (YYYY-MM-DD)'),
+          project_id: z.string().optional().describe('Optional project ID'),
+        }),
+        execute: async ({ content, category, date, description, deadline, project_id }) => {
+          const noteDate = date || today;
+
+          const { data: existing } = await supabaseAdmin
+            .from('notes')
+            .select('sort_order')
+            .eq('user_id', userId)
+            .eq('date', noteDate)
+            .order('sort_order', { ascending: false })
+            .limit(1);
+
+          const sortOrder = existing && existing.length > 0 ? existing[0].sort_order + 1 : 0;
+          const now = new Date().toISOString();
+
+          const { data: note, error } = await supabaseAdmin
+            .from('notes')
+            .insert({
+              user_id: userId,
+              date: noteDate,
+              content,
+              description: description || null,
+              category,
+              completed: false,
+              deadline: deadline || null,
+              is_all_day: false,
+              pinned: false,
+              sort_order: sortOrder,
+              project_id: project_id || null,
+              created_at: now,
+              updated_at: now,
+            })
+            .select()
+            .single();
+
+          if (error) return { error: error.message };
+
+          await broadcastApiMutation(supabaseAdmin, userId, 'notes', 'insert', note.id);
+          return { success: true, note: { id: note.id, content: note.content, category: note.category, date: note.date } };
+        },
+      }),
+
+      updateNote: tool({
+        description: 'Update an existing note by ID',
+        parameters: z.object({
+          id: z.string().describe('The note ID to update'),
+          content: z.string().optional().describe('New content'),
+          description: z.string().optional().describe('New description'),
+          category: z.enum(['todo', 'followup', 'notes', 'meeting']).optional(),
+          deadline: z.string().optional().describe('New deadline (YYYY-MM-DD)'),
+          date: z.string().optional().describe('New date (YYYY-MM-DD)'),
+          pinned: z.boolean().optional(),
+        }),
+        execute: async ({ id, ...updates }) => {
+          const { data: existing } = await supabaseAdmin
+            .from('notes')
+            .select('id')
+            .eq('id', id)
+            .eq('user_id', userId)
+            .is('deleted_at', null)
+            .single();
+
+          if (!existing) return { error: 'Note not found' };
+
+          const updateData = { ...updates, updated_at: new Date().toISOString() };
+          Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+
+          const { data: note, error } = await supabaseAdmin
+            .from('notes')
+            .update(updateData)
+            .eq('id', id)
+            .select('id, content, category, completed, date')
+            .single();
+
+          if (error) return { error: error.message };
+
+          await broadcastApiMutation(supabaseAdmin, userId, 'notes', 'update', id);
+          return { success: true, note };
+        },
+      }),
+
+      completeNote: tool({
+        description: 'Toggle a note\'s completion status',
+        parameters: z.object({
+          id: z.string().describe('The note ID'),
+          completed: z.boolean().describe('Set to true to complete, false to reopen'),
+        }),
+        execute: async ({ id, completed }) => {
+          const { data: existing } = await supabaseAdmin
+            .from('notes')
+            .select('id, content')
+            .eq('id', id)
+            .eq('user_id', userId)
+            .is('deleted_at', null)
+            .single();
+
+          if (!existing) return { error: 'Note not found' };
+
+          const now = new Date().toISOString();
+          const { error } = await supabaseAdmin
+            .from('notes')
+            .update({
+              completed,
+              completed_at: completed ? now : null,
+              updated_at: now,
+            })
+            .eq('id', id);
+
+          if (error) return { error: error.message };
+
+          await broadcastApiMutation(supabaseAdmin, userId, 'notes', 'update', id);
+          return { success: true, note: { id, content: existing.content, completed } };
+        },
+      }),
+
+      deleteNote: tool({
+        description: 'Delete a note (soft delete)',
+        parameters: z.object({
+          id: z.string().describe('The note ID to delete'),
+        }),
+        execute: async ({ id }) => {
+          const { data: existing } = await supabaseAdmin
+            .from('notes')
+            .select('id, content')
+            .eq('id', id)
+            .eq('user_id', userId)
+            .is('deleted_at', null)
+            .single();
+
+          if (!existing) return { error: 'Note not found' };
+
+          const { error } = await supabaseAdmin
+            .from('notes')
+            .update({
+              deleted_at: new Date().toISOString(),
+              deleted_reason: 'Deleted via AI chat',
+            })
+            .eq('id', id);
+
+          if (error) return { error: error.message };
+
+          await broadcastApiMutation(supabaseAdmin, userId, 'notes', 'delete', id);
+          return { success: true, deleted: { id, content: existing.content } };
+        },
+      }),
+
+      listProjects: tool({
+        description: 'List all projects. Use when the user references a project or wants to organize notes by project.',
+        parameters: z.object({}),
+        execute: async () => {
+          const { data, error } = await supabaseAdmin
+            .from('projects')
+            .select('id, name, description, color, status')
+            .eq('user_id', userId)
+            .is('deleted_at', null)
+            .order('sort_order', { ascending: true });
+
+          if (error) return { error: error.message };
+          return { projects: data };
+        },
+      }),
+
+      listLabels: tool({
+        description: 'List all labels. Use when the user references labels.',
+        parameters: z.object({}),
+        execute: async () => {
+          const { data, error } = await supabaseAdmin
+            .from('labels')
+            .select('id, name, color')
+            .eq('user_id', userId);
+
+          if (error) return { error: error.message };
+          return { labels: data };
+        },
+      }),
+    };
+
+    const result = streamText({
+      model,
+      system: systemPrompt,
+      messages: await convertToModelMessages(messages),
+      tools: chatTools,
+      maxSteps: 5,
+      onStepFinish: ({ stepType, toolCalls, toolResults, text }) => {
+        if (toolCalls?.length) {
+          console.log('[Chat] Tool calls:', JSON.stringify(toolCalls, null, 2));
+        }
+        if (toolResults?.length) {
+          console.log('[Chat] Tool results:', JSON.stringify(toolResults, null, 2));
+        }
+        if (text) {
+          console.log('[Chat] Text:', text.slice(0, 200));
+        }
+      },
+    });
+
+    return result.toUIMessageStreamResponse({
+      headers: {
+        'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGINS || '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'authorization, content-type',
+      },
+    });
+  } catch (error) {
+    console.error('Error in /api/chat:', error);
+
+    if (error.message?.includes('401') || error.message?.includes('invalid_api_key') || error.message?.includes('Unauthorized')) {
+      return c.json({ error: 'Invalid AI provider API key', code: 'INVALID_API_KEY' }, 401);
+    }
+
+    if (error.message?.includes('429')) {
+      return c.json({ error: 'Rate limit exceeded', code: 'RATE_LIMIT' }, 429);
+    }
+
+    return c.json({
+      error: 'Chat processing failed',
       code: 'PROCESSING_FAILED',
       details: sanitizeErrorDetails(error),
     }, 500);

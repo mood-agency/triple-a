@@ -17,6 +17,7 @@ import { useEventSubscription, eventBus } from '@/events';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { useNavigationMediatorContext } from './navigation';
+import { useNoteBlockProcessing } from './hooks/useNoteBlockProcessing';
 import { DeleteTaskDialog } from './DeleteTaskDialog';
 
 interface TimelineBlockNoteListProps {
@@ -39,6 +40,12 @@ interface TimelineBlockNoteListProps {
   onTogglePinned?: (id: string, pinned: boolean) => void;
   /** Create a new note after another (data mutation) */
   onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[], assigneeId?: string | null, newNoteId?: string) => Promise<Note>;
+  /** Add existing label to note (data mutation) */
+  onAddLabel?: (noteId: string, labelId: string) => void | Promise<void>;
+  /** Create new label and add to note (data mutation) */
+  onCreateLabelAndAdd?: (noteId: string, labelName: string) => void | Promise<void>;
+  /** Add assignee to note (data mutation) */
+  onAddAssignee?: (noteId: string, contactId: string) => void;
   compactView?: boolean;
   fixedNoteId?: string | null;
   hideEmptyHours?: boolean;
@@ -58,6 +65,9 @@ export const TimelineBlockNoteList = ({
   onDelete,
   onTogglePinned,
   onCreateNoteAfter,
+  onAddLabel,
+  onCreateLabelAndAdd,
+  onAddAssignee,
   compactView = false,
   fixedNoteId = null,
   hideEmptyHours = true,
@@ -132,6 +142,18 @@ export const TimelineBlockNoteList = ({
     },
   });
 
+  // Shared hook for hashtag/mention parsing
+  const processingCallbacks = useMemo(() => ({
+    onEdit, onAddLabel, onCreateLabelAndAdd, onAddAssignee,
+  }), [onEdit, onAddLabel, onCreateLabelAndAdd, onAddAssignee]);
+
+  const { processNoteBlock, processAllBlocks } = useNoteBlockProcessing({
+    notes,
+    noteLabelsCache,
+    editor,
+    callbacks: processingCallbacks,
+  });
+
   // Track content changes for auto-save
   const pendingChangesRef = useRef(false);
 
@@ -150,39 +172,15 @@ export const TimelineBlockNoteList = ({
   // Skip sync on initial mount
   const isInitialMountRef = useRef(true);
 
-  // Function to flush pending saves immediately
+  // Function to flush pending saves immediately (with hashtag/mention parsing)
   const flushPendingSaves = useCallback(() => {
     if (!pendingChangesRef.current) {
       return;
     }
 
-    const blocks = editor.document;
-    let savedCount = 0;
-
-    // Save each notepad block that has changed (skip hourDivider blocks)
-    blocks.forEach((block) => {
-      if (block.type === 'notepad') {
-        const content = getBlockContent(block);
-        const note = notes.find(n => n.id === block.id);
-
-        // Only save if content has changed
-        if (note && content !== note.content) {
-          // Use callback for update
-          if (onEdit) {
-            onEdit(block.id, content, note.category, note.description);
-          }
-          savedCount++;
-        }
-      }
-    });
-
-    // Emit save success event for UI feedback
-    if (savedCount > 0) {
-      eventBus.emit('editor:saveSuccess', { savedCount });
-    }
-
+    processAllBlocks();
     pendingChangesRef.current = false;
-  }, [editor, notes, onEdit]);
+  }, [processAllBlocks]);
 
   // Stable reference to avoid re-subscribing to onChange
   const flushPendingSavesRef = useRef(flushPendingSaves);
@@ -480,16 +478,19 @@ export const TimelineBlockNoteList = ({
 
     const afterNote = notes.find(n => n.id === event.payload.afterNoteId);
     if (afterNote && onCreateNoteAfter) {
-      const labels = noteLabelsCache.get(afterNote.id) ?? [];
-      const labelIds = labels.map(l => l.id);
+      // Process the block (parse hashtags/mentions) before creating the new note
+      const result = await processNoteBlock(event.payload.afterNoteId);
 
-      // Use callback for create note after
+      const labelIds = result?.labelIds
+        ?? (noteLabelsCache.get(afterNote.id) ?? []).map(l => l.id);
+      const assigneeId = result?.parsedAssigneeId ?? null;
+
       await onCreateNoteAfter(
         afterNote.id,
-        afterNote.category,
+        result?.finalCategory ?? afterNote.category,
         afterNote.deadline,
         labelIds,
-        null,
+        assigneeId,
         event.payload.newNoteId
       );
     }

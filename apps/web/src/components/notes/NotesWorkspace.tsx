@@ -98,11 +98,13 @@ interface NotesWorkspaceProps {
   onTaskStatusFilterChange?: (status: 'active' | 'completed' | 'deleted') => void;
   externalShowOverdueOnly?: boolean;
   onShowOverdueOnlyChange?: (show: boolean) => void;
+  externalShowPublicOnly?: boolean;
+  onShowPublicOnlyChange?: (show: boolean) => void;
   // Sidebar trigger element
   sidebarTrigger?: React.ReactNode;
 }
 
-export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspaceProps>(function NotesWorkspace({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onAddAssignee, onRemoveAssignee, onUpdateAssignee, onReorderNotes, onPostponeNote, onTogglePublic, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, externalSortConfig, onSortConfigChange, externalTaskStatusFilter, onTaskStatusFilterChange, externalShowOverdueOnly, onShowOverdueOnlyChange, sidebarTrigger }, ref) {
+export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspaceProps>(function NotesWorkspace({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onAddAssignee, onRemoveAssignee, onUpdateAssignee, onReorderNotes, onPostponeNote, onTogglePublic, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, externalSortConfig, onSortConfigChange, externalTaskStatusFilter, onTaskStatusFilterChange, externalShowOverdueOnly, onShowOverdueOnlyChange, externalShowPublicOnly, onShowPublicOnlyChange, sidebarTrigger }, ref) {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { contacts } = useContacts();
@@ -177,6 +179,8 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
     onTaskStatusFilterChange,
     externalShowOverdueOnly,
     onShowOverdueOnlyChange,
+    externalShowPublicOnly,
+    onShowPublicOnlyChange,
   });
 
   const selection = useNoteSelection({
@@ -699,6 +703,10 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
     filters.setShowOverdueOnly(false);
   }, [filters]);
 
+  const handleClearPublic = useCallback(() => {
+    filters.setShowPublicOnly(false);
+  }, [filters]);
+
   const handleClearAllFilters = useCallback(() => {
     filters.setCategoryFilter('all');
     filters.setLabelFilter([]);
@@ -710,6 +718,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
     filters.setSortByCategory(false);
     filters.setTaskStatusFilter('active');
     filters.setShowOverdueOnly(false);
+    filters.setShowPublicOnly(false);
   }, [filters]);
 
   const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -860,6 +869,9 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
   useHotkeys('alt+v', () => { filters.setViewMode(filters.viewMode === 'list' ? 'calendar' : 'list'); }, hotkeyOptions, [filters.viewMode]);
   useHotkeys('alt+f', () => { setCompactTaskView(!compactTaskView); }, hotkeyOptions, [compactTaskView]);
   useHotkeys('alt+p', () => { setAssigneeFilterPopoverOpen(true); }, hotkeyOptions);
+  useHotkeys('alt+x', () => { if (selectedNote) handleTogglePinnedWithToast(selectedNote.id, !selectedNote.pinned); }, { ...hotkeyOptions, enableOnContentEditable: true }, [selectedNote, handleTogglePinnedWithToast]);
+  useHotkeys('alt+b', () => { if (selectedNote) handleToggleFixInSidebarById(selectedNote.id); }, { ...hotkeyOptions, enableOnContentEditable: true }, [selectedNote, handleToggleFixInSidebarById]);
+  useHotkeys('ctrl+backspace', () => { if (selectedNote) operations.handleDeleteWithToast(selectedNote, 'hotkey'); }, { ...hotkeyOptions, enableOnContentEditable: true }, [selectedNote, operations]);
 
 
   // Wrapper for onEdit passed to NoteEditorPanel (main editor panel)
@@ -968,50 +980,51 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
           isDescriptionFocused={selection.isDescriptionFocused}
           showDescriptionPanel={selection.showDescriptionPanel}
         />
-        <NoteListToolbar
-          isMobile={isMobile}
-          selectedNote={selectedNote}
-          sidebarTrigger={sidebarTrigger}
-          viewMode={filters.viewMode}
-          setViewMode={filters.setViewMode}
-          compactTaskView={compactTaskView}
-          setCompactTaskView={setCompactTaskView}
-          activeNotes={filters.viewMode === 'calendar' ? filters.calendarFilteredNotes : filters.activeNotes}
-          searchQuery={filters.searchQuery}
-          setSearchQuery={filters.setSearchQuery}
-          searchInputRef={searchInputRef}
-          categoryFilter={filters.categoryFilter}
-          setCategoryFilter={filters.setCategoryFilter}
-          labels={labels}
-          labelFilter={filters.labelFilter}
-          setLabelFilter={filters.setLabelFilter}
-          sortConfig={filters.sortConfig}
-          onSortConfigChange={onSortConfigChange ?? (() => { })}
-          sortByDeadline={filters.sortByDeadline}
-          setSortByDeadline={filters.setSortByDeadline}
-          showOverdueOnly={filters.showOverdueOnly}
-          setShowOverdueOnly={filters.setShowOverdueOnly}
-          dateRangeFilter={filters.dateRangeFilter}
-          setDateRangeFilter={filters.setDateRangeFilter}
-          sortByAssignee={filters.sortByAssignee}
-          setSortByAssignee={filters.setSortByAssignee}
-          sortByCategory={filters.sortByCategory}
-          setSortByCategory={filters.setSortByCategory}
-          contacts={contacts}
-          noteAssigneesCache={noteAssigneesCache}
-          aiProvider={settings.aiProvider}
-          assigneeFilter={filters.assigneeFilter}
-          setAssigneeFilter={filters.setAssigneeFilter}
-          assigneePopoverOpen={assigneeFilterPopoverOpen}
-          setAssigneePopoverOpen={setAssigneeFilterPopoverOpen}
-          taskStatusFilter={filters.taskStatusFilter}
-          setTaskStatusFilter={filters.setTaskStatusFilter}
-          hasCompletedTasks={filters.completedNotes.length > 0}
-          onSearchKeyDown={handleSearchKeyDown}
-        />
-
         <div className="flex gap-4 flex-1 min-h-0">
           <NoteListContent
+            toolbar={
+              <NoteListToolbar
+                isMobile={isMobile}
+                selectedNote={selectedNote}
+                sidebarTrigger={sidebarTrigger}
+                viewMode={filters.viewMode}
+                setViewMode={filters.setViewMode}
+                compactTaskView={compactTaskView}
+                setCompactTaskView={setCompactTaskView}
+                activeNotes={filters.viewMode === 'calendar' ? filters.calendarFilteredNotes : filters.activeNotes}
+                searchQuery={filters.searchQuery}
+                setSearchQuery={filters.setSearchQuery}
+                searchInputRef={searchInputRef}
+                categoryFilter={filters.categoryFilter}
+                setCategoryFilter={filters.setCategoryFilter}
+                labels={labels}
+                labelFilter={filters.labelFilter}
+                setLabelFilter={filters.setLabelFilter}
+                sortConfig={filters.sortConfig}
+                onSortConfigChange={onSortConfigChange ?? (() => { })}
+                sortByDeadline={filters.sortByDeadline}
+                setSortByDeadline={filters.setSortByDeadline}
+                showOverdueOnly={filters.showOverdueOnly}
+                setShowOverdueOnly={filters.setShowOverdueOnly}
+                dateRangeFilter={filters.dateRangeFilter}
+                setDateRangeFilter={filters.setDateRangeFilter}
+                sortByAssignee={filters.sortByAssignee}
+                setSortByAssignee={filters.setSortByAssignee}
+                sortByCategory={filters.sortByCategory}
+                setSortByCategory={filters.setSortByCategory}
+                contacts={contacts}
+                noteAssigneesCache={noteAssigneesCache}
+                aiProvider={settings.aiProvider}
+                assigneeFilter={filters.assigneeFilter}
+                setAssigneeFilter={filters.setAssigneeFilter}
+                assigneePopoverOpen={assigneeFilterPopoverOpen}
+                setAssigneePopoverOpen={setAssigneeFilterPopoverOpen}
+                taskStatusFilter={filters.taskStatusFilter}
+                setTaskStatusFilter={filters.setTaskStatusFilter}
+                hasCompletedTasks={filters.completedNotes.length > 0}
+                onSearchKeyDown={handleSearchKeyDown}
+              />
+            }
             isMobile={isMobile}
             notes={notes}
             viewMode={filters.viewMode}
@@ -1028,7 +1041,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
             deletedNotes={deletedNotes}
             taskStatusFilter={filters.taskStatusFilter}
             shouldShowOnlyCompletedMessage={filters.notesMatchingFilters === 0 && filters.activeNotes.length === 0 && filters.completedNotes.length > 0}
-            hasActiveFilters={filters.searchQuery.trim() !== '' || filters.categoryFilter !== 'all' || filters.labelFilter.length > 0 || filters.assigneeFilter.length > 0 || filters.showOverdueOnly}
+            hasActiveFilters={filters.searchQuery.trim() !== '' || filters.categoryFilter !== 'all' || filters.labelFilter.length > 0 || filters.assigneeFilter.length > 0 || filters.showOverdueOnly || filters.showPublicOnly}
             shouldShowNoResultsWithPinnedVisible={filters.notesMatchingFilters === 0 && filters.activeNotes.length > 0}
 
             handleSelectNoteById={handleSelectNoteById}
@@ -1071,6 +1084,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
             labelFilter={filters.labelFilter}
             assigneeFilter={filters.assigneeFilter}
             showOverdueOnly={filters.showOverdueOnly}
+            showPublicOnly={filters.showPublicOnly}
             sortConfig={filters.sortConfig}
             onClearCategory={handleClearCategory}
             onClearLabel={handleClearLabel}
@@ -1079,6 +1093,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
             onClearSort={handleClearSort}
             onClearTaskStatus={handleClearTaskStatus}
             onClearOverdue={handleClearOverdue}
+            onClearPublic={handleClearPublic}
             onClearAllFilters={handleClearAllFilters}
             autoSaveInterval={settings.autoSaveInterval}
           />
@@ -1091,7 +1106,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                className={`${isMobile ? 'w-full' : 'flex-1'} min-w-0 flex flex-col`}
+                className={`${isMobile ? 'w-full' : 'w-[40%] -ml-4 pl-4 pr-4 -mt-4 pt-4 -mb-4 pb-4'} min-w-0 flex flex-col bg-[#151515]`}
               >
                 {isMobile && (
                   <Button

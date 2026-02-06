@@ -544,8 +544,9 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                   <Pin className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>
+              <TooltipContent className="flex items-center gap-2">
                 <p>{note.pinned ? t('unpin') : t('pin')}</p>
+                <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>X</Kbd></span>
               </TooltipContent>
             </Tooltip>
           )}
@@ -561,8 +562,9 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                   <PanelRightOpen className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>
+              <TooltipContent className="flex items-center gap-2">
                 <p>{isFixedInSidebar ? t('unfixFromSidebar') : t('fixToSidebar')}</p>
+                <span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>B</Kbd></span>
               </TooltipContent>
             </Tooltip>
           )}
@@ -577,8 +579,9 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>
+            <TooltipContent className="flex items-center gap-2">
               <p>{t('delete')}</p>
+              <span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>⌫</Kbd></span>
             </TooltipContent>
           </Tooltip>
         </div>

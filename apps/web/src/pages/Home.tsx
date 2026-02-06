@@ -124,6 +124,7 @@ export function Home() {
   const [assigneeFilter, setAssigneeFilter] = useState<string[]>(getInitialAssigneeFilter);
   const [taskStatusFilter, setTaskStatusFilter] = useState<'active' | 'completed' | 'deleted'>(getInitialTaskStatusFilter);
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
+  const [showPublicOnly, setShowPublicOnly] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ deadline: 'asc' | 'desc' | null; assignee: 'asc' | 'desc' | null; category: 'asc' | 'desc' | null; createdAt: 'asc' | 'desc' | null }>(getInitialSortConfig);
   const [showCreateProjectDialog, setShowCreateProjectDialog] = useState(false);
 
@@ -262,9 +263,25 @@ export function Home() {
     return notes.find(n => n.id === selectedNoteId) ?? null;
   }, [notes, selectedNoteId]);
 
-  // Sync selected note ID from URL param when notes load or URL changes
+  // Track URL note param and loading state to avoid re-syncing on unrelated changes.
+  // Without these guards, a `notes` content update (e.g. processNoteBlock saving typed text)
+  // would re-trigger this effect with a stale URL and revert selectedNoteId.
+  const lastUrlNoteParamRef = useRef<string | null | undefined>(undefined);
+  const wasLoadingRef = useRef(true);
+
+  // Sync selected note ID from URL param when URL changes or loading completes
   useEffect(() => {
-    const noteId = searchParams.get('note');
+    const noteId = searchParams.get('note') ?? null;
+    const urlNoteChanged = noteId !== lastUrlNoteParamRef.current;
+    const loadingJustFinished = wasLoadingRef.current && !loading;
+
+    lastUrlNoteParamRef.current = noteId;
+    wasLoadingRef.current = loading;
+
+    // Only react when the URL note param actually changed or loading just completed.
+    // This prevents notes-content updates from triggering a stale-URL sync that
+    // would revert selectedNoteId (root cause of the double-Tab bug).
+    if (!urlNoteChanged && !loadingJustFinished) return;
 
     // If URL has no note param, clear selection
     if (!noteId) {
@@ -410,6 +427,7 @@ export function Home() {
     dateRangeFilter,
     taskStatusFilter,
     showOverdueOnly,
+    showPublicOnly,
     setCategoryFilter: handleCategoryFilterChange,
     setLabelFilter: handleLabelFilterChange as any,
     setAssigneeFilter: handleAssigneeFilterChange as any,
@@ -418,6 +436,7 @@ export function Home() {
     setDateRangeFilter,
     setTaskStatusFilter: handleTaskStatusFilterChange,
     setShowOverdueOnly,
+    setShowPublicOnly,
     labels,
     contacts,
   });
@@ -475,6 +494,8 @@ export function Home() {
         onTaskStatusFilterChange={handleTaskStatusFilterChange}
         externalShowOverdueOnly={showOverdueOnly}
         onShowOverdueOnlyChange={setShowOverdueOnly}
+        externalShowPublicOnly={showPublicOnly}
+        onShowPublicOnlyChange={setShowPublicOnly}
         externalSortConfig={sortConfig}
         onSortConfigChange={handleSortConfigChange}
         sidebarTrigger={sidebarTrigger}
@@ -513,6 +534,8 @@ export function Home() {
         onTaskStatusFilterChange={handleTaskStatusFilterChange}
         showOverdueOnly={showOverdueOnly}
         onShowOverdueOnlyChange={setShowOverdueOnly}
+        showPublicOnly={showPublicOnly}
+        onShowPublicOnlyChange={setShowPublicOnly}
         hasCompletedTasks={notes.some(n => n.completed)}
         sortConfig={sortConfig}
         onSortChange={handleSortConfigChange}

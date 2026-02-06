@@ -35,6 +35,8 @@ export function HotkeysHelper() {
         { keys: ['Alt', 'V'], action: t('hotkeys.toggleView') },
         { keys: ['Alt', 'F'], action: t('hotkeys.toggleCompact') },
         { keys: ['Alt', 'S'], action: t('hotkeys.toggleSidebar') },
+        { keys: ['Alt', 'X'], action: t('hotkeys.togglePin') },
+        { keys: ['Alt', 'B'], action: t('hotkeys.toggleFixSidebar') },
         { keys: ['Esc'], action: t('hotkeys.deselectTask') },
       ],
     },

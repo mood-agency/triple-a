@@ -78,6 +78,7 @@
     "contacts": "Contacts",
     "analytics": "Analytics",
     "projects": "Projects",
+    "chat": "AI Chat",
     "navigation": "Navigation",
     "settings": "Settings"
   },
@@ -186,6 +187,8 @@
     "toggleOverdueOnly": "Toggle overdue only",
     "showOverdueOnly": "Show only overdue",
     "clearOverdueOnly": "Show all tasks",
+    "showPublicOnly": "Show only public",
+    "clearPublicOnly": "Show all tasks",
     "clearAllFilters": "Clear all filters"
   },
   "toast": {
@@ -350,7 +353,8 @@
     "active": "Active",
     "completed": "Completed",
     "deleted": "Deleted",
-    "overdue": "Overdue"
+    "overdue": "Overdue",
+    "public": "Public"
   },
   "overdue": "Overdue",
   "showOverdueOnly": "Show only overdue tasks",
@@ -360,6 +364,9 @@
     "from": "From",
     "to": "To",
     "clear": "Clear date range"
+  },
+  "toolbar": {
+    "moreOptions": "More options"
   },
   "compactView": "Compact view",
   "compactViewTooltip": "Switch to compact view",
@@ -394,7 +401,9 @@
     "backToTitle": "Back to title",
     "toggleView": "Toggle calendar/list view",
     "toggleCompact": "Toggle compact/full view",
-    "toggleSidebar": "Toggle sidebar"
+    "toggleSidebar": "Toggle sidebar",
+    "togglePin": "Pin/Unpin note",
+    "toggleFixSidebar": "Fix/Unfix in sidebar"
   },
   "youtube": {
     "import": "Import from YouTube",
@@ -787,6 +796,15 @@
       "regenerate": "Regenerate",
       "close": "Close"
     }
+  },
+  "chat": {
+    "title": "AI Chat",
+    "placeholder": "Ask me anything about your notes...",
+    "configureAI": "Configure your AI provider to use chat",
+    "configure": "Configure AI",
+    "empty": "Ask me to create, search, or manage your notes",
+    "retry": "Retry",
+    "newConversation": "New conversation"
   },
   "searchInDescription": "Search in description...",
   "previousMatch": "Previous match (Shift+Enter)",
