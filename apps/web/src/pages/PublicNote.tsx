@@ -1,9 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Calendar, Clock, AlertTriangle, User } from 'lucide-react';
+import { BlockNoteView } from '@blocknote/shadcn';
+import { useCreateBlockNote } from '@blocknote/react';
+import { BlockNoteSchema, defaultBlockSpecs, createCodeBlockSpec } from '@blocknote/core';
+import { codeBlockOptions } from '@blocknote/code-block';
+import '@blocknote/shadcn/style.css';
+import { detectContentFormat, tiptapToBlockNote, plainTextToBlockNote } from '@/utils/contentMigration';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface PublicNote {
   public_slug: string;
@@ -16,34 +23,39 @@ interface PublicNote {
   assignees: string[];
 }
 
-// Helper to render description (could be BlockNote JSON, TipTap JSON, or plain text)
-function renderDescription(description: string) {
-  try {
-    const parsed = JSON.parse(description);
+const schema = BlockNoteSchema.create({
+  blockSpecs: {
+    ...defaultBlockSpecs,
+    codeBlock: createCodeBlockSpec(codeBlockOptions),
+  },
+});
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const extractText = (node: any): string => {
-      if (typeof node === 'string') return node;
-      if (node.text) return node.text;
+function ReadOnlyDescription({ description }: { description: string }) {
+  const { resolvedTheme } = useTheme();
 
-      // Handle BlockNote format: array of blocks with content arrays
-      if (Array.isArray(node)) {
-        return node.map(extractText).filter(Boolean).join('\n');
-      }
+  const initialContent = useMemo(() => {
+    const format = detectContentFormat(description);
+    switch (format) {
+      case 'blocknote':
+        try { return JSON.parse(description); } catch { return undefined; }
+      case 'tiptap':
+        try { return tiptapToBlockNote(JSON.parse(description)); } catch { return undefined; }
+      case 'plain':
+        return plainTextToBlockNote(description);
+      default:
+        return undefined;
+    }
+  }, [description]);
 
-      // BlockNote block: { type: "paragraph", content: [{ type: "text", text: "..." }] }
-      if (node.content && Array.isArray(node.content)) {
-        return node.content.map(extractText).join('');
-      }
+  const editor = useCreateBlockNote({ schema, initialContent });
 
-      return '';
-    };
-
-    const text = extractText(parsed);
-    return <p className="whitespace-pre-wrap">{text}</p>;
-  } catch {
-    return <p className="whitespace-pre-wrap">{description}</p>;
-  }
+  return (
+    <BlockNoteView
+      editor={editor}
+      editable={false}
+      theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
+    />
+  );
 }
 
 export function PublicNote() {
@@ -143,8 +155,8 @@ export function PublicNote() {
         </CardHeader>
         <div className="flex-1 overflow-y-auto px-6">
           {note.description && (
-            <div className="prose prose-sm max-w-none text-muted-foreground pb-4">
-              {renderDescription(note.description)}
+            <div className="max-w-none pb-4">
+              <ReadOnlyDescription description={note.description} />
             </div>
           )}
         </div>
