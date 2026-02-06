@@ -204,6 +204,42 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                 if (!deadline) return '';
 
                 const deadlineDate = parseLocalDate(deadline);
+                const blockIsAllDay = props.block.props.isAllDay as boolean;
+
+                // For all-day tasks, use relative date format ("Hoy", "Mañana", etc.)
+                if (blockIsAllDay) {
+                    const translations = {
+                        today: i18n.t('date.today'),
+                        tomorrow: i18n.t('date.tomorrow'),
+                        yesterday: i18n.t('date.yesterday'),
+                        justNow: i18n.t('date.justNow'),
+                        inMinutes: i18n.t('date.inMinutes'),
+                        minutesAgo: i18n.t('date.minutesAgo'),
+                        inHours: i18n.t('date.inHours'),
+                        hoursAgo: i18n.t('date.hoursAgo'),
+                        inDays: i18n.t('date.inDays'),
+                        daysAgo: i18n.t('date.daysAgo'),
+                        inAWeek: i18n.t('date.inAWeek'),
+                        aWeekAgo: i18n.t('date.aWeekAgo'),
+                        inWeeks: i18n.t('date.inWeeks'),
+                        weeksAgo: i18n.t('date.weeksAgo'),
+                        nextWeek: i18n.t('date.nextWeek'),
+                        lastWeek: i18n.t('date.lastWeek'),
+                        thisWeekday: i18n.t('date.thisWeekday'),
+                        nextWeekday: i18n.t('date.nextWeekday'),
+                        lastWeekday: i18n.t('date.lastWeekday'),
+                        inAMonth: i18n.t('date.inAMonth'),
+                        aMonthAgo: i18n.t('date.aMonthAgo'),
+                        inMonths: i18n.t('date.inMonths'),
+                        monthsAgo: i18n.t('date.monthsAgo'),
+                        inAYear: i18n.t('date.inAYear'),
+                        aYearAgo: i18n.t('date.aYearAgo'),
+                        inYears: i18n.t('date.inYears'),
+                        yearsAgo: i18n.t('date.yearsAgo'),
+                    };
+                    return formatRelativeDateEnhanced(deadlineDate, i18n.language, translations, false, true);
+                }
+
                 const now = new Date();
                 const diffMs = deadlineDate.getTime() - now.getTime();
                 const absDiffMs = Math.abs(diffMs);
@@ -333,22 +369,13 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                         {dateStr && !hideDate && (
                             <LazyTooltip content={formatHumanFriendlyDate(dateStr)} delayDuration={300}>
                                 <span
-                                    className={`chip-deadline cursor-default ${shouldShowRed ? 'chip-deadline-overdue' : ''}`}
+                                    className={`chip-deadline cursor-pointer ${shouldShowRed ? 'chip-deadline-overdue' : ''}`}
                                     style={{ userSelect: "none" }}
                                 >
                                     {formatDeadline(dateStr)}
                                 </span>
                             </LazyTooltip>
                         )}
-                        {(props.block.props.labels as Array<{ name: string; color: string }>)?.map((label, i: number) => (
-                            <span
-                                key={i}
-                                className="chip-label"
-                                style={{ backgroundColor: label.color }}
-                            >
-                                {label.name}
-                            </span>
-                        ))}
                         {category !== 'notes' && (props.block.props.assignees as any[])?.length > 0 && (
                             <LazyTooltip
                                 content={(props.block.props.assignees as Array<{ initials: string; fullName: string }>).map(a => a.fullName).join(', ')}
@@ -361,6 +388,15 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                                 </span>
                             </LazyTooltip>
                         )}
+                        {(props.block.props.labels as Array<{ name: string; color: string }>)?.map((label, i: number) => (
+                            <span
+                                key={i}
+                                className="chip-label"
+                                style={{ backgroundColor: label.color }}
+                            >
+                                {label.name}
+                            </span>
+                        ))}
                     </div>
 
                     {/* Pin icon - only render if pinned in compact mode, otherwise show on hover */}

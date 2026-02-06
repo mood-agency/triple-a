@@ -18,6 +18,7 @@ export interface FilterState {
   dateRangeFilter: { from: Date | undefined; to: Date | undefined };
   taskStatusFilter: 'active' | 'completed' | 'deleted';
   showOverdueOnly: boolean;
+  showPublicOnly: boolean;
 }
 
 /**
@@ -32,6 +33,7 @@ export interface SerializableFilterState {
   dateRangeFilter: { from: string | null; to: string | null };
   taskStatusFilter: 'active' | 'completed' | 'deleted';
   showOverdueOnly: boolean;
+  showPublicOnly: boolean;
 }
 
 /**

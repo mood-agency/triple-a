@@ -1077,12 +1077,12 @@ export const BlockNoteNoteList = ({
       column: event.payload.cursorOffset,
     });
 
-    // First, select the note that triggered the event
-    if (onSelectNote) {
-      onSelectNote(event.payload.noteId);
-    }
+    // Note: We do NOT call onSelectNote here. The note is already selected
+    // via the cursor change handler (onSelectionChange). Calling it again
+    // would trigger a redundant selectedNote state change that races with
+    // showDescriptionPanel being set to true in handleNavigateToDescription.
 
-    // Then navigate to the description panel
+    // Navigate to the description panel
     if (onNavigateToDescription) {
       onNavigateToDescription();
     }

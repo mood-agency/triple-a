@@ -35,6 +35,8 @@ interface UseNoteFiltersProps {
     onTaskStatusFilterChange?: (status: 'active' | 'completed' | 'deleted') => void;
     externalShowOverdueOnly?: boolean;
     onShowOverdueOnlyChange?: (show: boolean) => void;
+    externalShowPublicOnly?: boolean;
+    onShowPublicOnlyChange?: (show: boolean) => void;
 }
 
 export function useNoteFilters({
@@ -58,6 +60,8 @@ export function useNoteFilters({
     onTaskStatusFilterChange,
     externalShowOverdueOnly,
     onShowOverdueOnlyChange,
+    externalShowPublicOnly,
+    onShowPublicOnlyChange,
 }: UseNoteFiltersProps) {
     const { contacts } = useContacts();
 
@@ -83,6 +87,7 @@ export function useNoteFilters({
         createdAt: null,
     });
     const [internalShowOverdueOnly, setInternalShowOverdueOnly] = useState(false);
+    const [internalShowPublicOnly, setInternalShowPublicOnly] = useState(false);
     const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
 
 
@@ -95,6 +100,7 @@ export function useNoteFilters({
     const sortConfig = externalSortConfig ?? internalSortConfig;
     const taskStatusFilter = externalTaskStatusFilter ?? internalTaskStatusFilter;
     const showOverdueOnly = externalShowOverdueOnly ?? internalShowOverdueOnly;
+    const showPublicOnly = externalShowPublicOnly ?? internalShowPublicOnly;
 
     // Setters
     const setLabelFilter = (value: string[] | ((prev: string[]) => string[])) => {
@@ -164,6 +170,14 @@ export function useNoteFilters({
         }
     };
 
+    const setShowPublicOnly = (value: boolean) => {
+        if (onShowPublicOnlyChange) {
+            onShowPublicOnlyChange(value);
+        } else {
+            setInternalShowPublicOnly(value);
+        }
+    };
+
 
     // PERFORMANCE: Cache searchQuery lowercase to avoid repeated toLowerCase() calls
     const searchQueryLower = useMemo(() => searchQuery.toLowerCase(), [searchQuery]);
@@ -197,6 +211,15 @@ export function useNoteFilters({
 
     // Filter Logic
     const baseFilteredNotes = useMemo(() => notes.filter((note) => {
+        // Filter by task status first - exclude completed tasks unless explicitly requested
+        if (taskStatusFilter === 'completed') {
+            // When showing completed, only show completed tasks
+            if (!note.completed) return false;
+        } else if (taskStatusFilter === 'active') {
+            // When showing active, exclude completed tasks
+            if (note.completed) return false;
+        }
+
         // Apply label and assignee filters first (applies to both pinned and non-pinned notes)
         if (labelFilter.length > 0) {
             const noteLabelIds = (noteLabelsCache.get(note.id) ?? EMPTY_LABELS).map(l => l.id);
@@ -261,7 +284,7 @@ export function useNoteFilters({
         const titleMatch = note.content.toLowerCase().includes(searchQueryLower);
         const descriptionMatch = note.description?.toLowerCase().includes(searchQueryLower) ?? false;
         return titleMatch || descriptionMatch;
-    }), [notes, categoryFilter, labelFilter, assigneeFilter, showOverdueOnly, dateRangeFilter, searchQuery, searchQueryLower, noteLabelsCache, noteAssigneesCache]);
+    }), [notes, categoryFilter, labelFilter, assigneeFilter, showOverdueOnly, dateRangeFilter, searchQuery, searchQueryLower, noteLabelsCache, noteAssigneesCache, taskStatusFilter]);
 
 
     // Active & Completed

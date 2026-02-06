@@ -263,7 +263,11 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
       // Clean content (remove tags/mentions) before syncing to store so EditableTitle initializes clean
       // We use the current labels/contacts from the workspace
       const { cleanedContent } = parseHashtags(event.payload.content, { labels, contacts });
-      selection.setTitleValue(cleanedContent);
+      // Use the event's noteId directly instead of selection.setTitleValue() which uses
+      // selectedNoteIdRef.current — that ref can be stale if the user clicks a task
+      // and presses Tab before the useEffect updates the ref, causing the WRONG
+      // note's title to be updated (visual blink on the previous task).
+      useNoteFieldsStore.getState().setTitleValue(event.payload.noteId, cleanedContent);
     }
   });
 
