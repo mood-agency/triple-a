@@ -70,7 +70,7 @@ export function Chat() {
 
   const transport = useMemo(() => new DefaultChatTransport({
     api: `${import.meta.env.VITE_API_URL || ''}/api/chat`,
-    fetch: async (url, init) => {
+    fetch: async (url: string | URL | Request, init?: RequestInit) => {
       const { data: { session: freshSession } } = await supabase!.auth.getSession()
       return fetch(url, {
         ...init,

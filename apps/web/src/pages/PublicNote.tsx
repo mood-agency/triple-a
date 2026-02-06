@@ -31,7 +31,10 @@ const schema = BlockNoteSchema.create({
 });
 
 function ReadOnlyDescription({ description }: { description: string }) {
-  const { resolvedTheme } = useTheme();
+  const { theme } = useTheme();
+  const resolvedTheme = theme === 'system'
+    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : theme;
 
   const initialContent = useMemo(() => {
     const format = detectContentFormat(description);
