@@ -257,7 +257,7 @@ export function Chat() {
                         </button>
                         {isExpanded && (
                           <div className="flex flex-col gap-1 max-w-[70%]">
-                            {tool.input && (
+                            {!!tool.input && (
                               <pre className="text-xs bg-blue-500/10 rounded p-2 overflow-auto max-h-32 border border-blue-500/20">
                                 <span className="text-blue-600 dark:text-blue-400 font-medium">Input: </span>
                                 {JSON.stringify(tool.input, null, 2)}
