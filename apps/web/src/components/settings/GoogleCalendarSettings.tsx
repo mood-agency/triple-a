@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -73,10 +72,6 @@ export function GoogleCalendarSettings() {
 
   const handleCalendarsChange = async (calendarIds: string[]) => {
     await updateConfig({ calendars_to_sync: calendarIds });
-  };
-
-  const handleSyncIntervalChange = async (interval: string) => {
-    await updateConfig({ sync_interval_minutes: parseInt(interval, 10) });
   };
 
   const handleSyncNow = async () => {
@@ -281,28 +276,6 @@ export function GoogleCalendarSettings() {
               onChange={handleCalendarsChange}
               loading={loadingCalendars}
             />
-          </div>
-
-          <Separator />
-
-          {/* Sync interval */}
-          <div className="space-y-2">
-            <Label htmlFor="sync-interval">{t('gcal.syncInterval')}</Label>
-            <Select
-              value={String(config?.sync_interval_minutes ?? 15)}
-              onValueChange={handleSyncIntervalChange}
-            >
-              <SelectTrigger id="sync-interval" className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="0">{t('gcal.manualOnly')}</SelectItem>
-                <SelectItem value="5">5 {t('gcal.minutes')}</SelectItem>
-                <SelectItem value="15">15 {t('gcal.minutes')}</SelectItem>
-                <SelectItem value="30">30 {t('gcal.minutes')}</SelectItem>
-                <SelectItem value="60">1 {t('gcal.hour')}</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           <Separator />

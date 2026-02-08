@@ -22,7 +22,7 @@ import type { AIProviderConfig } from '@/hooks/useSettings';
 import { Logo } from '@/components/Logo';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import { es, enUS } from 'date-fns/locale';
+import { es, enUS, ptBR } from 'date-fns/locale';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { formatLocalDate, parseLocalDate } from '@/utils/dateUtils';
@@ -37,6 +37,8 @@ interface NoteListToolbarProps {
     setCompactTaskView: (compact: boolean) => void;
     // Active notes for copy functionality
     activeNotes: Note[];
+    // Labels cache for copy functionality
+    noteLabelsCache: Map<string, Label[]>;
     // AI provider for summary feature
     aiProvider?: AIProviderConfig | null;
 
@@ -84,6 +86,7 @@ export const NoteListToolbar = memo(function NoteListToolbar({
     compactTaskView,
     setCompactTaskView,
     activeNotes,
+    noteLabelsCache,
     aiProvider,
     searchQuery,
     setSearchQuery,
@@ -117,7 +120,7 @@ export const NoteListToolbar = memo(function NoteListToolbar({
     onSearchKeyDown,
 }: NoteListToolbarProps) {
     const { t, i18n } = useTranslation();
-    const locale = i18n.language === 'es' ? es : enUS;
+    const locale = i18n.language === 'es' ? es : i18n.language === 'pt' ? ptBR : enUS;
     const [copied, setCopied] = useState(false);
     const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
     const [dateRangeDialogOpen, setDateRangeDialogOpen] = useState(false);
@@ -152,6 +155,13 @@ export const NoteListToolbar = memo(function NoteListToolbar({
             // Title
             parts.push(`- ${note.content}`);
 
+            // Labels
+            const noteLabels = noteLabelsCache.get(note.id) ?? [];
+            if (noteLabels.length > 0) {
+                const labelNames = noteLabels.map(l => l.name).join(', ');
+                parts.push(`  ${t('labels')}: ${labelNames}`);
+            }
+
             // Deadline
             if (note.deadline) {
                 const date = parseLocalDate(note.deadline);
@@ -172,14 +182,16 @@ export const NoteListToolbar = memo(function NoteListToolbar({
             return parts.join('\n');
         }).join('\n\n');
 
+        const textToCopy = `${formattedTasks}\n\nCopiado desde Triple A`;
+
         try {
-            await navigator.clipboard.writeText(formattedTasks);
+            await navigator.clipboard.writeText(textToCopy);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch (err) {
             console.error('Failed to copy tasks:', err);
         }
-    }, [activeNotes, contacts, noteAssigneesCache, t]);
+    }, [activeNotes, noteLabelsCache, noteAssigneesCache, t]);
 
     return (
         <div className={`flex-shrink-0 group relative z-10 ${isMobile && selectedNote ? 'hidden' : ''}`}>

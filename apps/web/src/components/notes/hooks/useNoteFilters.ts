@@ -5,7 +5,7 @@ import { parseLocalDate, startOfDay, endOfDay, getLocalDateKey, formatLocalDate,
 import { sortNotes, sortCompletedNotes, type NoteSortConfig } from '@/utils/noteUtils';
 import { useContacts } from '@/hooks/useContacts';
 import { getInitials } from '@/lib/utils';
-import { EMPTY_LABELS } from '@/constants/notes';
+import { EMPTY_LABELS, CATEGORY_CONFIG } from '@/constants/notes';
 
 const EMPTY_ASSIGNEES: Contact[] = [];
 
@@ -243,10 +243,13 @@ export function useNoteFilters({
 
         if (note.pinned) {
             if (!searchQuery.trim()) {
-                // Only apply category exclusion if there are no active filters
+                const catConfig = CATEGORY_CONFIG[note.category];
+                if (categoryFilter === 'all' && !catConfig.visibleInDefaultList) return false;
                 if (!hasActiveFilters) {
-                    if (categoryFilter === 'all' && note.category === 'notes') return false;
                     if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
+                }
+                if (catConfig.hidePastItems && note.deadline && !note.completed) {
+                    if (getEffectiveDeadline(note.deadline, note.is_all_day) < new Date()) return false;
                 }
                 return true;
             }
@@ -256,26 +259,23 @@ export function useNoteFilters({
             return titleMatch || descriptionMatch;
         }
 
-        // Solo aplicar filtro de categoría si NO hay búsqueda de texto Y no hay filtros activos
-        // (cuando hay búsqueda o filtros activos, queremos buscar en todas las categorías incluyendo notas)
+        const catConfig = CATEGORY_CONFIG[note.category];
+        if (!searchQuery.trim() && categoryFilter === 'all' && !catConfig.visibleInDefaultList) return false;
+        // Apply other category filtering only when no active filters
         if (!searchQuery.trim() && !hasActiveFilters) {
-            if (categoryFilter === 'all') {
-                if (note.category === 'notes') return false;
-            } else if (note.category !== categoryFilter) {
+            if (categoryFilter !== 'all' && note.category !== categoryFilter) {
                 return false;
             }
         }
 
         if (showOverdueOnly) {
-            if (!note.deadline || note.category === 'meeting') return false;
+            if (!note.deadline || catConfig.excludeFromOverdueFilter) return false;
             const isOverdue = getEffectiveDeadline(note.deadline, note.is_all_day) < new Date() && !note.completed;
             if (!isOverdue) return false;
         }
 
-        if (!searchQuery.trim() && note.category === 'meeting' && note.deadline && !note.completed) {
-            const meetingDate = startOfDay(parseLocalDate(note.deadline));
-            const today = startOfDay(new Date());
-            if (meetingDate < today) return false;
+        if (!searchQuery.trim() && catConfig.hidePastItems && note.deadline && !note.completed) {
+            if (getEffectiveDeadline(note.deadline, note.is_all_day) < new Date()) return false;
         }
 
         if (dateRangeFilter.from || dateRangeFilter.to) {
@@ -316,7 +316,7 @@ export function useNoteFilters({
             if (!note.deadline) return false;
             const noteDeadline = getLocalDateKey(note.deadline);
             if (noteDeadline !== calendarDateKey) return false;
-            if (note.category !== 'todo' && note.category !== 'followup' && note.category !== 'meeting') return false;
+            if (!CATEGORY_CONFIG[note.category].visibleInCalendar) return false;
             if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
             if (labelFilter.length > 0) {
                 const noteLabelIds = (noteLabelsCache.get(note.id) ?? EMPTY_LABELS).map(l => l.id);
@@ -342,7 +342,7 @@ export function useNoteFilters({
             if (!note.deadline) return false;
             const noteDeadline = getLocalDateKey(note.deadline);
             if (noteDeadline !== calendarDateKey) return false;
-            if (note.category !== 'todo' && note.category !== 'followup' && note.category !== 'meeting') return false;
+            if (!CATEGORY_CONFIG[note.category].visibleInCalendar) return false;
             if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
             if (labelFilter.length > 0) {
                 const noteLabelIds = (noteLabelsCache.get(note.id) ?? EMPTY_LABELS).map(l => l.id);
@@ -371,7 +371,7 @@ export function useNoteFilters({
             if (!note.deadline) return false;
             const noteDeadline = getLocalDateKey(note.deadline);
             if (noteDeadline !== calendarDateKey) return false;
-            if (note.category !== 'todo' && note.category !== 'followup' && note.category !== 'meeting') return false;
+            if (!CATEGORY_CONFIG[note.category].visibleInCalendar) return false;
             if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;
             if (labelFilter.length > 0) {
                 const noteLabelIds = (noteLabelsCache.get(note.id) ?? EMPTY_LABELS).map(l => l.id);
@@ -412,7 +412,7 @@ export function useNoteFilters({
                     }
                 }
                 if (showOverdueOnly) {
-                    if (!note.deadline || note.category === 'meeting') return false;
+                    if (!note.deadline || CATEGORY_CONFIG[note.category].excludeFromOverdueFilter) return false;
                     const isOverdue = getEffectiveDeadline(note.deadline, note.is_all_day) < new Date() && !note.completed;
                     if (!isOverdue) return false;
                 }

@@ -13,8 +13,5 @@ export { InsertBlockCommand } from "./InsertBlockCommand";
 export { DeleteBlockCommand } from "./DeleteBlockCommand";
 export { NavigateBlockCommand } from "./NavigateBlockCommand";
 export { PreventNavigateOutCommand } from "./PreventNavigateOutCommand";
-export { TogglePinCommand } from "./TogglePinCommand";
-export { ToggleSidebarCommand } from "./ToggleSidebarCommand";
-
 // Command registry and utilities
 export { commandRegistry, getKeyCombo } from "./CommandRegistry";

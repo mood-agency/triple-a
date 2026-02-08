@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
-import { es, enUS } from 'date-fns/locale'
+import { es, enUS, ptBR } from 'date-fns/locale'
 import { CalendarX2, Calendar as CalendarIcon } from 'lucide-react'
 import { WeekStrip } from '@/components/ui/week-strip'
 import { useCalendarNotes } from '@/hooks/useCalendarNotes'
@@ -31,7 +31,7 @@ export function CalendarView({
   noteLabelsCache,
 }: CalendarViewProps) {
   const { t, i18n } = useTranslation()
-  const locale = i18n.language === 'es' ? es : enUS
+  const locale = i18n.language === 'es' ? es : i18n.language === 'pt' ? ptBR : enUS
 
   const { notesByDate } = useCalendarNotes(
     notes,

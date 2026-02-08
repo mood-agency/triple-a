@@ -18,6 +18,7 @@ import { useFilterCommands } from '@/components/notes/hooks/useFilterCommands';
 import { FilterCommandsProvider } from '@/components/notes/FilterCommandsContext';
 import type { Note, NoteCategory } from '@/types/note';
 import { parseLocalDate, formatLocalDate } from '@/utils/dateUtils';
+import { getNoteCreationDefaults } from '@/utils/noteCreationDefaults';
 
 interface OutletContext {
   sidebarTrigger: React.ReactNode;
@@ -379,11 +380,17 @@ export function Home() {
     syncStateToURL({ sort: newSortConfig });
   }, [syncStateToURL]);
 
+  // Placeholder for dateRangeFilter and searchQuery (these are managed in useNoteFilters)
+  const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [searchQuery, setSearchQuery] = useState('');
+
   const handleCreateTask = useCallback(() => {
-    // Use category filter if set, otherwise default to 'todo'
-    const category = categoryFilter !== 'all' ? categoryFilter : 'todo';
-    // Pass label filter so new task is visible with current filters
-    const result = createNote('', category, null, labelFilter);
+    // Read filter values from ref to avoid re-creating this callback on every filter change
+    const { categoryFilter: cat, labelFilter: lbl, assigneeFilter: asgn } = stateRef.current;
+    const defaults = getNoteCreationDefaults({
+      categoryFilter: cat, labelFilter: lbl, assigneeFilter: asgn, dateRangeFilter,
+    });
+    const result = createNote('', defaults.category, defaults.deadline, defaults.labelIds);
     // Handle both Promise and synchronous returns
     Promise.resolve(result).then((newNoteOrId) => {
       if (newNoteOrId) {
@@ -394,7 +401,7 @@ export function Home() {
         handleSelectNote(newNote);
       }
     });
-  }, [createNote, categoryFilter, labelFilter, handleSelectNote]);
+  }, [createNote, dateRangeFilter, handleSelectNote]);
 
   const handleDeleteNote = useCallback((id: string, reason: string) => {
     if (selectedNoteId === id) {
@@ -412,10 +419,6 @@ export function Home() {
     await postponeNote(id, newDeadline, reason);
     // Note: selectedNote will automatically update via useMemo when notes array changes
   }, [postponeNote]);
-
-  // Placeholder for dateRangeFilter and searchQuery (these are managed in useNoteFilters)
-  const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
-  const [searchQuery, setSearchQuery] = useState('');
 
   // Filter Commands hook for undo/redo support
   const filterCommands = useFilterCommands({
@@ -480,6 +483,7 @@ export function Home() {
         onSelectNote={handleSelectNote}
         onCreateNoteAfter={createNoteAfter}
         onCreateTask={handleCreateTask}
+        loading={loading}
         externalLabelFilter={labelFilter}
         externalCategoryFilter={categoryFilter}
         externalAssigneeFilter={assigneeFilter}

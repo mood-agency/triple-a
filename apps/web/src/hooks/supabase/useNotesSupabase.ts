@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useActiveProject } from '@/contexts/ProjectContext';
 import { supabase } from '@/lib/supabase';
 import { eventBus } from '@/events';
-import type { Note, NoteCategory } from '@/types/note';
+import type { Note, NoteCategory, MeetingAttendee } from '@/types/note';
 import { formatLocalDate } from '@/utils/dateUtils';
 import { useNotesStore } from '@/stores/useNotesStore';
 
@@ -124,6 +124,10 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       sync_status: 'synced' as const,
       last_synced_at: row.updated_at,
       gcal_event_id: row.gcal_event_id || null,
+      meeting_link: row.meeting_link || null,
+      location: row.location || null,
+      meeting_attendees: row.meeting_attendees as MeetingAttendee[] | null,
+      gcal_html_link: row.gcal_html_link || null,
       is_public: row.is_public || false,
       public_slug: row.public_slug || null,
     }));
@@ -242,24 +246,55 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
   );
 
   /**
-   * Create a new note
+   * Create a new note (optimistic — added to store immediately, persisted in background)
    */
   const createNote = useCallback(
-    async (
+    (
       content: string,
       category: NoteCategory = 'todo',
       description?: string | null,
       labelIds?: string[]
-    ): Promise<Note> => {
+    ): Note => {
       if (!userId || !supabase) throw new Error('Not authenticated');
 
       // Use store for synchronous access
       const currentNotes = useNotesStore.getState().notes;
       const maxSortOrder = currentNotes.reduce((max, n) => Math.max(max, n.sort_order || 0), -1);
 
-      const { data, error } = await supabase
+      // Construct note locally — no DB round-trip needed for UI
+      const noteId = crypto.randomUUID();
+      const now = new Date().toISOString();
+      const note: Note = {
+        id: noteId,
+        date: effectiveDate,
+        content,
+        description: description || null,
+        category,
+        completed: false,
+        completed_at: null,
+        deadline: null,
+        is_all_day: false,
+        pinned: false,
+        sort_order: maxSortOrder + 1,
+        created_at: now,
+        updated_at: now,
+        deleted_at: null,
+        deleted_reason: null,
+        project_id: projectId || null,
+        remote_id: noteId,
+        sync_status: 'pending',
+        is_public: false,
+        public_slug: null,
+      };
+
+      // Add to store immediately — auto-create effect will see it right away
+      useNotesStore.getState().addNote(note);
+
+      // Persist to Supabase in background (fire-and-forget)
+      supabase
         .from('notes')
         .insert({
+          id: noteId,
           user_id: userId,
           date: effectiveDate,
           content,
@@ -271,48 +306,28 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
           project_id: projectId || null,
           is_public: false,
         })
-        .select()
-        .single();
+        .then(({ error }) => {
+          if (error) {
+            console.error('[useNotesSupabase] createNote error:', error);
+            useNotesStore.getState().removeNote(noteId);
+          }
+        });
 
-      if (error) throw error;
-
-      // Add labels if provided
-      if (labelIds && labelIds.length > 0 && data) {
+      // Labels — persisted in background
+      if (labelIds && labelIds.length > 0) {
         const labelInserts = labelIds.map((labelId) => ({
-          note_id: data.id,
+          note_id: noteId,
           label_id: labelId,
           user_id: userId,
         }));
-        await supabase.from('note_labels').insert(labelInserts);
+        supabase.from('note_labels').insert(labelInserts)
+          .then(({ error }) => {
+            if (error) console.error('[useNotesSupabase] createNote labels error:', error);
+          });
       }
 
-      const row = data as any;
-
-      // Create initial version
-      await createInitialVersion(row.id, row.content, row.description, row.category, row.completed);
-
-      const note: Note = {
-        id: row.id,
-        date: row.date,
-        content: row.content,
-        description: row.description,
-        category: row.category as NoteCategory,
-        completed: row.completed,
-        completed_at: row.completed_at,
-        deadline: row.deadline,
-        is_all_day: row.is_all_day || false,
-        pinned: row.pinned,
-        sort_order: row.sort_order ?? 0,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-        deleted_at: null,
-        deleted_reason: null,
-        project_id: row.project_id,
-        remote_id: row.id,
-        sync_status: 'synced',
-        is_public: row.is_public || false,
-        public_slug: row.public_slug || null,
-      };
+      // Initial version — persisted in background
+      createInitialVersion(noteId, content, description || null, category, false);
 
       eventBus.emit('note:created', {
         noteId: note.id,

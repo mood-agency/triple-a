@@ -37,9 +37,12 @@ export function AppSidebar() {
   // AI Provider dialog state
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
 
+  const LANGUAGE_CYCLE = ['es', 'en', 'pt'] as const;
   const toggleLanguage = () => {
-    const newLang = i18n.language === 'es' ? 'en' : 'es';
+    const currentIndex = LANGUAGE_CYCLE.indexOf(i18n.language as typeof LANGUAGE_CYCLE[number]);
+    const newLang = LANGUAGE_CYCLE[(currentIndex + 1) % LANGUAGE_CYCLE.length];
     i18n.changeLanguage(newLang);
+    localStorage.setItem('app-language', newLang);
   };
 
   const toggleTheme = () => {

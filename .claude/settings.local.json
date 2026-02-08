@@ -171,7 +171,8 @@
       "WebFetch(domain:www.typeonce.dev)",
       "WebFetch(domain:www.frontendundefined.com)",
       "WebFetch(domain:mastery.games)",
-      "WebFetch(domain:timdeschryver.dev)"
+      "WebFetch(domain:timdeschryver.dev)",
+      "WebFetch(domain:www.npmjs.com)"
     ],
     "additionalDirectories": [
       "c:\\Users\\argen\\Documents\\GitHub\\triple-a",

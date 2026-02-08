@@ -1,5 +1,6 @@
 import type { Note } from '@/types/note';
 import { getHourFromDeadline } from './dateUtils';
+import { CATEGORY_CONFIG } from '@/constants/notes';
 
 /**
  * Adapter pattern: Converts Note entities to BlockNote block format
@@ -26,6 +27,7 @@ export interface NotepadBlockProps {
   compact: boolean;
   fixedInSidebar: boolean;
   hideDate: boolean;
+  gcalEventId: boolean;
 }
 
 export interface NotepadBlockData {
@@ -70,7 +72,8 @@ export function noteToBlock(
       pinned: note.pinned,
       compact,
       fixedInSidebar: note.id === fixedNoteId,
-      hideDate,
+      hideDate: hideDate || !CATEGORY_CONFIG[note.category].showsDeadline,
+      gcalEventId: !!note.gcal_event_id,
     },
     content: note.content,
   };

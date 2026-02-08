@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { formatRelativeDate } from '@/utils/dateUtils';
+import { formatRelativeDate, getDateTranslations } from '@/utils/dateUtils';
 
 interface DateDisplayProps {
   date: Date;
@@ -8,35 +8,7 @@ interface DateDisplayProps {
 export function DateDisplay({ date }: DateDisplayProps) {
   const { t, i18n } = useTranslation();
 
-  const relativeDate = formatRelativeDate(date, i18n.language, {
-    today: t('date.today'),
-    tomorrow: t('date.tomorrow'),
-    yesterday: t('date.yesterday'),
-    inMinutes: t('date.inMinutes'),
-    minutesAgo: t('date.minutesAgo'),
-    justNow: t('date.justNow'),
-    inHours: t('date.inHours'),
-    hoursAgo: t('date.hoursAgo'),
-    inDays: t('date.inDays'),
-    daysAgo: t('date.daysAgo'),
-    inAWeek: t('date.inAWeek'),
-    aWeekAgo: t('date.aWeekAgo'),
-    inWeeks: t('date.inWeeks'),
-    weeksAgo: t('date.weeksAgo'),
-    nextWeek: t('date.nextWeek'),
-    lastWeek: t('date.lastWeek'),
-    thisWeekday: t('date.thisWeekday'),
-    nextWeekday: t('date.nextWeekday'),
-    lastWeekday: t('date.lastWeekday'),
-    inAMonth: t('date.inAMonth'),
-    aMonthAgo: t('date.aMonthAgo'),
-    inMonths: t('date.inMonths'),
-    monthsAgo: t('date.monthsAgo'),
-    inAYear: t('date.inAYear'),
-    aYearAgo: t('date.aYearAgo'),
-    inYears: t('date.inYears'),
-    yearsAgo: t('date.yearsAgo'),
-  });
+  const relativeDate = formatRelativeDate(date, i18n.language, getDateTranslations(t));
 
   const fullDate = date.toLocaleDateString(i18n.language, {
     year: 'numeric',

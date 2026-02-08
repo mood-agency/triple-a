@@ -6,9 +6,6 @@ import { NavigateToDescriptionCommand } from "./NavigateToDescriptionCommand";
 import { NavigateBlockCommand } from "./NavigateBlockCommand";
 import { PreventNavigateOutCommand } from "./PreventNavigateOutCommand";
 import { ToggleCompleteCommand } from "./ToggleCompleteCommand";
-import { TogglePinCommand } from "./TogglePinCommand";
-import { ToggleSidebarCommand } from "./ToggleSidebarCommand";
-
 /**
  * Maps keyboard events to command instances
  */
@@ -28,10 +25,7 @@ class CommandRegistry {
     this.register("ArrowRight", new PreventNavigateOutCommand("right"));
     this.register("Ctrl+D", new ToggleCompleteCommand());
     this.register("Cmd+D", new ToggleCompleteCommand());
-    this.register("Ctrl+P", new TogglePinCommand());
-    this.register("Cmd+P", new TogglePinCommand());
-    this.register("Ctrl+S", new ToggleSidebarCommand());
-    this.register("Cmd+S", new ToggleSidebarCommand());
+    // Pin (Alt+X) and Sidebar (Alt+B) are handled globally via useHotkeys in NotesWorkspace
     this.register("Ctrl+Backspace", new DeleteBlockCommand());
     this.register("Cmd+Backspace", new DeleteBlockCommand());
   }

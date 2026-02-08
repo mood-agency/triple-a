@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeSyncDecision, type SyncDecisionInput } from './syncDecisionTree'
+import { computeSyncDecision, findMovedNoteIds, type SyncDecisionInput } from './syncDecisionTree'
 
 /** Helper to build input with defaults */
 function input(overrides: Partial<SyncDecisionInput> = {}): SyncDecisionInput {
@@ -7,7 +7,7 @@ function input(overrides: Partial<SyncDecisionInput> = {}): SyncDecisionInput {
     currentNoteIds: [],
     previousNoteIds: [],
     editorBlockIds: [],
-    isSavingInternally: false,
+    pendingSaveNoteIds: [],
     editorHasFocus: false,
     ...overrides,
   }
@@ -201,12 +201,12 @@ describe('computeSyncDecision', () => {
   // Order changes (sorting)
   // ---------------------------------------------------------------------------
   describe('order changes', () => {
-    it('should sync when notes are reordered (sort applied)', () => {
+    it('should sync when notes are reordered (sort applied, no pending saves)', () => {
       const result = computeSyncDecision(input({
         currentNoteIds: ['c', 'a', 'b'],    // reordered
         previousNoteIds: ['a', 'b', 'c'],
         editorBlockIds: ['a', 'b', 'c'],
-        isSavingInternally: false,
+        pendingSaveNoteIds: [],
         editorHasFocus: false,
       }))
 
@@ -215,19 +215,35 @@ describe('computeSyncDecision', () => {
       expect(result.shouldHideContent).toBe(true)
     })
 
-    it('should NOT sync reorder when isSavingInternally (echo from own save)', () => {
-      // After saving, Supabase updates updated_at → the sort order in the
-      // notes array may change. This is an echo, not a user action.
+    it('should NOT sync reorder when ALL moved notes have pending saves (echo from own save)', () => {
+      // After saving note 'c', Supabase updates updated_at → 'c' moves to front.
+      // All notes that changed position (c, a, b) include c which has a pending save.
+      // Since ALL moved notes have pending saves, this is our echo.
       const result = computeSyncDecision(input({
         currentNoteIds: ['c', 'a', 'b'],
         previousNoteIds: ['a', 'b', 'c'],
         editorBlockIds: ['a', 'b', 'c'],
-        isSavingInternally: true,          // ← guard active
+        pendingSaveNoteIds: ['c', 'a', 'b'],  // all moved notes have pending saves
         editorHasFocus: false,
       }))
 
       expect(result.shouldSync).toBe(false)
       expect(result.orderChanged).toBe(false)
+    })
+
+    it('should sync reorder when only SOME moved notes have pending saves (RC-3 fix)', () => {
+      // Note 'a' was saved (pending), but note 'b' moved without a pending save.
+      // This means it's a real reorder (user sorted), not just our echo.
+      const result = computeSyncDecision(input({
+        currentNoteIds: ['b', 'a'],
+        previousNoteIds: ['a', 'b'],
+        editorBlockIds: ['a', 'b'],
+        pendingSaveNoteIds: ['a'],  // only 'a' has pending save, but 'b' also moved
+        editorHasFocus: false,
+      }))
+
+      expect(result.shouldSync).toBe(true)
+      expect(result.orderChanged).toBe(true)
     })
 
     it('should NOT sync reorder when editor has focus (realtime echo)', () => {
@@ -237,7 +253,7 @@ describe('computeSyncDecision', () => {
         currentNoteIds: ['c', 'a', 'b'],
         previousNoteIds: ['a', 'b', 'c'],
         editorBlockIds: ['a', 'b', 'c'],
-        isSavingInternally: false,
+        pendingSaveNoteIds: [],
         editorHasFocus: true,              // ← guard active
       }))
 
@@ -250,12 +266,35 @@ describe('computeSyncDecision', () => {
         currentNoteIds: ['b', 'a'],
         previousNoteIds: ['a', 'b'],
         editorBlockIds: ['a', 'b'],
-        isSavingInternally: true,
+        pendingSaveNoteIds: ['a', 'b'],
         editorHasFocus: true,
       }))
 
       expect(result.shouldSync).toBe(false)
       expect(result.orderChanged).toBe(false)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // findMovedNoteIds helper
+  // ---------------------------------------------------------------------------
+  describe('findMovedNoteIds', () => {
+    it('returns empty when no notes moved', () => {
+      expect(findMovedNoteIds(['a', 'b', 'c'], ['a', 'b', 'c'])).toEqual([])
+    })
+
+    it('returns all notes when completely reordered', () => {
+      expect(findMovedNoteIds(['c', 'b', 'a'], ['a', 'b', 'c'])).toEqual(['c', 'a'])
+    })
+
+    it('returns moved notes when partially reordered', () => {
+      expect(findMovedNoteIds(['a', 'c', 'b'], ['a', 'b', 'c'])).toEqual(['c', 'b'])
+    })
+
+    it('handles different length arrays', () => {
+      // When sizes differ, this shouldn't be called for orderChanged,
+      // but test the behavior anyway
+      expect(findMovedNoteIds(['a', 'b', 'c'], ['a', 'b'])).toEqual(['c'])
     })
   })
 

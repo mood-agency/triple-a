@@ -2,12 +2,14 @@ import { defaultProps } from "@blocknote/core";
 import { createReactBlockSpec } from "@blocknote/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBlockCommands } from "./hooks/useBlockCommands";
-import { Pickaxe, Users, Forward, StickyNote, Pin, SidebarClose, Trash2 } from "lucide-react";
-import { parseLocalDate, formatRelativeDateEnhanced, getEffectiveDeadline } from "@/utils/dateUtils";
-import i18n from "@/i18n";
+import { Pickaxe, Users, Forward, StickyNote, Pin, SidebarClose, Trash2, Calendar } from "lucide-react";
+import { parseLocalDate, formatRelativeDateEnhanced, getEffectiveDeadline, getDateTranslations } from "@/utils/dateUtils";
+import { useTranslation } from "react-i18next";
 import { LazyTooltip } from "@/components/ui/lazy-tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Kbd } from "@/components/ui/kbd";
 import { eventBus } from "@/events";
+import { CATEGORY_CONFIG } from "@/constants/notes";
 import "./NotepadBlock.css";
 
 // Debug flag - set to true to enable console logs for debugging
@@ -38,11 +40,13 @@ export const NotepadBlock = (createReactBlockSpec as any)(
             compact: { default: false },
             fixedInSidebar: { default: false },
             hideDate: { default: false },
+            gcalEventId: { default: false },
         },
         content: "inline",
     },
     {
         render: (props: any) => {
+            const { t, i18n } = useTranslation();
             const [node, setNode] = useState<HTMLElement | null>(null);
             const [isEditing, setIsEditing] = useState(false);
             const editorRef = useRef(props.editor);
@@ -214,131 +218,24 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                 });
             };
 
-            // Format deadline display: hours if <48h, whole days otherwise
+            const translations = getDateTranslations(t);
+            const blockIsAllDay = props.block.props.isAllDay as boolean;
+
             const formatDeadline = (deadline: string) => {
                 if (!deadline) return '';
-
-                const deadlineDate = parseLocalDate(deadline);
-                const blockIsAllDay = props.block.props.isAllDay as boolean;
-
-                // For all-day tasks, use relative date format ("Hoy", "Mañana", etc.)
-                if (blockIsAllDay) {
-                    const translations = {
-                        today: i18n.t('date.today'),
-                        tomorrow: i18n.t('date.tomorrow'),
-                        yesterday: i18n.t('date.yesterday'),
-                        justNow: i18n.t('date.justNow'),
-                        inMinutes: i18n.t('date.inMinutes'),
-                        minutesAgo: i18n.t('date.minutesAgo'),
-                        inHours: i18n.t('date.inHours'),
-                        hoursAgo: i18n.t('date.hoursAgo'),
-                        inDays: i18n.t('date.inDays'),
-                        daysAgo: i18n.t('date.daysAgo'),
-                        inAWeek: i18n.t('date.inAWeek'),
-                        aWeekAgo: i18n.t('date.aWeekAgo'),
-                        inWeeks: i18n.t('date.inWeeks'),
-                        weeksAgo: i18n.t('date.weeksAgo'),
-                        nextWeek: i18n.t('date.nextWeek'),
-                        lastWeek: i18n.t('date.lastWeek'),
-                        thisWeekday: i18n.t('date.thisWeekday'),
-                        nextWeekday: i18n.t('date.nextWeekday'),
-                        lastWeekday: i18n.t('date.lastWeekday'),
-                        inAMonth: i18n.t('date.inAMonth'),
-                        aMonthAgo: i18n.t('date.aMonthAgo'),
-                        inMonths: i18n.t('date.inMonths'),
-                        monthsAgo: i18n.t('date.monthsAgo'),
-                        inAYear: i18n.t('date.inAYear'),
-                        aYearAgo: i18n.t('date.aYearAgo'),
-                        inYears: i18n.t('date.inYears'),
-                        yearsAgo: i18n.t('date.yearsAgo'),
-                    };
-                    return formatRelativeDateEnhanced(deadlineDate, i18n.language, translations, false, true);
-                }
-
-                const now = new Date();
-                const diffMs = deadlineDate.getTime() - now.getTime();
-                const absDiffMs = Math.abs(diffMs);
-                const sign = diffMs < 0 ? '-' : '';
-
-                // Less than 48 hours: show in hours
-                if (absDiffMs < 48 * 60 * 60 * 1000) {
-                    const hours = Math.floor(absDiffMs / (1000 * 60 * 60));
-                    if (hours === 0) {
-                        return `${sign}<1 h`;
-                    }
-                    return `${sign}${hours} h`;
-                }
-
-                // 48 hours or more: show whole days
-                const diffDays = Math.floor(absDiffMs / (1000 * 60 * 60 * 24));
-                return `${sign}${diffDays} d`;
+                return formatRelativeDateEnhanced(parseLocalDate(deadline), i18n.language, translations, false, blockIsAllDay);
             };
 
-            // Format human-friendly date for tooltip
             const formatHumanFriendlyDate = (deadline: string) => {
                 if (!deadline) return '';
-
-                const date = parseLocalDate(deadline);
-                const translations = {
-                    today: i18n.t('date.today'),
-                    tomorrow: i18n.t('date.tomorrow'),
-                    yesterday: i18n.t('date.yesterday'),
-                    justNow: i18n.t('date.justNow'),
-                    inMinutes: i18n.t('date.inMinutes'),
-                    minutesAgo: i18n.t('date.minutesAgo'),
-                    inHours: i18n.t('date.inHours'),
-                    hoursAgo: i18n.t('date.hoursAgo'),
-                    inDays: i18n.t('date.inDays'),
-                    daysAgo: i18n.t('date.daysAgo'),
-                    inAWeek: i18n.t('date.inAWeek'),
-                    aWeekAgo: i18n.t('date.aWeekAgo'),
-                    inWeeks: i18n.t('date.inWeeks'),
-                    weeksAgo: i18n.t('date.weeksAgo'),
-                    nextWeek: i18n.t('date.nextWeek'),
-                    lastWeek: i18n.t('date.lastWeek'),
-                    thisWeekday: i18n.t('date.thisWeekday'),
-                    nextWeekday: i18n.t('date.nextWeekday'),
-                    lastWeekday: i18n.t('date.lastWeekday'),
-                    inAMonth: i18n.t('date.inAMonth'),
-                    aMonthAgo: i18n.t('date.aMonthAgo'),
-                    inMonths: i18n.t('date.inMonths'),
-                    monthsAgo: i18n.t('date.monthsAgo'),
-                    inAYear: i18n.t('date.inAYear'),
-                    aYearAgo: i18n.t('date.aYearAgo'),
-                    inYears: i18n.t('date.inYears'),
-                    yearsAgo: i18n.t('date.yearsAgo'),
-                };
-
-                // Check if it's an all-day task using the explicit field
-                const isAllDay = props.block.props.isAllDay as boolean;
-
-                const relativeStr = formatRelativeDateEnhanced(date, i18n.language, translations, false, isAllDay);
-
-                // Show time when referring to a specific day (within ±7 days) and it's not an all-day task
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const targetDate = new Date(date);
-                targetDate.setHours(0, 0, 0, 0);
-                const daysDiff = Math.round((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-                if (Math.abs(daysDiff) <= 7 && !isAllDay) {
-                    const timeStr = date.toLocaleTimeString(i18n.language, {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-                    return `${relativeStr} ${timeStr}`;
-                }
-
-                return relativeStr;
+                return formatRelativeDateEnhanced(parseLocalDate(deadline), i18n.language, translations, true, blockIsAllDay);
             };
 
             // Check if deadline has passed (all-day tasks use end-of-day)
-            const blockIsAllDay = props.block.props.isAllDay as boolean;
             const isPastDeadline = dateStr ? getEffectiveDeadline(dateStr, blockIsAllDay) < new Date() : false;
-            const shouldShowRed = isPastDeadline && !isChecked && category !== 'meeting';
-
-            // Only show checkbox for todo and followup categories
-            const allowsCheckbox = category === 'todo' || category === 'followup';
+            const catConfig = CATEGORY_CONFIG[category];
+            const shouldShowRed = isPastDeadline && !isChecked && catConfig.showsOverdueRed;
+            const allowsCheckbox = catConfig.allowsCheckbox;
 
             return (
                 <div className={`notepad-line group ${isCompleting ? 'is-completing' : ''}`} style={{ display: "flex", alignItems: "center", width: "100%", userSelect: "none", outline: "none", boxShadow: "none" }}>
@@ -352,7 +249,7 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                                     }`}
                                 onClick={cycleCategory}
                             >
-                                <CategoryIcon size={16} className="text-gray-500" />
+                                <CategoryIcon size={16} className="text-muted-foreground" />
                             </div>
 
                             {/* Checkbox (Visible on hover only for todo and followup, OR if checked/completing) */}
@@ -391,7 +288,7 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                                 </span>
                             </LazyTooltip>
                         )}
-                        {category !== 'notes' && (props.block.props.assignees as any[])?.length > 0 && (
+                        {catConfig.showsAssignees && (props.block.props.assignees as any[])?.length > 0 && (
                             <LazyTooltip
                                 content={(props.block.props.assignees as Array<{ initials: string; fullName: string }>).map(a => a.fullName).join(', ')}
                                 delayDuration={300}
@@ -400,6 +297,13 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                                     {(props.block.props.assignees as Array<{ initials: string; fullName: string }>)
                                         .map(a => a.initials)
                                         .join(' | ')}
+                                </span>
+                            </LazyTooltip>
+                        )}
+                        {props.block.props.gcalEventId && (
+                            <LazyTooltip content={t('gcal.syncedWithGCal')} delayDuration={300}>
+                                <span className="flex items-center text-blue-500">
+                                    <Calendar size={12} />
                                 </span>
                             </LazyTooltip>
                         )}
@@ -416,34 +320,34 @@ export const NotepadBlock = (createReactBlockSpec as any)(
 
                     {/* Pin icon - only render if pinned in compact mode, otherwise show on hover */}
                     {(!isCompact || isPinned) && (
-                        <LazyTooltip content={isPinned ? "Unpin task" : "Pin task"} delayDuration={300}>
+                        <LazyTooltip content={<span className="flex items-center gap-2">{isPinned ? t('unpin') : t('pin')}<span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>X</Kbd></span></span>} delayDuration={300}>
                             <button
                                 contentEditable={false}
                                 onClick={handleTogglePin}
-                                className={`p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-all ml-auto flex-shrink-0 ${isPinned
+                                className={`p-1 hover:bg-muted rounded transition-all ml-auto flex-shrink-0 ${isPinned
                                     ? 'opacity-100'
                                     : 'opacity-0 group-hover:opacity-100'
                                     }`}
                                 style={{ userSelect: "none", display: (isCompact && !isPinned) ? "none" : undefined }}
                             >
-                                <Pin size={14} className={isPinned ? "text-black dark:text-white" : "text-gray-600 dark:text-gray-400"} />
+                                <Pin size={14} className={isPinned ? "text-primary" : "text-muted-foreground hover:text-primary"} />
                             </button>
                         </LazyTooltip>
                     )}
 
                     {/* Sidebar icon - only render if fixed in compact mode, otherwise show on hover */}
                     {(!isCompact || isFixedInSidebar) && (
-                        <LazyTooltip content={isFixedInSidebar ? "Unfix from sidebar" : "Fix to sidebar"} delayDuration={300}>
+                        <LazyTooltip content={<span className="flex items-center gap-2">{isFixedInSidebar ? t('unfixFromSidebar') : t('fixToSidebar')}<span className="flex items-center gap-0.5"><Kbd>Alt</Kbd><Kbd>B</Kbd></span></span>} delayDuration={300}>
                             <button
                                 contentEditable={false}
                                 onClick={handleToggleFixInSidebar}
-                                className={`p-1 hover:bg-gray-200 rounded transition-all flex-shrink-0 ${isFixedInSidebar
+                                className={`p-1 hover:bg-muted rounded transition-all flex-shrink-0 ${isFixedInSidebar
                                     ? 'opacity-100'
                                     : 'opacity-0 group-hover:opacity-100'
                                     }`}
                                 style={{ userSelect: "none", display: (isCompact && !isFixedInSidebar) ? "none" : undefined }}
                             >
-                                <SidebarClose size={14} className={isFixedInSidebar ? "text-blue-600" : "text-gray-600"} />
+                                <SidebarClose size={14} className={isFixedInSidebar ? "text-blue-500" : "text-muted-foreground hover:text-blue-500"} />
                             </button>
                         </LazyTooltip>
                     )}
@@ -455,12 +359,12 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                             className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                             style={{ userSelect: "none" }}
                         >
-                            <LazyTooltip content="Delete" delayDuration={300}>
+                            <LazyTooltip content={<span className="flex items-center gap-2">{t('delete')}<span className="flex items-center gap-0.5"><Kbd>Ctrl</Kbd><Kbd>⌫</Kbd></span></span>} delayDuration={300}>
                                 <button
                                     onClick={handleDelete}
-                                    className="p-1 hover:bg-red-100 rounded transition-colors"
+                                    className="p-1 hover:bg-destructive/10 rounded transition-colors"
                                 >
-                                    <Trash2 size={14} className="text-red-600" />
+                                    <Trash2 size={14} className="text-muted-foreground hover:text-destructive" />
                                 </button>
                             </LazyTooltip>
                         </div>

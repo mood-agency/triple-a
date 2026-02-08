@@ -1,7 +1,7 @@
 import { forwardRef, memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, Tag, User, Trash2, History, RotateCcw, Sparkles, Pin, PanelRightOpen, Search, ChevronUp, ChevronDown } from 'lucide-react';
+import { Pickaxe, Forward, StickyNote, Plus, X, Pencil, CalendarClock, Users, Check, Tag, User, Trash2, History, RotateCcw, Sparkles, Pin, PanelRightOpen, Search, ChevronUp, ChevronDown, Video, MapPin, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd } from '@/components/ui/kbd';
@@ -21,13 +21,14 @@ import { AssigneePicker } from '@/components/notes/AssigneePicker';
 import { EditableTitle, type EditableTitleHandle } from '@/components/notes/EditableTitle';
 import type { Note, NoteCategory, Label, NoteVersion, NoteAction } from '@/types/note';
 import type { Contact } from '@/types/contact';
-import { parseLocalDate, formatRelativeDateEnhanced } from '@/utils/dateUtils';
+import { parseLocalDate, formatRelativeDateEnhanced, getDateTranslations } from '@/utils/dateUtils';
 import { AIAssistantDialog } from './AIAssistantDialog';
 import { ShareDialog } from './ShareDialog';
 import type { AIProviderConfig } from '@/hooks/useSettings';
 import { useRegisterNavigationRegion, type RegionHandler, type FocusRestorationContext, type ItemSaveData } from './navigation';
 import { eventBus } from '@/events';
 import { useNoteFieldsStore, EMPTY_LABELS, EMPTY_ASSIGNEES } from '@/stores/useNoteFieldsStore';
+import { CATEGORY_CONFIG } from '@/constants/notes';
 
 interface NoteEditorPanelProps {
   note: Note;
@@ -372,9 +373,9 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
     }
   }, [closeSearch, goToNextMatch, goToPrevMatch]);
 
-  // Ctrl+D to toggle task completion (only for non-notes categories)
+  // Ctrl+D to toggle task completion
   useHotkeys('ctrl+d, meta+d', () => {
-    if (note.category !== 'notes') {
+    if (CATEGORY_CONFIG[note.category].allowsCheckbox) {
       handleCheckedChange();
     }
   }, { preventDefault: true, enableOnFormTags: true }, [note.category, handleCheckedChange]);
@@ -588,7 +589,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
       </div>
 
       {/* Assignee row */}
-      {note.category !== 'notes' && (
+      {CATEGORY_CONFIG[note.category].showsAssignees && (
         <div className="flex gap-1.5 flex-shrink-0 items-center mb-2">
           <AssigneePicker
             contacts={contacts}
@@ -620,6 +621,52 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
               </button>
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Meeting metadata (from Google Calendar) */}
+      {note.category === 'meeting' && note.gcal_event_id && (note.meeting_link || note.location || (note.meeting_attendees && note.meeting_attendees.length > 0) || note.gcal_html_link) && (
+        <div className="flex flex-col gap-1.5 text-xs text-muted-foreground mb-2 pl-0.5">
+          {note.meeting_link && (
+            <div className="flex items-center gap-1.5">
+              <Video className="h-3.5 w-3.5 shrink-0" />
+              <a
+                href={note.meeting_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:underline truncate"
+              >
+                {t('meeting.joinMeeting')}
+              </a>
+            </div>
+          )}
+          {note.location && (
+            <div className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{note.location}</span>
+            </div>
+          )}
+          {note.meeting_attendees && note.meeting_attendees.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">
+                {note.meeting_attendees.map(a => a.displayName || a.email).join(', ')}
+              </span>
+            </div>
+          )}
+          {note.gcal_html_link && (
+            <div className="flex items-center gap-1.5">
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+              <a
+                href={note.gcal_html_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:underline"
+              >
+                {t('meeting.viewInGoogleCalendar')}
+              </a>
+            </div>
+          )}
         </div>
       )}
 
@@ -677,35 +724,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                   ? formatRelativeDateEnhanced(
                     parseLocalDate((deadlineValue ?? note.deadline)!),
                     i18n.language,
-                    {
-                      today: t('date.today'),
-                      tomorrow: t('date.tomorrow'),
-                      yesterday: t('date.yesterday'),
-                      justNow: t('date.justNow'),
-                      inMinutes: t('date.inMinutes'),
-                      minutesAgo: t('date.minutesAgo'),
-                      inHours: t('date.inHours'),
-                      hoursAgo: t('date.hoursAgo'),
-                      inDays: t('date.inDays'),
-                      daysAgo: t('date.daysAgo'),
-                      inAWeek: t('date.inAWeek'),
-                      aWeekAgo: t('date.aWeekAgo'),
-                      inWeeks: t('date.inWeeks'),
-                      weeksAgo: t('date.weeksAgo'),
-                      nextWeek: t('date.nextWeek'),
-                      lastWeek: t('date.lastWeek'),
-                      thisWeekday: t('date.thisWeekday'),
-                      nextWeekday: t('date.nextWeekday'),
-                      lastWeekday: t('date.lastWeekday'),
-                      inAMonth: t('date.inAMonth'),
-                      aMonthAgo: t('date.aMonthAgo'),
-                      inMonths: t('date.inMonths'),
-                      monthsAgo: t('date.monthsAgo'),
-                      inAYear: t('date.inAYear'),
-                      aYearAgo: t('date.aYearAgo'),
-                      inYears: t('date.inYears'),
-                      yearsAgo: t('date.yearsAgo'),
-                    },
+                    getDateTranslations(t),
                     true,
                     note.is_all_day
                   )
@@ -741,35 +760,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                   {formatRelativeDateEnhanced(
                     new Date(note.created_at),
                     i18n.language,
-                    {
-                      today: t('date.today'),
-                      tomorrow: t('date.tomorrow'),
-                      yesterday: t('date.yesterday'),
-                      justNow: t('date.justNow'),
-                      inMinutes: t('date.inMinutes'),
-                      minutesAgo: t('date.minutesAgo'),
-                      inHours: t('date.inHours'),
-                      hoursAgo: t('date.hoursAgo'),
-                      inDays: t('date.inDays'),
-                      daysAgo: t('date.daysAgo'),
-                      inAWeek: t('date.inAWeek'),
-                      aWeekAgo: t('date.aWeekAgo'),
-                      inWeeks: t('date.inWeeks'),
-                      weeksAgo: t('date.weeksAgo'),
-                      nextWeek: t('date.nextWeek'),
-                      lastWeek: t('date.lastWeek'),
-                      thisWeekday: t('date.thisWeekday'),
-                      nextWeekday: t('date.nextWeekday'),
-                      lastWeekday: t('date.lastWeekday'),
-                      inAMonth: t('date.inAMonth'),
-                      aMonthAgo: t('date.aMonthAgo'),
-                      inMonths: t('date.inMonths'),
-                      monthsAgo: t('date.monthsAgo'),
-                      inAYear: t('date.inAYear'),
-                      aYearAgo: t('date.aYearAgo'),
-                      inYears: t('date.inYears'),
-                      yearsAgo: t('date.yearsAgo'),
-                    },
+                    getDateTranslations(t),
                     true
                   )}
                 </button>
@@ -810,35 +801,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
                         {formatRelativeDateEnhanced(
                           new Date(action.created_at),
                           i18n.language,
-                          {
-                            today: t('date.today'),
-                            tomorrow: t('date.tomorrow'),
-                            yesterday: t('date.yesterday'),
-                            justNow: t('date.justNow'),
-                            inMinutes: t('date.inMinutes'),
-                            minutesAgo: t('date.minutesAgo'),
-                            inHours: t('date.inHours'),
-                            hoursAgo: t('date.hoursAgo'),
-                            inDays: t('date.inDays'),
-                            daysAgo: t('date.daysAgo'),
-                            inAWeek: t('date.inAWeek'),
-                            aWeekAgo: t('date.aWeekAgo'),
-                            inWeeks: t('date.inWeeks'),
-                            weeksAgo: t('date.weeksAgo'),
-                            nextWeek: t('date.nextWeek'),
-                            lastWeek: t('date.lastWeek'),
-                            thisWeekday: t('date.thisWeekday'),
-                            nextWeekday: t('date.nextWeekday'),
-                            lastWeekday: t('date.lastWeekday'),
-                            inAMonth: t('date.inAMonth'),
-                            aMonthAgo: t('date.aMonthAgo'),
-                            inMonths: t('date.inMonths'),
-                            monthsAgo: t('date.monthsAgo'),
-                            inAYear: t('date.inAYear'),
-                            aYearAgo: t('date.aYearAgo'),
-                            inYears: t('date.inYears'),
-                            yearsAgo: t('date.yearsAgo'),
-                          },
+                          getDateTranslations(t),
                           true
                         )}
                       </span>

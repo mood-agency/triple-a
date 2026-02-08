@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { es, enUS } from 'date-fns/locale';
+import { es, enUS, ptBR } from 'date-fns/locale';
 import {
   Check,
   Plus,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CATEGORY_CONFIG } from '@/constants/notes';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -58,8 +59,7 @@ const categoryIcons: Record<NoteCategory, React.ElementType> = {
 
 export function MobileTaskCreate() {
   const { t, i18n } = useTranslation();
-  const isSpanish = i18n.language === 'es';
-  const locale = isSpanish ? es : enUS;
+  const locale = i18n.language === 'es' ? es : i18n.language === 'pt' ? ptBR : enUS;
 
   // Date selection state
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -169,8 +169,7 @@ export function MobileTaskCreate() {
       const noteDeadline = getLocalDateKey(note.deadline);
       if (noteDeadline !== dateKey) return false;
 
-      // Only show todos, followups and meetings (not notes category)
-      if (note.category !== 'todo' && note.category !== 'followup' && note.category !== 'meeting') return false;
+      if (!CATEGORY_CONFIG[note.category].visibleInCalendar) return false;
 
       // Apply category filter if set
       if (categoryFilter !== 'all' && note.category !== categoryFilter) return false;

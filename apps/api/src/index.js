@@ -47,8 +47,12 @@ import { decodeHtmlEntities, parseJsonResponse, extractEmail } from './lib/serve
 import { syncUserCalendar } from './lib/gcal-sync.js';
 import { startGCalSyncScheduler } from './lib/gcal-scheduler.js';
 
-// Environment variables
-const PORT = process.env.PORT || 3000;
+// Parse CLI arguments (--port)
+const portArgIndex = process.argv.indexOf('--port');
+const cliPort = portArgIndex !== -1 ? process.argv[portArgIndex + 1] : undefined;
+
+// Environment variables (CLI > env > default)
+const PORT = cliPort || process.env.PORT || 3000;
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -797,7 +801,7 @@ Today's date is: ${today}
       messages: await convertToModelMessages(messages),
       tools: chatTools,
       maxSteps: 5,
-      onStepFinish: ({ stepType, toolCalls, toolResults, text }) => {
+      onStepFinish: ({ toolCalls, toolResults, text }) => {
         if (toolCalls?.length) {
           console.log('[Chat] Tool calls:', JSON.stringify(toolCalls, null, 2));
         }
@@ -1265,8 +1269,122 @@ app.post('/api/gcal-auth', async (c) => {
         return c.json({ isConnected, isExpired }, 200);
       }
 
+      case 'add_account': {
+        if (!code || !redirectUri) {
+          return c.json({ error: 'Missing code or redirectUri' }, 400);
+        }
+
+        if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+          return c.json({ error: 'Google Calendar not configured on server' }, 500);
+        }
+
+        // 1. Exchange authorization code for tokens
+        const addTokenResponse = await fetch(GOOGLE_TOKEN_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            code,
+            client_id: GOOGLE_CLIENT_ID,
+            client_secret: GOOGLE_CLIENT_SECRET,
+            redirect_uri: redirectUri,
+            grant_type: 'authorization_code',
+          }),
+        });
+
+        if (!addTokenResponse.ok) {
+          const addErrorData = await addTokenResponse.json();
+          console.error('Token exchange failed:', addErrorData);
+          return c.json({ error: 'Failed to exchange code for tokens' }, 400);
+        }
+
+        const addTokens = await addTokenResponse.json();
+        const addExpiryDate = new Date(Date.now() + addTokens.expires_in * 1000);
+
+        // 2. Fetch email from primary calendar (doesn't require extra scopes)
+        //    The primary calendar's id IS the user's email address.
+        let email = 'unknown';
+        let displayName = null;
+        try {
+          const calResponse = await fetch(
+            `${GOOGLE_CALENDAR_API}/users/me/calendarList/primary`,
+            { headers: { Authorization: `Bearer ${addTokens.access_token}` } }
+          );
+          if (calResponse.ok) {
+            const calData = await calResponse.json();
+            email = calData.id || 'unknown';
+            displayName = calData.summary || null;
+          }
+        } catch (calErr) {
+          console.warn('Failed to fetch primary calendar for email:', calErr);
+        }
+
+        // 3. Clean up any stale 'unknown' email records from previous failed attempts
+        if (email !== 'unknown') {
+          await supabaseAdmin
+            .from('google_calendar_accounts')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('email', 'unknown');
+        }
+
+        // 4. Upsert into google_calendar_accounts (multi-account table)
+        const { data: accountData, error: accountError } = await supabaseAdmin
+          .from('google_calendar_accounts')
+          .upsert(
+            {
+              user_id: user.id,
+              email,
+              display_name: displayName,
+              access_token: addTokens.access_token,
+              refresh_token: addTokens.refresh_token || '',
+              token_expires_at: addExpiryDate.toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id,email' }
+          )
+          .select('id, user_id, email, display_name, created_at, updated_at')
+          .single();
+
+        if (accountError) {
+          console.error('Failed to store account:', accountError);
+          return c.json({ error: 'Failed to store account' }, 500);
+        }
+
+        // 5. Also store in legacy google_calendar_tokens for backwards compatibility
+        await supabaseAdmin
+          .from('google_calendar_tokens')
+          .upsert(
+            {
+              user_id: user.id,
+              access_token: addTokens.access_token,
+              refresh_token: addTokens.refresh_token || '',
+              token_expiry: addExpiryDate.toISOString(),
+              scope: addTokens.scope,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id' }
+          );
+
+        // 6. Create default config if not exists
+        await supabaseAdmin
+          .from('google_calendar_config')
+          .upsert(
+            {
+              user_id: user.id,
+              enabled: true,
+              calendars_to_sync: [],
+              default_category: 'meeting',
+              sync_interval_minutes: 15,
+            },
+            { onConflict: 'user_id' }
+          );
+
+        return c.json({ success: true, account: accountData }, 200);
+      }
+
       case 'disconnect': {
         await supabaseAdmin.from('google_calendar_tokens').delete().eq('user_id', user.id);
+        await supabaseAdmin.from('google_calendar_accounts').delete().eq('user_id', user.id);
         await supabaseAdmin.from('google_calendar_config').delete().eq('user_id', user.id);
         await supabaseAdmin.from('google_calendar_events').delete().eq('user_id', user.id);
 

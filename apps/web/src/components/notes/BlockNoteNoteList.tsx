@@ -5,17 +5,20 @@ import { es as esLocale } from '@blocknote/core/locales';
 import { BlockNoteView } from '@blocknote/shadcn';
 import '@blocknote/shadcn/style.css';
 import { animate } from 'motion';
+import { useActorRef, useSelector } from '@xstate/react';
 import { NotepadBlock } from '@/components/blocknote/NotepadBlock';
 import { notesToBlocks, getBlockContent } from '@/utils/noteBlockAdapter';
 import { getInitials } from '@/lib/utils';
 import { useEventSubscription, eventBus } from '@/events';
 import { useNoteBlockProcessing } from './hooks/useNoteBlockProcessing';
 import type { Note, Label, NoteCategory } from '@/types/note';
+import type { NoteCreationDefaults } from '@/utils/noteCreationDefaults';
 import type { Contact } from '@/types/contact';
 import { useRegisterNavigationRegion, type RegionHandler, type FocusRestorationContext, type ItemSaveData } from './navigation';
 import { DeleteTaskDialog } from './DeleteTaskDialog';
 import { useNoteFieldsStore } from '@/stores/useNoteFieldsStore';
 import { computeSyncDecision } from './syncDecisionTree';
+import { editorSyncMachine, selectPendingSaveNoteIds, shallowArrayEqual } from './editorSyncMachine';
 
 // Debug flags
 const DEBUG_BLOCKNOTE = false;
@@ -53,6 +56,8 @@ interface BlockNoteNoteListProps {
   onAddAssignee?: (noteId: string, contactId: string) => void;
   /** ID of the currently selected note */
   selectedNoteId?: string | null;
+  /** Pre-computed defaults for new notes based on active filters */
+  noteCreationDefaults?: NoteCreationDefaults;
 }
 
 export const BlockNoteNoteList = ({
@@ -74,6 +79,7 @@ export const BlockNoteNoteList = ({
   onCreateLabelAndAdd,
   onAddAssignee,
   selectedNoteId,
+  noteCreationDefaults,
 }: BlockNoteNoteListProps) => {
   // Read/write title from Zustand store map by selected note ID
   const selectedNoteTitleValue = useNoteFieldsStore(s => selectedNoteId ? s.notes[selectedNoteId]?.titleValue ?? '' : '');
@@ -150,13 +156,9 @@ export const BlockNoteNoteList = ({
   // Flag to prevent saves during programmatic updates
   const isSyncingRef = useRef(false);
 
-  // Flag to prevent sync when deleting blocks
-  const isDeletingRef = useRef(false);
-
-  // Flag to prevent order-change sync during internal saves
-  // When we save a note, updated_at changes which may reorder the notes array
-  // We don't want to replace the document just because of our own save
-  const isSavingInternallyRef = useRef(false);
+  // --- XState actor for per-note sync tracking (replaces isSavingInternallyRef + isDeletingRef) ---
+  const syncActorRef = useActorRef(editorSyncMachine);
+  const pendingSaveNoteIds = useSelector(syncActorRef, selectPendingSaveNoteIds, shallowArrayEqual);
 
   // Helper to read content directly from DOM (fallback when BlockNote hasn't synced)
   const getBlockContentFromDOM = useCallback((blockId: string): string => {
@@ -171,13 +173,17 @@ export const BlockNoteNoteList = ({
     onEdit, onAddLabel, onCreateLabelAndAdd, onAddAssignee,
   }), [onEdit, onAddLabel, onCreateLabelAndAdd, onAddAssignee]);
 
+  const onSaveStarted = useCallback((noteId: string, content: string) => {
+    syncActorRef.send({ type: 'SAVE_STARTED', noteId, content });
+  }, [syncActorRef]);
+
   const { processNoteBlock, getCleanedContent } = useNoteBlockProcessing({
     notes,
     noteLabelsCache,
     editor,
     callbacks: processingCallbacks,
     getBlockContentFromDOM,
-    isSavingInternallyRef,
+    onSaveStarted,
   });
 
   // Ref for processNoteBlock (assigned later, used by region handler)
@@ -374,7 +380,11 @@ export const BlockNoteNoteList = ({
 
     // Get data for an item to be saved (mediator calls this, then passes to onSaveItem callback)
     getItemData: (itemId: string): ItemSaveData | null => {
-      if (!itemId || isDeletingRef.current) return null;
+      if (!itemId) return null;
+
+      // Skip save if the note is being completed/deleted
+      const snapshot = syncActorRef.getSnapshot();
+      if (snapshot.context.pendingCompletions.includes(itemId)) return null;
 
       const note = notes.find(n => n.id === itemId);
       if (!note) return null;
@@ -392,11 +402,8 @@ export const BlockNoteNoteList = ({
       // This covers edge cases like window blur where processNoteBlock might race
       const cleanedContent = getCleanedContent(content);
 
-      // Set flag to prevent order-change sync from replacing the document after save
-      isSavingInternallyRef.current = true;
-      setTimeout(() => {
-        isSavingInternallyRef.current = false;
-      }, 500);
+      // Track pending save per-note (replaces global isSavingInternallyRef + 500ms timeout)
+      syncActorRef.send({ type: 'SAVE_STARTED', noteId: itemId, content: cleanedContent });
 
       return {
         content: cleanedContent,
@@ -800,7 +807,7 @@ export const BlockNoteNoteList = ({
       currentNoteIds,
       previousNoteIds,
       editorBlockIds: editor.document.map(b => b.id),
-      isSavingInternally: isSavingInternallyRef.current,
+      pendingSaveNoteIds,
       editorHasFocus,
     });
 
@@ -829,7 +836,22 @@ export const BlockNoteNoteList = ({
         }, 50);
       }, 0);
     }
-  }, [editor, notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId]);
+  }, [editor, notes, labelDataCache, assigneeDataCache, compactView, fixedNoteId, pendingSaveNoteIds]);
+
+  // Bridge: notes[] prop → editorSyncMachine NOTES_RECEIVED (echo detection)
+  useEffect(() => {
+    const noteContents: Record<string, string> = {};
+    notes.forEach(n => { noteContents[n.id] = n.content; });
+    syncActorRef.send({ type: 'NOTES_RECEIVED', noteContents });
+  }, [notes, syncActorRef]);
+
+  // Safety cleanup: remove stale pending saves every 5s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      syncActorRef.send({ type: 'CLEAR_STALE' });
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [syncActorRef]);
 
   // Sync external changes (labels, assignees) back to blocks - only when they actually change
   useEffect(() => {
@@ -1100,6 +1122,7 @@ export const BlockNoteNoteList = ({
     // detecting a "filter change" (removedIdsStillInDocument) and
     // flashing the entire list with opacity:0.
     if (event.payload.completed) {
+      syncActorRef.send({ type: 'COMPLETION_STARTED', noteId: event.payload.noteId });
       const block = editor.getBlock(event.payload.noteId);
       if (block) {
         // FLIP animation: capture positions of blocks below before removal
@@ -1175,13 +1198,17 @@ export const BlockNoteNoteList = ({
     if (onToggleCompleted) {
       onToggleCompleted(event.payload.noteId, event.payload.completed);
     }
+
+    // Mark completion as done (allows saves for this noteId again)
+    syncActorRef.send({ type: 'COMPLETION_DONE', noteId: event.payload.noteId });
   });
 
   // Listen for lost focus events from blocks to trigger auto-save with hashtag parsing (via event bus)
   useEventSubscription('editor:focusLost', async (event) => {
-    // Skip save if we're in the process of deleting
-    if (isDeletingRef.current) {
-      if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Block lost focus during delete, skipping save');
+    // Skip save if we're in the process of completing/deleting
+    const snapshot = syncActorRef.getSnapshot();
+    if (snapshot.context.pendingCompletions.includes(event.payload.noteId)) {
+      if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Block lost focus during completion/delete, skipping save');
       return;
     }
     if (DEBUG_BLOCKNOTE) console.log('[BlockNoteNoteList] Block lost focus, processing hashtags and saving:', event.payload.noteId);
@@ -1208,18 +1235,16 @@ export const BlockNoteNoteList = ({
       return;
     }
 
-    // Set flag to prevent sync from replacing blocks during delete
-    isDeletingRef.current = true;
+    // Track deletion in sync machine to prevent save-during-delete
+    syncActorRef.send({ type: 'COMPLETION_STARTED', noteId: event.payload.noteId });
 
     // Call callback for persistence
     if (onDelete) {
       onDelete(event.payload.noteId, event.payload.reason);
     }
 
-    // Reset flag after delete is processed (allow next render cycle to complete)
-    setTimeout(() => {
-      isDeletingRef.current = false;
-    }, 200);
+    // Mark deletion as done (note will be removed from props on next render)
+    syncActorRef.send({ type: 'COMPLETION_DONE', noteId: event.payload.noteId });
   });
 
   // Listen for delete request events from blocks (via event bus)
@@ -1262,13 +1287,10 @@ export const BlockNoteNoteList = ({
   useEventSubscription('editor:createNoteAfter', async (event) => {
     eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
 
-    // Find the note we're creating after - could be in props or in our cache
-    const afterNote = notes.find(n => n.id === event.payload.afterNoteId);
-    const afterNoteFromCache = newlyCreatedNotesRef.current.get(event.payload.afterNoteId);
-
-    // Determine category and deadline from either source
-    const category = afterNote?.category || afterNoteFromCache?.category || (event.payload.category as NoteCategory) || 'todo';
-    const deadline = afterNote?.deadline || afterNoteFromCache?.deadline || null;
+    // Use filter-based defaults instead of inheriting from the previous note
+    const defaults = noteCreationDefaults ?? { category: 'todo' as NoteCategory, labelIds: [], assigneeId: null, deadline: null };
+    const category = defaults.category;
+    const deadline = defaults.deadline;
 
     // Add the new note to our cache so we can save its content later
     newlyCreatedNotesRef.current.set(event.payload.newNoteId!, {
@@ -1276,22 +1298,18 @@ export const BlockNoteNoteList = ({
       deadline,
     });
 
-    let labelIds: string[] = [];
-    let assigneeId: string | null = null;
-
+    // Still process the previous block to save its content (parse hashtags, etc.)
+    const afterNote = notes.find(n => n.id === event.payload.afterNoteId);
     if (afterNote) {
-      // Process the block the user just finished (parse hashtags, etc.)
-      const result = await processNoteBlock(event.payload.afterNoteId);
-      if (result) {
-        labelIds = result.labelIds;
-        assigneeId = result.parsedAssigneeId;
-      }
+      await processNoteBlock(event.payload.afterNoteId);
     }
 
-    // Set flag to prevent sync effect from replacing blocks during creation
-    // (the new note is already in the editor via Enter key, so a full
-    // document replacement would lose caret position and typed content)
-    isSavingInternallyRef.current = true;
+    // Track new note creation in sync machine (replaces isSavingInternallyRef + 500ms timeout).
+    // The note is already in the editor via Enter key, so we need to prevent
+    // replaceBlocks from wiping caret position and typed content.
+    const newNoteId = event.payload.newNoteId!;
+    syncActorRef.send({ type: 'NOTE_CREATED', noteId: newNoteId });
+    syncActorRef.send({ type: 'SAVE_STARTED', noteId: newNoteId, content: '' });
 
     // Call callback for persistence
     if (onCreateNoteAfter) {
@@ -1299,15 +1317,11 @@ export const BlockNoteNoteList = ({
         event.payload.afterNoteId,
         category,
         deadline,
-        labelIds,
-        assigneeId,
-        event.payload.newNoteId
+        defaults.labelIds,
+        defaults.assigneeId,
+        newNoteId
       );
     }
-
-    setTimeout(() => {
-      isSavingInternallyRef.current = false;
-    }, 500);
   });
 
   // Listen for toggle pin events from blocks (via event bus)

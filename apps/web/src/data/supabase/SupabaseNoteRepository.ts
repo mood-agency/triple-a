@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import type { Note, NoteCategory, NoteVersion, NoteAction } from '@/types/note';
+import type { Note, NoteCategory, NoteVersion, NoteAction, MeetingAttendee } from '@/types/note';
 import type {
   INoteRepository,
   NoteFilters,
@@ -33,6 +33,10 @@ function mapRowToNote(row: Record<string, unknown>): Note {
     sync_status: 'synced' as const,
     last_synced_at: row.updated_at as string,
     gcal_event_id: (row.gcal_event_id as string) || null,
+    meeting_link: (row.meeting_link as string) || null,
+    location: (row.location as string) || null,
+    meeting_attendees: (row.meeting_attendees as MeetingAttendee[]) || null,
+    gcal_html_link: (row.gcal_html_link as string) || null,
     is_public: (row.is_public as boolean) || false,
     public_slug: (row.public_slug as string) || null,
   };

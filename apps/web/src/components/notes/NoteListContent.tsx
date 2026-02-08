@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { AnimatePresence, motion } from 'motion/react';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
+import type { NoteCreationDefaults } from '@/utils/noteCreationDefaults';
 import { EMPTY_LABELS } from '@/constants/notes';
 import { useEventSubscription } from '@/events';
 import { CalendarView } from './CalendarView';
@@ -108,6 +109,9 @@ interface NoteListContentProps {
 
     // Toolbar rendered inside the left column
     toolbar?: React.ReactNode;
+
+    // Note creation defaults based on active filters
+    noteCreationDefaults?: NoteCreationDefaults;
 }
 
 export const NoteListContent = memo(function NoteListContent({
@@ -182,6 +186,7 @@ export const NoteListContent = memo(function NoteListContent({
     onClearAllFilters,
     autoSaveInterval = 3,
     toolbar,
+    noteCreationDefaults,
 }: NoteListContentProps) {
     const { t } = useTranslation();
 
@@ -319,6 +324,7 @@ export const NoteListContent = memo(function NoteListContent({
                                             onCreateLabelAndAdd={handleCreateLabelAndAdd}
                                             onAddAssignee={onAddAssignee}
                                             selectedNoteId={selectedNote?.id}
+                                            noteCreationDefaults={noteCreationDefaults}
                                         />
                                         {/* Show no results message after pinned notes when they don't match filters */}
                                         {shouldShowNoResultsWithPinnedVisible && (

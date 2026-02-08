@@ -17,15 +17,15 @@ interface OutletContext {
   sidebarTrigger: React.ReactNode
 }
 
-const TOOL_LABELS: Record<string, { en: string; es: string }> = {
-  listNotes: { en: 'Listed notes', es: 'Notas listadas' },
-  searchNotes: { en: 'Searched notes', es: 'Notas buscadas' },
-  createNote: { en: 'Created note', es: 'Nota creada' },
-  updateNote: { en: 'Updated note', es: 'Nota actualizada' },
-  deleteNote: { en: 'Deleted note', es: 'Nota eliminada' },
-  completeNote: { en: 'Toggled completion', es: 'Completado cambiado' },
-  listProjects: { en: 'Listed projects', es: 'Proyectos listados' },
-  listLabels: { en: 'Listed labels', es: 'Etiquetas listadas' },
+const TOOL_LABELS: Record<string, { en: string; es: string; pt: string }> = {
+  listNotes: { en: 'Listed notes', es: 'Notas listadas', pt: 'Notas listadas' },
+  searchNotes: { en: 'Searched notes', es: 'Notas buscadas', pt: 'Notas buscadas' },
+  createNote: { en: 'Created note', es: 'Nota creada', pt: 'Nota criada' },
+  updateNote: { en: 'Updated note', es: 'Nota actualizada', pt: 'Nota atualizada' },
+  deleteNote: { en: 'Deleted note', es: 'Nota eliminada', pt: 'Nota excluída' },
+  completeNote: { en: 'Toggled completion', es: 'Completado cambiado', pt: 'Conclusão alternada' },
+  listProjects: { en: 'Listed projects', es: 'Proyectos listados', pt: 'Projetos listados' },
+  listLabels: { en: 'Listed labels', es: 'Etiquetas listadas', pt: 'Etiquetas listadas' },
 }
 
 /** Extract tool name from a part type like "tool-listNotes" or from toolName on dynamic parts */
@@ -133,7 +133,7 @@ export function Chat() {
     })
   }
 
-  const lang = i18n.language === 'es' ? 'es' : 'en'
+  const lang = i18n.language === 'es' ? 'es' : i18n.language === 'pt' ? 'pt' : 'en'
 
   if (!isConfigured) {
     return (

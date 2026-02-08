@@ -10,6 +10,7 @@ export type {
   Label,
   NoteLabel,
   NoteAssignee,
+  MeetingAttendee,
   ExportData,
   ImportResult,
 } from './note';

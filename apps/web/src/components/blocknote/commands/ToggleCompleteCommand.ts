@@ -1,5 +1,7 @@
 import type { BlockCommand, BlockCommandContext } from "./BlockCommand";
 import { eventBus } from "@/events";
+import { CATEGORY_CONFIG } from "@/constants/notes";
+import type { NoteCategory } from "@/types/note";
 
 /**
  * ToggleCompleteCommand - Handles Ctrl+D / Cmd+D to toggle task completion
@@ -52,9 +54,8 @@ export class ToggleCompleteCommand implements BlockCommand {
     }
 
     canExecute(context: BlockCommandContext): boolean {
-        // Only toggle if category is something that can be completed
         const props = context.block.props as any;
-        const category = props.category as string;
-        return !!context.editor && !!context.block && (category === 'todo' || category === 'followup');
+        const category = props.category as NoteCategory;
+        return !!context.editor && !!context.block && CATEGORY_CONFIG[category].allowsCheckbox;
     }
 }

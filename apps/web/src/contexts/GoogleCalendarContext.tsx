@@ -121,9 +121,6 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
     lastResult: null,
   });
 
-  const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastSyncTimeRef = useRef<number>(0);
-
   const reportError = useCallback((type: ErrorType, message: string, options?: { showToast?: boolean }) => {
     setError({ type, message, timestamp: Date.now() });
     if (options?.showToast) toast.error(message);
@@ -230,7 +227,7 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
 
     setSyncState(prev => ({ ...prev, status: 'syncing' }));
     setError(null);
-    lastSyncTimeRef.current = Date.now();
+
 
     try {
       const result = await googleCalendarService.triggerSync();
@@ -259,23 +256,8 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, isConnected, config, t]);
 
-  // Auto-sync interval
-  useEffect(() => {
-    if (!isConnected || !config?.enabled || !config.sync_interval_minutes) {
-      if (syncIntervalRef.current) {
-        clearInterval(syncIntervalRef.current);
-        syncIntervalRef.current = null;
-      }
-      return;
-    }
-
-    const intervalMs = config.sync_interval_minutes * 60 * 1000;
-    syncIntervalRef.current = setInterval(() => syncNow(), intervalMs);
-
-    return () => {
-      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
-    };
-  }, [isConnected, config?.enabled, config?.sync_interval_minutes, syncNow]);
+  // Auto-sync is handled server-side by gcal-scheduler.js.
+  // The sync_interval_minutes setting is read by the server cron job.
 
   // ============================================================================
   // OAuth & Connection
@@ -320,26 +302,20 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
 
   const handleOAuthCallback = useCallback(async (code: string): Promise<boolean> => {
     setIsLoading(true);
-    const isAddingAccount = sessionStorage.getItem('gcal_adding_account') === 'true';
     sessionStorage.removeItem('gcal_adding_account');
 
     try {
       const redirectUri = `${window.location.origin}${OAUTH_REDIRECT_PATH}`;
 
-      if (isAddingAccount || accounts.length > 0) {
-        const result = await googleCalendarService.addAccount(code, redirectUri);
-        if (!result.success) {
-          reportError('oauth', result.error || 'Failed to add account');
-          return false;
-        }
-        toast.success(t('gcal.accountAdded', 'Google account connected'));
-      } else {
-        const result = await googleCalendarService.exchangeCodeForTokens(code, redirectUri);
-        if (!result.success) {
-          reportError('oauth', result.error || 'Failed to connect');
-          return false;
-        }
+      // Always use addAccount — it exchanges the code, creates a google_calendar_accounts
+      // record, and sets up the config. The legacy exchangeCodeForTokens only wrote to
+      // google_calendar_tokens which caused isConnected to revert immediately.
+      const result = await googleCalendarService.addAccount(code, redirectUri);
+      if (!result.success) {
+        reportError('oauth', result.error || 'Failed to connect');
+        return false;
       }
+      toast.success(t('gcal.accountAdded', 'Google account connected'));
 
       setIsConnected(true);
       await refreshAccounts();
@@ -353,7 +329,7 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [refreshCalendars, refreshAccounts, accounts.length, t, reportError]);
+  }, [refreshCalendars, refreshAccounts, t, reportError]);
 
   const disconnect = useCallback(async () => {
     setIsLoading(true);

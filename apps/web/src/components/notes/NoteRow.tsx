@@ -11,7 +11,7 @@ import { getInitials } from '@/lib/utils';
 
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
-import { parseLocalDate, formatRelativeDateEnhanced, getEffectiveDeadline } from '@/utils/dateUtils';
+import { parseLocalDate, formatRelativeDateEnhanced, getEffectiveDeadline, getDateTranslations } from '@/utils/dateUtils';
 
 import { useNoteRow } from './hooks/useNoteRow';
 import { NoteRowContent } from './row/NoteRowContent';
@@ -263,35 +263,7 @@ function NoteRow(props: NoteRowProps) {
               {formatRelativeDateEnhanced(
                 parseLocalDate(note.deadline),
                 i18n.language,
-                {
-                  today: t('date.today'),
-                  tomorrow: t('date.tomorrow'),
-                  yesterday: t('date.yesterday'),
-                  justNow: t('date.justNow'),
-                  inMinutes: t('date.inMinutes'),
-                  minutesAgo: t('date.minutesAgo'),
-                  inHours: t('date.inHours'),
-                  hoursAgo: t('date.hoursAgo'),
-                  inDays: t('date.inDays'),
-                  daysAgo: t('date.daysAgo'),
-                  inAWeek: t('date.inAWeek'),
-                  aWeekAgo: t('date.aWeekAgo'),
-                  inWeeks: t('date.inWeeks'),
-                  weeksAgo: t('date.weeksAgo'),
-                  nextWeek: t('date.nextWeek'),
-                  lastWeek: t('date.lastWeek'),
-                  thisWeekday: t('date.thisWeekday'),
-                  nextWeekday: t('date.nextWeekday'),
-                  lastWeekday: t('date.lastWeekday'),
-                  inAMonth: t('date.inAMonth'),
-                  aMonthAgo: t('date.aMonthAgo'),
-                  inMonths: t('date.inMonths'),
-                  monthsAgo: t('date.monthsAgo'),
-                  inAYear: t('date.inAYear'),
-                  aYearAgo: t('date.aYearAgo'),
-                  inYears: t('date.inYears'),
-                  yearsAgo: t('date.yearsAgo'),
-                },
+                getDateTranslations(t),
                 true,
                 note.is_all_day
               )}

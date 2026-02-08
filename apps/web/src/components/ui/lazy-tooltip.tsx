@@ -59,6 +59,7 @@ export function LazyTooltip({
       {isOpen && (
         <TooltipPrimitive.Portal>
           <TooltipPrimitive.Content
+            data-slot="tooltip-content"
             side={side}
             sideOffset={sideOffset}
             className={cn(

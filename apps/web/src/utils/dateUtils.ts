@@ -428,3 +428,40 @@ export function formatRelativeDateEnhanced(
 
   return `${relativeStr} ${timeStr}`;
 }
+
+/**
+ * Build the RelativeDateTranslations object from an i18n translation function.
+ * Eliminates the need to manually construct this object at every call site.
+ * @param t - A function that translates a key (e.g., i18n.t or useTranslation().t)
+ */
+export function getDateTranslations(t: (key: string) => string): RelativeDateTranslations {
+  return {
+    today: t('date.today'),
+    tomorrow: t('date.tomorrow'),
+    yesterday: t('date.yesterday'),
+    justNow: t('date.justNow'),
+    inMinutes: t('date.inMinutes'),
+    minutesAgo: t('date.minutesAgo'),
+    inHours: t('date.inHours'),
+    hoursAgo: t('date.hoursAgo'),
+    inDays: t('date.inDays'),
+    daysAgo: t('date.daysAgo'),
+    inAWeek: t('date.inAWeek'),
+    aWeekAgo: t('date.aWeekAgo'),
+    inWeeks: t('date.inWeeks'),
+    weeksAgo: t('date.weeksAgo'),
+    nextWeek: t('date.nextWeek'),
+    lastWeek: t('date.lastWeek'),
+    thisWeekday: t('date.thisWeekday'),
+    nextWeekday: t('date.nextWeekday'),
+    lastWeekday: t('date.lastWeekday'),
+    inAMonth: t('date.inAMonth'),
+    aMonthAgo: t('date.aMonthAgo'),
+    inMonths: t('date.inMonths'),
+    monthsAgo: t('date.monthsAgo'),
+    inAYear: t('date.inAYear'),
+    aYearAgo: t('date.aYearAgo'),
+    inYears: t('date.inYears'),
+    yearsAgo: t('date.yearsAgo'),
+  };
+}

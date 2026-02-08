@@ -1,6 +1,6 @@
 import * as React from "react"
 import { format } from "date-fns"
-import { es, enUS } from "date-fns/locale"
+import { es, enUS, ptBR } from "date-fns/locale"
 import { Calendar as CalendarIcon, ChevronDown, Clock } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
@@ -54,7 +54,7 @@ export function DatePicker({
   onSave,
 }: DatePickerProps) {
   const { t, i18n } = useTranslation()
-  const locale = i18n.language === "es" ? es : enUS
+  const locale = i18n.language === "es" ? es : i18n.language === "pt" ? ptBR : enUS
   const [internalOpen, setInternalOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState("")
   const [parsedDate, setParsedDate] = React.useState<Date | null>(null)

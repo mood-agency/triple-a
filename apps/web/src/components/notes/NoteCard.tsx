@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { CATEGORY_CONFIG } from '@/constants/notes';
 import {
   Dialog,
   DialogContent,
@@ -73,7 +74,7 @@ export function NoteCard({ note, onEdit, onDelete, onToggleCompleted }: NoteCard
     );
   }
 
-  const isTask = note.category !== 'notes';
+  const isTask = CATEGORY_CONFIG[note.category].allowsCheckbox;
 
   return (
     <>

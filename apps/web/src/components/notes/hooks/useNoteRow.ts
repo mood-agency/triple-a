@@ -7,6 +7,7 @@ import { useAutoSave } from '@/hooks/useAutoSave';
 import { useNoteFieldsStore } from '@/stores/useNoteFieldsStore';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
+import { CATEGORY_CONFIG } from '@/constants/notes';
 import { getCursorPosition, getFontString } from '@/utils/cursorUtils';
 
 /**
@@ -335,7 +336,7 @@ export function useNoteRow({
     }, [note.id, note.completed, onToggleCompleted]);
 
     const handleContentKeyDown = useCallback((e: React.KeyboardEvent) => {
-        if (e.key === 'd' && e.ctrlKey && note.category !== 'notes' && note.category !== 'meeting') {
+        if (e.key === 'd' && e.ctrlKey && CATEGORY_CONFIG[note.category].allowsCheckbox) {
             e.preventDefault();
             e.stopPropagation();
             const trimmed = contentValue.trim();

@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useRef, useEffect, useCallback, useMemo } from 'react';
+import { useActorRef, useSelector } from '@xstate/react';
 import type { Note, NoteCategory } from '@/types/note';
 import type { BlockNoteEditorHandle } from '@/components/ui/BlockNoteEditor';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useNoteFieldsStore } from '@/stores/useNoteFieldsStore';
-
-type FocusTarget = 'title' | 'description-start' | 'description-end' | null;
+import { selectionMachine, type FocusTarget } from './selectionMachine';
 
 interface UseNoteSelectionProps {
     selectedNote: Note | null;
@@ -17,65 +17,146 @@ export function useNoteSelection({
     onEdit,
     autoSaveInterval = 3,
 }: UseNoteSelectionProps) {
+    // --- DOM Refs (kept outside machine — not serializable state) ---
     const descriptionRef = useRef<BlockNoteEditorHandle>(null);
     const descriptionCaretPositionRef = useRef<number | null>(null);
 
-    const [focusTarget, setFocusTarget] = useState<FocusTarget>(null);
-    const focusTargetRef = useRef<FocusTarget>(null);
-    focusTargetRef.current = focusTarget;
-
-    const [desiredColumn, setDesiredColumn] = useState<number>(0);
-    const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
-    const [showDescriptionPanel, setShowDescriptionPanel] = useState(false);
-
-    // Read from Zustand store — keyed by note ID
+    // --- Zustand store selectors (shared across components, not owned by machine) ---
     const noteId = selectedNote?.id ?? null;
     const titleValue = useNoteFieldsStore(s => noteId ? s.notes[noteId]?.titleValue ?? '' : '');
     const descriptionValue = useNoteFieldsStore(s => noteId ? s.notes[noteId]?.descriptionValue ?? '' : '');
     const storeSetTitleValue = useNoteFieldsStore(s => s.setTitleValue);
     const storeSetDescriptionValue = useNoteFieldsStore(s => s.setDescriptionValue);
-    const selectNote = useNoteFieldsStore(s => s.selectNote);
+    const selectNoteInStore = useNoteFieldsStore(s => s.selectNote);
 
-    // Track if there's a pending local change (e.g., checkbox click in BlockNote)
+    // --- Unfocused save timer (side effect, kept outside machine) ---
     const hasLocalChangeRef = useRef(false);
-    // Timer for debounced save when editor is not focused
     const unfocusedSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Track the note ID to detect when we switch to a different note
-    const selectedNoteIdRef = useRef<string | null>(null);
+    // Stable refs for current props (used in machine actions via .provide())
+    const selectedNoteRef = useRef(selectedNote);
+    selectedNoteRef.current = selectedNote;
+    const onEditRef = useRef(onEdit);
+    onEditRef.current = onEdit;
 
-    // Flag to prevent the note-change useEffect from closing the description panel
-    // when Tab navigation explicitly requests it to open
-    const navigatingToDescriptionRef = useRef(false);
+    // --- XState Actor ---
+    const actorRef = useActorRef(
+        selectionMachine.provide({
+            actions: {
+                syncStoreOnNoteChange: ({ context }) => {
+                    hasLocalChangeRef.current = false;
+                    selectNoteInStore(context.note ? {
+                        id: context.note.id,
+                        content: context.note.content,
+                        description: context.note.description,
+                        deadline: context.note.deadline,
+                    } : null);
+                },
+                clearUnfocusedSaveTimer: () => {
+                    if (unfocusedSaveTimerRef.current) {
+                        clearTimeout(unfocusedSaveTimerRef.current);
+                        unfocusedSaveTimerRef.current = null;
+                    }
+                },
+            },
+        }),
+        { input: { note: selectedNote } }
+    );
 
-    // Bound setters that use the current noteId via ref (stable references)
+    // --- Fine-grained selectors from machine ---
+    const focusTarget = useSelector(actorRef, s => s.context.focusTarget);
+    const desiredColumn = useSelector(actorRef, s => s.context.desiredColumn);
+    const showDescriptionPanel = useSelector(actorRef, s => s.context.showDescriptionPanel);
+    const isDescriptionFocused = useSelector(actorRef, s => s.matches('editingDescription'));
+
+    // --- Bridge: selectedNote prop → machine events ---
+
+    // Track previous note ID to detect changes
+    const prevNoteIdRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        const newId = selectedNote?.id ?? null;
+        const idChanged = prevNoteIdRef.current !== newId;
+        prevNoteIdRef.current = newId;
+
+        if (idChanged) {
+            if (selectedNote) {
+                actorRef.send({ type: 'NOTE_SELECTED', note: selectedNote });
+            } else {
+                actorRef.send({ type: 'NOTE_DESELECTED' });
+            }
+        }
+    }, [selectedNote?.id, actorRef]);
+
+    // Bridge: selectedNote content/description changes → NOTE_CHANGED
+    useEffect(() => {
+        if (selectedNote && prevNoteIdRef.current === selectedNote.id) {
+            actorRef.send({ type: 'NOTE_CHANGED', note: selectedNote });
+        }
+    }, [selectedNote?.content, selectedNote?.description, actorRef]);
+
+    // --- Setter wrappers (same API as before, sending machine events internally) ---
+
     const setTitleValue = useCallback((value: string) => {
-        const id = selectedNoteIdRef.current;
+        const id = selectedNoteRef.current?.id;
         if (id) storeSetTitleValue(id, value);
     }, [storeSetTitleValue]);
 
-    // Wrapper to track local changes and trigger save when not focused
     const setDescriptionValue = useCallback((value: string) => {
-        const id = selectedNoteIdRef.current;
-        if (!id) return;
+        const note = selectedNoteRef.current;
+        if (!note) return;
         hasLocalChangeRef.current = true;
-        storeSetDescriptionValue(id, value);
+        storeSetDescriptionValue(note.id, value);
 
         // If editor is not focused (e.g., checkbox click), save after a short debounce
-        if (!isDescriptionFocused && selectedNote && onEdit) {
-            // Clear previous timer
+        const snapshot = actorRef.getSnapshot();
+        if (!snapshot.matches('editingDescription') && note && onEditRef.current) {
             if (unfocusedSaveTimerRef.current) {
                 clearTimeout(unfocusedSaveTimerRef.current);
             }
-            // Save after 300ms debounce
             unfocusedSaveTimerRef.current = setTimeout(() => {
-                onEdit(selectedNote.id, selectedNote.content, selectedNote.category, value || null);
+                const currentNote = selectedNoteRef.current;
+                if (currentNote && onEditRef.current) {
+                    onEditRef.current(currentNote.id, currentNote.content, currentNote.category, value || null);
+                }
                 unfocusedSaveTimerRef.current = null;
             }, 300);
         }
-    }, [isDescriptionFocused, selectedNote, onEdit, storeSetDescriptionValue]);
+    }, [storeSetDescriptionValue, actorRef]);
 
-    // Auto-save for description while editing (when focused)
+    const setFocusTarget = useCallback((target: FocusTarget) => {
+        if (target === 'title') {
+            // Use current desiredColumn from context
+            const col = actorRef.getSnapshot().context.desiredColumn;
+            actorRef.send({ type: 'FOCUS_TITLE', column: col });
+        } else if (target === 'description-start') {
+            actorRef.send({ type: 'TAB_PRESSED', desiredColumn: actorRef.getSnapshot().context.desiredColumn });
+        } else if (target === null) {
+            actorRef.send({ type: 'TITLE_FOCUSED' });
+        }
+        // 'description-end' is only used internally via focus target effect
+    }, [actorRef]);
+
+    const setDesiredColumn = useCallback((column: number) => {
+        actorRef.send({ type: 'SET_DESIRED_COLUMN', column });
+    }, [actorRef]);
+
+    const setIsDescriptionFocused = useCallback((focused: boolean) => {
+        if (focused) {
+            actorRef.send({ type: 'DESCRIPTION_FOCUSED' });
+        } else {
+            actorRef.send({ type: 'DESCRIPTION_BLURRED' });
+        }
+    }, [actorRef]);
+
+    const setShowDescriptionPanel = useCallback((show: boolean) => {
+        if (!show) {
+            actorRef.send({ type: 'ESCAPE_PRESSED' });
+        }
+        // show=true is handled via handleNavigateToDescription (TAB_PRESSED)
+    }, [actorRef]);
+
+    // --- Auto-save for description while editing (when focused) ---
     const descriptionAutoSave = useAutoSave({
         value: descriptionValue,
         originalValue: selectedNote?.description || '',
@@ -89,8 +170,7 @@ export function useNoteSelection({
         enabled: isDescriptionFocused && !!selectedNote && !!onEdit && autoSaveInterval > 0,
     });
 
-
-    // Cleanup unfocused save timer on unmount
+    // --- Cleanup unfocused save timer on unmount ---
     useEffect(() => {
         return () => {
             if (unfocusedSaveTimerRef.current) {
@@ -99,42 +179,7 @@ export function useNoteSelection({
         };
     }, []);
 
-    // Sync store when switching notes
-    useEffect(() => {
-        const newNoteId = selectedNote?.id ?? null;
-        const noteIdChanged = selectedNoteIdRef.current !== newNoteId;
-        selectedNoteIdRef.current = newNoteId;
-
-        if (noteIdChanged) {
-            // Switching to a different note - reset store with new note data
-            if (unfocusedSaveTimerRef.current) {
-                clearTimeout(unfocusedSaveTimerRef.current);
-                unfocusedSaveTimerRef.current = null;
-            }
-            hasLocalChangeRef.current = false;
-            selectNote(selectedNote ? {
-                id: selectedNote.id,
-                content: selectedNote.content,
-                description: selectedNote.description,
-                deadline: selectedNote.deadline,
-            } : null);
-            // Only close the panel if Tab navigation didn't explicitly request it to open
-            if (navigatingToDescriptionRef.current) {
-                navigatingToDescriptionRef.current = false;
-            } else {
-                setShowDescriptionPanel(false);
-            }
-        }
-        // NOTE: We removed the automatic sync of titleValue when content changes for the same note.
-        // This was causing issues when Tab navigation sets titleValue from the event
-        // (with the new content) but then this effect overwrote it with the old selectedNote.content
-        // before the save completed. Now titleValue is only set via:
-        // 1. Note ID change (above via selectNote)
-        // 2. Event handler in NotesWorkspace (editor:navigateToDescription)
-        // 3. Manual calls to setTitleValue
-    }, [selectedNote?.id, selectedNote?.description, selectedNote?.content, selectNote]);
-
-    // Handle Focus Target
+    // --- Handle Focus Target (DOM side-effect — reads machine context) ---
     useEffect(() => {
         if (!focusTarget || !selectedNote) return;
 
@@ -144,12 +189,10 @@ export function useNoteSelection({
                 if (descriptionRef.current) {
                     const value = descriptionValue;
                     if (focusTarget === 'description-start') {
-                        // Use desired column on first line
                         const firstLineLength = value.indexOf('\n') === -1 ? value.length : value.indexOf('\n');
                         const pos = Math.min(desiredColumn, firstLineLength);
                         descriptionRef.current.setCursorPosition(pos);
                     } else {
-                        // Use desired column on last line
                         const lines = value.split('\n');
                         const lastLineLength = lines[lines.length - 1].length;
                         const lastLineStart = value.length - lastLineLength;
@@ -157,34 +200,30 @@ export function useNoteSelection({
                         descriptionRef.current.setCursorPosition(pos);
                     }
                 }
-                setFocusTarget(null);
+                // Clear focusTarget after applying focus
+                actorRef.send({ type: 'CLEAR_FOCUS_TARGET' });
             }, 0);
         }
-        // 'title' is handled via prop shouldFocusTitle in NoteRow (or MemoizedNoteRow)
-    }, [focusTarget, selectedNote?.id, desiredColumn, descriptionValue]);
+        // 'title' is handled via prop shouldFocusTitle in NoteRow
+    }, [focusTarget, selectedNote?.id, desiredColumn, descriptionValue, actorRef]);
+
+    // --- Stable callbacks ---
 
     const handleTitleFocused = useCallback(() => {
-        if (focusTargetRef.current === 'title') {
-            setFocusTarget(null);
-        }
-    }, []);
+        actorRef.send({ type: 'TITLE_FOCUSED' });
+    }, [actorRef]);
 
-    // Selection Helpers
     const handleNavigateToDescription = useCallback(() => {
-        navigatingToDescriptionRef.current = true;
-        setDesiredColumn(0);
-        setFocusTarget('description-start');
-        setShowDescriptionPanel(true);
-    }, []);
+        actorRef.send({ type: 'TAB_PRESSED', desiredColumn: 0 });
+    }, [actorRef]);
 
-    // Helper to get column position
+    // Pure helper (no state dependency)
     function getColumnPosition(text: string, cursorPos: number): number {
         const textBeforeCursor = text.substring(0, cursorPos);
         const lastNewline = textBeforeCursor.lastIndexOf('\n');
         return lastNewline === -1 ? cursorPos : cursorPos - lastNewline - 1;
     }
 
-    // Focus restoration helpers (for dropdowns)
     const restoreDescriptionCaret = useCallback(() => {
         if (descriptionCaretPositionRef.current !== null) {
             const position = descriptionCaretPositionRef.current;
@@ -196,6 +235,7 @@ export function useNoteSelection({
         }
     }, []);
 
+    // --- Return same shape as before ---
     return useMemo(() => ({
         descriptionRef,
         descriptionCaretPositionRef,
@@ -215,10 +255,11 @@ export function useNoteSelection({
         handleNavigateToDescription,
         getColumnPosition,
         restoreDescriptionCaret,
-        // Auto-save flush handler for description
         flushDescriptionAutoSave: descriptionAutoSave.handleBlur,
     }), [
-        focusTarget, desiredColumn, descriptionValue, setDescriptionValue, titleValue, setTitleValue, isDescriptionFocused, showDescriptionPanel,
-        handleTitleFocused, handleNavigateToDescription, restoreDescriptionCaret, descriptionAutoSave.handleBlur
+        focusTarget, desiredColumn, descriptionValue, setDescriptionValue, titleValue, setTitleValue,
+        isDescriptionFocused, showDescriptionPanel,
+        setFocusTarget, setDesiredColumn, setIsDescriptionFocused, setShowDescriptionPanel,
+        handleTitleFocused, handleNavigateToDescription, restoreDescriptionCaret, descriptionAutoSave.handleBlur,
     ]);
 }

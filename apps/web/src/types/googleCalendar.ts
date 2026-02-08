@@ -33,6 +33,25 @@ export interface GCalEvent {
   };
   recurrence?: string[];
   recurringEventId?: string;
+  attendees?: Array<{
+    email: string;
+    displayName?: string;
+    responseStatus?: 'needsAction' | 'declined' | 'tentative' | 'accepted';
+    self?: boolean;
+    resource?: boolean;
+  }>;
+  conferenceData?: {
+    entryPoints?: Array<{
+      entryPointType: string;
+      uri: string;
+      label?: string;
+    }>;
+    conferenceSolution?: {
+      name: string;
+      iconUri?: string;
+    };
+  };
+  hangoutLink?: string;
 }
 
 /**

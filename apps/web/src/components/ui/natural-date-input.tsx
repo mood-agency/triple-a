@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { format } from 'date-fns';
-import { es, enUS } from 'date-fns/locale';
+import { es, enUS, ptBR } from 'date-fns/locale';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -30,7 +30,7 @@ export function NaturalDateInput({
 }: NaturalDateInputProps) {
   const { t, i18n } = useTranslation();
   const resolvedPlaceholder = placeholder ?? t('naturalDatePlaceholder');
-  const locale = i18n.language === 'es' ? es : enUS;
+  const locale = i18n.language === 'es' ? es : i18n.language === 'pt' ? ptBR : enUS;
 
   const [inputValue, setInputValue] = React.useState('');
   const [parsedDate, setParsedDate] = React.useState<Date | null>(null);

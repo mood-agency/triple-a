@@ -52,6 +52,25 @@ async function getNoteByGCalEventId(supabase, gcalEventId) {
   return data;
 }
 
+function extractMeetingLink(event) {
+  if (event.conferenceData?.entryPoints) {
+    const video = event.conferenceData.entryPoints.find(ep => ep.entryPointType === 'video');
+    if (video?.uri) return video.uri;
+  }
+  return event.hangoutLink || null;
+}
+
+function extractAttendees(event) {
+  if (!Array.isArray(event.attendees)) return null;
+  return event.attendees
+    .filter(a => !a.resource)
+    .map(a => ({
+      email: a.email,
+      displayName: a.displayName || null,
+      responseStatus: a.responseStatus || 'needsAction',
+    }));
+}
+
 async function createNoteFromEvent(supabase, userId, event, projectId) {
   const isAllDay = !event.start.dateTime;
   const deadline = isAllDay
@@ -75,6 +94,10 @@ async function createNoteFromEvent(supabase, userId, event, projectId) {
       project_id: projectId,
       gcal_event_id: event.id,
       is_all_day: isAllDay,
+      meeting_link: extractMeetingLink(event),
+      location: event.location || null,
+      meeting_attendees: extractAttendees(event),
+      gcal_html_link: event.htmlLink || null,
     })
     .select('id')
     .single();
@@ -96,6 +119,10 @@ async function updateNoteFromEvent(supabase, noteId, event, projectId) {
     category: 'meeting',
     gcal_event_id: event.id,
     is_all_day: isAllDay,
+    meeting_link: extractMeetingLink(event),
+    location: event.location || null,
+    meeting_attendees: extractAttendees(event),
+    gcal_html_link: event.htmlLink || null,
   };
 
   if (projectId !== null) {
@@ -199,10 +226,10 @@ export async function syncUserCalendar(supabaseAdmin, userId) {
     errors: [],
   };
 
-  // 1. Check if sync is enabled for this user
+  // 1. Check if sync is enabled and get calendars_to_sync
   const { data: config } = await supabaseAdmin
     .from('google_calendar_config')
-    .select('enabled')
+    .select('enabled, calendars_to_sync')
     .eq('user_id', userId)
     .single();
 
@@ -211,33 +238,69 @@ export async function syncUserCalendar(supabaseAdmin, userId) {
     return result;
   }
 
-  // 2. Get projects with calendar sync configured
+  // 2. Build the list of calendars to sync.
+  //    Sources: project-level links (gcal_calendar_id) + config-level (calendars_to_sync).
   const projects = await getProjectsWithCalendarSync(supabaseAdmin, userId);
-  if (projects.length === 0) {
-    result.errors.push('No projects configured with calendar sync');
+  const configCalendars = config.calendars_to_sync || [];
+
+  // Collect all calendar entries: { calendarId, accountId, projectId }
+  const calendarEntries = [];
+  const seenCalendarIds = new Set();
+
+  // From project links
+  for (const project of projects) {
+    calendarEntries.push({
+      calendarId: project.gcal_calendar_id,
+      accountId: project.gcal_account_id || null,
+      projectId: project.id,
+    });
+    seenCalendarIds.add(project.gcal_calendar_id);
+  }
+
+  // From config.calendars_to_sync (calendars selected in UI but not linked to any project)
+  for (const calId of configCalendars) {
+    if (!seenCalendarIds.has(calId)) {
+      calendarEntries.push({
+        calendarId: calId,
+        accountId: null,
+        projectId: null,
+      });
+      seenCalendarIds.add(calId);
+    }
+  }
+
+  if (calendarEntries.length === 0) {
+    result.errors.push('No calendars configured for sync');
     return result;
   }
 
-  // 3. Get existing event mappings
+  // 3. Get user's connected accounts (for token resolution)
+  const { data: accounts } = await supabaseAdmin
+    .from('google_calendar_accounts')
+    .select('id, access_token, token_expires_at, refresh_token')
+    .eq('user_id', userId);
+
+  // 4. Get existing event mappings
   const mappings = await getEventMappings(supabaseAdmin, userId);
   const mappingByGCalId = new Map(mappings.map((m) => [m.gcal_event_id, m]));
   const seenEventIds = new Set();
 
-  // 4. For each project, fetch and process events
-  for (const project of projects) {
-    const calendarId = project.gcal_calendar_id;
-    const accountId = project.gcal_account_id;
+  // 5. For each calendar, fetch and process events
+  for (const entry of calendarEntries) {
+    const { calendarId, accountId, projectId } = entry;
 
-    // Get access token (multi-account or legacy)
+    // Get access token: specific account > first available account > legacy tokens
     let tokenResult;
     if (accountId) {
       tokenResult = await getAccessTokenForAccount(supabaseAdmin, accountId, userId);
+    } else if (accounts && accounts.length > 0) {
+      tokenResult = await getAccessTokenForAccount(supabaseAdmin, accounts[0].id, userId);
     } else {
       tokenResult = await getGoogleAccessToken(supabaseAdmin, userId);
     }
 
     if (tokenResult.error) {
-      result.errors.push(`Token error for project "${project.name}": ${tokenResult.error}`);
+      result.errors.push(`Token error for calendar "${calendarId}": ${tokenResult.error}`);
       continue;
     }
 
@@ -248,11 +311,11 @@ export async function syncUserCalendar(supabaseAdmin, userId) {
     );
 
     if (fetchError) {
-      result.errors.push(`Error syncing calendar for project "${project.name}": ${fetchError}`);
+      result.errors.push(`Error syncing calendar "${calendarId}": ${fetchError}`);
       continue;
     }
 
-    // 5. Process each event
+    // 6. Process each event
     for (const event of events) {
       if (seenEventIds.has(event.id)) continue;
       seenEventIds.add(event.id);
@@ -264,7 +327,7 @@ export async function syncUserCalendar(supabaseAdmin, userId) {
         if (existingMapping) {
           // Mapping exists — check if etag changed
           if (existingMapping.etag !== event.etag) {
-            await updateNoteFromEvent(supabaseAdmin, existingMapping.local_note_id, event, project.id);
+            await updateNoteFromEvent(supabaseAdmin, existingMapping.local_note_id, event, projectId);
             await saveEventMapping(supabaseAdmin, {
               ...existingMapping,
               etag: event.etag,
@@ -275,7 +338,7 @@ export async function syncUserCalendar(supabaseAdmin, userId) {
           }
         } else if (existingNote) {
           // Note exists but no mapping — create mapping
-          await updateNoteFromEvent(supabaseAdmin, existingNote.id, event, project.id);
+          await updateNoteFromEvent(supabaseAdmin, existingNote.id, event, projectId);
           await saveEventMapping(supabaseAdmin, {
             user_id: userId,
             gcal_event_id: event.id,
@@ -288,7 +351,7 @@ export async function syncUserCalendar(supabaseAdmin, userId) {
           result.eventsUpdated++;
         } else {
           // New event — create note and mapping
-          const noteId = await createNoteFromEvent(supabaseAdmin, userId, event, project.id);
+          const noteId = await createNoteFromEvent(supabaseAdmin, userId, event, projectId);
           await saveEventMapping(supabaseAdmin, {
             user_id: userId,
             gcal_event_id: event.id,
@@ -306,7 +369,7 @@ export async function syncUserCalendar(supabaseAdmin, userId) {
     }
   }
 
-  // 6. Handle deleted events — mappings not seen in fetched events
+  // 7. Handle deleted events — mappings not seen in fetched events
   for (const mapping of mappings) {
     if (!seenEventIds.has(mapping.gcal_event_id)) {
       try {
@@ -319,7 +382,7 @@ export async function syncUserCalendar(supabaseAdmin, userId) {
     }
   }
 
-  // 7. Update last_sync_at
+  // 8. Update last_sync_at
   await supabaseAdmin
     .from('google_calendar_config')
     .update({

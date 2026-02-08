@@ -27,8 +27,9 @@ interface UseNoteBlockProcessingParams {
   callbacks: NoteBlockProcessingCallbacks;
   /** DOM fallback for content extraction (BlockNoteNoteList-specific) */
   getBlockContentFromDOM?: (blockId: string) => string;
-  /** Ref to set during internal saves to prevent sync loops (BlockNoteNoteList-specific) */
-  isSavingInternallyRef?: React.MutableRefObject<boolean>;
+  /** Callback invoked when a save is triggered, with noteId and cleaned content.
+   *  The caller uses this to send SAVE_STARTED to the editorSyncMachine. */
+  onSaveStarted?: (noteId: string, content: string) => void;
 }
 
 /**
@@ -41,7 +42,7 @@ export function useNoteBlockProcessing({
   editor,
   callbacks,
   getBlockContentFromDOM,
-  isSavingInternallyRef,
+  onSaveStarted,
 }: UseNoteBlockProcessingParams) {
   const { labels } = useLabels();
   const { contacts } = useContacts();
@@ -86,11 +87,7 @@ export function useNoteBlockProcessing({
 
     // 3. Save note if content or category changed (via callback)
     if (parsed.cleanedContent !== note.content || finalCategory !== note.category) {
-      if (isSavingInternallyRef) {
-        isSavingInternallyRef.current = true;
-        setTimeout(() => { isSavingInternallyRef.current = false; }, 500);
-      }
-
+      onSaveStarted?.(note.id, parsed.cleanedContent);
       callbacks.onEdit?.(note.id, parsed.cleanedContent, finalCategory, note.description);
     }
 
@@ -118,7 +115,7 @@ export function useNoteBlockProcessing({
     }
 
     return { finalCategory, labelIds, parsedAssigneeId: parsed.assigneeId, parsed };
-  }, [notes, editor, labels, contacts, noteLabelsCache, getBlockContentFromDOM, isSavingInternallyRef, callbacks]);
+  }, [notes, editor, labels, contacts, noteLabelsCache, getBlockContentFromDOM, onSaveStarted, callbacks]);
 
   /**
    * Batch processing: iterate all notepad blocks, parse changed ones, emit single saveSuccess.

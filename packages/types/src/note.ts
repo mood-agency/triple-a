@@ -4,6 +4,12 @@ export type SyncStatus = 'local' | 'pending' | 'synced' | 'conflict';
 
 export type ChangelogActionType = 'created' | 'edit' | 'postponed' | 'completed' | 'uncompleted';
 
+export interface MeetingAttendee {
+  email: string;
+  displayName?: string | null;
+  responseStatus?: 'needsAction' | 'declined' | 'tentative' | 'accepted';
+}
+
 export interface Note {
   id: string;
   date: string;
@@ -30,6 +36,11 @@ export interface Note {
   last_synced_at?: string | null;
   // Google Calendar sync field
   gcal_event_id?: string | null;
+  // Google Calendar meeting metadata (read-only, populated by sync)
+  meeting_link?: string | null;
+  location?: string | null;
+  meeting_attendees?: MeetingAttendee[] | null;
+  gcal_html_link?: string | null;
   // Public sharing fields
   is_public: boolean;
   public_slug: string | null;

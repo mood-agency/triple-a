@@ -15,6 +15,7 @@ import type { AIProviderConfig } from '@/hooks/useSettings';
 import type { Note } from '@/types/note';
 import type { Contact } from '@/types/contact';
 import { formatLocalDate, parseLocalDate } from '@/utils/dateUtils';
+import { CATEGORY_CONFIG } from '@/constants/notes';
 
 interface AISummaryDialogProps {
   open: boolean;
@@ -39,7 +40,7 @@ function formatTasksForAI(
       parts.push(`${index + 1}. ${note.content}`);
 
       // Category
-      if (note.category !== 'notes') {
+      if (CATEGORY_CONFIG[note.category].showCategoryInAISummary) {
         const categoryLabel = t(`categories.${note.category}`);
         parts.push(`   Tipo: ${categoryLabel}`);
       }

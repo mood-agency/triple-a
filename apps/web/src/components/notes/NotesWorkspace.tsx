@@ -40,6 +40,7 @@ import { NoteEditorPanel } from './NoteEditorPanel';
 import { PostponeDialog } from './PostponeDialog';
 import { DeleteTaskDialog } from './DeleteTaskDialog';
 import { useNoteFilters } from './hooks/useNoteFilters';
+import { getNoteCreationDefaults } from '@/utils/noteCreationDefaults';
 import { useNoteSelection } from './hooks/useNoteSelection';
 import { useNoteOperations } from './hooks/useNoteOperations';
 import { NoteListToolbar } from './NoteListToolbar';
@@ -78,6 +79,7 @@ interface NotesWorkspaceProps {
   onNavigateToEditor?: (column: number) => void;
   onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[], assigneeId?: string | null, newNoteId?: string) => Promise<Note>;
   onCreateTask?: () => void;
+  loading?: boolean;
   // External filter control (from CommandPalette)
   externalLabelFilter?: string[];
   externalCategoryFilter?: NoteCategory | 'all';
@@ -104,7 +106,7 @@ interface NotesWorkspaceProps {
   sidebarTrigger?: React.ReactNode;
 }
 
-export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspaceProps>(function NotesWorkspace({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onAddAssignee, onRemoveAssignee, onUpdateAssignee, onReorderNotes, onPostponeNote, onTogglePublic, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, externalSortConfig, onSortConfigChange, externalTaskStatusFilter, onTaskStatusFilterChange, externalShowOverdueOnly, onShowOverdueOnlyChange, externalShowPublicOnly, onShowPublicOnlyChange, sidebarTrigger }, ref) {
+export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspaceProps>(function NotesWorkspace({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onAddAssignee, onRemoveAssignee, onUpdateAssignee, onReorderNotes, onPostponeNote, onTogglePublic, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, loading, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, externalSortConfig, onSortConfigChange, externalTaskStatusFilter, onTaskStatusFilterChange, externalShowOverdueOnly, onShowOverdueOnlyChange, externalShowPublicOnly, onShowPublicOnlyChange, sidebarTrigger }, ref) {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { contacts } = useContacts();
@@ -292,21 +294,26 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
 
   // Auto-create empty note when no active notes exist (notepad behavior - always have a caret ready)
   const autoCreateInProgressRef = useRef(false);
+  const onCreateTaskRef = useRef(onCreateTask);
+  onCreateTaskRef.current = onCreateTask;
 
   useEffect(() => {
+    // Don't auto-create while data is still loading (notes may be temporarily empty)
+    if (loading) return;
+
     const hasActiveNotes = notes.some(n => !n.completed);
     if (hasActiveNotes) {
       autoCreateInProgressRef.current = false;
       return;
     }
 
-    if (autoCreateInProgressRef.current || !onCreateTask) return;
+    if (autoCreateInProgressRef.current || !onCreateTaskRef.current) return;
 
     autoCreateInProgressRef.current = true;
-    onCreateTask();
+    onCreateTaskRef.current();
     selection.setDesiredColumn(0);
     selection.setFocusTarget('title');
-  }, [notes, onCreateTask, selection]);
+  }, [notes, loading, selection]);
 
   // Track previous filter values to detect changes and auto-select first task
   // Note: searchQuery is excluded - user should press Down arrow after typing to navigate to results
@@ -388,6 +395,13 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
     }
   }, [isCommandPaletteOpen, filters.activeNotesRef, onSelectNote, selection]);
 
+  const noteCreationDefaults = useMemo(() => getNoteCreationDefaults({
+    categoryFilter: filters.categoryFilter,
+    labelFilter: filters.labelFilter,
+    assigneeFilter: filters.assigneeFilter,
+    dateRangeFilter: filters.dateRangeFilter,
+  }), [filters.categoryFilter, filters.labelFilter, filters.assigneeFilter, filters.dateRangeFilter]);
+
   const operations = useNoteOperations({
     filteredNotesRef: filters.filteredNotesRef,
     activeNotesRef: filters.activeNotesRef,
@@ -401,8 +415,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
     onCreateNoteAfter,
     viewMode: filters.viewMode,
     calendarSelectedDate: filters.calendarSelectedDate,
-    labelFilter: filters.labelFilter,
-    assigneeFilter: filters.assigneeFilter,
+    noteCreationDefaults,
   });
 
   // --- UI State ---
@@ -992,6 +1005,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
                 compactTaskView={compactTaskView}
                 setCompactTaskView={setCompactTaskView}
                 activeNotes={filters.viewMode === 'calendar' ? filters.calendarFilteredNotes : filters.activeNotes}
+                noteLabelsCache={noteLabelsCache}
                 searchQuery={filters.searchQuery}
                 setSearchQuery={filters.setSearchQuery}
                 searchInputRef={searchInputRef}
@@ -1096,6 +1110,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
             onClearPublic={handleClearPublic}
             onClearAllFilters={handleClearAllFilters}
             autoSaveInterval={settings.autoSaveInterval}
+            noteCreationDefaults={noteCreationDefaults}
           />
 
           <AnimatePresence>
@@ -1195,7 +1210,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
                   duration: 0.25,
                   ease: [0.16, 1, 0.3, 1],
                 }}
-                className="ml-auto -my-4 -mr-4 w-[calc(35%+1rem)]"
+                className="ml-auto -my-4 -mr-4 w-[calc(33%+1rem)]"
               >
                 <div className="w-full min-w-[400px] h-full flex flex-col rounded-l-xl border border-r-0 border-muted-foreground/20 bg-muted/30 overflow-y-auto p-4">
                   <NoteEditorPanel

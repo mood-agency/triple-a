@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import type { Note, NoteCategory } from '@/types/note';
+import type { NoteCreationDefaults } from '@/utils/noteCreationDefaults';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
@@ -16,8 +17,7 @@ interface UseNoteOperationsProps {
     onCreateNoteAfter?: (afterNoteId: string, category: NoteCategory, deadline?: string | null, labelIds?: string[], assigneeId?: string | null, newNoteId?: string) => Promise<Note>;
     viewMode: 'list' | 'calendar';
     calendarSelectedDate?: Date;
-    labelFilter: string[];
-    assigneeFilter: string[];
+    noteCreationDefaults: NoteCreationDefaults;
 }
 
 export function useNoteOperations({
@@ -33,8 +33,7 @@ export function useNoteOperations({
     onCreateNoteAfter,
     viewMode,
     calendarSelectedDate,
-    labelFilter,
-    assigneeFilter
+    noteCreationDefaults,
 }: UseNoteOperationsProps) {
     const { t } = useTranslation();
 
@@ -150,8 +149,11 @@ export function useNoteOperations({
         const afterNote = currentFilteredNotes.find((n) => n.id === noteId);
         if (!afterNote) return;
 
-        // In calendar mode, inherit the deadline from the note we're creating after
-        let deadline: string | undefined;
+        // Use filter-based defaults for category, labels, and assignee
+        const { category, labelIds, assigneeId } = noteCreationDefaults;
+
+        // In calendar mode, override deadline with calendar-specific logic
+        let deadline: string | null = noteCreationDefaults.deadline;
         if (viewMode === 'calendar' && calendarSelectedDate) {
             if (afterNote.deadline) {
                 // Use the original note's deadline (preserves time component)
@@ -165,10 +167,7 @@ export function useNoteOperations({
             }
         }
 
-        // Pass filters so new task is visible with current filters
-        // If exactly one assignee in filter, use it so the task appears
-        const assigneeId = assigneeFilter.length === 1 ? assigneeFilter[0] : null;
-        const newNoteOrId = await onCreateNoteAfter(noteId, afterNote.category, deadline, labelFilter, assigneeId);
+        const newNoteOrId = await onCreateNoteAfter(noteId, category, deadline, labelIds, assigneeId);
         if (newNoteOrId) {
             const newNote: Note = typeof newNoteOrId === 'string'
                 ? { id: newNoteOrId } as unknown as Note
@@ -177,7 +176,7 @@ export function useNoteOperations({
             setDesiredColumn(0);
             setFocusTarget('title');
         }
-    }, [onCreateNoteAfter, onSelectNote, viewMode, calendarSelectedDate, labelFilter, assigneeFilter, filteredNotesRef, setDesiredColumn, setFocusTarget]);
+    }, [onCreateNoteAfter, onSelectNote, viewMode, calendarSelectedDate, noteCreationDefaults, filteredNotesRef, setDesiredColumn, setFocusTarget]);
 
     // Handler to create a task at a specific hour in timeline view
     const handleCreateTaskAtTime = useCallback((hour: number) => {
@@ -195,10 +194,9 @@ export function useNoteOperations({
         const lastNote = currentFilteredNotes[currentFilteredNotes.length - 1];
         const afterNoteId = lastNote?.id ?? '';
 
-        // Create task with 'todo' category and the specific time deadline
-        // If exactly one assignee in filter, use it so the task appears
-        const assigneeId = assigneeFilter.length === 1 ? assigneeFilter[0] : null;
-        const result = onCreateNoteAfter(afterNoteId, 'todo', deadline, labelFilter, assigneeId);
+        // Use filter-based defaults for category, labels, and assignee
+        const { category, labelIds, assigneeId } = noteCreationDefaults;
+        const result = onCreateNoteAfter(afterNoteId, category, deadline, labelIds, assigneeId);
         Promise.resolve(result).then((newNoteOrId) => {
             if (newNoteOrId) {
                 const newNote: Note = typeof newNoteOrId === 'string'
@@ -209,7 +207,7 @@ export function useNoteOperations({
                 setFocusTarget('title');
             }
         });
-    }, [onCreateNoteAfter, onSelectNote, calendarSelectedDate, labelFilter, assigneeFilter, filteredNotesRef, setDesiredColumn, setFocusTarget]);
+    }, [onCreateNoteAfter, onSelectNote, calendarSelectedDate, noteCreationDefaults, filteredNotesRef, setDesiredColumn, setFocusTarget]);
 
     const handleNavigateDownById = useCallback((noteId: string, column: number): boolean => {
         const currentFilteredNotes = filteredNotesRef.current;

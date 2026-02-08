@@ -557,6 +557,15 @@
     "googleCalendarDisconnected": "Google Calendar desconectado",
     "saveProjectFirst": "Guarda el proyecto primero para conectar Google Calendar"
   },
+  "meeting": {
+    "joinMeeting": "Unirse a la reunión",
+    "viewInGoogleCalendar": "Ver en Google Calendar",
+    "attendees": "Asistentes",
+    "accepted": "Aceptó",
+    "declined": "Rechazó",
+    "tentative": "Quizás",
+    "needsAction": "Pendiente"
+  },
   "gcal": {
     "title": "Google Calendar",
     "settingsTitle": "Configuración de Calendario",

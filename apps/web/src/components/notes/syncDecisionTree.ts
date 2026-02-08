@@ -14,8 +14,8 @@ export interface SyncDecisionInput {
   previousNoteIds: string[];
   /** IDs of blocks currently in the BlockNote editor document */
   editorBlockIds: string[];
-  /** Whether an internal save is in progress (isSavingInternallyRef) */
-  isSavingInternally: boolean;
+  /** Note IDs with pending saves awaiting echo (per-note tracking via editorSyncMachine) */
+  pendingSaveNoteIds: string[];
   /** Whether the ProseMirror editor currently has DOM focus */
   editorHasFocus: boolean;
 }
@@ -45,12 +45,20 @@ const NO_SYNC: SyncDecision = {
   orderChanged: false,
 };
 
+/**
+ * Returns note IDs whose position changed between previous and current arrays.
+ * Used to distinguish "our echo reordered notes" from "user applied a real sort".
+ */
+export function findMovedNoteIds(current: string[], previous: string[]): string[] {
+  return current.filter((id, i) => previous[i] !== id);
+}
+
 export function computeSyncDecision(input: SyncDecisionInput): SyncDecision {
   const {
     currentNoteIds,
     previousNoteIds,
     editorBlockIds,
-    isSavingInternally,
+    pendingSaveNoteIds,
     editorHasFocus,
   } = input;
 
@@ -87,13 +95,18 @@ export function computeSyncDecision(input: SyncDecisionInput): SyncDecision {
 
   // ── Order changed ──────────────────────────────────────────────────
   // Same set of notes, different order (user applied sort).
-  // Guarded by isSavingInternally (prevents echo from our own save changing updated_at)
-  // and editorHasFocus (prevents realtime updated_at echoes during editing).
+  // Per-note guard: if ALL notes that moved have pending saves, the reorder
+  // is from our own updated_at echo — suppress sync. If any moved note has
+  // NO pending save, it's a real user sort — allow sync.
+  // Also guarded by editorHasFocus (prevents realtime echoes during editing).
+  const movedNoteIds = findMovedNoteIds(currentNoteIds, previousNoteIds);
+  const allMovedHavePendingSaves = movedNoteIds.length > 0 &&
+    movedNoteIds.every(id => pendingSaveNoteIds.includes(id));
   const orderChanged =
     removedIds.length === 0 &&
     previousIdSet.size === currentIdSet.size &&
     previousIdSet.size > 0 &&
-    !isSavingInternally &&
+    !allMovedHavePendingSaves &&
     !editorHasFocus;
 
   const shouldSync = notesWereFiltered || notesWereAdded || isInitialLoad || orderChanged;
