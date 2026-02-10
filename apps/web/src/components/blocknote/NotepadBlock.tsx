@@ -3,7 +3,7 @@ import { createReactBlockSpec } from "@blocknote/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBlockCommands } from "./hooks/useBlockCommands";
 import { Pickaxe, Users, Forward, StickyNote, Pin, SidebarClose, Trash2, Calendar } from "lucide-react";
-import { parseLocalDate, formatRelativeDateEnhanced, getEffectiveDeadline, getDateTranslations } from "@/utils/dateUtils";
+import { parseLocalDate, formatRelativeDateEnhanced, getEffectiveDeadline, getDateTranslations, startOfDay } from "@/utils/dateUtils";
 import { useTranslation } from "react-i18next";
 import { LazyTooltip } from "@/components/ui/lazy-tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -233,6 +233,7 @@ export const NotepadBlock = (createReactBlockSpec as any)(
 
             // Check if deadline has passed (all-day tasks use end-of-day)
             const isPastDeadline = dateStr ? getEffectiveDeadline(dateStr, blockIsAllDay) < new Date() : false;
+            const isToday = dateStr ? startOfDay(parseLocalDate(dateStr)).getTime() === startOfDay(new Date()).getTime() : false;
             const catConfig = CATEGORY_CONFIG[category];
             const shouldShowRed = isPastDeadline && !isChecked && catConfig.showsOverdueRed;
             const allowsCheckbox = catConfig.allowsCheckbox;
@@ -281,7 +282,7 @@ export const NotepadBlock = (createReactBlockSpec as any)(
                         {dateStr && !hideDate && (
                             <LazyTooltip content={formatHumanFriendlyDate(dateStr)} delayDuration={300}>
                                 <span
-                                    className={`chip-deadline cursor-pointer ${shouldShowRed ? 'chip-deadline-overdue' : ''}`}
+                                    className={`chip-deadline cursor-pointer ${shouldShowRed ? 'chip-deadline-overdue' : isToday ? 'chip-deadline-today' : ''}`}
                                     style={{ userSelect: "none" }}
                                 >
                                     {formatDeadline(dateStr)}

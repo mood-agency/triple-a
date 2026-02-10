@@ -23,6 +23,9 @@ import type { Note, NoteCategory, Label, NoteVersion, NoteAction } from '@/types
 import type { Contact } from '@/types/contact';
 import { parseLocalDate, formatRelativeDateEnhanced, getDateTranslations } from '@/utils/dateUtils';
 import { AIAssistantDialog } from './AIAssistantDialog';
+import { CommentThread } from '@/components/comments/CommentThread';
+import { CommentInput } from '@/components/comments/CommentInput';
+import type { NoteCommentThread } from '@triple-a/types';
 import { ShareDialog } from './ShareDialog';
 import type { AIProviderConfig } from '@/hooks/useSettings';
 import { useRegisterNavigationRegion, type RegionHandler, type FocusRestorationContext, type ItemSaveData } from './navigation';
@@ -81,6 +84,13 @@ interface NoteEditorPanelProps {
   isFixedInSidebar?: boolean;
   /** Navigation region for mediator integration ('editor' for main panel, 'sidebar' for fixed sidebar) */
   navigationRegion?: 'editor' | 'sidebar';
+  // Comments
+  commentThreads?: NoteCommentThread[];
+  onAddComment?: (content: string) => void;
+  onReplyToThread?: (threadId: string, content: string) => void;
+  onEditComment?: (commentId: string, content: string) => void;
+  onDeleteComment?: (commentId: string) => void;
+  onResolveThread?: (threadId: string, resolved: boolean) => void;
 }
 
 // Helper to parse description preview from BlockNote JSON or plain text
@@ -152,6 +162,12 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   onToggleFixInSidebar,
   isFixedInSidebar = false,
   navigationRegion,
+  commentThreads = [],
+  onAddComment,
+  onReplyToThread,
+  onEditComment,
+  onDeleteComment,
+  onResolveThread,
 }, ref) {
   const { t, i18n } = useTranslation();
   // Read from the store map by note ID — any panel showing the same task shares one entry
@@ -215,6 +231,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<BlockNoteEditorHandle | null>(null);
   const titleRef = useRef<EditableTitleHandle>(null);
+  const commentsScrollRef = useRef<HTMLDivElement>(null);
 
   // Reset isCompleting when note changes or completed state changes
   useEffect(() => {
@@ -424,6 +441,31 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   const handleNavigateUp = useCallback(() => {
     titleRef.current?.focus();
   }, []);
+
+  // Wrap onAddComment to auto-scroll to bottom after adding
+  const handleAddComment = useCallback((content: string) => {
+    onAddComment?.(content);
+    // Scroll to bottom after the new comment renders
+    setTimeout(() => {
+      const el = commentsScrollRef.current;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+    }, 100);
+  }, [onAddComment]);
+
+  // Auto-scroll comments when new threads/replies arrive
+  const prevCommentCountRef = useRef(commentThreads.reduce((sum, t) => sum + t.comments.length, 0));
+  useEffect(() => {
+    const totalComments = commentThreads.reduce((sum, t) => sum + t.comments.length, 0);
+    if (totalComments > prevCommentCountRef.current) {
+      const el = commentsScrollRef.current;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+    }
+    prevCommentCountRef.current = totalComments;
+  }, [commentThreads]);
 
   // Wrapped keydown handler - emits save before Escape navigation
   const handleDescriptionKeyDownInternal = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -917,6 +959,25 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
           />
         </div>
       </div>
+
+      {/* Comments section - always visible */}
+      {onAddComment && (
+        <div className="border-t border-muted-foreground/20 pt-3 mt-3 max-h-[30%] flex flex-col shrink-0">
+          <div ref={commentsScrollRef} className="space-y-3 overflow-y-auto">
+            {commentThreads.map((thread) => (
+              <CommentThread
+                key={thread.id}
+                thread={thread}
+                onReply={(content) => onReplyToThread?.(thread.id, content)}
+                onEdit={(commentId, content) => onEditComment?.(commentId, content)}
+                onDelete={(commentId) => onDeleteComment?.(commentId)}
+                onResolve={(resolved) => onResolveThread?.(thread.id, resolved)}
+              />
+            ))}
+            <CommentInput onSubmit={handleAddComment} autoFocus={false} />
+          </div>
+        </div>
+      )}
 
       {/* Footer: Version history */}
       {versions.length > 0 && (

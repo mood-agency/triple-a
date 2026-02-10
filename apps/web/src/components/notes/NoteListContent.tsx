@@ -205,10 +205,10 @@ export const NoteListContent = memo(function NoteListContent({
 
     return (
         <motion.div
-            initial={{ borderRightColor: "rgba(255, 255, 255, 0)" }}
-            animate={{ borderRightColor: "rgba(255, 255, 255, 0.08)" }}
+            initial={{ borderRightColor: "transparent" }}
+            animate={{ borderRightColor: "var(--color-border)" }}
             transition={{ duration: 5, ease: "linear" }}
-            className={`${isMobile ? 'w-full' : 'w-[calc(30%+1rem)] -ml-4 pl-4 pr-1 -mt-4 pt-4 -mb-4 pb-4'} ${!isMobile ? 'border-r' : ''} ${isMobile && selectedNote ? 'hidden' : ''} shrink-0 flex flex-col overflow-hidden bg-[#121212]`}
+            className={`${isMobile ? 'w-full' : 'w-[calc(30%+1rem)] -ml-4 pl-4 pr-1 -mt-4 pt-4 -mb-4 pb-4'} ${!isMobile ? 'border-r' : ''} ${isMobile && selectedNote ? 'hidden' : ''} shrink-0 flex flex-col overflow-hidden bg-background`}
         >
             {toolbar}
             <AnimatePresence>

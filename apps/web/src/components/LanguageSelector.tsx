@@ -1,20 +1,11 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Globe, Check } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Check } from 'lucide-react';
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const LANGUAGES = [
   { code: 'es', label: 'Español', flag: '🇪🇸' },
@@ -22,53 +13,42 @@ const LANGUAGES = [
   { code: 'pt', label: 'Português', flag: '🇧🇷' },
 ] as const;
 
-export function LanguageSelector() {
-  const { i18n } = useTranslation();
-  const [open, setOpen] = useState(false);
+interface LanguageSelectorProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
 
-  const currentLang = LANGUAGES.find(l => l.code === i18n.language) ?? LANGUAGES[0];
+export function LanguageSelector({ open, onOpenChange }: LanguageSelectorProps) {
+  const { i18n, t } = useTranslation();
 
   const selectLanguage = (code: string) => {
     i18n.changeLanguage(code);
     localStorage.setItem('app-language', code);
-    setOpen(false);
+    onOpenChange(false);
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-8 w-8 shadow-none"
-          aria-label={currentLang.label}
-        >
-          <Globe className="h-4 w-4" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-48 p-0" align="end">
-        <Command>
-          <CommandInput placeholder={`${currentLang.label}...`} className="h-8" />
-          <CommandList>
-            <CommandEmpty>—</CommandEmpty>
-            <CommandGroup>
-              {LANGUAGES.map(lang => (
-                <CommandItem
-                  key={lang.code}
-                  value={lang.label}
-                  onSelect={() => selectLanguage(lang.code)}
-                >
-                  <span className="mr-2">{lang.flag}</span>
-                  {lang.label}
-                  {i18n.language === lang.code && (
-                    <Check className="ml-auto h-4 w-4" />
-                  )}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle>{t('language', 'Language')}</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col gap-1">
+          {LANGUAGES.map(lang => (
+            <button
+              key={lang.code}
+              onClick={() => selectLanguage(lang.code)}
+              className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-accent transition-colors cursor-pointer"
+            >
+              <span className="text-lg">{lang.flag}</span>
+              <span className="flex-1 text-left">{lang.label}</span>
+              {i18n.language === lang.code && (
+                <Check className="h-4 w-4 text-primary" />
+              )}
+            </button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

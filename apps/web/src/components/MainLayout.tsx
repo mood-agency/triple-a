@@ -4,7 +4,6 @@ import { AppSidebar } from '@/components/AppSidebar';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { CommandPaletteProvider } from '@/contexts/CommandPaletteContext';
 import { OfflineBanner } from '@/components/OfflineBanner';
-import { LanguageSelector } from '@/components/LanguageSelector';
 import { useSettings } from '@/hooks/useSettings';
 
 // Helper to read the sidebar cookie
@@ -44,9 +43,6 @@ export function MainLayout() {
         <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <AppSidebar />
           <SidebarInset className="flex-1 flex flex-col py-4 px-4 relative">
-            <div className="absolute top-4 right-4 z-20">
-              <LanguageSelector />
-            </div>
             <div className="w-full flex flex-col flex-1 min-h-0">
               <Outlet context={{ sidebarTrigger: <SidebarTrigger variant="outline" className="h-8 w-8 shadow-none" /> }} />
             </div>

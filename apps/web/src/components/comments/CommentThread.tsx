@@ -60,7 +60,7 @@ export function CommentThread({
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <MessageSquare className="h-3.5 w-3.5" />
           <span>
-            {thread.comments.length} {thread.comments.length === 1 ? t('comment') : t('comments')}
+            {thread.comments.length} {thread.comments.length === 1 ? t('comments.comment') : t('comments.comments')}
           </span>
         </div>
         <Button
@@ -72,12 +72,12 @@ export function CommentThread({
           {thread.resolved ? (
             <>
               <X className="h-3 w-3 mr-1" />
-              {t('unresolve')}
+              {t('comments.unresolve')}
             </>
           ) : (
             <>
               <Check className="h-3 w-3 mr-1" />
-              {t('resolve')}
+              {t('comments.resolve')}
             </>
           )}
         </Button>
@@ -97,14 +97,14 @@ export function CommentThread({
                 />
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => handleEdit(comment.id)}>
-                    {t('save')}
+                    {t('comments.save')}
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => setEditingId(null)}
                   >
-                    {t('cancel')}
+                    {t('comments.cancel')}
                   </Button>
                 </div>
               </div>
@@ -135,14 +135,14 @@ export function CommentThread({
                         onClick={() => startEditing(comment.id, comment.content)}
                       >
                         <Pencil className="h-3.5 w-3.5 mr-2" />
-                        {t('edit')}
+                        {t('comments.edit')}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => onDelete(comment.id)}
                         className="text-destructive"
                       >
                         <Trash2 className="h-3.5 w-3.5 mr-2" />
-                        {t('delete')}
+                        {t('comments.delete')}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -159,13 +159,13 @@ export function CommentThread({
           <Textarea
             value={replyContent}
             onChange={(e) => setReplyContent(e.target.value)}
-            placeholder={t('writeReply')}
+            placeholder={t('comments.writeReply')}
             className="min-h-[60px] text-sm"
             autoFocus
           />
           <div className="flex gap-2">
             <Button size="sm" onClick={handleReply}>
-              {t('reply')}
+              {t('comments.reply')}
             </Button>
             <Button
               size="sm"
@@ -175,7 +175,7 @@ export function CommentThread({
                 setReplyContent('')
               }}
             >
-              {t('cancel')}
+              {t('comments.cancel')}
             </Button>
           </div>
         </div>
@@ -186,7 +186,7 @@ export function CommentThread({
           className="w-full text-xs text-muted-foreground"
           onClick={() => setIsReplying(true)}
         >
-          {t('addReply')}
+          {t('comments.addReply')}
         </Button>
       )}
     </div>

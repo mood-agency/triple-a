@@ -59,10 +59,10 @@ export function DatePicker({
   const [inputValue, setInputValue] = React.useState("")
   const [parsedDate, setParsedDate] = React.useState<Date | null>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
-  // All day checkbox - use external prop if available, otherwise infer from time component
+  // All day checkbox - default to true when no date, otherwise use external prop or infer from time
   const [isAllDay, setIsAllDay] = React.useState(() => {
-    if (externalIsAllDay !== undefined) return externalIsAllDay
     if (!date) return true
+    if (externalIsAllDay !== undefined) return externalIsAllDay
     return !hasTimeComponent(date.toISOString())
   })
 
@@ -98,9 +98,11 @@ export function DatePicker({
 
   // Update isAllDay when external prop or date changes
   React.useEffect(() => {
-    if (externalIsAllDay !== undefined) {
+    if (!date) {
+      setIsAllDay(true)
+    } else if (externalIsAllDay !== undefined) {
       setIsAllDay(externalIsAllDay)
-    } else if (date) {
+    } else {
       setIsAllDay(!hasTimeComponent(date.toISOString()))
     }
   }, [date, externalIsAllDay])

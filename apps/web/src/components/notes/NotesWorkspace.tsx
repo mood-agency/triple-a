@@ -36,6 +36,7 @@ import { useLabels } from '@/hooks/useLabels';
 import { useAssignees } from '@/hooks/useAssignees';
 import { useNoteVersionsAndActions } from '@/hooks/useNoteVersionsAndActions';
 import { useDeletedNotes } from '@/hooks/useDeletedNotes';
+import { useNoteComments } from '@/hooks/useNoteComments';
 import { NoteEditorPanel } from './NoteEditorPanel';
 import { PostponeDialog } from './PostponeDialog';
 import { DeleteTaskDialog } from './DeleteTaskDialog';
@@ -106,7 +107,7 @@ interface NotesWorkspaceProps {
   sidebarTrigger?: React.ReactNode;
 }
 
-export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspaceProps>(function NotesWorkspace({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onAddAssignee, onRemoveAssignee, onUpdateAssignee, onReorderNotes, onPostponeNote, onTogglePublic, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask, loading, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, externalSortConfig, onSortConfigChange, externalTaskStatusFilter, onTaskStatusFilterChange, externalShowOverdueOnly, onShowOverdueOnlyChange, externalShowPublicOnly, onShowPublicOnlyChange, sidebarTrigger }, ref) {
+export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspaceProps>(function NotesWorkspace({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onAddAssignee, onRemoveAssignee, onUpdateAssignee, onReorderNotes, onPostponeNote, onTogglePublic, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask: _onCreateTask, loading: _loading, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, externalSortConfig, onSortConfigChange, externalTaskStatusFilter, onTaskStatusFilterChange, externalShowOverdueOnly, onShowOverdueOnlyChange, externalShowPublicOnly, onShowPublicOnlyChange, sidebarTrigger }, ref) {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { contacts } = useContacts();
@@ -292,28 +293,6 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
     return () => window.removeEventListener('blur', handleWindowBlur);
   }, [navigationMediator]);
 
-  // Auto-create empty note when no active notes exist (notepad behavior - always have a caret ready)
-  const autoCreateInProgressRef = useRef(false);
-  const onCreateTaskRef = useRef(onCreateTask);
-  onCreateTaskRef.current = onCreateTask;
-
-  useEffect(() => {
-    // Don't auto-create while data is still loading (notes may be temporarily empty)
-    if (loading) return;
-
-    const hasActiveNotes = notes.some(n => !n.completed);
-    if (hasActiveNotes) {
-      autoCreateInProgressRef.current = false;
-      return;
-    }
-
-    if (autoCreateInProgressRef.current || !onCreateTaskRef.current) return;
-
-    autoCreateInProgressRef.current = true;
-    onCreateTaskRef.current();
-    selection.setDesiredColumn(0);
-    selection.setFocusTarget('title');
-  }, [notes, loading, selection]);
 
   // Track previous filter values to detect changes and auto-select first task
   // Note: searchQuery is excluded - user should press Down arrow after typing to navigate to results
@@ -517,6 +496,10 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
       useNoteFieldsStore.getState().setDescriptionValue(displayedNoteId, value);
     }
   }, [displayedNoteId]);
+
+  // Comments for selected note and fixed note
+  const selectedNoteComments = useNoteComments(selectedNote?.id ?? '');
+  const fixedNoteComments = useNoteComments(displayedNote?.id ?? '');
 
   // --- Effects & Handlers ---
   // Sync labels for selected note via store
@@ -1121,7 +1104,7 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                className={`${isMobile ? 'w-full' : 'w-[40%] -ml-4 pl-4 pr-4 -mt-4 pt-4 -mb-4 pb-4'} min-w-0 flex flex-col bg-[#151515]`}
+                className={`${isMobile ? 'w-full' : 'w-[40%] -ml-4 pl-4 pr-4 -mt-4 pt-4 -mb-4 pb-4'} min-w-0 flex flex-col bg-background`}
               >
                 {isMobile && (
                   <Button
@@ -1183,6 +1166,12 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
                   onToggleFixInSidebar={handleToggleFixInSidebarById}
                   isFixedInSidebar={fixedNoteId === selectedNote.id}
                   navigationRegion="editor"
+                  commentThreads={selectedNoteComments.threads}
+                  onAddComment={(content) => selectedNoteComments.addComment(content)}
+                  onReplyToThread={(threadId, content) => selectedNoteComments.addComment(content, null, threadId)}
+                  onEditComment={selectedNoteComments.updateComment}
+                  onDeleteComment={selectedNoteComments.deleteComment}
+                  onResolveThread={selectedNoteComments.resolveThread}
                 />
               </motion.div>
             )}
@@ -1262,6 +1251,12 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
                     onToggleFixInSidebar={handleToggleFixInSidebarById}
                     isFixedInSidebar={true}
                     navigationRegion="sidebar"
+                    commentThreads={fixedNoteComments.threads}
+                    onAddComment={(content) => fixedNoteComments.addComment(content)}
+                    onReplyToThread={(threadId, content) => fixedNoteComments.addComment(content, null, threadId)}
+                    onEditComment={fixedNoteComments.updateComment}
+                    onDeleteComment={fixedNoteComments.deleteComment}
+                    onResolveThread={fixedNoteComments.resolveThread}
                   />
                 </div>
               </motion.div>

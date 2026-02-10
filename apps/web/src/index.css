@@ -99,6 +99,10 @@
   @apply inline-flex items-center h-4 px-1.5 text-[10px] rounded-sm border border-border bg-background text-muted-foreground leading-none whitespace-nowrap flex-shrink-0 font-mono;
 }
 
+.chip-deadline-today {
+  @apply border-green-300 bg-green-50 text-green-600 dark:border-green-800 dark:bg-green-950 dark:text-green-400;
+}
+
 .chip-deadline-overdue {
   @apply border-red-300 bg-red-50 text-red-600 dark:border-red-800 dark:bg-red-950 dark:text-red-400;
 }

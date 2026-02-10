@@ -8,16 +8,18 @@ interface CommentInputProps {
   onSubmit: (content: string) => void
   placeholder?: string
   autoFocus?: boolean
+  defaultExpanded?: boolean
 }
 
 export function CommentInput({
   onSubmit,
   placeholder,
   autoFocus = false,
+  defaultExpanded = true,
 }: CommentInputProps) {
   const { t } = useTranslation()
   const [content, setContent] = useState('')
-  const [isExpanded, setIsExpanded] = useState(autoFocus)
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded || autoFocus)
 
   const handleSubmit = () => {
     if (content.trim()) {
@@ -46,7 +48,7 @@ export function CommentInput({
         onClick={() => setIsExpanded(true)}
       >
         <MessageSquarePlus className="h-4 w-4 mr-2" />
-        {t('addComment')}
+        {t('comments.addComment')}
       </Button>
     )
   }
@@ -57,13 +59,13 @@ export function CommentInput({
         value={content}
         onChange={(e) => setContent(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder={placeholder || t('writeComment')}
+        placeholder={placeholder || t('comments.writeComment')}
         className="min-h-[80px] text-sm"
         autoFocus
       />
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
-          {t('pressCtrlEnterToSubmit')}
+          {t('comments.pressCtrlEnterToSubmit')}
         </span>
         <div className="flex gap-2">
           <Button
@@ -74,10 +76,10 @@ export function CommentInput({
               setContent('')
             }}
           >
-            {t('cancel')}
+            {t('comments.cancel')}
           </Button>
           <Button size="sm" onClick={handleSubmit} disabled={!content.trim()}>
-            {t('comment')}
+            {t('comments.comment')}
           </Button>
         </div>
       </div>

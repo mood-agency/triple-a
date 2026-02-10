@@ -22,6 +22,7 @@ import { useSync } from '@/contexts/SyncContext';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { APIKeysDialog } from '@/components/settings/APIKeysDialog';
 import { AIProviderDialog } from '@/components/settings/AIProviderDialog';
+import { LanguageSelector } from '@/components/LanguageSelector';
 
 export function AppSidebar() {
   const { t, i18n } = useTranslation();
@@ -37,13 +38,8 @@ export function AppSidebar() {
   // AI Provider dialog state
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
 
-  const LANGUAGE_CYCLE = ['es', 'en', 'pt'] as const;
-  const toggleLanguage = () => {
-    const currentIndex = LANGUAGE_CYCLE.indexOf(i18n.language as typeof LANGUAGE_CYCLE[number]);
-    const newLang = LANGUAGE_CYCLE[(currentIndex + 1) % LANGUAGE_CYCLE.length];
-    i18n.changeLanguage(newLang);
-    localStorage.setItem('app-language', newLang);
-  };
+  // Language selector dialog state
+  const [languageDialogOpen, setLanguageDialogOpen] = useState(false);
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -130,7 +126,7 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border p-2">
         <SidebarMenu className="gap-0.5">
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={toggleLanguage} size="sm">
+            <SidebarMenuButton onClick={() => setLanguageDialogOpen(true)} size="sm">
               <Languages />
               <span>{t('language', 'Language')}: {i18n.language.toUpperCase()}</span>
             </SidebarMenuButton>
@@ -204,6 +200,9 @@ export function AppSidebar() {
 
       {/* AI Provider dialog */}
       <AIProviderDialog open={aiDialogOpen} onOpenChange={setAiDialogOpen} />
+
+      {/* Language selector dialog */}
+      <LanguageSelector open={languageDialogOpen} onOpenChange={setLanguageDialogOpen} />
     </Sidebar>
   );
 }

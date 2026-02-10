@@ -144,12 +144,52 @@ export function useNoteComments(noteId: string) {
           resolved: false,
           sync_status: 'synced',
         })
-        .select('id')
+        .select()
         .single()
 
       if (error) {
         console.error('[useNoteComments] Error adding comment:', error)
         return null
+      }
+
+      // Optimistic update: add the new comment to local state immediately
+      if (data) {
+        const newComment: NoteComment = {
+          id: data.id,
+          user_id: data.user_id,
+          note_id: data.note_id,
+          thread_id: data.thread_id,
+          content: data.content,
+          block_id: data.block_id,
+          resolved: data.resolved,
+          created_at: data.created_at,
+          updated_at: data.updated_at,
+          deleted_at: data.deleted_at,
+          remote_id: data.remote_id,
+          sync_status: data.sync_status,
+          last_synced_at: data.last_synced_at,
+        }
+
+        setComments(prev => [...prev, newComment])
+
+        // Update threads
+        setThreads(prev => {
+          if (threadId) {
+            // Reply: add to existing thread
+            return prev.map(t =>
+              t.id === threadId
+                ? { ...t, comments: [...t.comments, newComment] }
+                : t
+            )
+          }
+          // New root comment: create a new thread
+          return [...prev, {
+            id: newComment.id,
+            block_id: newComment.block_id,
+            comments: [newComment],
+            resolved: false,
+          }]
+        })
       }
 
       return data?.id || null
@@ -161,6 +201,15 @@ export function useNoteComments(noteId: string) {
     async (commentId: string, content: string) => {
       if (!supabase || !userId) return
 
+      // Optimistic: update local state immediately
+      const updateContent = (c: NoteComment) =>
+        c.id === commentId ? { ...c, content } : c
+      setComments(prev => prev.map(updateContent))
+      setThreads(prev => prev.map(t => ({
+        ...t,
+        comments: t.comments.map(updateContent),
+      })))
+
       const { error } = await (supabase as any)
         .from('note_comments')
         .update({ content })
@@ -168,6 +217,7 @@ export function useNoteComments(noteId: string) {
 
       if (error) {
         console.error('[useNoteComments] Error updating comment:', error)
+        await loadCommentsRef.current()
       }
     },
     [userId]
@@ -177,6 +227,19 @@ export function useNoteComments(noteId: string) {
     async (commentId: string) => {
       if (!supabase || !userId) return
 
+      // Optimistic: remove from local state immediately
+      setComments(prev => prev.filter(c => c.id !== commentId))
+      setThreads(prev => {
+        // If the deleted comment is a root comment (thread), remove entire thread
+        const isRoot = prev.some(t => t.id === commentId)
+        if (isRoot) return prev.filter(t => t.id !== commentId)
+        // Otherwise remove reply from its thread
+        return prev.map(t => ({
+          ...t,
+          comments: t.comments.filter(c => c.id !== commentId),
+        }))
+      })
+
       const { error } = await (supabase as any)
         .from('note_comments')
         .update({ deleted_at: new Date().toISOString() })
@@ -184,6 +247,7 @@ export function useNoteComments(noteId: string) {
 
       if (error) {
         console.error('[useNoteComments] Error deleting comment:', error)
+        await loadCommentsRef.current()
       }
     },
     [userId]
@@ -193,6 +257,11 @@ export function useNoteComments(noteId: string) {
     async (threadId: string, resolved: boolean) => {
       if (!supabase || !userId) return
 
+      // Optimistic: update local state immediately
+      setThreads(prev => prev.map(t =>
+        t.id === threadId ? { ...t, resolved } : t
+      ))
+
       const { error } = await (supabase as any)
         .from('note_comments')
         .update({ resolved })
@@ -200,6 +269,7 @@ export function useNoteComments(noteId: string) {
 
       if (error) {
         console.error('[useNoteComments] Error resolving thread:', error)
+        await loadCommentsRef.current()
       }
     },
     [userId]

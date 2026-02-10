@@ -16,6 +16,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { NoteFilters } from './NoteFilters';
 import { AISummaryDialog } from './AISummaryDialog';
 import type { AIProviderConfig } from '@/hooks/useSettings';
@@ -25,7 +26,7 @@ import { format } from 'date-fns';
 import { es, enUS, ptBR } from 'date-fns/locale';
 import type { Note, NoteCategory, Label } from '@/types/note';
 import type { Contact } from '@/types/contact';
-import { formatLocalDate, parseLocalDate } from '@/utils/dateUtils';
+import { parseLocalDate } from '@/utils/dateUtils';
 
 interface NoteListToolbarProps {
     isMobile: boolean;
@@ -165,7 +166,7 @@ export const NoteListToolbar = memo(function NoteListToolbar({
             // Deadline
             if (note.deadline) {
                 const date = parseLocalDate(note.deadline);
-                const formattedDate = formatLocalDate(date);
+                const formattedDate = format(date, 'dd/MM/yyyy');
                 parts.push(`  ${t('deadline')}: ${formattedDate}`);
             }
 
@@ -237,6 +238,66 @@ export const NoteListToolbar = memo(function NoteListToolbar({
                         onTaskStatusFilterChange={setTaskStatusFilter}
                         hasCompletedTasks={hasCompletedTasks}
                     />
+                    {/* Category filter icons */}
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant={categoryFilter === 'todo' ? 'default' : 'outline'}
+                                size="icon"
+                                className="h-8 w-8 shadow-none"
+                                onClick={() => setCategoryFilter(categoryFilter === 'todo' ? 'all' : 'todo')}
+                                aria-label={t('filterByCategory', { category: t('categoryTodo') })}
+                            >
+                                <Pickaxe className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">{t('categoryTodo')} (Alt+Q)</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant={categoryFilter === 'followup' ? 'default' : 'outline'}
+                                size="icon"
+                                className="h-8 w-8 shadow-none"
+                                onClick={() => setCategoryFilter(categoryFilter === 'followup' ? 'all' : 'followup')}
+                                aria-label={t('filterByCategory', { category: t('categoryFollowUp') })}
+                            >
+                                <Forward className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">{t('categoryFollowUp')} (Alt+W)</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant={categoryFilter === 'meeting' ? 'default' : 'outline'}
+                                size="icon"
+                                className="h-8 w-8 shadow-none"
+                                onClick={() => setCategoryFilter(categoryFilter === 'meeting' ? 'all' : 'meeting')}
+                                aria-label={t('filterByCategory', { category: t('categoryMeeting') })}
+                            >
+                                <Users className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">{t('categoryMeeting')} (Alt+E)</TooltipContent>
+                    </Tooltip>
+                    {viewMode !== 'calendar' && (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant={categoryFilter === 'notes' ? 'default' : 'outline'}
+                                    size="icon"
+                                    className="h-8 w-8 shadow-none"
+                                    onClick={() => setCategoryFilter(categoryFilter === 'notes' ? 'all' : 'notes')}
+                                    aria-label={t('filterByCategory', { category: t('categoryNotes') })}
+                                >
+                                    <StickyNote className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">{t('categoryNotes')} (Alt+R)</TooltipContent>
+                        </Tooltip>
+                    )}
+
                     {/* More options dropdown */}
                     <DropdownMenu open={dropdownOpen} onOpenChange={handleDropdownOpenChange}>
                         <DropdownMenuTrigger asChild>
@@ -276,33 +337,6 @@ export const NoteListToolbar = memo(function NoteListToolbar({
                                 <Sparkles className="h-4 w-4 mr-2" />
                                 {t('ai.summary.button')} ({activeNotes.length})
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setCategoryFilter(categoryFilter === 'todo' ? 'all' : 'todo')}>
-                                <Pickaxe className="h-4 w-4 mr-2" />
-                                {t('filterByCategory', { category: t('categoryTodo') })}
-                                {categoryFilter === 'todo' && <Check className="h-4 w-4 ml-auto" />}
-                                <span className="ml-auto text-xs text-muted-foreground">Alt+Q</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setCategoryFilter(categoryFilter === 'followup' ? 'all' : 'followup')}>
-                                <Forward className="h-4 w-4 mr-2" />
-                                {t('filterByCategory', { category: t('categoryFollowUp') })}
-                                {categoryFilter === 'followup' && <Check className="h-4 w-4 ml-auto" />}
-                                <span className="ml-auto text-xs text-muted-foreground">Alt+W</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setCategoryFilter(categoryFilter === 'meeting' ? 'all' : 'meeting')}>
-                                <Users className="h-4 w-4 mr-2" />
-                                {t('filterByCategory', { category: t('categoryMeeting') })}
-                                {categoryFilter === 'meeting' && <Check className="h-4 w-4 ml-auto" />}
-                                <span className="ml-auto text-xs text-muted-foreground">Alt+E</span>
-                            </DropdownMenuItem>
-                            {viewMode !== 'calendar' && (
-                                <DropdownMenuItem onClick={() => setCategoryFilter(categoryFilter === 'notes' ? 'all' : 'notes')}>
-                                    <StickyNote className="h-4 w-4 mr-2" />
-                                    {t('filterByCategory', { category: t('categoryNotes') })}
-                                    {categoryFilter === 'notes' && <Check className="h-4 w-4 ml-auto" />}
-                                    <span className="ml-auto text-xs text-muted-foreground">Alt+R</span>
-                                </DropdownMenuItem>
-                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setDateRangeDialogOpen(true)}>
                                 <CalendarRange className="h-4 w-4 mr-2" />
