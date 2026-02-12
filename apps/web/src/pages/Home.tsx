@@ -256,6 +256,7 @@ export function Home() {
   // Load ALL notes without date filtering (filtered by active project)
   // Uses calendar sync enabled hook to auto-sync meetings to Google Calendar
   const { notes, loading, createNote, createNoteAfter, updateNote, updateDeadline, toggleCompleted, togglePinned, deleteNote, restoreNote, reorderNotes, postponeNote, togglePublic } = useNotes();
+  const { defaultContact } = useContacts();
 
   // Derive the full note object from the ID (memoized)
   // This prevents re-renders when the note object reference changes but ID stays the same
@@ -388,9 +389,13 @@ export function Home() {
     // Read filter values from ref to avoid re-creating this callback on every filter change
     const { categoryFilter: cat, labelFilter: lbl, assigneeFilter: asgn } = stateRef.current;
     const defaults = getNoteCreationDefaults({
-      categoryFilter: cat, labelFilter: lbl, assigneeFilter: asgn, dateRangeFilter,
+      categoryFilter: cat,
+      labelFilter: lbl,
+      assigneeFilter: asgn,
+      dateRangeFilter,
+      defaultContactId: defaultContact?.id ?? null,
     });
-    const result = createNote('', defaults.category, defaults.deadline, defaults.labelIds);
+    const result = createNote('', defaults.category, defaults.deadline, defaults.labelIds, defaults.assigneeId);
     // Handle both Promise and synchronous returns
     Promise.resolve(result).then((newNoteOrId) => {
       if (newNoteOrId) {
@@ -401,7 +406,7 @@ export function Home() {
         handleSelectNote(newNote);
       }
     });
-  }, [createNote, dateRangeFilter, handleSelectNote]);
+  }, [createNote, dateRangeFilter, defaultContact, handleSelectNote]);
 
   const handleDeleteNote = useCallback((id: string, reason: string) => {
     if (selectedNoteId === id) {
@@ -503,6 +508,7 @@ export function Home() {
         externalSortConfig={sortConfig}
         onSortConfigChange={handleSortConfigChange}
         sidebarTrigger={sidebarTrigger}
+        defaultContactId={defaultContact?.id ?? null}
       />
 
       <CommandPalette

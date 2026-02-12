@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 
 interface PostponeDialogProps {
   open: boolean;
@@ -32,28 +32,26 @@ export const PostponeDialog = memo(function PostponeDialog({
 }: PostponeDialogProps) {
   const { t, i18n } = useTranslation();
   const [reason, setReason] = React.useState('');
-  const [skipReason, setSkipReason] = React.useState(false);
+  const [hasReason, setHasReason] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
-  // Focus textarea when dialog opens
+  // Focus textarea when switch is turned on
   React.useEffect(() => {
-    if (open && textareaRef.current) {
+    if (hasReason && textareaRef.current) {
       setTimeout(() => textareaRef.current?.focus(), 0);
     }
-  }, [open]);
+  }, [hasReason]);
 
   const handlePostpone = () => {
     if (!initialDate) return;
-    // Allow empty reason if skipReason is checked
-    if (!skipReason && !reason.trim()) return;
-    // Use ISO string to preserve both date and time
-    onPostpone(initialDate.toISOString(), skipReason ? '' : reason.trim());
+    if (hasReason && !reason.trim()) return;
+    onPostpone(initialDate.toISOString(), hasReason ? reason.trim() : '');
     handleClose();
   };
 
   const handleClose = () => {
     setReason('');
-    setSkipReason(false);
+    setHasReason(false);
     onOpenChange(false);
   };
 
@@ -66,7 +64,7 @@ export const PostponeDialog = memo(function PostponeDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-md [&>button:last-child]:hidden" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarClock className="h-5 w-5" />
@@ -89,46 +87,41 @@ export const PostponeDialog = memo(function PostponeDialog({
             </div>
           )}
 
-          {/* Reason */}
-          <div>
-            <label className="text-sm text-muted-foreground" htmlFor="postpone-reason">
-              {t('postponeReason')}
+          {/* Switch to toggle reason */}
+          <div className="flex items-center justify-between">
+            <label
+              htmlFor="has-reason"
+              className="text-sm cursor-pointer"
+            >
+              {t('hasPostponeReason')}
             </label>
-            <textarea
-              ref={textareaRef}
-              id="postpone-reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={t('postponeReasonPlaceholder')}
-              className="mt-1 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground caret-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              rows={3}
-              disabled={skipReason}
+            <Switch
+              id="has-reason"
+              checked={hasReason}
+              onCheckedChange={setHasReason}
             />
           </div>
 
-          {/* Checkbox to skip reason */}
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="skip-reason"
-              checked={skipReason}
-              onCheckedChange={(checked) => setSkipReason(checked === true)}
-            />
-            <label
-              htmlFor="skip-reason"
-              className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-            >
-              {t('skipPostponeReason')}
-            </label>
-          </div>
+          {/* Reason textarea (visible only when switch is on) */}
+          {hasReason && (
+            <div>
+              <textarea
+                ref={textareaRef}
+                id="postpone-reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={t('postponeReasonPlaceholder')}
+                className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground caret-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                rows={3}
+              />
+            </div>
+          )}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={handleClose}>
-            {t('cancel')}
-          </Button>
-          <Button onClick={handlePostpone} disabled={!initialDate || (!skipReason && !reason.trim())}>
-            {t('save')}
+        <DialogFooter>
+          <Button onClick={handlePostpone} disabled={!initialDate || (hasReason && !reason.trim())}>
+            {t('accept')}
           </Button>
         </DialogFooter>
       </DialogContent>

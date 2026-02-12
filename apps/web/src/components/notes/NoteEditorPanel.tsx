@@ -963,19 +963,23 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
       {/* Comments section - always visible */}
       {onAddComment && (
         <div className="border-t border-muted-foreground/20 pt-3 mt-3 max-h-[30%] flex flex-col shrink-0">
-          <div ref={commentsScrollRef} className="space-y-3 overflow-y-auto">
-            {commentThreads.map((thread) => (
-              <CommentThread
-                key={thread.id}
-                thread={thread}
-                onReply={(content) => onReplyToThread?.(thread.id, content)}
-                onEdit={(commentId, content) => onEditComment?.(commentId, content)}
-                onDelete={(commentId) => onDeleteComment?.(commentId)}
-                onResolve={(resolved) => onResolveThread?.(thread.id, resolved)}
-              />
-            ))}
-            <CommentInput onSubmit={handleAddComment} autoFocus={false} />
-          </div>
+          {/* Comments history - scrollable */}
+          {commentThreads.length > 0 && (
+            <div ref={commentsScrollRef} className="space-y-3 overflow-y-auto flex-1 mb-3">
+              {commentThreads.map((thread) => (
+                <CommentThread
+                  key={thread.id}
+                  thread={thread}
+                  onReply={(content) => onReplyToThread?.(thread.id, content)}
+                  onEdit={(commentId, content) => onEditComment?.(commentId, content)}
+                  onDelete={(commentId) => onDeleteComment?.(commentId)}
+                  onResolve={(resolved) => onResolveThread?.(thread.id, resolved)}
+                />
+              ))}
+            </div>
+          )}
+          {/* Comment input - always visible at bottom */}
+          <CommentInput onSubmit={handleAddComment} autoFocus={false} />
         </div>
       )}
 

@@ -129,6 +129,7 @@
   "writeNote": "Write your note...",
   "writeDescription": "Description (optional)...",
   "save": "Save",
+  "accept": "Accept",
   "all": "All",
   "clear": "Clear",
   "allDay": "All day",
@@ -306,7 +307,7 @@
   "selectDate": "Select date",
   "postponeReason": "Reason",
   "postponeReasonPlaceholder": "Why are you postponing this task?",
-  "skipPostponeReason": "I don't need to specify a reason",
+  "hasPostponeReason": "Is there a reason for postponing?",
   "actionPostponed": "Postponed",
   "postponeReasons": "Postponement reasons",
   "noPostponeReasons": "No reasons recorded",
@@ -674,7 +675,11 @@
       "timeout": "Request timed out. Please try again."
     },
     "invalidPhone": "Phone must be in international format (e.g., +521234567890)",
-    "phoneHelp": "International format with country code (e.g., +52 for Mexico)"
+    "phoneHelp": "International format with country code (e.g., +52 for Mexico)",
+    "setDefault": "Set as default",
+    "removeDefault": "Remove as default",
+    "defaultSet": "Default contact set",
+    "defaultRemoved": "Default contact removed"
   },
   "share": {
     "title": "Shared Content",

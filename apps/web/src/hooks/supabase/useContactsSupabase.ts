@@ -48,6 +48,7 @@ export function useContactsSupabase() {
       created_at: row.created_at || new Date().toISOString(),
       updated_at: row.updated_at || new Date().toISOString(),
       user_id: row.user_id,
+      is_default: row.is_default || false,
       remote_id: row.id,
       sync_status: 'synced' as const,
       last_synced_at: row.updated_at || null,
@@ -129,6 +130,7 @@ export function useContactsSupabase() {
         created_at: data.created_at || new Date().toISOString(),
         updated_at: data.updated_at || new Date().toISOString(),
         user_id: data.user_id,
+        is_default: data.is_default || false,
         remote_id: data.id,
         sync_status: 'synced',
       };
@@ -167,6 +169,7 @@ export function useContactsSupabase() {
         created_at: data.created_at || new Date().toISOString(),
         updated_at: data.updated_at || new Date().toISOString(),
         user_id: data.user_id,
+        is_default: data.is_default || false,
       };
     },
     []
@@ -186,11 +189,58 @@ export function useContactsSupabase() {
     if (error) throw error;
   }, []);
 
+  /**
+   * Set a contact as the default assignee
+   * Automatically unsets any previous default contact
+   */
+  const setDefaultContact = useCallback(async (id: string): Promise<void> => {
+    if (!userId || !supabase) throw new Error('Not authenticated');
+
+    // First, unset all defaults for this user
+    const { error: unsetError } = await supabase
+      .from('contacts')
+      .update({ is_default: false })
+      .eq('user_id', userId)
+      .eq('is_default', true);
+
+    if (unsetError) throw unsetError;
+
+    // Then set the new default
+    const { error: setError } = await supabase
+      .from('contacts')
+      .update({ is_default: true })
+      .eq('id', id);
+
+    if (setError) throw setError;
+
+    // Refetch to update UI
+    await fetchContacts();
+  }, [userId, fetchContacts]);
+
+  /**
+   * Unset the default contact
+   */
+  const unsetDefaultContact = useCallback(async (id: string): Promise<void> => {
+    if (!supabase) throw new Error('Supabase not configured');
+
+    const { error } = await supabase
+      .from('contacts')
+      .update({ is_default: false })
+      .eq('id', id);
+
+    if (error) throw error;
+
+    // Refetch to update UI
+    await fetchContacts();
+  }, [fetchContacts]);
+
   return {
     contacts,
     loading,
     createContact,
     updateContact,
     deleteContact,
+    setDefaultContact,
+    unsetDefaultContact,
   };
 }

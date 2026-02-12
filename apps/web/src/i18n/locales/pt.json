@@ -129,6 +129,7 @@
   "writeNote": "Escreva sua nota...",
   "writeDescription": "Descrição (opcional)...",
   "save": "Salvar",
+  "accept": "Aceitar",
   "all": "Tudo",
   "clear": "Limpar",
   "allDay": "O dia todo",
@@ -306,7 +307,7 @@
   "selectDate": "Selecionar data",
   "postponeReason": "Motivo",
   "postponeReasonPlaceholder": "Por que você está adiando esta tarefa?",
-  "skipPostponeReason": "Não preciso especificar um motivo",
+  "hasPostponeReason": "Há um motivo para adiar?",
   "actionPostponed": "Adiado",
   "postponeReasons": "Motivos de adiamento",
   "noPostponeReasons": "Sem motivos registrados",
@@ -674,7 +675,11 @@
       "timeout": "A solicitação demorou muito. Tente novamente."
     },
     "invalidPhone": "O telefone deve estar no formato internacional (ex: +5511999999999)",
-    "phoneHelp": "Formato internacional com código do país (ex: +55 para Brasil)"
+    "phoneHelp": "Formato internacional com código do país (ex: +55 para Brasil)",
+    "setDefault": "Definir como padrão",
+    "removeDefault": "Remover como padrão",
+    "defaultSet": "Contato padrão definido",
+    "defaultRemoved": "Contato padrão removido"
   },
   "share": {
     "title": "Conteúdo Compartilhado",

@@ -5,6 +5,7 @@ export interface NoteCreationFilters {
   labelFilter: string[];
   assigneeFilter: string[];
   dateRangeFilter: { from: Date | undefined; to: Date | undefined };
+  defaultContactId?: string | null;
 }
 
 export interface NoteCreationDefaults {
@@ -26,10 +27,16 @@ export function getNoteCreationDefaults(filters: NoteCreationFilters): NoteCreat
 
   const labelIds: string[] = [...filters.labelFilter];
 
-  // Only auto-assign when exactly 1 assignee is filtered (multiple is ambiguous)
-  const assigneeId: string | null = filters.assigneeFilter.length === 1
-    ? filters.assigneeFilter[0]
-    : null;
+  // Assignee priority:
+  // 1. If exactly 1 assignee is filtered, use it (filter takes precedence)
+  // 2. Otherwise, use default contact if available
+  // 3. Otherwise, null
+  let assigneeId: string | null = null;
+  if (filters.assigneeFilter.length === 1) {
+    assigneeId = filters.assigneeFilter[0];
+  } else if (filters.defaultContactId) {
+    assigneeId = filters.defaultContactId;
+  }
 
   let deadline: string | null = null;
   if (filters.dateRangeFilter.from) {

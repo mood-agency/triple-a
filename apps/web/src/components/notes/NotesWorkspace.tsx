@@ -105,9 +105,11 @@ interface NotesWorkspaceProps {
   onShowPublicOnlyChange?: (show: boolean) => void;
   // Sidebar trigger element
   sidebarTrigger?: React.ReactNode;
+  // Default contact for auto-assignment
+  defaultContactId?: string | null;
 }
 
-export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspaceProps>(function NotesWorkspace({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onAddAssignee, onRemoveAssignee, onUpdateAssignee, onReorderNotes, onPostponeNote, onTogglePublic, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask: _onCreateTask, loading: _loading, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, externalSortConfig, onSortConfigChange, externalTaskStatusFilter, onTaskStatusFilterChange, externalShowOverdueOnly, onShowOverdueOnlyChange, externalShowPublicOnly, onShowPublicOnlyChange, sidebarTrigger }, ref) {
+export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspaceProps>(function NotesWorkspace({ notes, onEdit, onDelete, onRestore, onToggleCompleted, onTogglePinned, onUpdateDeadline, onAddAssignee, onRemoveAssignee, onUpdateAssignee, onReorderNotes, onPostponeNote, onTogglePublic, selectedNote, onSelectNote, onNavigateToEditor, onCreateNoteAfter, onCreateTask: _onCreateTask, loading: _loading, externalLabelFilter, externalCategoryFilter, externalAssigneeFilter, onLabelFilterChange, onCategoryFilterChange, onAssigneeFilterChange, externalViewMode, onViewModeChange, externalSelectedDate, onSelectedDateChange, externalSortConfig, onSortConfigChange, externalTaskStatusFilter, onTaskStatusFilterChange, externalShowOverdueOnly, onShowOverdueOnlyChange, externalShowPublicOnly, onShowPublicOnlyChange, sidebarTrigger, defaultContactId }, ref) {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { contacts } = useContacts();
@@ -379,7 +381,8 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
     labelFilter: filters.labelFilter,
     assigneeFilter: filters.assigneeFilter,
     dateRangeFilter: filters.dateRangeFilter,
-  }), [filters.categoryFilter, filters.labelFilter, filters.assigneeFilter, filters.dateRangeFilter]);
+    defaultContactId,
+  }), [filters.categoryFilter, filters.labelFilter, filters.assigneeFilter, filters.dateRangeFilter, defaultContactId]);
 
   const operations = useNoteOperations({
     filteredNotesRef: filters.filteredNotesRef,

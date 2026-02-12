@@ -38,7 +38,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Pencil, Trash2, Plus, MessageCircle, Loader2 } from 'lucide-react';
+import { Pencil, Trash2, Plus, MessageCircle, Loader2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSettings } from '@/hooks/useSettings';
 import type { Contact, ContactInput } from '@/types/contact';
@@ -72,7 +72,7 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
 export function Contacts() {
   const { t } = useTranslation();
   const { sidebarTrigger } = useOutletContext<OutletContext>();
-  const { contacts, loading, createContact, updateContact, deleteContact } = useContacts();
+  const { contacts, loading, createContact, updateContact, deleteContact, setDefaultContact, unsetDefaultContact } = useContacts();
   const { settings } = useSettings();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -165,6 +165,21 @@ export function Contacts() {
     } catch (error) {
       toast.error(t('contacts.error'));
       console.error('Error deleting contact:', error);
+    }
+  };
+
+  const handleToggleDefault = async (contact: Contact) => {
+    try {
+      if (contact.is_default) {
+        await unsetDefaultContact(contact.id);
+        toast.success(t('contacts.defaultRemoved'));
+      } else {
+        await setDefaultContact(contact.id);
+        toast.success(t('contacts.defaultSet'));
+      }
+    } catch (error) {
+      toast.error(t('contacts.error'));
+      console.error('Error toggling default contact:', error);
     }
   };
 
@@ -353,6 +368,14 @@ export function Contacts() {
                   <TableCell>{contact.phone}</TableCell>
                   <TableCell>{contact.email}</TableCell>
                   <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleToggleDefault(contact)}
+                      title={contact.is_default ? t('contacts.removeDefault') : t('contacts.setDefault')}
+                    >
+                      <Star className={`h-4 w-4 ${contact.is_default ? 'fill-yellow-500 text-yellow-500' : ''}`} />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"

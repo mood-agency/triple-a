@@ -5,9 +5,12 @@ import type { Contact, ContactInput } from '@/types/contact';
 interface ContactsContextValue {
   contacts: Contact[];
   loading: boolean;
+  defaultContact: Contact | null;
   createContact: (contactInput: ContactInput) => Promise<Contact>;
   updateContact: (id: string, contactInput: Partial<ContactInput>) => Promise<Contact>;
   deleteContact: (id: string) => Promise<void>;
+  setDefaultContact: (id: string) => Promise<void>;
+  unsetDefaultContact: (id: string) => Promise<void>;
 }
 
 const ContactsContext = createContext<ContactsContextValue | null>(null);
@@ -23,15 +26,25 @@ export function ContactsProvider({ children }: ContactsProviderProps) {
     createContact,
     updateContact,
     deleteContact,
+    setDefaultContact,
+    unsetDefaultContact,
   } = useContactsSupabase();
+
+  const defaultContact = useMemo(
+    () => contacts.find((c) => c.is_default === true) ?? null,
+    [contacts]
+  );
 
   const value = useMemo(() => ({
     contacts,
     loading,
+    defaultContact,
     createContact,
     updateContact,
     deleteContact,
-  }), [contacts, loading, createContact, updateContact, deleteContact]);
+    setDefaultContact,
+    unsetDefaultContact,
+  }), [contacts, loading, defaultContact, createContact, updateContact, deleteContact, setDefaultContact, unsetDefaultContact]);
 
   return (
     <ContactsContext.Provider value={value}>

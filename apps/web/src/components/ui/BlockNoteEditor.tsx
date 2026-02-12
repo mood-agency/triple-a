@@ -238,6 +238,7 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
       initialContent,
       uploadFile,
       dictionary: blockNoteDictionary,
+      trailingBlock: false,
       tables: {
         splitCells: true,
         cellBackgroundColor: true,
@@ -311,7 +312,7 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
 
     // Handle content changes - just propagate to parent, no complex sync logic
     const handleChange = useCallback(() => {
-      if (!editor) return
+      if (!editor || isReplacingContentRef.current) return
       const json = JSON.stringify(editor.document)
       lastEmittedValueRef.current = json
       onChange(json)
@@ -325,6 +326,8 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
 
     // Track if we've loaded content for this note
     const hasLoadedContentRef = useRef(false)
+    // Flag to suppress onChange during programmatic replaceBlocks calls
+    const isReplacingContentRef = useRef(false)
 
     // Sync content when:
     // 1. noteId changes (switching notes)
@@ -353,7 +356,10 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
 
         switch (format) {
           case 'empty':
-            blocks = []
+            // Use a single empty paragraph instead of [] to avoid ProseMirror
+            // auto-creating a paragraph + trailingBlock adding a second one,
+            // which causes a visible extra newline when the editor mounts.
+            blocks = [{ type: 'paragraph' as const, content: [] }]
             break
           case 'blocknote':
             try {
@@ -375,7 +381,11 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
             break
         }
 
+        // Suppress onChange during programmatic content replacement to prevent
+        // re-render loops (replaceBlocks fires handleChange synchronously)
+        isReplacingContentRef.current = true
         editor.replaceBlocks(editor.document, blocks)
+        isReplacingContentRef.current = false
         // Keep lastEmittedValueRef in sync so we don't re-trigger
         lastEmittedValueRef.current = value
         hasLoadedContentRef.current = true
@@ -479,8 +489,12 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
           }
         },
         setCursorPosition: (_position: number) => {
-          // BlockNote uses block-based selection, this is a simplified implementation
-          editor?.focus()
+          if (!editor) return
+          editor.focus()
+          const firstBlock = editor.document[0]
+          if (firstBlock) {
+            editor.setTextCursorPosition(firstBlock, 'start')
+          }
         },
         updateSearch: (searchTerm: string, currentMatchIndex: number) => {
           if (!editor) return

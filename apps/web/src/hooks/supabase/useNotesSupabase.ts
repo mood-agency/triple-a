@@ -253,7 +253,8 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       content: string,
       category: NoteCategory = 'todo',
       description?: string | null,
-      labelIds?: string[]
+      labelIds?: string[],
+      assigneeId?: string | null
     ): Note => {
       if (!userId || !supabase) throw new Error('Not authenticated');
 
@@ -324,6 +325,11 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
           .then(({ error }) => {
             if (error) console.error('[useNotesSupabase] createNote labels error:', error);
           });
+      }
+
+      // Assignee — persisted via event bus (same pattern as createNoteAfter)
+      if (assigneeId) {
+        eventBus.emit('assignee:added', { noteId, contactId: assigneeId });
       }
 
       // Initial version — persisted in background
