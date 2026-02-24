@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "C:\\Windows\\System32\\cmd.exe",
+      "runtimeArgs": ["/c", "pnpm", "--filter", "@triple-a/web", "dev"],
+      "port": 11000
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "C:\\Windows\\System32\\cmd.exe",
+      "runtimeArgs": ["/c", "pnpm", "--filter", "@triple-a/api", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "storybook",
+      "runtimeExecutable": "C:\\Windows\\System32\\cmd.exe",
+      "runtimeArgs": ["/c", "pnpm", "--filter", "@triple-a/web", "storybook"],
+      "port": 6006
+    },
+    {
+      "name": "codebase-viz",
+      "runtimeExecutable": "C:\\Windows\\System32\\cmd.exe",
+      "runtimeArgs": ["/c", "pnpm", "--filter", "codebase-viz", "dev"],
+      "port": 5555
+    }
+  ]
+}

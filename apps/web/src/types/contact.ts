@@ -7,6 +7,7 @@ export interface Contact {
   created_at: string;
   updated_at: string;
   user_id?: string;
+  is_default?: boolean;
   // Sync fields
   remote_id?: string | null;
   sync_status?: 'local' | 'pending' | 'synced' | 'conflict';

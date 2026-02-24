@@ -20,6 +20,7 @@ export type Database = {
                     deleted_at: string | null
                     email: string | null
                     id: string
+                    is_default: boolean | null
                     lastname: string | null
                     name: string
                     phone: string | null
@@ -31,6 +32,7 @@ export type Database = {
                     deleted_at?: string | null
                     email?: string | null
                     id?: string
+                    is_default?: boolean | null
                     lastname?: string | null
                     name: string
                     phone?: string | null
@@ -42,6 +44,7 @@ export type Database = {
                     deleted_at?: string | null
                     email?: string | null
                     id?: string
+                    is_default?: boolean | null
                     lastname?: string | null
                     name?: string
                     phone?: string | null
