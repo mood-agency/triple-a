@@ -14,11 +14,12 @@ pnpm workspace monorepo (Turborepo). Two main services: **web** (React/Vite, por
 
 ### Supabase dependency
 
-The app requires a hosted Supabase instance (no local Supabase CLI config exists). Environment secrets `VITE_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected and must be written into .env files before starting services:
+The app requires a hosted Supabase instance (no local Supabase CLI config exists). Three env secrets are needed: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. Write them into .env files before starting services:
 - `apps/api/.env` — needs `VITE_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (API crashes without these)
 - `apps/web/.env` — needs `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_API_URL=http://localhost:3000`
-- The web app's main notes UI requires `VITE_SUPABASE_ANON_KEY` for authentication; without it the app only shows the offline auth page at `/auth` and `RepositoryProvider` returns null on the home route.
-- Root `.env` — `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (optional, used by turbo globalDependencies)
+- Root `.env` — `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (used by turbo globalDependencies)
+- Without `VITE_SUPABASE_ANON_KEY`, the web app only shows the offline auth page at `/auth`; `RepositoryProvider` returns null on the home route without an authenticated user.
+- To create a test user without needing a real email, use the Supabase Admin API with the service role key: `POST /auth/v1/admin/users` with `email_confirm: true`.
 
 ### Commands reference
 
