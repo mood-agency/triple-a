@@ -180,12 +180,12 @@ body {
 }
 
 .dark .detected-link {
-  color: oklch(0.7 0.15 250);
-  text-decoration-color: oklch(0.7 0.15 250 / 50%);
+  color: oklch(0.82 0.12 250);
+  text-decoration-color: oklch(0.82 0.12 250 / 50%);
 }
 
 .dark .detected-link:hover {
-  text-decoration-color: oklch(0.7 0.15 250);
+  text-decoration-color: oklch(0.82 0.12 250);
 }
 
 /* Placeholder for contenteditable */
@@ -313,11 +313,11 @@ body {
 }
 
 .dark .bn-inline-content a {
-  color: oklch(0.7 0.15 250);
+  color: oklch(0.82 0.12 250);
 }
 
 .dark .bn-inline-content a:hover {
-  color: oklch(0.8 0.15 250);
+  color: oklch(0.9 0.1 250);
 }
 
 
