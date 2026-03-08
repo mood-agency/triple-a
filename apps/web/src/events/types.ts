@@ -170,6 +170,14 @@ export interface EditorCreateNoteAfterEvent
   type: 'editor:createNoteAfter';
 }
 
+export interface EditorRequestCreateNoteEvent
+  extends DomainEvent<{
+    afterNoteId: string;
+    category?: NoteCategory;
+  }> {
+  type: 'editor:requestCreateNote';
+}
+
 export interface EditorSelectNoteEvent
   extends DomainEvent<{
     noteId: string;
@@ -247,6 +255,7 @@ export type AppEvent =
   | EditorFocusLostEvent
   | EditorNavigateToDescriptionEvent
   | EditorCreateNoteAfterEvent
+  | EditorRequestCreateNoteEvent
   | EditorSelectNoteEvent
   | EditorSaveSuccessEvent
   | EditorBlockSelectionEvent
@@ -275,6 +284,7 @@ export type EventMap = {
   'editor:focusLost': EditorFocusLostEvent;
   'editor:navigateToDescription': EditorNavigateToDescriptionEvent;
   'editor:createNoteAfter': EditorCreateNoteAfterEvent;
+  'editor:requestCreateNote': EditorRequestCreateNoteEvent;
   'editor:selectNote': EditorSelectNoteEvent;
   'editor:saveSuccess': EditorSaveSuccessEvent;
   'editor:blockSelection': EditorBlockSelectionEvent;

@@ -15,7 +15,7 @@ export function CommentInput({
   onSubmit,
   placeholder,
   autoFocus = false,
-  defaultExpanded = true,
+  defaultExpanded = false,
 }: CommentInputProps) {
   const { t } = useTranslation()
   const [content, setContent] = useState('')
@@ -25,7 +25,7 @@ export function CommentInput({
     if (content.trim()) {
       onSubmit(content.trim())
       setContent('')
-      setIsExpanded(false)
+      // Keep expanded — don't collapse after submit
     }
   }
 

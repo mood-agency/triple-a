@@ -23,6 +23,7 @@ import type { Note, NoteCategory, Label, NoteVersion, NoteAction } from '@/types
 import type { Contact } from '@/types/contact';
 import { parseLocalDate, formatRelativeDateEnhanced, getDateTranslations } from '@/utils/dateUtils';
 import { AIAssistantDialog } from './AIAssistantDialog';
+import { toast } from 'sonner';
 import { CommentThread } from '@/components/comments/CommentThread';
 import { CommentInput } from '@/components/comments/CommentInput';
 import type { NoteCommentThread } from '@triple-a/types';
@@ -87,10 +88,8 @@ interface NoteEditorPanelProps {
   // Comments
   commentThreads?: NoteCommentThread[];
   onAddComment?: (content: string) => void;
-  onReplyToThread?: (threadId: string, content: string) => void;
   onEditComment?: (commentId: string, content: string) => void;
   onDeleteComment?: (commentId: string) => void;
-  onResolveThread?: (threadId: string, resolved: boolean) => void;
 }
 
 // Helper to parse description preview from BlockNote JSON or plain text
@@ -164,10 +163,8 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
   navigationRegion,
   commentThreads = [],
   onAddComment,
-  onReplyToThread,
   onEditComment,
   onDeleteComment,
-  onResolveThread,
 }, ref) {
   const { t, i18n } = useTranslation();
   // Read from the store map by note ID — any panel showing the same task shares one entry
@@ -442,9 +439,10 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
     titleRef.current?.focus();
   }, []);
 
-  // Wrap onAddComment to auto-scroll to bottom after adding
+  // Wrap onAddComment to auto-scroll to bottom after adding + toast
   const handleAddComment = useCallback((content: string) => {
     onAddComment?.(content);
+    toast.success(t('comments.commentSaved'));
     // Scroll to bottom after the new comment renders
     setTimeout(() => {
       const el = commentsScrollRef.current;
@@ -452,7 +450,7 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
         el.scrollTop = el.scrollHeight;
       }
     }, 100);
-  }, [onAddComment]);
+  }, [onAddComment, t]);
 
   // Auto-scroll comments when new threads/replies arrive
   const prevCommentCountRef = useRef(commentThreads.reduce((sum, t) => sum + t.comments.length, 0));
@@ -965,21 +963,19 @@ export const NoteEditorPanel = memo(forwardRef<BlockNoteEditorHandle, NoteEditor
         <div className="border-t border-muted-foreground/20 pt-3 mt-3 max-h-[30%] flex flex-col shrink-0">
           {/* Comments history - scrollable */}
           {commentThreads.length > 0 && (
-            <div ref={commentsScrollRef} className="space-y-3 overflow-y-auto flex-1 mb-3">
+            <div ref={commentsScrollRef} className="space-y-1.5 overflow-y-auto flex-1 mb-3">
               {commentThreads.map((thread) => (
                 <CommentThread
                   key={thread.id}
                   thread={thread}
-                  onReply={(content) => onReplyToThread?.(thread.id, content)}
                   onEdit={(commentId, content) => onEditComment?.(commentId, content)}
                   onDelete={(commentId) => onDeleteComment?.(commentId)}
-                  onResolve={(resolved) => onResolveThread?.(thread.id, resolved)}
                 />
               ))}
             </div>
           )}
-          {/* Comment input - always visible at bottom */}
-          <CommentInput onSubmit={handleAddComment} autoFocus={false} />
+          {/* Comment input - collapsed bar by default */}
+          <CommentInput key={note.id} onSubmit={handleAddComment} autoFocus={false} defaultExpanded={false} />
         </div>
       )}
 

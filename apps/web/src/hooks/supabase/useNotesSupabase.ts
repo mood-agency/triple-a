@@ -87,7 +87,7 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       }
     }
 
-    query = query.order('pinned', { ascending: false }).order('sort_order', { ascending: true });
+    query = query.order('pinned', { ascending: false }).order('created_at', { ascending: false });
 
     const { data, error } = await query;
 
@@ -291,7 +291,8 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       // Add to store immediately — auto-create effect will see it right away
       useNotesStore.getState().addNote(note);
 
-      // Persist to Supabase in background (fire-and-forget)
+      // Persist to Supabase — labels/assignees must wait for note to exist
+      // to avoid foreign key constraint violations on note_labels/note_assignees
       supabase
         .from('notes')
         .insert({
@@ -311,26 +312,27 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
           if (error) {
             console.error('[useNotesSupabase] createNote error:', error);
             useNotesStore.getState().removeNote(noteId);
+            return;
+          }
+
+          // Labels — persisted after note exists
+          if (labelIds && labelIds.length > 0) {
+            const labelInserts = labelIds.map((labelId) => ({
+              note_id: noteId,
+              label_id: labelId,
+              user_id: userId,
+            }));
+            supabase!.from('note_labels').insert(labelInserts)
+              .then(({ error: labelError }) => {
+                if (labelError) console.error('[useNotesSupabase] createNote labels error:', labelError);
+              });
+          }
+
+          // Assignee — persisted via event bus after note exists
+          if (assigneeId) {
+            eventBus.emit('assignee:added', { noteId, contactId: assigneeId });
           }
         });
-
-      // Labels — persisted in background
-      if (labelIds && labelIds.length > 0) {
-        const labelInserts = labelIds.map((labelId) => ({
-          note_id: noteId,
-          label_id: labelId,
-          user_id: userId,
-        }));
-        supabase.from('note_labels').insert(labelInserts)
-          .then(({ error }) => {
-            if (error) console.error('[useNotesSupabase] createNote labels error:', error);
-          });
-      }
-
-      // Assignee — persisted via event bus (same pattern as createNoteAfter)
-      if (assigneeId) {
-        eventBus.emit('assignee:added', { noteId, contactId: assigneeId });
-      }
 
       // Initial version — persisted in background
       createInitialVersion(noteId, content, description || null, category, false);
@@ -406,8 +408,9 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
       // Add to store immediately — next Enter press will find it via getState()
       useNotesStore.getState().addNote(note);
 
-      // Persist to Supabase in background (fire-and-forget)
-      supabase
+      // Persist to Supabase — must complete before emitting label/assignee events
+      // to avoid foreign key constraint violations on note_labels/note_assignees
+      const { error: insertError } = await supabase
         .from('notes')
         .insert({
           id: noteId,
@@ -421,18 +424,21 @@ export function useNotesSupabase(options: UseNotesSupabaseOptions = {}) {
           sort_order: newSortOrder,
           project_id: projectId || null,
           is_public: false,
-        })
-        .then(({ error }) => {
-          if (error) console.error('[useNotesSupabase] createNoteAfter error:', error);
         });
 
-      // Labels/assignees — emit events, persisted by useNoteSideEffects listener
-      if (labelIds.length > 0) {
-        eventBus.emit('note:labelsAttached', { noteId, labelIds, userId });
+      if (insertError) {
+        console.error('[useNotesSupabase] createNoteAfter error:', insertError);
       }
 
-      if (assigneeId) {
-        eventBus.emit('assignee:added', { noteId, contactId: assigneeId });
+      // Labels/assignees — emit events AFTER note is persisted
+      if (!insertError) {
+        if (labelIds.length > 0) {
+          eventBus.emit('note:labelsAttached', { noteId, labelIds, userId });
+        }
+
+        if (assigneeId) {
+          eventBus.emit('assignee:added', { noteId, contactId: assigneeId });
+        }
       }
 
       return note;

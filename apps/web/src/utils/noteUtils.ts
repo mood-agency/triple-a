@@ -65,6 +65,10 @@ export function sortNotes(
     if (!hasActiveSort) {
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
+      // Default: sort by created_at descending (newest first)
+      const aTime = new Date(a.created_at).getTime();
+      const bTime = new Date(b.created_at).getTime();
+      return bTime - aTime;
     }
 
     // Sort by category if enabled

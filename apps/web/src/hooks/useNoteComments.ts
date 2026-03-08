@@ -10,6 +10,9 @@ export function useNoteComments(noteId: string) {
   const [threads, setThreads] = useState<NoteCommentThread[]>([])
   // Ref to always hold the latest loadComments — avoids re-subscribing realtime on fetch changes
   const loadCommentsRef = useRef<() => Promise<void>>(() => Promise.resolve())
+  // Tracks in-flight mutations — loadComments is skipped while > 0 to prevent
+  // the realtime subscription from overwriting optimistic state
+  const pendingMutationsRef = useRef(0)
 
   // Load comments for this note
   const loadComments = useCallback(async () => {
@@ -18,6 +21,9 @@ export function useNoteComments(noteId: string) {
       setThreads([])
       return
     }
+
+    // Skip loading while mutations are in-flight — preserve optimistic state
+    if (pendingMutationsRef.current > 0) return
 
     try {
       // note_comments table not in generated Supabase types
@@ -30,8 +36,7 @@ export function useNoteComments(noteId: string) {
 
       if (error) {
         console.error('[useNoteComments] Error loading comments:', error)
-        setComments([])
-        setThreads([])
+        // Don't clear existing state on load error — preserve optimistic data
         return
       }
 
@@ -88,8 +93,7 @@ export function useNoteComments(noteId: string) {
       setThreads(Array.from(threadMap.values()))
     } catch (err) {
       console.error('[useNoteComments] Unexpected error:', err)
-      setComments([])
-      setThreads([])
+      // Don't clear existing state on error — preserve optimistic data
     }
   }, [userId, noteId])
 
@@ -131,8 +135,46 @@ export function useNoteComments(noteId: string) {
 
   const addComment = useCallback(
     async (content: string, blockId?: string | null, threadId?: string | null) => {
-      if (!supabase || !userId) return null
+      if (!supabase || !userId || !noteId) return null
 
+      pendingMutationsRef.current++
+
+      // Generate a temporary ID for immediate optimistic update
+      const tempId = crypto.randomUUID()
+      const now = new Date().toISOString()
+      const optimisticComment: NoteComment = {
+        id: tempId,
+        user_id: userId,
+        note_id: noteId,
+        thread_id: threadId || null,
+        content,
+        block_id: blockId || null,
+        resolved: false,
+        created_at: now,
+        updated_at: now,
+        deleted_at: null,
+        sync_status: 'pending',
+      }
+
+      // Optimistic update BEFORE the DB call — comment appears immediately
+      setComments(prev => [...prev, optimisticComment])
+      setThreads(prev => {
+        if (threadId) {
+          return prev.map(t =>
+            t.id === threadId
+              ? { ...t, comments: [...t.comments, optimisticComment] }
+              : t
+          )
+        }
+        return [...prev, {
+          id: optimisticComment.id,
+          block_id: optimisticComment.block_id,
+          comments: [optimisticComment],
+          resolved: false,
+        }]
+      })
+
+      // Now persist to DB
       const { data, error } = await (supabase as any)
         .from('note_comments')
         .insert({
@@ -149,12 +191,25 @@ export function useNoteComments(noteId: string) {
 
       if (error) {
         console.error('[useNoteComments] Error adding comment:', error)
+        // Revert optimistic update on failure
+        setComments(prev => prev.filter(c => c.id !== tempId))
+        setThreads(prev => {
+          if (threadId) {
+            return prev.map(t =>
+              t.id === threadId
+                ? { ...t, comments: t.comments.filter(c => c.id !== tempId) }
+                : t
+            )
+          }
+          return prev.filter(t => t.id !== tempId)
+        })
+        pendingMutationsRef.current--
         return null
       }
 
-      // Optimistic update: add the new comment to local state immediately
+      // Replace temp ID with real ID from DB
       if (data) {
-        const newComment: NoteComment = {
+        const realComment: NoteComment = {
           id: data.id,
           user_id: data.user_id,
           note_id: data.note_id,
@@ -170,28 +225,16 @@ export function useNoteComments(noteId: string) {
           last_synced_at: data.last_synced_at,
         }
 
-        setComments(prev => [...prev, newComment])
-
-        // Update threads
-        setThreads(prev => {
-          if (threadId) {
-            // Reply: add to existing thread
-            return prev.map(t =>
-              t.id === threadId
-                ? { ...t, comments: [...t.comments, newComment] }
-                : t
-            )
+        setComments(prev => prev.map(c => c.id === tempId ? realComment : c))
+        setThreads(prev => prev.map(t => {
+          if (t.id === tempId) {
+            return { ...t, id: realComment.id, comments: t.comments.map(c => c.id === tempId ? realComment : c) }
           }
-          // New root comment: create a new thread
-          return [...prev, {
-            id: newComment.id,
-            block_id: newComment.block_id,
-            comments: [newComment],
-            resolved: false,
-          }]
-        })
+          return { ...t, comments: t.comments.map(c => c.id === tempId ? realComment : c) }
+        }))
       }
 
+      pendingMutationsRef.current--
       return data?.id || null
     },
     [userId, noteId]
@@ -200,6 +243,8 @@ export function useNoteComments(noteId: string) {
   const updateComment = useCallback(
     async (commentId: string, content: string) => {
       if (!supabase || !userId) return
+
+      pendingMutationsRef.current++
 
       // Optimistic: update local state immediately
       const updateContent = (c: NoteComment) =>
@@ -212,8 +257,10 @@ export function useNoteComments(noteId: string) {
 
       const { error } = await (supabase as any)
         .from('note_comments')
-        .update({ content })
+        .update({ content, updated_at: new Date().toISOString() })
         .eq('id', commentId)
+
+      pendingMutationsRef.current--
 
       if (error) {
         console.error('[useNoteComments] Error updating comment:', error)
@@ -226,6 +273,8 @@ export function useNoteComments(noteId: string) {
   const deleteComment = useCallback(
     async (commentId: string) => {
       if (!supabase || !userId) return
+
+      pendingMutationsRef.current++
 
       // Optimistic: remove from local state immediately
       setComments(prev => prev.filter(c => c.id !== commentId))
@@ -245,6 +294,8 @@ export function useNoteComments(noteId: string) {
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', commentId)
 
+      pendingMutationsRef.current--
+
       if (error) {
         console.error('[useNoteComments] Error deleting comment:', error)
         await loadCommentsRef.current()
@@ -257,6 +308,8 @@ export function useNoteComments(noteId: string) {
     async (threadId: string, resolved: boolean) => {
       if (!supabase || !userId) return
 
+      pendingMutationsRef.current++
+
       // Optimistic: update local state immediately
       setThreads(prev => prev.map(t =>
         t.id === threadId ? { ...t, resolved } : t
@@ -266,6 +319,8 @@ export function useNoteComments(noteId: string) {
         .from('note_comments')
         .update({ resolved })
         .eq('id', threadId)
+
+      pendingMutationsRef.current--
 
       if (error) {
         console.error('[useNoteComments] Error resolving thread:', error)

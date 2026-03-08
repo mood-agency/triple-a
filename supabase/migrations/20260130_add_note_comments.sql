@@ -54,8 +54,4 @@ CREATE POLICY "Users can delete own comments"
 ON note_comments FOR DELETE TO authenticated
 USING (user_id = auth.uid());
 
--- Trigger to update updated_at
-CREATE TRIGGER update_note_comments_updated_at
-  BEFORE UPDATE ON note_comments
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+-- updated_at is managed by the application code (no DB trigger)

@@ -325,6 +325,8 @@ export const NoteListContent = memo(function NoteListContent({
                                             onAddAssignee={onAddAssignee}
                                             selectedNoteId={selectedNote?.id}
                                             noteCreationDefaults={noteCreationDefaults}
+                                            autoSaveInterval={autoSaveInterval}
+                                            hasActiveFilters={hasActiveFilters}
                                         />
                                         {/* Show no results message after pinned notes when they don't match filters */}
                                         {shouldShowNoResultsWithPinnedVisible && (

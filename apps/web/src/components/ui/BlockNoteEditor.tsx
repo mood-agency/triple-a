@@ -310,6 +310,135 @@ export const BlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditor
       }
     }, [editor])
 
+    // Handle multi-file drop. BlockNote's built-in handler only processes the
+    // first file when multiple are dropped at once. We intercept on the
+    // ProseMirror DOM element in the capture phase so `stopImmediatePropagation`
+    // prevents BlockNote/ProseMirror from also handling the event.
+    useEffect(() => {
+      if (!editor) return
+
+      const pmDom = editor.prosemirrorView.dom
+      const handleDrop = async (event: DragEvent) => {
+        const dt = event.dataTransfer
+        if (!dt || !dt.types.includes('Files')) return
+
+        const files: File[] = []
+        for (let i = 0; i < dt.items.length; i++) {
+          const file = dt.items[i].getAsFile()
+          if (file) files.push(file)
+        }
+
+        // Let BlockNote handle single-file drops natively
+        if (files.length <= 1) return
+
+        event.preventDefault()
+        event.stopImmediatePropagation()
+
+        // Resolve the target block from the drop coordinates
+        const coords = { left: event.clientX, top: event.clientY }
+        const posInfo = editor.prosemirrorView.posAtCoords(coords)
+        let targetBlock = editor.document[editor.document.length - 1]
+
+        if (posInfo) {
+          const doc = editor.prosemirrorView.state.doc
+          try {
+            const resolvedPos = doc.resolve(posInfo.pos)
+            for (let depth = resolvedPos.depth; depth >= 0; depth--) {
+              const node = resolvedPos.node(depth)
+              if (node.attrs?.id) {
+                const found = editor.getBlock(node.attrs.id)
+                if (found) { targetBlock = found; break }
+              }
+            }
+          } catch { /* use last block */ }
+        }
+
+        // Determine block type for each file
+        const fileEntries = files.map(file => {
+          let blockType: string = 'file'
+          if (file.type.startsWith('image/')) blockType = 'image'
+          else if (file.type.startsWith('video/')) blockType = 'video'
+          else if (file.type.startsWith('audio/')) blockType = 'audio'
+          return { file, blockType }
+        })
+
+        // Insert placeholder blocks sequentially after the target
+        let lastBlock = targetBlock
+        const blockIds: string[] = []
+        for (const { file, blockType } of fileEntries) {
+          const newBlocks = editor.insertBlocks(
+            [{ type: blockType as 'file', props: { name: file.name } as Record<string, string> }],
+            lastBlock,
+            'after'
+          )
+          if (newBlocks.length > 0) {
+            blockIds.push(newBlocks[0].id)
+            lastBlock = newBlocks[0] as typeof targetBlock
+          }
+        }
+
+        // Upload all files in parallel and update their blocks
+        await Promise.all(
+          fileEntries.map(async ({ file }, index) => {
+            const blockId = blockIds[index]
+            if (!blockId) return
+            try {
+              const url = await uploadFile(file)
+              editor.updateBlock(blockId, { props: { url } as Record<string, string> })
+            } catch {
+              try { editor.removeBlocks([blockId]) } catch { /* already removed */ }
+            }
+          })
+        )
+      }
+
+      pmDom.addEventListener('drop', handleDrop as unknown as EventListener, true)
+      return () => {
+        pmDom.removeEventListener('drop', handleDrop as unknown as EventListener, true)
+      }
+    }, [editor, uploadFile])
+
+    // Inject delete buttons into file blocks and handle removal
+    useEffect(() => {
+      if (!editor || !containerRef.current) return
+
+      const injectDeleteButtons = () => {
+        const container = containerRef.current
+        if (!container) return
+
+        const fileNameElements = container.querySelectorAll('[data-file-block] .bn-file-name-with-icon')
+        fileNameElements.forEach((el) => {
+          if (el.querySelector('.bn-file-delete-btn')) return
+          const btn = document.createElement('button')
+          btn.className = 'bn-file-delete-btn'
+          btn.textContent = '×'
+          btn.type = 'button'
+          btn.addEventListener('mousedown', (e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            // Find the block element and its ID
+            const blockEl = (el as HTMLElement).closest('[data-node-type="blockContainer"]')
+            const blockId = blockEl?.getAttribute('data-id')
+            if (blockId) {
+              try {
+                editor.removeBlocks([blockId])
+              } catch {
+                // Block may have already been removed
+              }
+            }
+          })
+          el.appendChild(btn)
+        })
+      }
+
+      // Run initially and observe DOM changes (blocks added/removed)
+      injectDeleteButtons()
+      const observer = new MutationObserver(injectDeleteButtons)
+      observer.observe(containerRef.current, { childList: true, subtree: true })
+
+      return () => observer.disconnect()
+    }, [editor])
+
     // Handle content changes - just propagate to parent, no complex sync logic
     const handleChange = useCallback(() => {
       if (!editor || isReplacingContentRef.current) return

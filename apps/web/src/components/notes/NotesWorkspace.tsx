@@ -46,6 +46,7 @@ import { useNoteSelection } from './hooks/useNoteSelection';
 import { useNoteOperations } from './hooks/useNoteOperations';
 import { NoteListToolbar } from './NoteListToolbar';
 import { NoteListContent } from './NoteListContent';
+import { CreateTaskDialog } from './CreateTaskDialog';
 import { DebugNavigationOverlay } from '@/hooks/useDebugNavigation';
 import {
   useNavigationMediator,
@@ -280,6 +281,12 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
     }
   });
 
+  // Listen for create task dialog request (when Enter is pressed with active filters)
+  useEventSubscription('editor:requestCreateNote', (event) => {
+    setCreateTaskAfterNoteId(event.payload.afterNoteId);
+    setCreateTaskDialogOpen(true);
+  });
+
   // Window blur handler - save current items in all regions when user leaves the window
   useEffect(() => {
     const handleWindowBlur = () => {
@@ -479,6 +486,10 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
   const originalDeadlineRef = useRef<string | null>(null);
   const [assigneePickerOpen, setAssigneePickerOpen] = useState(false);
   const [assigneeFilterPopoverOpen, setAssigneeFilterPopoverOpen] = useState(false);
+
+  // Create Task Dialog state (for creating tasks when filters are active)
+  const [createTaskDialogOpen, setCreateTaskDialogOpen] = useState(false);
+  const [createTaskAfterNoteId, setCreateTaskAfterNoteId] = useState<string | null>(null);
 
   // Fixed Note Editor specific state
   const [fixedNoteLabelDropdownOpen, setFixedNoteLabelDropdownOpen] = useState(false);
@@ -719,6 +730,39 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
     filters.setShowOverdueOnly(false);
     filters.setShowPublicOnly(false);
   }, [filters]);
+
+  const handleCreateTaskFromDialog = useCallback(async (parsed: import('@/utils/hashtagParser').HashtagParseResult) => {
+    if (!createTaskAfterNoteId || !onCreateNoteAfter) return;
+
+    // Dialog creates a clean task — no filter defaults applied.
+    // The user specifies everything explicitly via #hashtags and @mentions.
+    const category = parsed.category || 'todo';
+    const newNote = await onCreateNoteAfter(createTaskAfterNoteId, category);
+    if (!newNote) {
+      setCreateTaskAfterNoteId(null);
+      return;
+    }
+
+    // Set cleaned content (without #tags and @mentions)
+    if (parsed.cleanedContent) {
+      onEdit(newNote.id, parsed.cleanedContent, category);
+    }
+
+    // Apply hashtag/mention side-effects (same callbacks as processNoteBlock)
+    for (const labelName of parsed.newLabelNames) {
+      await handleCreateLabelAndAdd(newNote.id, labelName);
+    }
+    for (const hashtag of parsed.parsedHashtags) {
+      if (hashtag.type === 'label' && hashtag.matchedId) {
+        await handleAddLabelToNote(newNote.id, hashtag.matchedId);
+      } else if (hashtag.type === 'contact' && hashtag.matchedId) {
+        onAddAssignee(newNote.id, hashtag.matchedId);
+      }
+    }
+
+    onSelectNote(newNote);
+    setCreateTaskAfterNoteId(null);
+  }, [createTaskAfterNoteId, onCreateNoteAfter, onEdit, onSelectNote, onAddAssignee, handleAddLabelToNote, handleCreateLabelAndAdd]);
 
   const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
@@ -1171,10 +1215,8 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
                   navigationRegion="editor"
                   commentThreads={selectedNoteComments.threads}
                   onAddComment={(content) => selectedNoteComments.addComment(content)}
-                  onReplyToThread={(threadId, content) => selectedNoteComments.addComment(content, null, threadId)}
                   onEditComment={selectedNoteComments.updateComment}
                   onDeleteComment={selectedNoteComments.deleteComment}
-                  onResolveThread={selectedNoteComments.resolveThread}
                 />
               </motion.div>
             )}
@@ -1256,10 +1298,8 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
                     navigationRegion="sidebar"
                     commentThreads={fixedNoteComments.threads}
                     onAddComment={(content) => fixedNoteComments.addComment(content)}
-                    onReplyToThread={(threadId, content) => fixedNoteComments.addComment(content, null, threadId)}
                     onEditComment={fixedNoteComments.updateComment}
                     onDeleteComment={fixedNoteComments.deleteComment}
-                    onResolveThread={fixedNoteComments.resolveThread}
                   />
                 </div>
               </motion.div>
@@ -1433,6 +1473,15 @@ export const NotesWorkspace = forwardRef<NotesWorkspaceHandle, NotesWorkspacePro
             taskContent={fixedNote.content}
           />
         )}
+
+        {/* Create Task Dialog (when Enter is pressed with active filters) */}
+        <CreateTaskDialog
+          open={createTaskDialogOpen}
+          onOpenChange={setCreateTaskDialogOpen}
+          onCreateTask={handleCreateTaskFromDialog}
+          labels={labels}
+          contacts={contacts}
+        />
       </div>
     </NavigationMediatorProvider>
   );

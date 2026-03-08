@@ -120,6 +120,11 @@
     "otherPlaceholder": "Escribe el motivo...",
     "confirm": "Eliminar"
   },
+  "createTaskDialog": {
+    "title": "Nueva tarea",
+    "description": "Usa @nombre para asignar y #etiqueta para etiquetar.",
+    "placeholder": "Título de la tarea..."
+  },
   "markComplete": "Marcar como completado",
   "markIncomplete": "Marcar como incompleto",
   "back": "Volver",
@@ -825,7 +830,7 @@
   "nextMatch": "Siguiente coincidencia (Enter)",
   "close": "Cerrar (Esc)",
   "comments": {
-    "comment": "comentario",
+    "comment": "Comentario",
     "comments": "comentarios",
     "addComment": "Agregar comentario",
     "writeComment": "Escribe un comentario...",
@@ -838,6 +843,7 @@
     "delete": "Eliminar",
     "save": "Guardar",
     "cancel": "Cancelar",
-    "pressCtrlEnterToSubmit": "Presiona Ctrl+Enter para enviar"
+    "pressCtrlEnterToSubmit": "Presiona Ctrl+Enter para enviar",
+    "commentSaved": "Comentario guardado"
   }
 }

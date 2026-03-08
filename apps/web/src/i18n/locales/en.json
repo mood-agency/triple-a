@@ -120,6 +120,11 @@
     "otherPlaceholder": "Enter the reason...",
     "confirm": "Delete"
   },
+  "createTaskDialog": {
+    "title": "New task",
+    "description": "Use @name to assign and #label to tag.",
+    "placeholder": "Task title..."
+  },
   "markComplete": "Mark as complete",
   "markIncomplete": "Mark as incomplete",
   "back": "Back",
@@ -838,6 +843,7 @@
     "delete": "Delete",
     "save": "Save",
     "cancel": "Cancel",
-    "pressCtrlEnterToSubmit": "Press Ctrl+Enter to submit"
+    "pressCtrlEnterToSubmit": "Press Ctrl+Enter to submit",
+    "commentSaved": "Comment saved"
   }
 }

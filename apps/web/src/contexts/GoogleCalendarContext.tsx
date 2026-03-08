@@ -200,12 +200,17 @@ export function GoogleCalendarProvider({ children }: { children: ReactNode }) {
   // Fetch calendars once when connected — uses accounts from state to avoid re-fetching.
   const accountsRef = useRef(accounts);
   accountsRef.current = accounts;
+  const hasFetchedCalendarsRef = useRef(false);
 
   useEffect(() => {
-    if (isConnected && !loadingCalendars && calendars.length === 0) {
+    if (isConnected && !hasFetchedCalendarsRef.current) {
+      hasFetchedCalendarsRef.current = true;
       refreshCalendars(accountsRef.current);
     }
-  }, [isConnected, loadingCalendars, calendars.length, refreshCalendars]);
+    if (!isConnected) {
+      hasFetchedCalendarsRef.current = false;
+    }
+  }, [isConnected, refreshCalendars]);
 
   // ============================================================================
   // Sync Operations

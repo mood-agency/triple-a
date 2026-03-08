@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useContactsContext } from '@/contexts/ContactsContext';
 import { supabase } from '@/lib/supabase';
+import { useEventSubscription } from '@/events';
 import type { Contact } from '@/types/contact';
 
 /**
@@ -89,6 +90,28 @@ export function useAssigneesSupabase() {
       }
     };
   }, [userId]);
+
+  // Listen for assignee:added events to update local cache immediately (optimistic)
+  useEventSubscription('assignee:added', (event) => {
+    const { noteId, contactId } = event.payload;
+    setNoteAssigneesMap((prev) => {
+      const existing = prev[noteId] || [];
+      if (existing.includes(contactId)) return prev;
+      return { ...prev, [noteId]: [...existing, contactId] };
+    });
+    setNoteAssigneeVersion((v) => v + 1);
+  });
+
+  // Listen for assignee:removed events to update local cache immediately (optimistic)
+  useEventSubscription('assignee:removed', (event) => {
+    const { noteId, contactId } = event.payload;
+    setNoteAssigneesMap((prev) => {
+      const existing = prev[noteId] || [];
+      if (!existing.includes(contactId)) return prev;
+      return { ...prev, [noteId]: existing.filter((id) => id !== contactId) };
+    });
+    setNoteAssigneeVersion((v) => v + 1);
+  });
 
   /**
    * Get assignees for a specific note (uses cached note_assignees map + shared contacts)

@@ -120,6 +120,11 @@
     "otherPlaceholder": "Digite o motivo...",
     "confirm": "Excluir"
   },
+  "createTaskDialog": {
+    "title": "Nova tarefa",
+    "description": "Use @nome para atribuir e #etiqueta para marcar.",
+    "placeholder": "Título da tarefa..."
+  },
   "markComplete": "Marcar como concluída",
   "markIncomplete": "Marcar como não concluída",
   "back": "Voltar",
@@ -838,6 +843,7 @@
     "delete": "Excluir",
     "save": "Salvar",
     "cancel": "Cancelar",
-    "pressCtrlEnterToSubmit": "Pressione Ctrl+Enter para enviar"
+    "pressCtrlEnterToSubmit": "Pressione Ctrl+Enter para enviar",
+    "commentSaved": "Comentário salvo"
   }
 }

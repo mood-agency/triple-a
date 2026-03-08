@@ -58,6 +58,10 @@ interface BlockNoteNoteListProps {
   selectedNoteId?: string | null;
   /** Pre-computed defaults for new notes based on active filters */
   noteCreationDefaults?: NoteCreationDefaults;
+  /** Auto-save interval in seconds (0 = disabled) */
+  autoSaveInterval?: number;
+  /** Whether there are active filters (category, labels, assignees, search, etc.) */
+  hasActiveFilters?: boolean;
 }
 
 export const BlockNoteNoteList = ({
@@ -80,6 +84,8 @@ export const BlockNoteNoteList = ({
   onAddAssignee,
   selectedNoteId,
   noteCreationDefaults,
+  autoSaveInterval = 3,
+  hasActiveFilters = false,
 }: BlockNoteNoteListProps) => {
   // Read/write title from Zustand store map by selected note ID
   const selectedNoteTitleValue = useNoteFieldsStore(s => selectedNoteId ? s.notes[selectedNoteId]?.titleValue ?? '' : '');
@@ -1024,6 +1030,9 @@ export const BlockNoteNoteList = ({
 
   // Sync task list content changes back to the editor panel in real-time
   // When user edits a note title inline in BlockNote, write to Zustand store so EditableTitle updates
+  // Also triggers debounced auto-save to persist changes periodically
+  const autoSaveTimerRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (!selectedNoteId) return;
 
@@ -1037,10 +1046,28 @@ export const BlockNoteNoteList = ({
       const content = getBlockContent(block);
       const id = selectedNoteIdRef.current;
       if (id) storeSetTitleValue(id, content);
+
+      // Debounced auto-save: reset timer on each keystroke
+      if (autoSaveInterval > 0) {
+        if (autoSaveTimerRef.current) {
+          clearTimeout(autoSaveTimerRef.current);
+        }
+        autoSaveTimerRef.current = window.setTimeout(() => {
+          autoSaveTimerRef.current = null;
+          eventBus.emit('navigation:saveCurrentItem', { region: 'taskList' });
+        }, autoSaveInterval * 1000);
+      }
     });
 
-    return () => unsubscribe();
-  }, [editor, selectedNoteId, storeSetTitleValue]);
+    return () => {
+      unsubscribe();
+      // Clear auto-save timer on cleanup
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
+  }, [editor, selectedNoteId, storeSetTitleValue, autoSaveInterval]);
 
   // Save when clicking outside the editor (more reliable than focusout for ProseMirror)
   useEffect(() => {
@@ -1291,6 +1318,28 @@ export const BlockNoteNoteList = ({
     const defaults = noteCreationDefaults ?? { category: 'todo' as NoteCategory, labelIds: [], assigneeId: null, deadline: null };
     const category = defaults.category;
     const deadline = defaults.deadline;
+
+    // When filters are active, remove the just-inserted empty block and open dialog instead
+    if (hasActiveFilters && event.payload.newNoteId) {
+      const newBlock = editor.getBlock(event.payload.newNoteId);
+      if (newBlock) {
+        // Move cursor back to the previous block before removing
+        const afterBlock = editor.getBlock(event.payload.afterNoteId);
+        if (afterBlock) {
+          editor.setTextCursorPosition(afterBlock, 'end');
+        }
+        isSyncingRef.current = true;
+        editor.removeBlocks([newBlock]);
+        setTimeout(() => { isSyncingRef.current = false; }, 50);
+      }
+
+      // Emit event to open the create task dialog
+      eventBus.emit('editor:requestCreateNote', {
+        afterNoteId: event.payload.afterNoteId,
+        category: defaults.category,
+      });
+      return;
+    }
 
     // Add the new note to our cache so we can save its content later
     newlyCreatedNotesRef.current.set(event.payload.newNoteId!, {

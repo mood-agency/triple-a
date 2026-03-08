@@ -39,7 +39,7 @@ export function useContactsSupabase() {
       return;
     }
 
-    const contactsList: Contact[] = (data || []).map((row) => ({
+    const contactsList: Contact[] = (data || []).map((row: any) => ({
       id: row.id,
       name: row.name,
       lastname: row.lastname || '',
@@ -121,17 +121,18 @@ export function useContactsSupabase() {
 
       if (error) throw error;
 
+      const row = data as any;
       return {
-        id: data.id,
-        name: data.name,
-        lastname: data.lastname || '',
-        phone: data.phone || '',
-        email: data.email || '',
-        created_at: data.created_at || new Date().toISOString(),
-        updated_at: data.updated_at || new Date().toISOString(),
-        user_id: data.user_id,
-        is_default: data.is_default || false,
-        remote_id: data.id,
+        id: row.id,
+        name: row.name,
+        lastname: row.lastname || '',
+        phone: row.phone || '',
+        email: row.email || '',
+        created_at: row.created_at || new Date().toISOString(),
+        updated_at: row.updated_at || new Date().toISOString(),
+        user_id: row.user_id,
+        is_default: row.is_default || false,
+        remote_id: row.id,
         sync_status: 'synced',
       };
     },
@@ -160,16 +161,17 @@ export function useContactsSupabase() {
 
       if (error) throw error;
 
+      const row = data as any;
       return {
-        id: data.id,
-        name: data.name,
-        lastname: data.lastname || '',
-        phone: data.phone || '',
-        email: data.email || '',
-        created_at: data.created_at || new Date().toISOString(),
-        updated_at: data.updated_at || new Date().toISOString(),
-        user_id: data.user_id,
-        is_default: data.is_default || false,
+        id: row.id,
+        name: row.name,
+        lastname: row.lastname || '',
+        phone: row.phone || '',
+        email: row.email || '',
+        created_at: row.created_at || new Date().toISOString(),
+        updated_at: row.updated_at || new Date().toISOString(),
+        user_id: row.user_id,
+        is_default: row.is_default || false,
       };
     },
     []
@@ -199,16 +201,16 @@ export function useContactsSupabase() {
     // First, unset all defaults for this user
     const { error: unsetError } = await supabase
       .from('contacts')
-      .update({ is_default: false })
+      .update({ is_default: false } as any)
       .eq('user_id', userId)
-      .eq('is_default', true);
+      .eq('is_default' as any, true);
 
     if (unsetError) throw unsetError;
 
     // Then set the new default
     const { error: setError } = await supabase
       .from('contacts')
-      .update({ is_default: true })
+      .update({ is_default: true } as any)
       .eq('id', id);
 
     if (setError) throw setError;
@@ -225,7 +227,7 @@ export function useContactsSupabase() {
 
     const { error } = await supabase
       .from('contacts')
-      .update({ is_default: false })
+      .update({ is_default: false } as any)
       .eq('id', id);
 
     if (error) throw error;
